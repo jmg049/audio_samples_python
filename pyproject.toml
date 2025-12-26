@@ -1,0 +1,26 @@
+[build-system]
+requires = ["maturin>=1.9,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "audio_samples"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
+dynamic = ["version"]
+dependencies = [
+    "ipykernel>=6.29.5",
+    "numpy>=1.24.4",
+    "soundfile>=0.13.1",
+    "tqdm>=4.67.1",
+]
+[tool.maturin]
+features = ["pyo3/extension-module"]
+python-source = "."
+include = [
+    "audio_python/*.pyi",
+    "audio_python/py.typed",
+]
