@@ -12,6 +12,7 @@ classifiers = [
 ]
 dynamic = ["version"]
 dependencies = [
+    "dtmf-table>=1.0.2",
     "ipykernel>=6.29.5",
     "numpy>=1.24.4",
     "soundfile>=0.13.1",
@@ -21,6 +22,6 @@ dependencies = [
 features = ["pyo3/extension-module"]
 python-source = "."
 include = [
-    "audio_python/*.pyi",
-    "audio_python/py.typed",
+    "audio_samples/*.pyi",
+    "audio_samples/py.typed",
 ]

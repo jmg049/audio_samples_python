@@ -1,6 +1,7 @@
-use audio_io::types::BaseAudioInfo;
-use audio_samples::{I24, SampleType};
-use numpy::{PyArrayDescr, PyArrayDescrMethods};
+use audio_samples::{ConvertTo, I24, SampleType};
+use audio_samples_io::types::BaseAudioInfo;
+use numpy::{Element, PyArrayDescr, PyArrayDescrMethods, PyArrayMethods};
+use paste::paste;
 use pyo3::{
     Bound, PyResult, Python,
     exceptions::PyTypeError,
@@ -25,37 +26,37 @@ impl From<BaseAudioInfo> for PyAudioInfo {
 impl PyAudioInfo {
     /// Sample rate in Hz
     #[getter]
-    fn sample_rate(&self) -> u32 {
+    const fn sample_rate(&self) -> u32 {
         self.info.sample_rate
     }
 
     /// Number of audio channels
     #[getter]
-    fn channels(&self) -> u16 {
+    const fn channels(&self) -> u16 {
         self.info.channels
     }
 
     /// Bits per sample
     #[getter]
-    fn bits_per_sample(&self) -> u16 {
+    const fn bits_per_sample(&self) -> u16 {
         self.info.bits_per_sample
     }
 
     /// Total number of samples per channel
     #[getter]
-    fn num_samples(&self) -> usize {
+    const fn num_samples(&self) -> usize {
         self.info.total_samples
     }
 
     /// Duration in seconds
     #[getter]
-    fn duration(&self) -> f64 {
+    const fn duration(&self) -> f64 {
         self.info.duration.as_secs_f64()
     }
 
     /// Sample type as a string (e.g., "i16", "f32")
     #[getter]
-    fn sample_type(&self) -> &'static str {
+    const fn sample_type(&self) -> &'static str {
         match self.info.sample_type {
             SampleType::I16 => "i16",
             SampleType::I24 => "i24",
@@ -79,17 +80,46 @@ impl PyAudioInfo {
     }
 }
 
-use paste::paste;
+fn read_with_numpy_backing<T>(py: Python<'_>, fp: &str) -> PyResult<PyAudioSamples>
+where
+    T: audio_samples::AudioSample + Element + 'static,
+    i16: ConvertTo<T>,
+    I24: ConvertTo<T>,
+    i32: ConvertTo<T>,
+    f32: ConvertTo<T>,
+    f64: ConvertTo<T>,
+{
+    let (pyarray, info) = audio_samples_io::read_pyarray::<_, T>(py, fp)?;
+
+    let sample_rate = info.sample_rate;
+    let channels = info.channels as usize;
+
+    if channels == 1 {
+        // Mono: reshape (1, samples) to (samples,) for PyArray1
+        let pyarray_bound = pyarray.bind(py);
+        let array_1d = pyarray_bound.reshape([info.total_samples])?;
+
+        Ok(PyAudioSamples::new_mono_from_python(
+            array_1d.to_owned(),
+            sample_rate,
+        ))
+    } else {
+        // Multi-channel: use Fortran-layout (interleaved) array directly
+        Ok(PyAudioSamples::new_multi_from_python_interleaved(
+            pyarray.bind(py).to_owned(),
+            sample_rate,
+        ))
+    }
+}
 
 macro_rules! impl_read_as {
     ($rust_typel:ident, $rust_type:ty) => {
         paste! {
             #[pyfunction]
             #[pyo3(signature = (fp), text_signature = "(fp: str) -> AudioSamples")]
-            pub fn [<read_as_ $rust_typel>](fp: &str) -> PyResult<PyAudioSamples> {
-                let audio = audio_io::read::<_, $rust_type>(fp)
-                    .map_err(|e| PyTypeError::new_err(format!("Failed to read audio: {}", e)))?;
-                PyAudioSamples::from_audio_samples(audio)
+            pub fn [<read_as_ $rust_typel>](py: Python<'_>, fp: &str) -> PyResult<PyAudioSamples> {
+                // Use NumPy backing for optimal Python interop
+                read_with_numpy_backing::<$rust_type>(py, fp)
             }
         }
     };
@@ -108,8 +138,10 @@ pub fn read_with_info(
     fp: &str,
     as_type: Option<Bound<'_, PyArrayDescr>>,
 ) -> PyResult<(PyAudioSamples, PyAudioInfo)> {
-    let info = audio_io::info(fp)
-        .map_err(|e| PyTypeError::new_err(format!("Failed to get audio info: {}", e)))?;
+    // Get audio info (lightweight metadata-only read)
+    let info = audio_samples_io::info(fp)
+        .map_err(|e| PyTypeError::new_err(format!("Failed to get audio info: {e}")))?;
+
     let native_type = info.sample_type;
     let target_type = match as_type {
         Some(dt) => {
@@ -129,11 +161,12 @@ pub fn read_with_info(
         }
         None => native_type,
     };
+
     let py_samples = match target_type {
-        SampleType::I16 => read_as_i16(fp),
-        SampleType::I32 => read_as_i32(fp),
-        SampleType::F32 => read_as_f32(fp),
-        SampleType::F64 => read_as_f64(fp),
+        SampleType::I16 => read_as_i16(py, fp),
+        SampleType::I32 => read_as_i32(py, fp),
+        SampleType::F32 => read_as_f32(py, fp),
+        SampleType::F64 => read_as_f64(py, fp),
         _ => Err(PyTypeError::new_err(
             "Unsupported data type for reading audio samples",
         )),
@@ -158,24 +191,24 @@ pub fn read(
 pub fn save(py: Python<'_>, fp: &str, samples: &PyAudioSamples) -> PyResult<()> {
     match samples.inner() {
         PyAudioDataInner::I16(typed) => typed.with_view(py, |audio| {
-            audio_io::write(fp, &audio)
-                .map_err(|e| PyTypeError::new_err(format!("Failed to save audio: {}", e)))
+            audio_samples_io::write(fp, &audio)
+                .map_err(|e| PyTypeError::new_err(format!("Failed to save audio: {e}")))
         }),
         PyAudioDataInner::I24(typed) => typed.with_view(py, |audio| {
-            audio_io::write(fp, &audio)
-                .map_err(|e| PyTypeError::new_err(format!("Failed to save audio: {}", e)))
+            audio_samples_io::write(fp, &audio)
+                .map_err(|e| PyTypeError::new_err(format!("Failed to save audio: {e}")))
         }),
         PyAudioDataInner::I32(typed) => typed.with_view(py, |audio| {
-            audio_io::write(fp, &audio)
-                .map_err(|e| PyTypeError::new_err(format!("Failed to save audio: {}", e)))
+            audio_samples_io::write(fp, &audio)
+                .map_err(|e| PyTypeError::new_err(format!("Failed to save audio: {e}")))
         }),
         PyAudioDataInner::F32(typed) => typed.with_view(py, |audio| {
-            audio_io::write(fp, &audio)
-                .map_err(|e| PyTypeError::new_err(format!("Failed to save audio: {}", e)))
+            audio_samples_io::write(fp, &audio)
+                .map_err(|e| PyTypeError::new_err(format!("Failed to save audio: {e}")))
         }),
         PyAudioDataInner::F64(typed) => typed.with_view(py, |audio| {
-            audio_io::write(fp, &audio)
-                .map_err(|e| PyTypeError::new_err(format!("Failed to save audio: {}", e)))
+            audio_samples_io::write(fp, &audio)
+                .map_err(|e| PyTypeError::new_err(format!("Failed to save audio: {e}")))
         }),
     }
 }
@@ -210,7 +243,7 @@ pub fn save_as_type(
         ($typed:expr, $target:ty) => {{
             $typed.with_view(py, |audio| {
                 let converted = audio.to_format::<$target>();
-                audio_io::write(fp, &converted)
+                audio_samples_io::write(fp, &converted)
                     .map_err(|e| PyTypeError::new_err(format!("Failed to save audio: {}", e)))
             })
         }};
