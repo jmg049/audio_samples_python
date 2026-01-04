@@ -14,12 +14,9 @@ release = '0.1.1'
 
 # -- General configuration ---------------------------------------------------
 extensions = [
-    'sphinx.ext.autodoc',
-    'sphinx.ext.autosummary',
     'sphinx.ext.napoleon',
     'sphinx.ext.viewcode',
     'sphinx.ext.intersphinx',
-    'sphinx_autodoc_typehints',
     'sphinx_copybutton',
     'myst_parser',
 ]
@@ -43,7 +40,7 @@ html_theme = 'sphinx_rtd_theme'
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
+html_static_path = []
 
 # Theme options
 html_theme_options = {
@@ -78,25 +75,6 @@ napoleon_preprocess_types = False
 napoleon_type_aliases = None
 napoleon_attr_annotations = True
 
-# Autodoc settings
-autodoc_default_options = {
-    'members': True,
-    'member-order': 'bysource',
-    'special-members': '__init__',
-    'undoc-members': True,
-    'exclude-members': '__weakref__'
-}
-
-# Autosummary settings
-autosummary_generate = True
-autosummary_generate_overwrite = True
-
-# Type hints settings
-typehints_fully_qualified = False
-always_document_param_types = True
-typehints_document_rtype = True
-typehints_use_signature = True
-typehints_use_signature_return = True
 
 # Intersphinx settings
 intersphinx_mapping = {

@@ -14,46 +14,20 @@ comprehensive type stubs that provide full type safety and IDE support.
 Core Classes
 ============
 
-.. autosummary::
-   :toctree: generated/
-   :nosignatures:
-
-   audio_samples.AudioSamples
-   audio_samples.IirFilterDesign
-   audio_samples.EqBand
-   audio_samples.ParametricEq
+- :doc:`audio_samples` - Main AudioSamples class with comprehensive audio processing
+- :doc:`generation` - Signal generation functions
+- :doc:`io` - File I/O operations
 
 Quick Reference
 ===============
 
-Signal Generation
------------------
+The complete API documentation is organized into three main sections:
 
-.. autosummary::
-   :toctree: generated/
-   :nosignatures:
+**AudioSamples Class**
+   The core audio processing class with 100+ methods for signal processing, analysis, and manipulation.
 
-   audio_samples.generation.sine_wave
-   audio_samples.generation.cosine_wave
-   audio_samples.generation.sawtooth_wave
-   audio_samples.generation.square_wave
-   audio_samples.generation.triangle_wave
-   audio_samples.generation.chirp
-   audio_samples.generation.white_noise
-   audio_samples.generation.pink_noise
-   audio_samples.generation.brown_noise
-   audio_samples.generation.impulse
-   audio_samples.generation.silence
+**Signal Generation**
+   Functions to generate waveforms, noise, and test signals.
 
-File I/O
---------
-
-.. autosummary::
-   :toctree: generated/
-   :nosignatures:
-
-   audio_samples.io.read
-   audio_samples.io.read_with_info
-   audio_samples.io.save
-   audio_samples.io.save_as_type
-   audio_samples.io.AudioInfo
+**File I/O**
+   High-performance audio file reading and writing with format detection.

@@ -1,8 +1,6 @@
 AudioSamples Core
 ================
 
-.. currentmodule:: audio_samples
-
 The AudioSamples class is the core of the library, providing a type-safe audio representation with
 intrinsically embedded properties (sample rate, channel layout, format) that eliminates manual
 metadata coordination.
@@ -10,235 +8,114 @@ metadata coordination.
 AudioSamples Class
 ------------------
 
-.. autoclass:: AudioSamples
-   :members:
-   :undoc-members:
-   :show-inheritance:
+The main audio processing class supporting multiple sample formats and comprehensive audio operations.
+All methods preserve audio properties automatically and support operator overloading for natural
+audio mathematics.
 
-   The main audio processing class supporting multiple sample formats and comprehensive audio operations.
+Key Features
+~~~~~~~~~~~~
 
-   .. rubric:: Constructors
+**Constructors and Factory Methods**
+   - Create audio from NumPy arrays with automatic type detection
+   - Generate zero-filled or ones-filled audio in multiple formats (i16, i32, f32, f64)
+   - Create uniform-value audio with specified sample values
 
-   .. autosummary::
-      :nosignatures:
+**Audio Editing and Manipulation**
+   - Concatenate multiple audio segments end-to-end
+   - Stack mono sources into multi-channel audio
+   - Repeat, trim, pad, and split audio with precise timing
+   - Mix multiple audio sources with optional weights
+   - Apply fade-in and fade-out effects with multiple curve types
 
-      ~AudioSamples.new_mono
-      ~AudioSamples.new_multi
+**Channel Operations**
+   - Pan stereo audio left/right with precise control
+   - Balance stereo channels independently
+   - Convert between mono and stereo with various methods
+   - Extract individual channels or swap channel positions
 
-   .. rubric:: Factory Methods - Zeros
+**Spectral Analysis and Transforms**
+   - Short-Time Fourier Transform (STFT) with configurable windows
+   - Inverse STFT for signal reconstruction
+   - Magnitude and phase spectrograms with multiple scaling options
+   - Mel-frequency spectrograms and MFCC features
+   - Chroma features for harmonic analysis
 
-   .. autosummary::
-      :nosignatures:
+**Audio Processing**
+   - High-quality resampling with configurable quality levels
+   - Window function application for signal processing
+   - Sample rate conversion by exact ratios
 
-      ~AudioSamples.zeros_mono
-      ~AudioSamples.zeros_mono_i16
-      ~AudioSamples.zeros_mono_i32
-      ~AudioSamples.zeros_mono_f64
-      ~AudioSamples.zeros_multi
-      ~AudioSamples.zeros_multi_i16
-      ~AudioSamples.zeros_multi_i32
-      ~AudioSamples.zeros_multi_f64
+**Pitch Analysis**
+   - YIN algorithm for fundamental frequency detection
+   - Time-based pitch tracking with multiple detection methods
+   - Configurable frequency range and threshold parameters
 
-   .. rubric:: Factory Methods - Ones
+**Audio Decomposition**
+   - Harmonic-Percussive Source Separation (HPSS)
+   - Configurable median filter sizes and mask softness
 
-   .. autosummary::
-      :nosignatures:
+**Digital Filtering**
+   - Butterworth filters (lowpass, highpass, bandpass)
+   - Simple filters with cutoff frequency control
+   - IIR filter design and application
+   - Chebyshev Type I filters with passband ripple control
 
-      ~AudioSamples.ones_mono
-      ~AudioSamples.ones_mono_i16
-      ~AudioSamples.ones_mono_i32
-      ~AudioSamples.ones_mono_f64
-      ~AudioSamples.ones_multi
-      ~AudioSamples.ones_multi_i16
-      ~AudioSamples.ones_multi_i32
-      ~AudioSamples.ones_multi_f64
+**Statistics and Analysis**
+   - Peak, minimum, and maximum sample values
+   - Mean, RMS, variance, and standard deviation
+   - Zero crossing detection and rate calculation
+   - Autocorrelation analysis with configurable lag
+   - Spectral centroid and rolloff calculations
 
-   .. rubric:: Factory Methods - Uniform Values
+**Amplitude Processing**
+   - Amplitude scaling with precise factor control
+   - Normalization with multiple methods (peak, minmax, RMS)
+   - Soft clipping to prevent distortion
+   - DC offset removal for signal cleanup
 
-   .. autosummary::
-      :nosignatures:
+**Dynamic Range Processing**
+   - Compression with configurable threshold, ratio, and timing
+   - Limiting with lookahead and release control
+   - Noise gating for signal cleanup
+   - Expansion for dynamic range enhancement
 
-      ~AudioSamples.uniform_mono
-      ~AudioSamples.uniform_mono_i16
-      ~AudioSamples.uniform_mono_i32
-      ~AudioSamples.uniform_mono_f64
-      ~AudioSamples.uniform_multi
-      ~AudioSamples.uniform_multi_i16
-      ~AudioSamples.uniform_multi_i32
-      ~AudioSamples.uniform_multi_f64
+**Equalization**
+   - Parametric equalizer with multiple band support
+   - Peak, low-shelf, and high-shelf filters
+   - Three-band EQ with configurable frequencies
+   - Real-time frequency response calculation
 
-   .. rubric:: Audio Editing
+**File Format Support**
+   - Multiple sample formats: i16, i24, i32, f32, f64
+   - Automatic format detection and conversion
+   - Type-safe casting between sample formats
 
-   .. autosummary::
-      :nosignatures:
-
-      ~AudioSamples.concatenate
-      ~AudioSamples.stack
-      ~AudioSamples.repeat
-      ~AudioSamples.trim_silence
-      ~AudioSamples.pad
-      ~AudioSamples.split
-      ~AudioSamples.mix
-      ~AudioSamples.fade_in
-      ~AudioSamples.fade_out
-
-   .. rubric:: Channel Operations
-
-   .. autosummary::
-      :nosignatures:
-
-      ~AudioSamples.pan
-      ~AudioSamples.balance
-      ~AudioSamples.to_mono
-      ~AudioSamples.to_stereo
-      ~AudioSamples.extract_channel
-      ~AudioSamples.swap_channels
-
-   .. rubric:: Spectral Analysis
-
-   .. autosummary::
-      :nosignatures:
-
-      ~AudioSamples.stft
-      ~AudioSamples.istft
-      ~AudioSamples.spectrogram
-      ~AudioSamples.mel_spectrogram
-      ~AudioSamples.mfcc
-      ~AudioSamples.chroma
-
-   .. rubric:: Audio Processing
-
-   .. autosummary::
-      :nosignatures:
-
-      ~AudioSamples.resample
-      ~AudioSamples.resample_by_ratio
-      ~AudioSamples.apply_window
-
-   .. rubric:: Pitch Analysis
-
-   .. autosummary::
-      :nosignatures:
-
-      ~AudioSamples.detect_pitch_yin
-      ~AudioSamples.track_pitch
-
-   .. rubric:: Audio Decomposition
-
-   .. autosummary::
-      :nosignatures:
-
-      ~AudioSamples.hpss
-
-   .. rubric:: Filtering
-
-   .. autosummary::
-      :nosignatures:
-
-      ~AudioSamples.butterworth_lowpass
-      ~AudioSamples.butterworth_highpass
-      ~AudioSamples.butterworth_bandpass
-      ~AudioSamples.low_pass_filter
-      ~AudioSamples.high_pass_filter
-      ~AudioSamples.band_pass_filter
-
-   .. rubric:: Statistics and Analysis
-
-   .. autosummary::
-      :nosignatures:
-
-      ~AudioSamples.peak
-      ~AudioSamples.min_sample
-      ~AudioSamples.max_sample
-      ~AudioSamples.mean
-      ~AudioSamples.rms
-      ~AudioSamples.variance
-      ~AudioSamples.std_dev
-      ~AudioSamples.zero_crossings
-      ~AudioSamples.zero_crossing_rate
-      ~AudioSamples.autocorrelation
-      ~AudioSamples.spectral_centroid
-      ~AudioSamples.spectral_rolloff
-
-   .. rubric:: Amplitude Processing
-
-   .. autosummary::
-      :nosignatures:
-
-      ~AudioSamples.scale
-      ~AudioSamples.normalize
-      ~AudioSamples.clip
-      ~AudioSamples.remove_dc_offset
-
-   .. rubric:: Time-domain Processing
-
-   .. autosummary::
-      :nosignatures:
-
-      ~AudioSamples.reverse
-      ~AudioSamples.trim
-
-   .. rubric:: Dynamic Range Processing
-
-   .. autosummary::
-      :nosignatures:
-
-      ~AudioSamples.apply_compressor
-      ~AudioSamples.apply_limiter
-      ~AudioSamples.apply_gate
-      ~AudioSamples.apply_expander
-
-   .. rubric:: Equalization
-
-   .. autosummary::
-      :nosignatures:
-
-      ~AudioSamples.apply_parametric_eq
-      ~AudioSamples.apply_eq_band
-      ~AudioSamples.apply_peak_filter
-      ~AudioSamples.apply_low_shelf
-      ~AudioSamples.apply_high_shelf
-      ~AudioSamples.apply_three_band_eq
-
-   .. rubric:: Frequency Analysis
-
-   .. autosummary::
-      :nosignatures:
-
-      ~AudioSamples.frequency_response
-      ~AudioSamples.fft
-      ~AudioSamples.power_spectral_density
-
-   .. rubric:: Properties and Metadata
-
-   .. autosummary::
-      :nosignatures:
-
-      ~AudioSamples.dtype
-      ~AudioSamples.sample_rate
-      ~AudioSamples.num_channels
-      ~AudioSamples.samples_per_channel
-      ~AudioSamples.total_samples
-      ~AudioSamples.shape
-      ~AudioSamples.is_mono
-      ~AudioSamples.is_multi_channel
-      ~AudioSamples.is_empty
-      ~AudioSamples.duration_seconds
+**NumPy Integration**
+   - Seamless operator overloading for mathematical operations
+   - Support for numpy universal functions
+   - Automatic property preservation through all operations
 
 Filter and EQ Configuration Classes
 -----------------------------------
 
-.. autoclass:: IirFilterDesign
-   :members:
-   :undoc-members:
-   :show-inheritance:
+**IirFilterDesign**
+   Configuration class for Infinite Impulse Response filters supporting:
 
-.. autoclass:: EqBand
-   :members:
-   :undoc-members:
-   :show-inheritance:
+   - Butterworth, Chebyshev Type I/II, and Elliptic filter types
+   - Lowpass, highpass, bandpass, and bandstop responses
+   - Configurable filter order and cutoff frequencies
 
-.. autoclass:: ParametricEq
-   :members:
-   :undoc-members:
-   :show-inheritance:
+**EqBand**
+   Individual equalizer band configuration with:
+
+   - Peak, lowshelf, highshelf, lowpass, highpass, and bandpass types
+   - Center/cutoff frequency specification in Hz
+   - Gain control in dB with positive/negative values
+   - Q factor for bandwidth control
+
+**ParametricEq**
+   Multi-band parametric equalizer supporting:
+
+   - Multiple EQ bands with independent configuration
+   - Real-time frequency response calculation
+   - Cascaded filter application for natural sound
