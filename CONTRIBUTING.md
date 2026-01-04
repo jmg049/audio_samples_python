@@ -11,6 +11,8 @@ welcome. For pull requests, please consider:
 
 ## Usage of AI Tools
 
+> Copied from the [Rust audio_samples](https://github.com/jmg049/audio_samples/blob/main/CONTRIBUTING.md) contribution guidelines.
+
 Since late 2022 there has been a rapid expansion of AI-based tooling for writing and interacting with code. Large Language Models such as ChatGPT, Gemini, and Claude allow users to query codebases, debug issues, discuss architectural ideas, and even generate tests or refactor modules. Some providers now offer agentic variants that execute actions, gather results, and iteratively update their own plan in response to intermediate outputs.
 
 The effectiveness of these tools is debated. Some developers enjoy working with them, others avoid them entirely, and most fall somewhere between. Like many people, I have experimented with a range of these systems. The Git history reflects this: at the time of writing, I have 35 commits with large-scale additions and removals, while Claude contributes 7 commits totalling around one thousand lines of change. This does not capture cases where I used Claude Code interactively without letting it commit and push autonomously, but it does show my experimentation with these tools.
