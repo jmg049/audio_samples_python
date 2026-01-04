@@ -13,9 +13,9 @@ This script illustrates:
 import time
 from argparse import ArgumentParser
 
-import audio_samples as aus
 from dtmf_table import DtmfKey, DtmfTable
 
+import audio_samples as aus
 
 DTMF_TABLE = DtmfTable()
 
@@ -73,7 +73,7 @@ def generate_dtmf_tone(
         )
 
         # Average to avoid doubling peak amplitude
-        tone = (low_tone + high_tone)
+        tone = low_tone + high_tone
         tone.scale(0.5)
         segments.append(tone)
 

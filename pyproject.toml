@@ -4,24 +4,65 @@ build-backend = "maturin"
 
 [project]
 name = "audio_samples"
+description = "Python bindings for the AudioSamples Rust ecosystem - fast, type-safe audio processing with automatic metadata coordination"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "Jack Geraghty (jmg049)", email = "jgeraghty049@gmail.com"},
+]
+maintainers = [
+    {name = "Jack Geraghty (jmg049)", email = "jgeraghty049@gmail.com"},
+]
 requires-python = ">=3.8"
+keywords = ["audio", "signal-processing", "multimedia", "rust", "performance"]
 classifiers = [
-    "Programming Language :: Rust",
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
+    "Programming Language :: Rust",
+    "Topic :: Multimedia :: Sound/Audio",
+    "Topic :: Multimedia :: Sound/Audio :: Analysis",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
 ]
 dynamic = ["version"]
 dependencies = [
-    "dtmf-table>=1.0.2",
-    "ipykernel>=6.29.5",
     "numpy>=1.24.4",
-    "soundfile>=0.13.1",
-    "tqdm>=4.67.1",
 ]
+
+[project.urls]
+"Homepage" = "https://github.com/jmg049/audio_samples_python"
+"Documentation" = "https://jmg049.github.io/audio_samples_python"
+"Repository" = "https://github.com/jmg049/audio_samples_python"
+"Bug Reports" = "https://github.com/jmg049/audio_samples_python/issues"
+
+[project.optional-dependencies]
+"docs" = [
+    "sphinx>=7.0.0",
+    "sphinx-autodoc-typehints>=1.24.0",
+    "sphinx-rtd-theme>=1.3.0",
+    "myst-parser>=2.0.0",
+    "sphinx-copybutton>=0.5.0",
+]
+
 [tool.maturin]
 features = ["pyo3/extension-module"]
 python-source = "."
 include = [
+    "*.pyi",
     "audio_samples/*.pyi",
     "audio_samples/py.typed",
 ]

@@ -1,7 +1,25 @@
 [package]
 name = "audio_samples_python"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
+description = "Python bindings for high-performance AudioSamples Rust ecosystem - fast, type-safe audio processing with automatic metadata coordination"
+repository = "https://github.com/jmg049/audio_samples_python"
+homepage = "https://github.com/jmg049/audio_samples_python"
+documentation = "https://docs.rs/audio_samples_python"
+authors = ["Jack Geraghty (jmg049) <jgeraghty049@gmail.com>"]
+readme = "README.md"
+license = "MIT"
+keywords = ["audio", "python", "bindings", "signal-processing", "multimedia"]
+categories = ["multimedia::audio", "api-bindings"]
+include = [
+    "src/**/*",
+    "Cargo.toml",
+    "README.md",
+    "LICENSE",
+    "*.pyi",
+    "audio_samples/*.pyi",
+    "audio_samples/py.typed"
+]
 
 [lib]
 name = "audio_samples"
@@ -10,14 +28,17 @@ crate-type = ["cdylib"]
 [dependencies]
 ndarray = "0.17.1"
 pyo3 = { version = "0.27.1", features = ["extension-module", "multiple-pymethods"] }
-audio_samples = { version = "0.10.6", features = ["full", "python"] }
+audio_samples = { version = "0.10.7", features = ["full", "python"] }
 audio_samples_io = { version = "0.1.4", features = ["wav", "numpy"] }
 paste = "1.0.15"
 numpy = "0.27.1"
 
+[features]
+default = []
+
 [profile.release]
 opt-level = 3
 debug = true
-lto = false
+lto = true
 codegen-units = 1
 panic = "unwind"

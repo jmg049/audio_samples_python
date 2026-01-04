@@ -13,8 +13,8 @@ import tempfile
 import os
 from pathlib import Path
 
-# Import audio_python - the module under test
-import audio_python as aus
+# Import audio_samples_python - the module under test
+import audio_samples as aus
 
 
 # =============================================================================
