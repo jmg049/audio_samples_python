@@ -1,8 +1,6 @@
 Signal Generation
 =================
 
-.. currentmodule:: audio_samples.generation
-
 The generation module provides functions to generate various audio waveforms and noise types with
 precise control over frequency, amplitude, and duration. All functions return AudioSamples objects
 with embedded metadata.
@@ -104,3 +102,9 @@ Create frequency sweeps for testing and analysis:
 
    # Can be used for impulse response measurement
    print(f"Sweep range: 100 Hz to 2000 Hz over {sweep.duration_seconds():.1f} seconds")
+
+.. automodule:: audio_samples.utils.generation
+   :members:
+
+.. currentmodule:: audio_samples.generation
+

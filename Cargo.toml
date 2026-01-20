@@ -1,6 +1,6 @@
 [package]
 name = "audio_samples_python"
-version = "0.1.1"
+version = "0.2.0"
 edition = "2024"
 description = "Python bindings for high-performance AudioSamples Rust ecosystem - fast, type-safe audio processing with automatic metadata coordination"
 repository = "https://github.com/jmg049/audio_samples_python"
@@ -18,7 +18,8 @@ include = [
     "LICENSE",
     "*.pyi",
     "audio_samples/*.pyi",
-    "audio_samples/py.typed"
+    "audio_samples/py.typed",
+    "logo.png",
 ]
 
 [lib]
@@ -27,18 +28,28 @@ crate-type = ["cdylib"]
 
 [dependencies]
 ndarray = "0.17.1"
-pyo3 = { version = "0.27.1", features = ["extension-module", "multiple-pymethods"] }
-audio_samples = { version = "0.10.7", features = ["full", "python"] }
-audio_samples_io = { version = "0.1.4", features = ["wav", "numpy"] }
-paste = "1.0.15"
-numpy = "0.27.1"
+pyo3 = { version = "0.28", features = [
+    "extension-module",
+    "multiple-pymethods",
+    "experimental-inspect",
+] }
+audio_samples = { version = "1.0.2", features = [
+    "python", "full_no_plotting"
+] }
+audio_samples_io = { version = "0.1.5", features = ["wav", "numpy"] }
+numpy = "0.28"
+serde_json = "1.0.149"
+spectrograms = { version = "1.1.0", features = ["python"] }
+non-empty-slice = "0.5.1"
+num-complex = "0.4"
 
 [features]
 default = []
+audio-samples-plotting = ["audio_samples/plotting"]
 
 [profile.release]
 opt-level = 3
-debug = true
-lto = true
+debug = false
+lto = "thin"
 codegen-units = 1
 panic = "unwind"

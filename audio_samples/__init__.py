@@ -44,12 +44,26 @@ if _so_files:
 
     # Import everything from the native extension
     for _name in dir(_ext):
-        if not _name.startswith('_'):
+        if not _name.startswith("_"):
             globals()[_name] = getattr(_ext, _name)
 
     # Re-export submodules for proper namespace access
-    generation = _ext.generation
+    # Note: generation is a submodule of utils
+    generation = _ext.utils.generation
     io = _ext.io
+    utils = _ext.utils
+
+    # Plotting module (if available - currently not registered in Rust)
+    try:
+        plotting = _ext.plotting
+    except AttributeError:
+        plotting = None  # Plotting module not available in this build
+
+    # Matplotlib visualisation extension (pure Python)
+    try:
+        from audio_samples import mpl as mpl
+    except ImportError:
+        mpl = None
 
     # Also make available the main class and config types
     AudioSamples = _ext.AudioSamples
@@ -59,8 +73,20 @@ if _so_files:
 
     # Expose generation functions at the top level for convenience
     _generation_functions = [
-        "sine_wave", "cosine_wave", "sawtooth_wave", "square_wave", "triangle_wave",
-        "chirp", "white_noise", "pink_noise", "brown_noise", "impulse", "silence"
+        "sine_wave",
+        "cosine_wave",
+        "sawtooth_wave",
+        "square_wave",
+        "triangle_wave",
+        "white_noise",
+        "pink_noise",
+        "brown_noise",
+        "impulse",
+        "silence",
+        "chirp",
+        "stereo_sine_wave",
+        "stereo_chirp",
+        "stereo_silence",
     ]
     for _fname in _generation_functions:
         globals()[_fname] = getattr(generation, _fname)
@@ -77,16 +103,21 @@ __all__ = [
     # Submodules
     "generation",
     "io",
+    "utils",
+    "mpl",
     # Generation functions (also available at top level)
     "sine_wave",
     "cosine_wave",
     "sawtooth_wave",
     "square_wave",
     "triangle_wave",
-    "chirp",
     "white_noise",
     "pink_noise",
     "brown_noise",
     "impulse",
     "silence",
+    "chirp",
+    "stereo_sine_wave",
+    "stereo_chirp",
+    "stereo_silence",
 ]

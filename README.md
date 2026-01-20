@@ -6,7 +6,7 @@
 
 <img src="logo.png" title="AudioSamples Logo -- Ferrous' Mustachioed Cousin From East Berlin, Eisenhaltig" width="200"/>
 
-[![PyPI][pypi-img]][pypi] [![License: MIT][license-img]][license]
+[![PyPI][pypi-img]][pypi] [![Docs][docs-img]][docs] [![License: MIT][license-img]][license]
 </div>
 
 ---
@@ -115,7 +115,7 @@ AudioSamples consistently outperforms other Python audio libraries across tested
 
 | **Library**    | **audio_samples** | **scipy** | **soundfile** | **torchaudio** |
 |----------------|-------------------|-----------|---------------|----------------|
-| **0.1s, 1ch**  | 6.09e-05          | 1.46e-04  | 2.41e-04      | 2.35e-01       |
+| **0.1s, 1ch**  | 6.09e-05          | 1.46e-04  | 2.41e-04      | 4.15e-04       |
 | **0.1s, 2ch**  | 6.75e-05          | 1.62e-04  | 2.55e-04      | 5.72e-04       |
 | **0.5s, 1ch**  | 7.79e-05          | 1.65e-04  | 2.66e-04      | 6.45e-04       |
 | **0.5s, 2ch**  | 8.73e-05          | 1.77e-04  | 2.84e-04      | 9.04e-04       |
@@ -153,7 +153,7 @@ AudioSamples consistently outperforms other Python audio libraries across tested
 | **30.0s, 1ch** | 1.20e-03          | 1.46e-03  | 2.91e-03      | 6.25e-03       |
 | **30.0s, 2ch** | 4.61e-03          | 6.23e-03  | 7.90e-03      | 6.32e-03       |
 | **60.0s, 1ch** | 2.25e-03          | 2.81e-03  | 5.60e-03      | 1.16e-02       |
-| **60.0s, 2ch** | 1.63e-02          | 1.24e-02  | 1.59e-02      | 1.16e-02       |
+| **60.0s, 2ch** | 9.20e-03          | 1.24e-02  | 1.59e-02      | 1.16e-02       |
 
 *Times in seconds, lower is better*
 
@@ -319,6 +319,9 @@ Read [Contributing](CONTRIBUTING.md) for more details.
 
 [pypi]: https://pypi.org/project/audio_samples/
 [pypi-img]: https://img.shields.io/pypi/v/audio_samples?style=for-the-badge&color=009E73&label=PyPI
+
+[docs]: https://jmg049.github.io/audio_samples_python/
+[docs-img]: https://img.shields.io/pypi/v/audio_samples?style=for-the-badge&color=009E73&label=Docs
 
 [license-img]: https://img.shields.io/crates/l/audio_samples?style=for-the-badge&label=license&labelColor=gray
 [license]: https://github.com/jmg049/audio_samples_python/blob/main/LICENSE

@@ -1,0 +1,15 @@
+pub mod beats;
+pub mod channels;
+pub mod dynamic_range;
+pub mod editing;
+pub mod envelopes;
+pub mod hpss;
+pub mod iir_filtering;
+pub mod onset_detection;
+pub mod parametric_eq;
+pub mod pitch_analysis;
+pub mod plotting;
+pub mod processing;
+pub mod statistics;
+pub mod transforms;
+pub mod vad;

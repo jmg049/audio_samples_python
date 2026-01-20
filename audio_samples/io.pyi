@@ -8,7 +8,6 @@ from typing import Optional, Any
 import numpy as np
 from . import AudioSamples
 
-
 class AudioInfo:
     """Information about an audio file."""
 
@@ -42,6 +41,20 @@ class AudioInfo:
         """Sample type as a string (e.g., 'i16', 'f32')."""
         ...
 
+def info(fp: str) -> AudioInfo:
+    """
+    Get information about an audio file without loading the entire file.
+
+    Args:
+        fp: Path to the audio file
+
+    Returns:
+        AudioInfo: Information about the audio file (sample rate, channels, duration, etc.)
+
+    Raises:
+        TypeError: If the file cannot be read or the format is unsupported
+    """
+    ...
 
 def read(fp: str, as_type: Optional[np.dtype[Any]] = None) -> AudioSamples:
     """
@@ -59,8 +72,9 @@ def read(fp: str, as_type: Optional[np.dtype[Any]] = None) -> AudioSamples:
     """
     ...
 
-
-def read_with_info(fp: str, as_type: Optional[np.dtype[Any]] = None) -> tuple[AudioSamples, AudioInfo]:
+def read_with_info(
+    fp: str, as_type: Optional[np.dtype[Any]] = None
+) -> tuple[AudioSamples, AudioInfo]:
     """
     Read an audio file and return AudioSamples along with file information.
 
@@ -76,13 +90,16 @@ def read_with_info(fp: str, as_type: Optional[np.dtype[Any]] = None) -> tuple[Au
     """
     ...
 
-
 def save(fp: str, samples: AudioSamples) -> None:
     """
     Save AudioSamples to an audio file.
 
     The format is determined by the file extension. The audio is saved
     using its native sample type.
+
+    Note: For WAV files, f64 (float64) samples are automatically converted
+    to f32 (float32) for maximum compatibility with audio software, as f64
+    WAV files use WAVE_FORMAT_EXTENSIBLE which is not widely supported.
 
     Args:
         fp: Path to save the audio file
@@ -93,13 +110,16 @@ def save(fp: str, samples: AudioSamples) -> None:
     """
     ...
 
-
 def save_as_type(fp: str, samples: AudioSamples, as_type: np.dtype[Any]) -> None:
     """
     Save AudioSamples to an audio file with type conversion.
 
     The format is determined by the file extension. The audio is converted
     to the specified sample type before saving.
+
+    Note: For WAV files, f64 (float64) is automatically converted to f32 (float32)
+    for maximum compatibility, as f64 WAV files use WAVE_FORMAT_EXTENSIBLE which
+    is not widely supported by audio software.
 
     Args:
         fp: Path to save the audio file

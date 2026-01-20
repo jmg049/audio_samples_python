@@ -1,5 +1,7 @@
 File I/O Operations
 ===================
+.. automodule:: audio_samples.io
+   :members:
 
 .. currentmodule:: audio_samples.io
 

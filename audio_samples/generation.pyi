@@ -7,9 +7,13 @@ This module provides functions to generate various audio waveforms and noise typ
 from typing import Optional, Any
 from . import AudioSamples
 
-
-def sine_wave(frequency: float, duration_secs: float, sample_rate: int = 44100,
-              amplitude: float = 1.0, dtype: Optional[Any] = None) -> AudioSamples:
+def sine_wave(
+    frequency: float,
+    duration_secs: float,
+    sample_rate: int = 44100,
+    amplitude: float = 1.0,
+    dtype: Optional[Any] = None,
+) -> AudioSamples:
     """
     Generate a sine wave audio signal.
 
@@ -25,8 +29,13 @@ def sine_wave(frequency: float, duration_secs: float, sample_rate: int = 44100,
     """
     ...
 
-def cosine_wave(frequency: float, duration_secs: float, sample_rate: int = 44100,
-                amplitude: float = 1.0, dtype: Optional[Any] = None) -> AudioSamples:
+def cosine_wave(
+    frequency: float,
+    duration_secs: float,
+    sample_rate: int = 44100,
+    amplitude: float = 1.0,
+    dtype: Optional[Any] = None,
+) -> AudioSamples:
     """
     Generate a cosine wave audio signal.
 
@@ -42,8 +51,13 @@ def cosine_wave(frequency: float, duration_secs: float, sample_rate: int = 44100
     """
     ...
 
-def sawtooth_wave(frequency: float, duration_secs: float, sample_rate: int = 44100,
-                  amplitude: float = 1.0, dtype: Optional[Any] = None) -> AudioSamples:
+def sawtooth_wave(
+    frequency: float,
+    duration_secs: float,
+    sample_rate: int = 44100,
+    amplitude: float = 1.0,
+    dtype: Optional[Any] = None,
+) -> AudioSamples:
     """
     Generate a sawtooth wave audio signal.
 
@@ -59,8 +73,13 @@ def sawtooth_wave(frequency: float, duration_secs: float, sample_rate: int = 441
     """
     ...
 
-def square_wave(frequency: float, duration_secs: float, sample_rate: int = 44100,
-                amplitude: float = 1.0, dtype: Optional[Any] = None) -> AudioSamples:
+def square_wave(
+    frequency: float,
+    duration_secs: float,
+    sample_rate: int = 44100,
+    amplitude: float = 1.0,
+    dtype: Optional[Any] = None,
+) -> AudioSamples:
     """
     Generate a square wave audio signal.
 
@@ -76,8 +95,13 @@ def square_wave(frequency: float, duration_secs: float, sample_rate: int = 44100
     """
     ...
 
-def triangle_wave(frequency: float, duration_secs: float, sample_rate: int = 44100,
-                  amplitude: float = 1.0, dtype: Optional[Any] = None) -> AudioSamples:
+def triangle_wave(
+    frequency: float,
+    duration_secs: float,
+    sample_rate: int = 44100,
+    amplitude: float = 1.0,
+    dtype: Optional[Any] = None,
+) -> AudioSamples:
     """
     Generate a triangle wave audio signal.
 
@@ -93,8 +117,14 @@ def triangle_wave(frequency: float, duration_secs: float, sample_rate: int = 441
     """
     ...
 
-def chirp(f0: float, f1: float, duration_secs: float, sample_rate: int = 44100,
-          amplitude: float = 1.0, dtype: Optional[Any] = None) -> AudioSamples:
+def chirp(
+    f0: float,
+    f1: float,
+    duration_secs: float,
+    sample_rate: int = 44100,
+    amplitude: float = 1.0,
+    dtype: Optional[Any] = None,
+) -> AudioSamples:
     """
     Generate a frequency chirp (sweep) audio signal.
 
@@ -111,8 +141,13 @@ def chirp(f0: float, f1: float, duration_secs: float, sample_rate: int = 44100,
     """
     ...
 
-def white_noise(duration_secs: float, sample_rate: int = 44100,
-                amplitude: float = 1.0, dtype: Optional[Any] = None, seed: Optional[int] = None) -> AudioSamples:
+def white_noise(
+    duration_secs: float,
+    sample_rate: int = 44100,
+    amplitude: float = 1.0,
+    dtype: Optional[Any] = None,
+    seed: Optional[int] = None,
+) -> AudioSamples:
     """
     Generate white noise audio signal.
 
@@ -128,8 +163,12 @@ def white_noise(duration_secs: float, sample_rate: int = 44100,
     """
     ...
 
-def pink_noise(duration_secs: float, sample_rate: int = 44100,
-               amplitude: float = 1.0, dtype: Optional[Any] = None) -> AudioSamples:
+def pink_noise(
+    duration_secs: float,
+    sample_rate: int = 44100,
+    amplitude: float = 1.0,
+    dtype: Optional[Any] = None,
+) -> AudioSamples:
     """
     Generate pink noise audio signal.
 
@@ -144,8 +183,13 @@ def pink_noise(duration_secs: float, sample_rate: int = 44100,
     """
     ...
 
-def brown_noise(duration_secs: float, sample_rate: int = 44100, step: float = 0.01,
-                amplitude: float = 1.0, dtype: Optional[Any] = None) -> AudioSamples:
+def brown_noise(
+    duration_secs: float,
+    sample_rate: int = 44100,
+    step: float = 0.01,
+    amplitude: float = 1.0,
+    dtype: Optional[Any] = None,
+) -> AudioSamples:
     """
     Generate brown noise (Brownian/red noise) audio signal.
 
@@ -161,8 +205,13 @@ def brown_noise(duration_secs: float, sample_rate: int = 44100, step: float = 0.
     """
     ...
 
-def impulse(duration_secs: float, sample_rate: int = 44100, amplitude: float = 1.0,
-            position: float = 0.5, dtype: Optional[Any] = None) -> AudioSamples:
+def impulse(
+    duration_secs: float,
+    sample_rate: int = 44100,
+    amplitude: float = 1.0,
+    position: float = 0.5,
+    dtype: Optional[Any] = None,
+) -> AudioSamples:
     """
     Generate an impulse (delta function) audio signal.
 
@@ -178,8 +227,9 @@ def impulse(duration_secs: float, sample_rate: int = 44100, amplitude: float = 1
     """
     ...
 
-def silence(duration_secs: float, sample_rate: int = 44100,
-            dtype: Optional[Any] = None) -> AudioSamples:
+def silence(
+    duration_secs: float, sample_rate: int = 44100, dtype: Optional[Any] = None
+) -> AudioSamples:
     """
     Generate silence (zero amplitude) audio signal.
 
@@ -190,5 +240,67 @@ def silence(duration_secs: float, sample_rate: int = 44100,
 
     Returns:
         AudioSamples: Generated silence audio data
+    """
+    ...
+
+def stereo_sine_wave(
+    frequency: float,
+    duration_secs: float,
+    sample_rate: int = 44100,
+    amplitude: float = 1.0,
+    dtype: Optional[Any] = None,
+) -> AudioSamples:
+    """
+    Generate a stereo sine wave audio signal (same frequency on both channels).
+
+    Args:
+        frequency: Frequency of the sine wave in Hz
+        duration_secs: Duration of the signal in seconds
+        sample_rate: Sample rate in samples per second (default: 44100)
+        amplitude: Peak amplitude of the wave (default: 1.0)
+        dtype: NumPy dtype for the output array (default: f64)
+
+    Returns:
+        AudioSamples: Generated stereo sine wave audio data (2 channels)
+    """
+    ...
+
+def stereo_chirp(
+    start_freq: float,
+    end_freq: float,
+    duration_secs: float,
+    sample_rate: int = 44100,
+    amplitude: float = 1.0,
+    dtype: Optional[Any] = None,
+) -> AudioSamples:
+    """
+    Generate a stereo chirp signal (frequency sweep on both channels).
+
+    Args:
+        start_freq: Starting frequency in Hz
+        end_freq: Ending frequency in Hz
+        duration_secs: Duration of the signal in seconds
+        sample_rate: Sample rate in samples per second (default: 44100)
+        amplitude: Peak amplitude of the chirp (default: 1.0)
+        dtype: NumPy dtype for the output array (default: f64)
+
+    Returns:
+        AudioSamples: Generated stereo chirp audio data (2 channels)
+    """
+    ...
+
+def stereo_silence(
+    duration_secs: float, sample_rate: int = 44100, dtype: Optional[Any] = None
+) -> AudioSamples:
+    """
+    Generate stereo silence (zero amplitude on both channels).
+
+    Args:
+        duration_secs: Duration of the signal in seconds
+        sample_rate: Sample rate in samples per second (default: 44100)
+        dtype: NumPy dtype for the output array (default: f64)
+
+    Returns:
+        AudioSamples: Generated stereo silence audio data (2 channels)
     """
     ...

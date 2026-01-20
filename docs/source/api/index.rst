@@ -10,6 +10,7 @@ comprehensive type stubs that provide full type safety and IDE support.
    audio_samples
    generation
    io
+   types
 
 Core Classes
 ============
@@ -17,6 +18,7 @@ Core Classes
 - :doc:`audio_samples` - Main AudioSamples class with comprehensive audio processing
 - :doc:`generation` - Signal generation functions
 - :doc:`io` - File I/O operations
+- :doc:`types` - Audio processing configurations and enumerations
 
 Quick Reference
 ===============
@@ -31,3 +33,6 @@ The complete API documentation is organized into three main sections:
 
 **File I/O**
    High-performance audio file reading and writing with format detection.
+
+**Types Module**
+   Audio processing configurations and enumerations. Used throughout the library for specifying parameters and options.
