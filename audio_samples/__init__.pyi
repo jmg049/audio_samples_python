@@ -24,7 +24,6 @@ from spectrograms import (
     StftResult,
     ErbParams,
 )
-
 from audio_samples.types import (
     EqBandType,
     FilterResponse,
@@ -48,6 +47,7 @@ from . import plotting as plotting
 from . import utils as utils
 from . import audio_math as audio_math
 from . import mpl as mpl
+from . import types as types
 
 # Expose generation functions at the top level for convenience
 from .generation import (
@@ -69,6 +69,7 @@ from .generation import (
 
 __all__ = [
     "mpl",
+    "types",
     "sine_wave",
     "cosine_wave",
     "sawtooth_wave",
@@ -118,6 +119,7 @@ __all__ = [
     "PitchDetectionMethod",
     "ResamplingQuality",
     "NormalizationMethod",
+    "SampleType",
 ]
 
 class AudioSamples:

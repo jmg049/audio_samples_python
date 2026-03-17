@@ -67,9 +67,9 @@ duration = 1.0  # seconds
 sample_rate = 44100
 
 # Generate audio signals
-sine = aus.generation.sine_wave(440.0, duration, sample_rate)
-cosine = aus.generation.cosine_wave(880.0, duration, sample_rate)
-white_noise = aus.generation.white_noise(duration, sample_rate)
+sine = aus.sine_wave(440.0, duration, sample_rate)
+cosine = aus.cosine_wave(880.0, duration, sample_rate)
+white_noise = aus.white_noise(duration, sample_rate)
 
 # Mix signals with operator overloading
 mixed = sine + cosine * 0.3 + white_noise * 0.05
@@ -84,25 +84,25 @@ print(f"Spectral centroid: {mixed.spectral_centroid():.2f} Hz")
 ### Audio I/O Operations
 
 ```python
-import audio_samples as aus
+### Audio I/O Operations
+# create some audio to work with and save it
+sine = aus.sine_wave(440.0, 1.0, 44100)
+aus.io.save("sine.wav", sine)
 
-# Read audio file (auto-detects format), but you can still specify the dtype is necessary
-audio = aus.io.read("input.wav")
+# read audio file
+audio = aus.io.read("sine.wav")
+# audio = aus.io.read("sine.wav", dtype=np.float32)  # Optionally specify target dtype (default is the file's native encoding)
 
 # Apply processing
-audio.normalize(-1.0, 1.0, 'peak')
-audio.fade_in(0.1, 'exponential')
-audio.fade_out(0.1, 'logarithmic')
+audio.normalize(-1.0, 1.0, aus.NormalizationMethod.peak)
+audio.fade_in(0.1, aus.FadeCurve.exponential)
+audio.fade_out(0.1, aus.FadeCurve.logarithmic)
 
 # Save processed audio
 aus.io.save("output.wav", audio)
 
 # Display audio information
-print(audio.info())
-# Sample rate: 44100 Hz
-# Channels: 2
-# Duration: 10.5s
-# Samples per channel: 462000
+print(repr(audio))
 ```
 
 ## Performance Benchmarks
@@ -193,8 +193,8 @@ stereo.balance(0.2)       # 20% balance adjustment
 stereo.swap_channels(0, 1) # Swap left and right
 
 # Channel extraction and conversion
-mono = stereo.to_mono('average')
-stereo_from_mono = sine.to_stereo('duplicate')
+mono = stereo.to_mono(aus.MonoConversionMethod.average)
+stereo_from_mono = sine.to_stereo(aus.StereoConversionMethod.duplicate)
 ```
 
 ### 3. Audio Analysis and Statistics
@@ -256,7 +256,12 @@ downsampled = original.resample(22050, 'high')   # 2x downsampling
 ratio_resampled = original.resample_by_ratio(1.5, 'high')  # 1.5x rate
 
 # Multiple sample format support
-# i16, i24, i32, f32, f64 with type-safe conversions
+# i16, i32, f32, f64 with type-safe conversions
+
+audio_i16 = original.to_format(SampleType.I16)
+audio_i32  = original.to_format(SampleType.I32)
+audio_f32 = original.to_format(SampleType.F32)
+audio_f64 = original.to_format(SampleType.F64)
 ```
 
 ### 6. Digital Filtering
@@ -276,11 +281,14 @@ audio.band_pass_filter(200.0, 2000.0)      # Band-pass 200Hz-2kHz
 AudioSamples provides seamless NumPy interoperability while encouraging the use of audio-specific methods:
 
 ```python
+left = aus.sine_wave(440.0, duration, sample_rate)
+right = aus.sine_wave(880.0, duration, sample_rate)
+
 # GOOD: Use AudioSamples methods for audio operations
 stereo = aus.AudioSamples.stack([left, right])           # Proper multi-channel
-concatenated = aus.AudioSamples.concatenate([a1, a2])    # Proper concatenation
-audio.fade_in(0.1, 'linear')                            # Built-in audio fades
-resampled = audio.resample(48000, 'high')                # Proper resampling
+concatenated = aus.AudioSamples.concatenate([left, right])    # Proper concatenation
+audio.fade_in(0.1, aus.FadeCurve.linear)                            # Built-in audio fades
+resampled = audio.resample(48000, aus.ResamplingQuality.high)                # Proper resampling
 
 # ALSO GOOD: Use NumPy for mathematical operations
 gain_curve = np.linspace(0.1, 1.0, len(audio))
@@ -298,10 +306,6 @@ distorted_audio = aus.AudioSamples.new_mono(distortion, sample_rate)
 
 - Python >= 3.8
 - NumPy >= 1.24.4
-
-## Documentation
-
-Full API documentation will be available at the project homepage once published.
 
 ## License
 
