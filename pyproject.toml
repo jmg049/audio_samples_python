@@ -85,6 +85,7 @@ dependencies = [
 [tool.maturin]
 python-source = "."
 include = ["*.pyi", "audio_samples/*.pyi", "audio_samples/py.typed", "logo.png"]
+exclude = ["*.rs", "src/*", "tests/*", "examples/*", "benches/*", "docs/*"]
 
 [dependency-groups]
 dev = [
