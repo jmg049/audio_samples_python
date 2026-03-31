@@ -41,6 +41,8 @@ classifiers = [
 dynamic = ["version"]
 dependencies = [
     "numpy>=1.24.4",
+    "py-spy>=0.4.1",
+    "pyspy>=0.1.1",
     "resampy>=0.4.3",
     "samplerate>=0.2.3",
     "spectrograms==1.0.1",
@@ -85,7 +87,7 @@ dependencies = [
 [tool.maturin]
 python-source = "."
 include = ["*.pyi", "audio_samples/*.pyi", "audio_samples/py.typed", "logo.png"]
-exclude = ["*.rs", "src/*", "tests/*", "examples/*", "benches/*", "docs/*"]
+exclude = ["tests/*", "examples/*", "benches/*", "docs/*"]
 
 [dependency-groups]
 dev = [
@@ -96,6 +98,7 @@ dev = [
     "matplotlib>=3.7.5",
     "pandas>=2.0.3",
     "pyqt6>=6.7.1",
+    "rich>=14.3.3",
     "scikit-learn>=1.3.2",
     "seaborn>=0.13.2",
     "soundfile>=0.13.1",

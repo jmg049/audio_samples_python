@@ -1,5 +1,6 @@
 import time
 import statistics
+import json
 import numpy as np
 import librosa
 import matplotlib
@@ -55,9 +56,9 @@ TIERS = [
 ]
 
 TIER_COLORS = {
-    "fast": "#1f77b4",
-    "medium": "#ff7f0e",
-    "high": "#2ca02c",
+    "fast": "#F0E442",
+    "medium": "#56B4E9",
+    "high": "#D55E00",
 }
 
 
@@ -198,6 +199,11 @@ ax_sp.yaxis.set_major_formatter(ticker.FuncFormatter(lambda v, _: f"{v:g}×"))
 ax_sp.legend(fontsize=9)
 ax_sp.grid(axis="y", alpha=0.3, zorder=0)
 
+json_out = "bench_resampling.json"
+with open(json_out, "w") as f:
+    json.dump(results, f, indent=2)
+print(f"Results saved → {json_out}")
+
 out = "bench_resampling.png"
-plt.savefig(out, dpi=150, bbox_inches="tight")
+plt.savefig(out, dpi=300, bbox_inches="tight")
 print(f"Plot saved → {out}")

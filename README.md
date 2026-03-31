@@ -107,55 +107,48 @@ print(repr(audio))
 
 ## Performance Benchmarks
 
-AudioSamples consistently outperforms other Python audio libraries across tested read and write scenarios:
+The I/O layer is built also built in Rust: a streaming WAV header parser feeds a single `read_exact` call directly into a NumPy-owned buffer — matching the speed of `np.fromfile`. Writes use a Fortran-layout fast path (F-order interleaved arrays write in one `write_all` call) and a tiled streaming interleave for C-order arrays, eliminating all intermediate allocations.
 
-### Reading Performance
+Benchmarked against 80 configurations (4 sample rates × 2 dtypes × 5 durations × 2 channel counts) with 100 iterations each, warmed up over 20 runs:
 
-> Note: All audio was sampled at 44,100Hz with f32 sample encoding.
+- **Load**: faster than scipy in 80/80 configurations, faster than librosa in 78/80
+- **Save**: faster than scipy in 73/80 configurations, faster than librosa in 80/80
 
-| **Library**    | **audio_samples** | **scipy** | **soundfile** | **torchaudio** |
-|----------------|-------------------|-----------|---------------|----------------|
-| **0.1s, 1ch**  | 6.09e-05          | 1.46e-04  | 2.41e-04      | 4.15e-04       |
-| **0.1s, 2ch**  | 6.75e-05          | 1.62e-04  | 2.55e-04      | 5.72e-04       |
-| **0.5s, 1ch**  | 7.79e-05          | 1.65e-04  | 2.66e-04      | 6.45e-04       |
-| **0.5s, 2ch**  | 8.73e-05          | 1.77e-04  | 2.84e-04      | 9.04e-04       |
-| **1.0s, 1ch**  | 8.66e-05          | 1.73e-04  | 2.79e-04      | 7.81e-04       |
-| **1.0s, 2ch**  | 1.13e-04          | 1.99e-04  | 3.01e-04      | 9.89e-04       |
-| **2.0s, 1ch**  | 1.08e-04          | 1.90e-04  | 3.04e-04      | 9.73e-04       |
-| **2.0s, 2ch**  | 1.61e-04          | 2.50e-04  | 3.54e-04      | 1.37e-03       |
-| **5.0s, 1ch**  | 1.86e-04          | 2.70e-04  | 3.75e-04      | 1.51e-03       |
-| **5.0s, 2ch**  | 3.24e-04          | 3.97e-04  | 5.06e-04      | 2.54e-03       |
-| **10.0s, 1ch** | 3.30e-04          | 3.97e-04  | 5.06e-04      | 2.46e-03       |
-| **10.0s, 2ch** | 6.05e-04          | 6.32e-04  | 7.38e-04      | 4.32e-03       |
-| **30.0s, 1ch** | 8.27e-04          | 8.25e-04  | 9.37e-04      | 5.97e-03       |
-| **30.0s, 2ch** | 1.62e-03          | 1.48e-03  | 1.61e-03      | 1.12e-02       |
-| **60.0s, 1ch** | 1.54e-03          | 1.44e-03  | 1.55e-03      | 1.09e-02       |
-| **60.0s, 2ch** | 2.19e-03          | 2.77e-03  | 2.89e-03      | 2.03e-02       |
+### Load times — 44,100 Hz (ms, lower is better)
 
-### Writing Performance
+| Config | audio_samples | scipy | librosa | wave |
+|---|---|---|---|---|
+| i16, mono, 1s | **0.008** | 0.012 | 0.024 | 0.010 |
+| i16, mono, 30s | **0.101** | 0.171 | 0.122 | 0.178 |
+| i16, mono, 60s | **0.187** | 0.277 | 0.202 | 0.282 |
+| i16, stereo, 1s | **0.009** | 0.015 | 0.027 | 0.013 |
+| i16, stereo, 30s | **0.178** | 0.265 | 0.218 | 0.285 |
+| i16, stereo, 60s | **0.450** | 0.612 | 0.518 | 0.577 |
+| f32, mono, 1s | **0.010** | 0.016 | 0.025 | — |
+| f32, mono, 30s | **0.192** | 0.279 | 0.228 | — |
+| f32, mono, 60s | **0.393** | 0.491 | 0.420 | — |
+| f32, stereo, 1s | **0.013** | 0.021 | 0.029 | — |
+| f32, stereo, 30s | **0.436** | 0.530 | 0.435 | — |
+| f32, stereo, 60s | **1.696** | 1.955 | 1.703 | — |
 
-> Note: All audio was sampled at 44,100Hz with f32 sample encoding.
+### Save times — 44,100 Hz (ms, lower is better)
 
-| **Library**    | **audio_samples** | **scipy** | **soundfile** | **torchaudio** |
-|----------------|-------------------|-----------|---------------|----------------|
-| **0.1s, 1ch**  | 6.21e-05          | 2.23e-04  | 2.71e-04      | 2.93e-04       |
-| **0.1s, 2ch**  | 8.72e-05          | 2.58e-04  | 2.95e-04      | 2.67e-04       |
-| **0.5s, 1ch**  | 7.71e-05          | 2.34e-04  | 2.99e-04      | 3.56e-04       |
-| **0.5s, 2ch**  | 1.49e-04          | 3.47e-04  | 3.98e-04      | 3.57e-04       |
-| **1.0s, 1ch**  | 9.52e-05          | 2.61e-04  | 3.38e-04      | 4.57e-04       |
-| **1.0s, 2ch**  | 2.16e-04          | 4.43e-04  | 5.36e-04      | 4.68e-04       |
-| **2.0s, 1ch**  | 1.38e-04          | 2.90e-04  | 4.21e-04      | 6.59e-04       |
-| **2.0s, 2ch**  | 3.46e-04          | 6.26e-04  | 7.96e-04      | 6.71e-04       |
-| **5.0s, 1ch**  | 2.51e-04          | 4.16e-04  | 6.77e-04      | 1.26e-03       |
-| **5.0s, 2ch**  | 7.67e-04          | 1.21e-03  | 1.63e-03      | 1.28e-03       |
-| **10.0s, 1ch** | 4.45e-04          | 6.14e-04  | 1.11e-03      | 2.34e-03       |
-| **10.0s, 2ch** | 1.51e-03          | 2.18e-03  | 2.93e-03      | 2.29e-03       |
-| **30.0s, 1ch** | 1.20e-03          | 1.46e-03  | 2.91e-03      | 6.25e-03       |
-| **30.0s, 2ch** | 4.61e-03          | 6.23e-03  | 7.90e-03      | 6.32e-03       |
-| **60.0s, 1ch** | 2.25e-03          | 2.81e-03  | 5.60e-03      | 1.16e-02       |
-| **60.0s, 2ch** | 9.20e-03          | 1.24e-02  | 1.59e-02      | 1.16e-02       |
+| Config | audio_samples | scipy | librosa | wave |
+|---|---|---|---|---|
+| i16, mono, 1s | **0.007** | 0.012 | 0.022 | 0.010 |
+| i16, mono, 30s | **0.114** | 0.128 | 0.133 | 0.128 |
+| i16, mono, 60s | **0.264** | 0.255 | 0.276 | 0.263 |
+| i16, stereo, 1s | **0.010** | 0.015 | 0.025 | 0.013 |
+| i16, stereo, 30s | **0.267** | 0.297 | 0.295 | 0.267 |
+| i16, stereo, 60s | **0.597** | 0.593 | 0.606 | 0.596 |
+| f32, mono, 1s | **0.010** | 0.015 | 0.149 | — |
+| f32, mono, 30s | **0.265** | 0.268 | 4.204 | — |
+| f32, mono, 60s | **0.579** | 0.625 | 8.484 | — |
+| f32, stereo, 1s | **0.017** | 0.022 | 0.306 | — |
+| f32, stereo, 30s | **0.583** | 0.612 | 8.369 | — |
+| f32, stereo, 60s | **2.101** | 2.030 | 17.085 | — |
 
-*Times in seconds, lower is better*
+*Times in milliseconds (mean over 100 iterations). `—` = library does not support this format natively.*
 
 ## Feature Showcase
 
