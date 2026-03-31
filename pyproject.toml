@@ -41,10 +41,6 @@ classifiers = [
 dynamic = ["version"]
 dependencies = [
     "numpy>=1.24.4",
-    "py-spy>=0.4.1",
-    "pyspy>=0.1.1",
-    "resampy>=0.4.3",
-    "samplerate>=0.2.3",
     "spectrograms==1.0.1",
 ]
 
@@ -105,6 +101,10 @@ dev = [
     "torchaudio>=2.5.1",
     "torchcodec>=0.9.1",
     "tqdm>=4.67.1",
+    "py-spy>=0.4.1",
+    "pyspy>=0.1.1",
+    "resampy>=0.4.3",
+    "samplerate>=0.2.3",
 ]
 test = [
     "pytest>=7.4.0",
