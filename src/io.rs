@@ -47,17 +47,72 @@ fn read_typed(py: Python<'_>, fp: &str, target: PySampleType) -> PyResult<PyAudi
     dispatch_sample_type!(target, |T| read_with_numpy_backing::<T>(py, fp))
 }
 
+/// Convert a natively-typed array (from `read_pyarray_native`) into a `PyAudioSamples`.
+/// Mono arrays are reshaped from (1, N) to (N,); multi-channel arrays are kept as-is.
+#[cfg(target_endian = "little")]
+fn native_array_to_py_audio_samples(
+    py: Python<'_>,
+    native: audio_samples_io::NativeAudioArray,
+) -> PyResult<PyAudioSamples> {
+    use audio_samples_io::NativeAudioArray;
+    match native {
+        NativeAudioArray::U8(arr, info) => native_to_audio_samples(py, arr, info),
+        NativeAudioArray::I16(arr, info) => native_to_audio_samples(py, arr, info),
+        NativeAudioArray::I32(arr, info) => native_to_audio_samples(py, arr, info),
+        NativeAudioArray::F32(arr, info) => native_to_audio_samples(py, arr, info),
+        NativeAudioArray::F64(arr, info) => native_to_audio_samples(py, arr, info),
+    }
+}
+
+#[cfg(target_endian = "little")]
+fn native_to_audio_samples<T>(
+    py: Python<'_>,
+    arr: pyo3::Py<numpy::PyArray2<T>>,
+    info: audio_samples_io::types::BaseAudioInfo,
+) -> PyResult<PyAudioSamples>
+where
+    T: audio_samples::traits::StandardSample + numpy::Element + 'static,
+{
+    use numpy::PyArrayMethods;
+    let sample_rate = info.sample_rate;
+    let channels = info.channels as usize;
+    if channels == 1 {
+        let bound = arr.bind(py);
+        let array_1d = bound.reshape([info.total_samples])?;
+        Ok(PyAudioSamples::new_mono_from_python(
+            array_1d.to_owned(),
+            sample_rate,
+        ))
+    } else {
+        Ok(PyAudioSamples::new_multi_from_python_interleaved(
+            arr.bind(py).to_owned(),
+            sample_rate,
+        ))
+    }
+}
+
 #[pyfunction]
 #[pyo3(signature = (fp: "str|Path", as_type:"SampleType"=None), text_signature = "(fp, as_type=None) -> AudioSamples")]
 pub fn read(py: Python<'_>, fp: &str, as_type: Option<PySampleType>) -> PyResult<PyAudioSamples> {
+    // Fast path: no type conversion requested → single-pass (one open, one header parse, one read).
+    // This eliminates the extra File::open + header parse that peek_native_type() would add.
+    #[cfg(target_endian = "little")]
+    if as_type.is_none() {
+        if let Some(result) = audio_samples_io::read_pyarray_native(py, std::path::Path::new(fp)) {
+            return native_array_to_py_audio_samples(py, result?);
+        }
+        // Falls through for I24 or any format read_pyarray_native doesn't handle.
+    }
+
+    // Slow path: type conversion requested, or fast path not applicable.
     let target = match as_type {
         Some(t) => t,
         None => {
-            // Use the native type from the file instead of defaulting to F32
-            let info = audio_samples_io::info(fp).map_err(|e| {
-                pyo3::exceptions::PyTypeError::new_err(format!("Failed to get audio info: {e}"))
+            let native = audio_samples_io::peek_native_type(fp).map_err(|e| {
+                pyo3::exceptions::PyTypeError::new_err(format!("Failed to detect native type: {e}"))
             })?;
-            PySampleType::from_native(info.sample_type).ok_or_else(|| {
+            let sample_type: audio_samples::SampleType = native.into();
+            PySampleType::from_native(sample_type).ok_or_else(|| {
                 pyo3::exceptions::PyTypeError::new_err("Unsupported native sample type")
             })?
         }

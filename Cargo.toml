@@ -1,6 +1,6 @@
 [package]
 name = "audio_samples_python"
-version = "0.2.1"
+version = "0.2.2"
 edition = "2024"
 description = "Python bindings for high-performance AudioSamples Rust ecosystem - fast, type-safe audio processing with automatic metadata coordination"
 repository = "https://github.com/jmg049/audio_samples_python"
@@ -33,19 +33,21 @@ pyo3 = { version = "0.28", features = [
     "multiple-pymethods",
     "experimental-inspect",
 ] }
-audio_samples = { version = "1.0.3", features = [
+audio_samples = { version = "1.0.6", features = [
     "python", "full_no_plotting"
 ] }
-audio_samples_io = { version = "0.1.9", features = ["wav", "numpy"] }
+audio_samples_io = { version = "0.2.0", features = ["wav", "numpy", "flac"] }
 numpy = "0.28"
 serde_json = "1.0.149"
-spectrograms = { version = "1.1.0", features = ["python"] }
+spectrograms = { version = "1.4.0", features = ["python"] }
 non-empty-slice = "0.5.1"
 num-complex = "0.4"
 
 [features]
 default = []
 audio-samples-plotting = ["audio_samples/plotting"]
+simd = ["audio_samples/simd"]
+flac-parallel = ["audio_samples_io/flac-parallel"]
 
 [profile.release]
 opt-level = 3

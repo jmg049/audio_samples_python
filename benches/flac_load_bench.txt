@@ -1,0 +1,30 @@
+
+Sweep — 2000 iters, 50 warmup  (all load, p50 ms)
+
+Pre-warming allocator across all scenarios... done
+
+Scenario                      aus    librosa  soundfile  aus/lib  aus/sf
+------------------------------------------------------------------------
+mono  1s  i16               0.182      0.318      0.321    1.75x   1.77x
+mono  5s  i16               0.896      1.519      1.519    1.70x   1.70x
+mono 30s  i16               5.429      9.050      9.048    1.67x   1.67x
+stereo 5s  i16              1.954      2.673      2.683    1.37x   1.37x
+stereo 30s i16             11.825     16.114     16.281    1.36x   1.38x
+Traceback (most recent call last):
+  File "/home/jmg/code/audio/audio_samples_python/benches/profile_flac.py", line 330, in <module>
+    run_sweep(SWEEP_ITERS, SWEEP_WARMUP)
+^^^^^^
+  File "/home/jmg/code/audio/audio_samples_python/benches/profile_flac.py", line 308, in main
+    # Main
+           
+  File "/home/jmg/code/audio/audio_samples_python/benches/profile_flac.py", line 272, in run_sweep
+    for (_, _, _, _, label), path in zip(SWEEP_SCENARIOS, paths):
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jmg/code/audio/audio_samples_python/benches/profile_flac.py", line 155, in timed_loop
+    fn()
+  File "/home/jmg/code/audio/audio_samples_python/benches/profile_flac.py", line 272, in <lambda>
+    for (_, _, _, _, label), path in zip(SWEEP_SCENARIOS, paths):
+                                                ^^^^^^^^^^^
+  File "/home/jmg/code/audio/audio_samples_python/benches/profile_flac.py", line 118, in load_aus
+    aus.io.read(path)
+KeyboardInterrupt

@@ -1,0 +1,16 @@
+
+Sweep — 2000 iters, 50 warmup  (all load, p50 ms)
+
+Pre-warming allocator across all scenarios... done
+
+Scenario                      aus    librosa      scipy  soundfile  aus/lib  aus/scipy
+--------------------------------------------------------------------------------------
+mono  1s  i16               0.004      0.097      0.010      0.076   23.59x    2.46x
+mono  5s  i16               0.010      0.327      0.022      0.314   33.96x    2.33x
+mono 30s  i16               0.094      1.793      0.169      1.737   19.04x    1.80x
+stereo 5s  i16              0.020      0.604      0.055      0.592   29.69x    2.68x
+stereo 30s i16              0.189      3.606      0.269      3.601   19.07x    1.42x
+stereo 60s i16              0.416      7.566      0.518      7.518   18.21x    1.25x
+mono  5s  f32               0.019      0.042      0.058      0.040    2.18x    2.96x
+stereo 30s f32              0.400      0.432      0.511      0.437    1.08x    1.28x
+stereo 30s i16 48k          0.205      3.971      0.290      4.003   19.39x    1.42x
