@@ -1,6 +1,6 @@
 [package]
 name = "audio_samples_python"
-version = "0.2.2"
+version = "0.2.3"
 edition = "2024"
 description = "Python bindings for high-performance AudioSamples Rust ecosystem - fast, type-safe audio processing with automatic metadata coordination"
 repository = "https://github.com/jmg049/audio_samples_python"

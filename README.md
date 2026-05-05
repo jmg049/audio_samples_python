@@ -17,6 +17,28 @@ Python bindings for the high-performance AudioSamples Rust ecosystem. AudioSampl
 
 Current audio processing workflows suffer from artificial complexity inherited from C-era design patterns. Libraries like librosa, soundfile, and torchaudio force researchers to manually coordinate sample rates, channel layouts, and format information across every function call, creating cognitive overhead and error-prone workflows. AudioSamples eliminates this coordination burden by embedding audio properties intrinsically within the data structure, enabling automatic property preservation through processing pipelines.
 
+
+```text
+audio_samples
+├── core types, signal generation, DSP, analysis
+├── audio_samples_io
+│   └── file I/O: read and write WAV and FLAC
+├── audio_samples_python
+│   └── python bindings via PyO3
+├── audio_samples_streaming
+│   └── streaming pipeline, device I/O, rodio, async
+└── audio_samples_ml
+    └── STT and TTS integrations
+```
+
+| Crate | What it provides | Start here if... |
+|---|---|---|
+| [`audio_samples`](https://crates.io/crates/audio_samples) | `AudioSamples<T>`, core types, signal generation, DSP, analysis | You need in-memory audio representations or signal processing primitives |
+| [`audio_samples_io`](https://crates.io/crates/audio_samples_io) | Read and write WAV and FLAC files | You need to load or save audio files with minimal setup |
+| [`audio_samples_python`](https://crates.io/crates/audio_samples_python) | Python bindings via PyO3 and NumPy interop | You want to use the library from Python or integrate with Python workflows |
+| [`audio_samples_streaming`](https://crates.io/crates/audio_samples_streaming) | Chunk-based streaming, real-time device I/O, async pipelines | You need real-time audio processing or streaming pipelines |
+| [`audio_samples_ml`](https://crates.io/crates/audio_samples_ml) | Speech-to-text (STT) and text-to-speech (TTS) integrations | You want to integrate transcription or synthesis into your audio pipeline |
+
 ## Why AudioSamples?
 
 ### The Problem with Existing Libraries
@@ -313,6 +335,24 @@ Contributions are welcome! This package is part of the broader AudioSamples ecos
 - [`audio_samples_python`](https://github.com/jmg049/audio_samples_python) - This package
 
 Read [Contributing](CONTRIBUTING.md) for more details.
+
+## Citing
+
+If you use AudioSamples in research, please cite:
+
+```bibtex
+@inproceedings{geraghty2026audio,
+  author    = {Geraghty, Jack and Golpayegani, Fatemeh and Hines, Andrew},
+  title     = {Audio Made Simple: A Modern Framework for Audio Processing},
+  booktitle = {ACM Multimedia Systems Conference 2026 (MMSys '26)},
+  year      = {2026},
+  month     = apr,
+  publisher = {ACM},
+  address   = {Hong Kong, Hong Kong},
+  doi       = {10.1145/3793853.3799811},
+  note      = {Accepted for publication}
+}
+```
 
 [pypi]: https://pypi.org/project/audio_samples/
 [pypi-img]: https://img.shields.io/pypi/v/audio_samples?style=for-the-badge&color=009E73&label=PyPI
