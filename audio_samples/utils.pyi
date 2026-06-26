@@ -4,6 +4,7 @@ This module provides comparison, audio math, and other utility functions.
 """
 
 from typing import Tuple
+import numpy as np
 from . import AudioSamples
 
 # =============================================================================
@@ -138,6 +139,127 @@ def align_signals(
     """
     ...
 
+def psnr(reference: AudioSamples, test: AudioSamples) -> float:
+    """Compute the peak signal-to-noise ratio (PSNR) in decibels between two signals.
+
+    PSNR relates the peak amplitude of the reference signal to the mean squared error
+    between the two signals. Higher values indicate greater similarity; identical
+    signals yield positive infinity.
+
+    Args:
+        reference: The reference (clean) signal.
+        test: The signal to compare against the reference.
+
+    Returns:
+        The PSNR in decibels. Returns positive infinity for identical signals.
+
+    Raises:
+        ValueError: If the signals have different dimensions or channel configurations.
+        TypeError: If the signals have different data types.
+    """
+    ...
+
+def segmental_snr(
+    signal: AudioSamples, noise: AudioSamples, segment_len: int = 256
+) -> float:
+    """Compute the segmental signal-to-noise ratio (segmental SNR) in decibels.
+
+    The signals are divided into fixed-length segments; the SNR of each segment is
+    computed, clamped to a perceptually motivated range, and then averaged. This often
+    correlates better with perceived quality than a single global SNR.
+
+    Args:
+        signal: The signal component.
+        noise: The noise component.
+        segment_len: Number of samples per segment (must be positive, default: 256).
+
+    Returns:
+        The mean of the per-segment SNR values in decibels.
+
+    Raises:
+        ValueError: If the signals have different dimensions/channels, or `segment_len` is 0.
+        TypeError: If the signals have different data types.
+    """
+    ...
+
+def log_spectral_distance(a: AudioSamples, b: AudioSamples) -> float:
+    """Compute the log-spectral distance (LSD) between two audio signals.
+
+    LSD measures the average difference between the log-power spectra of the two
+    signals. Lower values indicate greater spectral similarity; identical signals
+    yield 0.0.
+
+    Args:
+        a: The first audio signal.
+        b: The second audio signal.
+
+    Returns:
+        The log-spectral distance as a non-negative scalar value.
+
+    Raises:
+        ValueError: If the signals have different dimensions or channel configurations.
+        TypeError: If the signals have different data types.
+    """
+    ...
+
+def correlation_per_channel(a: AudioSamples, b: AudioSamples) -> np.ndarray:
+    """Compute the Pearson correlation coefficient for each channel independently.
+
+    Mirrors :func:`correlation` but returns one value per channel instead of an average.
+    For mono input the returned array has a single element.
+
+    Args:
+        a: The first audio signal.
+        b: The second audio signal.
+
+    Returns:
+        A 1-D NumPy array of per-channel correlation coefficients, in channel order.
+
+    Raises:
+        ValueError: If the signals have different dimensions or channel configurations.
+        TypeError: If the signals have different data types.
+    """
+    ...
+
+def mse_per_channel(a: AudioSamples, b: AudioSamples) -> np.ndarray:
+    """Compute the mean squared error (MSE) for each channel independently.
+
+    Mirrors :func:`mse` but returns one value per channel instead of an average.
+    For mono input the returned array has a single element.
+
+    Args:
+        a: The first audio signal.
+        b: The second audio signal.
+
+    Returns:
+        A 1-D NumPy array of per-channel MSE values, in channel order.
+
+    Raises:
+        ValueError: If the signals have different dimensions or channel configurations.
+        TypeError: If the signals have different data types.
+    """
+    ...
+
+def snr_per_channel(signal: AudioSamples, noise: AudioSamples) -> np.ndarray:
+    """Compute the signal-to-noise ratio (SNR) in decibels for each channel independently.
+
+    Mirrors :func:`snr` but returns one value per channel instead of aggregating across
+    all channels. A channel with zero noise power yields positive infinity. For mono
+    input the returned array has a single element.
+
+    Args:
+        signal: The signal component.
+        noise: The noise component.
+
+    Returns:
+        A 1-D NumPy array of per-channel SNR values in decibels, in channel order.
+
+    Raises:
+        ValueError: If the signals have different dimensions or channel configurations.
+        TypeError: If the signals have different data types.
+    """
+    ...
+
 # Re-export audio_math functions for convenience
 from .audio_math import (
     # Frequency conversions
@@ -176,6 +298,12 @@ __all__ = [
     "mse",
     "snr",
     "align_signals",
+    "psnr",
+    "segmental_snr",
+    "log_spectral_distance",
+    "correlation_per_channel",
+    "mse_per_channel",
+    "snr_per_channel",
     # Audio math - frequency conversions
     "hz_to_mel",
     "mel_to_hz",

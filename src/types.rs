@@ -3,12 +3,17 @@ use std::hash::Hash;
 
 // Types that stayed in audio_samples::operations::types
 use audio_samples::operations::types::{
-    AdaptiveThresholdConfig, AdaptiveThresholdMethod, CompressorConfig, DynamicRangeMethod, EqBand,
-    EqBandType, FadeCurve, FilterResponse, IirFilterDesign, IirFilterType, KneeType, LimiterConfig,
-    MonoConversionMethod, NoiseColor, PadSide, ParametricEq, PeakPickingConfig, PerturbationConfig,
-    PerturbationMethod, PitchDetectionMethod, ResamplingQuality, SideChainConfig, SpectrogramScale,
-    StereoConversionMethod, VadChannelPolicy, VadConfig, VadMethod,
+    AdaptiveThresholdConfig, AdaptiveThresholdMethod, ChannelReduction, CompressorConfig,
+    DynamicRangeMethod, EqBand, EqBandType, ExpanderConfig, FadeCurve, FilterResponse, GateConfig,
+    IirFilterDesign, IirFilterType, KneeType, LimiterConfig, MonoConversionMethod, NoiseColor,
+    PadSide, ParametricEq, PeakPickingConfig, PerturbationConfig, PerturbationMethod,
+    PitchDetectionMethod, ResamplingQuality, SideChainConfig, SpectrogramScale,
+    StereoConversionMethod, ThreeBandEqConfig, VadChannelPolicy, VadConfig, VadMethod,
 };
+
+// Power spectral density result and pitch-analysis result types.
+use audio_samples::operations::pitch_analysis::{Key, Mode, PitchClass, PitchContour, PitchFrame};
+use audio_samples::operations::transforms::Psd;
 
 // Types re-exported from operations submodules
 use audio_samples::operations::{
@@ -19,13 +24,14 @@ use audio_samples::operations::{
 // Types from spectrograms crate
 use audio_samples::operations::dynamic_range::EnvelopeFollower;
 use audio_samples::{I24, NormalizationMethod, SampleType, nzu};
-use numpy::{PyArrayDescr, PyArrayDescrMethods};
+use numpy::{IntoPyArray, PyArray1, PyArrayDescr, PyArrayDescrMethods};
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use pyo3::types::PyType;
 use spectrograms::python::{PyCqtParams, PyStftParams};
 use spectrograms::{StftParams, WindowType};
 
+use crate::operations::iir_filtering::PySosFilter;
 use crate::{
     audio_err_to_py, impl_py_default_static, impl_py_repr, impl_py_wrapper_core,
     impl_py_wrapper_fromstr, nzu_or_err, reexport, register_types,
@@ -44,6 +50,7 @@ pub fn types(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
             (PyAdaptiveThresholdMethod, "AdaptiveThresholdMethod"),
             (PyBeatTrackingConfig, "BeatTrackingConfig"),
             (PyBeatTrackingData, "BeatTrackingData"),
+            (PyChannelReduction, "ChannelReduction"),
             (PyComplexOnsetConfig, "ComplexOnsetConfig"),
             (PyCompressorConfig, "CompressorConfig"),
             (PyOnsetDetectionConfig, "OnsetDetectionConfig"),
@@ -51,22 +58,33 @@ pub fn types(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
             (PyEnvelopeFollower, "EnvelopeFollower"),
             (PyEqBand, "EqBand"),
             (PyEqBandType, "EqBandType"),
+            (PyExpanderConfig, "ExpanderConfig"),
             (PyFilterResponse, "FilterResponse"),
+            (PyGateConfig, "GateConfig"),
+            (PyHpssConfig, "HpssConfig"),
             (PyIirFilterDesign, "IirFilterDesign"),
             (PyIirFilterType, "IirFilterType"),
+            (PyKey, "Key"),
             (PyKneeType, "KneeType"),
             (PyLimiterConfig, "LimiterConfig"),
+            (PyMode, "Mode"),
             (PyMonoConversionMethod, "MonoConversionMethod"),
             (PyNormalizationMethod, "NormalizationMethod"),
             (PyPadSide, "PadSide"),
             (PyParametricEq, "ParametricEq"),
             (PyPeakPickingConfig, "PeakPickingConfig"),
+            (PyPitchClass, "PitchClass"),
+            (PyPitchContour, "PitchContour"),
             (PyPitchDetectionMethod, "PitchDetectionMethod"),
+            (PyPitchFrame, "PitchFrame"),
+            (PyPsd, "Psd"),
             (PySideChainConfig, "SideChainConfig"),
+            (PySosFilter, "SosFilter"),
             (PySpectralFluxConfig, "SpectralFluxConfig"),
             (PySpectralFluxMethod, "SpectralFluxMethod"),
             (PySpectrogramScale, "SpectrogramScale"),
             (PyStereoConversionMethod, "StereoConversionMethod"),
+            (PyThreeBandEqConfig, "ThreeBandEqConfig"),
             (PyVadChannelPolicy, "VadChannelPolicy"),
             (PyVadConfig, "VadConfig"),
             (PyVadMethod, "VadMethod"),
@@ -1224,6 +1242,7 @@ impl_py_repr!(PyPitchDetectionMethod);
 /// - ``IirFilterType.chebyshev_type_i``
 /// - ``IirFilterType.chebyshev_type_ii``
 /// - ``IirFilterType.elliptic``
+/// - ``IirFilterType.bessel``
 #[pyclass(name = "IirFilterType", from_py_object, module = "audio_samples.types")]
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct PyIirFilterType {
@@ -1274,6 +1293,18 @@ impl PyIirFilterType {
     fn elliptic() -> Self {
         PyIirFilterType {
             inner: IirFilterType::Elliptic,
+        }
+    }
+
+    /// Bessel (Bessel--Thomson) filter.
+    ///
+    /// Exhibits a maximally flat group delay (approximately linear phase) in the
+    /// passband, preserving wave shape at the cost of a gentle, monotonic
+    /// magnitude roll-off.
+    #[classattr]
+    fn bessel() -> Self {
+        PyIirFilterType {
+            inner: IirFilterType::Bessel,
         }
     }
 }
@@ -4379,3 +4410,939 @@ impl PyBeatTrackingData {
 
 impl_py_wrapper_core!(PyBeatTrackingData, BeatTrackingData);
 impl_py_repr!(PyBeatTrackingData);
+
+/// Strategy for reducing a multi-channel signal to a single channel.
+///
+/// `ChannelReduction` controls how operations that fundamentally require a single
+/// channel (such as spectral centroid or roll-off) behave when presented with a
+/// multi-channel signal. It lets the caller choose between failing loudly,
+/// selecting a single channel, or averaging across channels.
+///
+/// Instances of `ChannelReduction` are immutable and should be treated as
+/// enum-like values. Zero-parameter strategies are accessed via class attributes,
+/// while the channel-selection strategy is constructed via a static method.
+///
+/// Available strategies:
+///
+/// - ``ChannelReduction.error`` (default):
+///   Return an error when the signal has more than one channel.
+///
+/// - ``ChannelReduction.first``:
+///   Use the first channel (index 0) and ignore the rest.
+///
+/// - ``ChannelReduction.average``:
+///   Average the corresponding samples across all channels.
+///
+/// - ``ChannelReduction.channel(index)``:
+///   Use the channel at the given (bounds-checked) index.
+#[pyclass(
+    name = "ChannelReduction",
+    from_py_object,
+    module = "audio_samples.types"
+)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PyChannelReduction {
+    pub(crate) inner: ChannelReduction,
+}
+
+#[pymethods]
+impl PyChannelReduction {
+    /// Return an error when the signal has more than one channel.
+    ///
+    /// This is the default strategy and preserves the strictest behaviour by
+    /// refusing to silently collapse channels.
+    #[classattr]
+    fn error() -> Self {
+        PyChannelReduction {
+            inner: ChannelReduction::Error,
+        }
+    }
+
+    /// Use the first channel (index 0) and ignore the rest.
+    #[classattr]
+    fn first() -> Self {
+        PyChannelReduction {
+            inner: ChannelReduction::First,
+        }
+    }
+
+    /// Average the corresponding samples across all channels.
+    #[classattr]
+    fn average() -> Self {
+        PyChannelReduction {
+            inner: ChannelReduction::Average,
+        }
+    }
+
+    /// Use the channel at the given index.
+    ///
+    /// The index is bounds-checked when the reduction is applied.
+    ///
+    /// Parameters
+    /// ----------
+    /// index : int
+    ///     Zero-based channel index to select.
+    #[staticmethod]
+    #[pyo3(signature = (index: "int"), text_signature = "(index: int) -> ChannelReduction")]
+    fn channel(index: usize) -> Self {
+        PyChannelReduction {
+            inner: ChannelReduction::Channel(index),
+        }
+    }
+}
+
+impl_py_wrapper_core!(PyChannelReduction, ChannelReduction);
+impl_py_default_static!(PyChannelReduction);
+impl_py_repr!(PyChannelReduction);
+
+/// Noise gate configuration parameters.
+///
+/// `GateConfig` defines how a downward noise gate attenuates a signal that falls
+/// below a threshold, including the attenuation ratio and the attack and release
+/// envelope time constants.
+///
+/// Instances of `GateConfig` are immutable value objects in the Python API.
+/// Parameters are provided at construction time and exposed via read-only
+/// properties. Validation can be performed explicitly using ``validate()``.
+///
+/// A general-purpose noise-gating preset is provided via ``GateConfig.noise_gate``.
+#[pyclass(name = "GateConfig", from_py_object, module = "audio_samples.types")]
+#[derive(Default, Debug, Clone, Copy, PartialEq)]
+pub struct PyGateConfig {
+    pub(crate) inner: GateConfig,
+}
+
+#[pymethods]
+impl PyGateConfig {
+    /// Create a new gate configuration.
+    ///
+    /// Parameters
+    /// ----------
+    /// threshold_db : float
+    ///     Gate threshold in dBFS. Signals below this level are attenuated.
+    ///     Typical range: [-80.0, 0.0].
+    /// ratio : float
+    ///     Attenuation ratio applied below the threshold. Higher values produce
+    ///     more aggressive gating; values near 1.0 approach unity gain. Must be
+    ///     greater than 0.0.
+    /// attack_ms : float
+    ///     Attack time in milliseconds. Controls how quickly the gate opens once
+    ///     the signal rises above the threshold. Valid range: [0.01, 1000.0] ms.
+    /// release_ms : float
+    ///     Release time in milliseconds. Controls how quickly the gate closes once
+    ///     the signal falls below the threshold. Valid range: [1.0, 10000.0] ms.
+    ///
+    /// Returns
+    /// -------
+    /// GateConfig
+    ///     A new gate configuration.
+    #[new]
+    #[pyo3(signature = (*, threshold_db: "float", ratio: "float", attack_ms: "float", release_ms: "float"), text_signature = "($cls, *, threshold_db: float, ratio: float, attack_ms: float, release_ms: float) -> GateConfig")]
+    fn new(threshold_db: f64, ratio: f64, attack_ms: f64, release_ms: f64) -> Self {
+        Self {
+            inner: GateConfig::with_params(threshold_db, ratio, attack_ms, release_ms),
+        }
+    }
+
+    /// Gate threshold in dBFS.
+    #[getter]
+    fn threshold_db(&self) -> f64 {
+        self.inner.threshold_db
+    }
+
+    /// Attenuation ratio applied below the threshold.
+    #[getter]
+    fn ratio(&self) -> f64 {
+        self.inner.ratio
+    }
+
+    /// Attack time in milliseconds.
+    #[getter]
+    fn attack_ms(&self) -> f64 {
+        self.inner.attack_ms
+    }
+
+    /// Release time in milliseconds.
+    #[getter]
+    fn release_ms(&self) -> f64 {
+        self.inner.release_ms
+    }
+
+    /// General-purpose noise-gating preset.
+    ///
+    /// Moderate threshold and a high ratio for firmly attenuating background
+    /// noise and room tone between phrases.
+    #[classattr]
+    fn noise_gate() -> Self {
+        Self {
+            inner: GateConfig::noise_gate(),
+        }
+    }
+
+    /// Validate gate configuration parameters.
+    ///
+    /// Returns
+    /// -------
+    /// GateConfig
+    ///     The validated gate configuration.
+    ///
+    /// Raises
+    /// ------
+    /// ValueError
+    ///     If any configuration parameter is invalid.
+    #[pyo3(signature = (), text_signature = "($self) -> GateConfig")]
+    fn validate(&mut self) -> PyResult<Self> {
+        self.inner.validate().map_err(audio_err_to_py)?;
+        Ok(Self { inner: self.inner })
+    }
+}
+
+impl_py_wrapper_core!(PyGateConfig, GateConfig);
+impl_py_default_static!(PyGateConfig);
+impl_py_repr!(PyGateConfig);
+
+/// Downward expander configuration parameters.
+///
+/// `ExpanderConfig` defines how a downward expander attenuates a signal that
+/// falls below a threshold, increasing the dynamic range of low-level material.
+/// RMS detection is always used for expansion.
+///
+/// Instances of `ExpanderConfig` are immutable value objects in the Python API.
+/// Parameters are provided at construction time and exposed via read-only
+/// properties. Validation can be performed explicitly using ``validate()``.
+///
+/// A gentle expansion preset is provided via ``ExpanderConfig.gentle``.
+#[pyclass(name = "ExpanderConfig", from_py_object, module = "audio_samples.types")]
+#[derive(Default, Debug, Clone, Copy, PartialEq)]
+pub struct PyExpanderConfig {
+    pub(crate) inner: ExpanderConfig,
+}
+
+#[pymethods]
+impl PyExpanderConfig {
+    /// Create a new expander configuration.
+    ///
+    /// Parameters
+    /// ----------
+    /// threshold_db : float
+    ///     Expansion threshold in dBFS. Signals below this level are attenuated.
+    ///     Typical range: [-80.0, 0.0].
+    /// ratio : float
+    ///     Expansion ratio applied below the threshold. Values greater than 1.0
+    ///     produce increasing attenuation the further the signal falls below the
+    ///     threshold. Must be greater than 0.0.
+    /// attack_ms : float
+    ///     Attack time in milliseconds. Valid range: [0.01, 1000.0] ms.
+    /// release_ms : float
+    ///     Release time in milliseconds. Valid range: [1.0, 10000.0] ms.
+    ///
+    /// Returns
+    /// -------
+    /// ExpanderConfig
+    ///     A new expander configuration.
+    #[new]
+    #[pyo3(signature = (*, threshold_db: "float", ratio: "float", attack_ms: "float", release_ms: "float"), text_signature = "($cls, *, threshold_db: float, ratio: float, attack_ms: float, release_ms: float) -> ExpanderConfig")]
+    fn new(threshold_db: f64, ratio: f64, attack_ms: f64, release_ms: f64) -> Self {
+        Self {
+            inner: ExpanderConfig::with_params(threshold_db, ratio, attack_ms, release_ms),
+        }
+    }
+
+    /// Expansion threshold in dBFS.
+    #[getter]
+    fn threshold_db(&self) -> f64 {
+        self.inner.threshold_db
+    }
+
+    /// Expansion ratio applied below the threshold.
+    #[getter]
+    fn ratio(&self) -> f64 {
+        self.inner.ratio
+    }
+
+    /// Attack time in milliseconds.
+    #[getter]
+    fn attack_ms(&self) -> f64 {
+        self.inner.attack_ms
+    }
+
+    /// Release time in milliseconds.
+    #[getter]
+    fn release_ms(&self) -> f64 {
+        self.inner.release_ms
+    }
+
+    /// Gentle downward expansion preset.
+    ///
+    /// A low ratio and relaxed envelope times for subtle dynamic-range
+    /// enhancement without obvious pumping.
+    #[classattr]
+    fn gentle() -> Self {
+        Self {
+            inner: ExpanderConfig::gentle(),
+        }
+    }
+
+    /// Validate expander configuration parameters.
+    ///
+    /// Returns
+    /// -------
+    /// ExpanderConfig
+    ///     The validated expander configuration.
+    ///
+    /// Raises
+    /// ------
+    /// ValueError
+    ///     If any configuration parameter is invalid.
+    #[pyo3(signature = (), text_signature = "($self) -> ExpanderConfig")]
+    fn validate(&mut self) -> PyResult<Self> {
+        self.inner.validate().map_err(audio_err_to_py)?;
+        Ok(Self { inner: self.inner })
+    }
+}
+
+impl_py_wrapper_core!(PyExpanderConfig, ExpanderConfig);
+impl_py_default_static!(PyExpanderConfig);
+impl_py_repr!(PyExpanderConfig);
+
+/// Three-band parametric equaliser configuration.
+///
+/// `ThreeBandEqConfig` describes a simple three-band equaliser composed of a low
+/// shelf, a mid peaking band, and a high shelf. It is a convenience configuration
+/// for common tone-shaping tasks without constructing individual EQ bands.
+///
+/// Instances of `ThreeBandEqConfig` are immutable value objects in the Python
+/// API. Parameters are provided at construction time and exposed via read-only
+/// properties. Validation can be performed explicitly using ``validate()``.
+///
+/// A flat (unity-gain) preset is provided via ``ThreeBandEqConfig.flat``.
+#[pyclass(
+    name = "ThreeBandEqConfig",
+    from_py_object,
+    module = "audio_samples.types"
+)]
+#[derive(Default, Debug, Clone, Copy, PartialEq)]
+pub struct PyThreeBandEqConfig {
+    pub(crate) inner: ThreeBandEqConfig,
+}
+
+#[pymethods]
+impl PyThreeBandEqConfig {
+    /// Create a new three-band EQ configuration.
+    ///
+    /// Parameters
+    /// ----------
+    /// low_freq : float
+    ///     Low shelf corner frequency in Hz. Must be greater than 0.0 and less
+    ///     than ``mid_freq``.
+    /// low_gain : float
+    ///     Low shelf gain in dB.
+    /// mid_freq : float
+    ///     Mid peak centre frequency in Hz. Must be greater than ``low_freq`` and
+    ///     less than ``high_freq``.
+    /// mid_gain : float
+    ///     Mid peak gain in dB.
+    /// mid_q : float
+    ///     Mid peak Q factor. Must be greater than 0.0.
+    /// high_freq : float
+    ///     High shelf corner frequency in Hz. Must be greater than ``mid_freq``.
+    /// high_gain : float
+    ///     High shelf gain in dB.
+    ///
+    /// Returns
+    /// -------
+    /// ThreeBandEqConfig
+    ///     A new three-band EQ configuration.
+    #[new]
+    #[pyo3(signature = (*, low_freq: "float", low_gain: "float", mid_freq: "float", mid_gain: "float", mid_q: "float", high_freq: "float", high_gain: "float"), text_signature = "($cls, *, low_freq: float, low_gain: float, mid_freq: float, mid_gain: float, mid_q: float, high_freq: float, high_gain: float) -> ThreeBandEqConfig")]
+    fn new(
+        low_freq: f64,
+        low_gain: f64,
+        mid_freq: f64,
+        mid_gain: f64,
+        mid_q: f64,
+        high_freq: f64,
+        high_gain: f64,
+    ) -> Self {
+        Self {
+            inner: ThreeBandEqConfig::new(
+                low_freq, low_gain, mid_freq, mid_gain, mid_q, high_freq, high_gain,
+            ),
+        }
+    }
+
+    /// Low shelf corner frequency in Hz.
+    #[getter]
+    fn low_freq(&self) -> f64 {
+        self.inner.low_freq
+    }
+
+    /// Low shelf gain in dB.
+    #[getter]
+    fn low_gain(&self) -> f64 {
+        self.inner.low_gain
+    }
+
+    /// Mid peak centre frequency in Hz.
+    #[getter]
+    fn mid_freq(&self) -> f64 {
+        self.inner.mid_freq
+    }
+
+    /// Mid peak gain in dB.
+    #[getter]
+    fn mid_gain(&self) -> f64 {
+        self.inner.mid_gain
+    }
+
+    /// Mid peak Q factor.
+    #[getter]
+    fn mid_q(&self) -> f64 {
+        self.inner.mid_q
+    }
+
+    /// High shelf corner frequency in Hz.
+    #[getter]
+    fn high_freq(&self) -> f64 {
+        self.inner.high_freq
+    }
+
+    /// High shelf gain in dB.
+    #[getter]
+    fn high_gain(&self) -> f64 {
+        self.inner.high_gain
+    }
+
+    /// Flat (unity-gain) three-band EQ preset.
+    ///
+    /// Low shelf at 200 Hz, mid peak at 1 kHz (Q = 1.0), high shelf at 4 kHz, all
+    /// gains at 0 dB. A neutral starting point for further adjustment.
+    #[classattr]
+    fn flat() -> Self {
+        Self {
+            inner: ThreeBandEqConfig::flat(),
+        }
+    }
+
+    /// Validate the three-band EQ parameters.
+    ///
+    /// Returns
+    /// -------
+    /// ThreeBandEqConfig
+    ///     The validated configuration.
+    ///
+    /// Raises
+    /// ------
+    /// ValueError
+    ///     If any configuration parameter is invalid (non-positive frequency,
+    ///     mis-ordered frequencies, or non-positive mid Q).
+    #[pyo3(signature = (), text_signature = "($self) -> ThreeBandEqConfig")]
+    fn validate(&mut self) -> PyResult<Self> {
+        self.inner.validate().map_err(audio_err_to_py)?;
+        Ok(Self { inner: self.inner })
+    }
+}
+
+impl_py_wrapper_core!(PyThreeBandEqConfig, ThreeBandEqConfig);
+impl_py_default_static!(PyThreeBandEqConfig);
+impl_py_repr!(PyThreeBandEqConfig);
+
+/// Power spectral density (PSD) estimate.
+///
+/// `Psd` pairs a frequency axis with the estimated power-per-Hz at each bin. The
+/// two arrays are always the same length: ``frequencies[i]`` is the centre
+/// frequency of bin ``i`` in Hz, and ``density[i]`` is the estimated power
+/// spectral density at that frequency.
+///
+/// Instances of `Psd` are produced by the power spectral density transform and
+/// are not constructed directly from Python. The frequency and density data are
+/// exposed as NumPy arrays.
+#[pyclass(name = "Psd", from_py_object, module = "audio_samples.types")]
+#[derive(Clone, Debug, PartialEq)]
+pub struct PyPsd {
+    pub(crate) inner: Psd,
+}
+
+#[pymethods]
+impl PyPsd {
+    /// The frequency axis, in Hz.
+    ///
+    /// Returns
+    /// -------
+    /// numpy.ndarray
+    ///     A 1-D array of bin centre frequencies in Hz. Same length as
+    ///     ``density``.
+    #[getter]
+    fn frequencies<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray1<f64>> {
+        self.inner.frequencies().to_vec().into_pyarray(py)
+    }
+
+    /// The estimated power spectral density (power per Hz) at each frequency bin.
+    ///
+    /// Returns
+    /// -------
+    /// numpy.ndarray
+    ///     A 1-D array of power-per-Hz values. Same length as ``frequencies``.
+    #[getter]
+    fn density<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray1<f64>> {
+        self.inner.density().to_vec().into_pyarray(py)
+    }
+
+    /// Return the ``(frequencies, density)`` arrays as a tuple.
+    ///
+    /// Returns
+    /// -------
+    /// tuple[numpy.ndarray, numpy.ndarray]
+    ///     A pair of 1-D NumPy arrays containing the frequency axis and the
+    ///     density values respectively.
+    #[pyo3(signature = (), text_signature = "($self) -> tuple[numpy.ndarray, numpy.ndarray]")]
+    fn into_parts<'py>(
+        &self,
+        py: Python<'py>,
+    ) -> (Bound<'py, PyArray1<f64>>, Bound<'py, PyArray1<f64>>) {
+        let (freqs, density) = self.inner.clone().into_parts();
+        (freqs.into_pyarray(py), density.into_pyarray(py))
+    }
+
+    /// The number of frequency bins.
+    fn __len__(&self) -> usize {
+        self.inner.frequencies().len()
+    }
+
+    /// String representation showing the number of bins.
+    fn __repr__(&self) -> String {
+        format!("Psd(bins={})", self.inner.frequencies().len())
+    }
+}
+
+impl_py_wrapper_core!(PyPsd, Psd);
+
+/// One of the twelve pitch classes of the chromatic scale.
+///
+/// `PitchClass` represents a pitch class independent of octave. Pitch class ``C``
+/// has index 0, ascending chromatically to ``B`` at index 11.
+///
+/// Instances of `PitchClass` are immutable and should be treated as enum-like
+/// values. They are accessed via class attributes, or constructed from a
+/// chromatic index via ``PitchClass.from_index(index)``.
+///
+/// Available pitch classes:
+///
+/// - ``PitchClass.c``, ``PitchClass.c_sharp``, ``PitchClass.d``,
+///   ``PitchClass.d_sharp``, ``PitchClass.e``, ``PitchClass.f``,
+///   ``PitchClass.f_sharp``, ``PitchClass.g``, ``PitchClass.g_sharp``,
+///   ``PitchClass.a``, ``PitchClass.a_sharp``, ``PitchClass.b``.
+#[pyclass(name = "PitchClass", from_py_object, module = "audio_samples.types")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PyPitchClass {
+    pub(crate) inner: PitchClass,
+}
+
+#[pymethods]
+impl PyPitchClass {
+    /// Pitch class C (index 0).
+    #[classattr]
+    fn c() -> Self {
+        Self {
+            inner: PitchClass::C,
+        }
+    }
+    /// Pitch class C# / Db (index 1).
+    #[classattr]
+    fn c_sharp() -> Self {
+        Self {
+            inner: PitchClass::CSharp,
+        }
+    }
+    /// Pitch class D (index 2).
+    #[classattr]
+    fn d() -> Self {
+        Self {
+            inner: PitchClass::D,
+        }
+    }
+    /// Pitch class D# / Eb (index 3).
+    #[classattr]
+    fn d_sharp() -> Self {
+        Self {
+            inner: PitchClass::DSharp,
+        }
+    }
+    /// Pitch class E (index 4).
+    #[classattr]
+    fn e() -> Self {
+        Self {
+            inner: PitchClass::E,
+        }
+    }
+    /// Pitch class F (index 5).
+    #[classattr]
+    fn f() -> Self {
+        Self {
+            inner: PitchClass::F,
+        }
+    }
+    /// Pitch class F# / Gb (index 6).
+    #[classattr]
+    fn f_sharp() -> Self {
+        Self {
+            inner: PitchClass::FSharp,
+        }
+    }
+    /// Pitch class G (index 7).
+    #[classattr]
+    fn g() -> Self {
+        Self {
+            inner: PitchClass::G,
+        }
+    }
+    /// Pitch class G# / Ab (index 8).
+    #[classattr]
+    fn g_sharp() -> Self {
+        Self {
+            inner: PitchClass::GSharp,
+        }
+    }
+    /// Pitch class A (index 9).
+    #[classattr]
+    fn a() -> Self {
+        Self {
+            inner: PitchClass::A,
+        }
+    }
+    /// Pitch class A# / Bb (index 10).
+    #[classattr]
+    fn a_sharp() -> Self {
+        Self {
+            inner: PitchClass::ASharp,
+        }
+    }
+    /// Pitch class B (index 11).
+    #[classattr]
+    fn b() -> Self {
+        Self {
+            inner: PitchClass::B,
+        }
+    }
+
+    /// Construct a pitch class from a chromatic index in ``0..=11``.
+    ///
+    /// Parameters
+    /// ----------
+    /// index : int
+    ///     Chromatic index where 0 maps to C and 11 maps to B.
+    ///
+    /// Returns
+    /// -------
+    /// PitchClass
+    ///     The pitch class for the given index.
+    ///
+    /// Raises
+    /// ------
+    /// ValueError
+    ///     If ``index`` is greater than 11.
+    #[staticmethod]
+    #[pyo3(signature = (index: "int"), text_signature = "(index: int) -> PitchClass")]
+    fn from_index(index: u8) -> PyResult<Self> {
+        if index > 11 {
+            return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                "pitch class index out of range: {index} (must be 0..=11)"
+            )));
+        }
+        Ok(Self {
+            inner: PitchClass::from_index(index),
+        })
+    }
+
+    /// The chromatic index of this pitch class (C = 0, B = 11).
+    #[pyo3(signature = (), text_signature = "($self) -> int")]
+    fn to_index(&self) -> u8 {
+        self.inner.to_index()
+    }
+
+    /// Human-readable name of the pitch class (e.g. ``"C#"``).
+    fn __str__(&self) -> String {
+        self.inner.to_string()
+    }
+
+    /// Human-readable representation of the pitch class.
+    fn __repr__(&self) -> String {
+        format!("PitchClass({})", self.inner)
+    }
+}
+
+impl_py_wrapper_core!(PyPitchClass, PitchClass);
+impl_py_repr!(PyPitchClass);
+
+/// The mode (tonality) of an estimated musical key.
+///
+/// `Mode` distinguishes between the major and minor tonalities of a key estimate.
+///
+/// Instances of `Mode` are immutable and should be treated as enum-like values.
+/// They are accessed via class attributes rather than being constructed directly.
+///
+/// Available modes:
+///
+/// - ``Mode.major``
+/// - ``Mode.minor``
+#[pyclass(name = "Mode", from_py_object, module = "audio_samples.types")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PyMode {
+    pub(crate) inner: Mode,
+}
+
+#[pymethods]
+impl PyMode {
+    /// Major mode.
+    #[classattr]
+    fn major() -> Self {
+        Self {
+            inner: Mode::Major,
+        }
+    }
+
+    /// Minor mode.
+    #[classattr]
+    fn minor() -> Self {
+        Self {
+            inner: Mode::Minor,
+        }
+    }
+
+    /// Human-readable name of the mode.
+    fn __str__(&self) -> String {
+        match self.inner {
+            Mode::Major => "major".to_string(),
+            Mode::Minor => "minor".to_string(),
+        }
+    }
+
+    /// Human-readable representation of the mode.
+    fn __repr__(&self) -> String {
+        format!("Mode({})", self.__str__())
+    }
+}
+
+impl_py_wrapper_core!(PyMode, Mode);
+impl_py_repr!(PyMode);
+
+/// A musical key estimate.
+///
+/// `Key` pairs a tonic pitch class with a mode (major or minor) and a confidence
+/// score describing how strongly the estimate matched the analysed signal.
+///
+/// Instances are typically produced by key estimation, but can also be
+/// constructed directly. Fields are exposed via read-only properties.
+#[pyclass(name = "Key", from_py_object, module = "audio_samples.types")]
+#[derive(Debug, Clone, Copy)]
+pub struct PyKey {
+    pub(crate) inner: Key,
+}
+
+#[pymethods]
+impl PyKey {
+    /// Create a new key estimate.
+    ///
+    /// Parameters
+    /// ----------
+    /// tonic : PitchClass
+    ///     The tonic pitch class of the key.
+    /// mode : Mode
+    ///     The mode (major or minor) of the key.
+    /// confidence : float
+    ///     Match confidence in [0.0, 1.0]; higher values indicate a stronger
+    ///     match.
+    ///
+    /// Returns
+    /// -------
+    /// Key
+    ///     A new key estimate.
+    #[new]
+    #[pyo3(signature = (tonic: "PitchClass", mode: "Mode", confidence: "float"), text_signature = "($cls, tonic: PitchClass, mode: Mode, confidence: float) -> Key")]
+    fn new(tonic: PyPitchClass, mode: PyMode, confidence: f64) -> Self {
+        Self {
+            inner: Key {
+                tonic: tonic.inner,
+                mode: mode.inner,
+                confidence,
+            },
+        }
+    }
+
+    /// The tonic pitch class of the key.
+    #[getter]
+    fn tonic(&self) -> PyPitchClass {
+        PyPitchClass {
+            inner: self.inner.tonic,
+        }
+    }
+
+    /// The mode (major or minor) of the key.
+    #[getter]
+    fn mode(&self) -> PyMode {
+        PyMode {
+            inner: self.inner.mode,
+        }
+    }
+
+    /// Match confidence in [0.0, 1.0].
+    #[getter]
+    fn confidence(&self) -> f64 {
+        self.inner.confidence
+    }
+
+    /// Human-readable key name (e.g. ``"C# minor"``).
+    fn __str__(&self) -> String {
+        let mode = match self.inner.mode {
+            Mode::Major => "major",
+            Mode::Minor => "minor",
+        };
+        format!("{} {}", self.inner.tonic, mode)
+    }
+
+    /// Human-readable representation including the confidence score.
+    fn __repr__(&self) -> String {
+        let mode = match self.inner.mode {
+            Mode::Major => "major",
+            Mode::Minor => "minor",
+        };
+        format!(
+            "Key(tonic={}, mode={}, confidence={:.3})",
+            self.inner.tonic, mode, self.inner.confidence
+        )
+    }
+}
+
+impl_py_wrapper_core!(PyKey, Key);
+impl_py_repr!(PyKey);
+
+/// A single frame of a pitch contour.
+///
+/// `PitchFrame` pairs a frame onset time with the fundamental frequency detected
+/// in that frame. The frequency is ``None`` for unvoiced frames where no pitch
+/// was detected.
+///
+/// Fields are exposed via read-only properties.
+#[pyclass(name = "PitchFrame", from_py_object, module = "audio_samples.types")]
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct PyPitchFrame {
+    pub(crate) inner: PitchFrame,
+}
+
+#[pymethods]
+impl PyPitchFrame {
+    /// Create a new pitch frame.
+    ///
+    /// Parameters
+    /// ----------
+    /// time : float
+    ///     Frame onset time, in seconds from the start of the signal.
+    /// frequency : float, optional
+    ///     Detected fundamental frequency in Hz, or ``None`` if the frame is
+    ///     unvoiced.
+    ///
+    /// Returns
+    /// -------
+    /// PitchFrame
+    ///     A new pitch frame.
+    #[new]
+    #[pyo3(signature = (time: "float", frequency = None), text_signature = "($cls, time: float, frequency: Optional[float] = None) -> PitchFrame")]
+    fn new(time: f64, frequency: Option<f64>) -> Self {
+        Self {
+            inner: PitchFrame { time, frequency },
+        }
+    }
+
+    /// Frame onset time, in seconds from the start of the signal.
+    #[getter]
+    fn time(&self) -> f64 {
+        self.inner.time
+    }
+
+    /// Detected fundamental frequency in Hz, or ``None`` if the frame is unvoiced.
+    #[getter]
+    fn frequency(&self) -> Option<f64> {
+        self.inner.frequency
+    }
+
+    /// Whether this frame is voiced (a pitch was detected).
+    #[getter]
+    fn voiced(&self) -> bool {
+        self.inner.frequency.is_some()
+    }
+
+    /// Human-readable representation of the frame.
+    fn __repr__(&self) -> String {
+        match self.inner.frequency {
+            Some(hz) => format!("PitchFrame(time={:.4}, frequency={:.2})", self.inner.time, hz),
+            None => format!("PitchFrame(time={:.4}, frequency=None)", self.inner.time),
+        }
+    }
+}
+
+impl_py_wrapper_core!(PyPitchFrame, PitchFrame);
+impl_py_repr!(PyPitchFrame);
+
+/// A time-ordered pitch track.
+///
+/// `PitchContour` is a sequence of [`PitchFrame`] values produced by pitch
+/// tracking. Each frame pairs a frame onset time with the pitch detected in that
+/// frame (or ``None`` when no pitch was found).
+///
+/// Instances are produced by pitch tracking and are not constructed directly from
+/// Python.
+#[pyclass(name = "PitchContour", from_py_object, module = "audio_samples.types")]
+#[derive(Debug, Clone, PartialEq)]
+pub struct PyPitchContour {
+    pub(crate) inner: PitchContour,
+}
+
+#[pymethods]
+impl PyPitchContour {
+    /// All frames in time order, voiced and unvoiced alike.
+    ///
+    /// Returns
+    /// -------
+    /// list[PitchFrame]
+    ///     The complete list of pitch frames.
+    #[pyo3(signature = (), text_signature = "($self) -> list[PitchFrame]")]
+    fn frames(&self) -> Vec<PyPitchFrame> {
+        self.inner
+            .frames()
+            .iter()
+            .map(|&inner| PyPitchFrame { inner })
+            .collect()
+    }
+
+    /// Voiced frames as ``(time_seconds, frequency_hz)`` pairs.
+    ///
+    /// Unvoiced frames are skipped.
+    ///
+    /// Returns
+    /// -------
+    /// list[tuple[float, float]]
+    ///     The voiced frames as (time, frequency) tuples.
+    #[pyo3(signature = (), text_signature = "($self) -> list[tuple[float, float]]")]
+    fn voiced_frames(&self) -> Vec<(f64, f64)> {
+        self.inner.voiced_frames().collect()
+    }
+
+    /// The mean of all voiced frequencies, or ``None`` when no frame is voiced.
+    #[pyo3(signature = (), text_signature = "($self) -> Optional[float]")]
+    fn mean_pitch(&self) -> Option<f64> {
+        self.inner.mean_pitch()
+    }
+
+    /// The total number of frames (voiced and unvoiced).
+    fn __len__(&self) -> usize {
+        self.inner.len()
+    }
+
+    /// Human-readable representation showing the frame count.
+    fn __repr__(&self) -> String {
+        format!("PitchContour(frames={})", self.inner.len())
+    }
+}
+
+impl_py_wrapper_core!(PyPitchContour, PitchContour);
+impl_py_repr!(PyPitchContour);

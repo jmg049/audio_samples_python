@@ -54,8 +54,21 @@ pub fn utils(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     utils_mod.add_function(wrap_pyfunction!(comparison::mse, &utils_mod)?)?;
     utils_mod.add_function(wrap_pyfunction!(comparison::snr, &utils_mod)?)?;
     utils_mod.add_function(wrap_pyfunction!(comparison::align_signals, &utils_mod)?)?;
+    utils_mod.add_function(wrap_pyfunction!(comparison::psnr, &utils_mod)?)?;
+    utils_mod.add_function(wrap_pyfunction!(comparison::segmental_snr, &utils_mod)?)?;
+    utils_mod.add_function(wrap_pyfunction!(
+        comparison::log_spectral_distance,
+        &utils_mod
+    )?)?;
+    utils_mod.add_function(wrap_pyfunction!(
+        comparison::correlation_per_channel,
+        &utils_mod
+    )?)?;
+    utils_mod.add_function(wrap_pyfunction!(comparison::mse_per_channel, &utils_mod)?)?;
+    utils_mod.add_function(wrap_pyfunction!(comparison::snr_per_channel, &utils_mod)?)?;
 
     generation::generation(py, &utils_mod)?;
+    detection::detection(py, &utils_mod)?;
     m.add_submodule(&utils_mod)?;
     Ok(())
 }
