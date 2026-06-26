@@ -39,11 +39,21 @@ from audio_samples.types import (
     PitchDetectionMethod,
     ResamplingQuality,
     NormalizationMethod,
+    ChannelReduction,
+    GateConfig,
+    ExpanderConfig,
+    ThreeBandEqConfig,
+    Psd,
+    Key,
+    Mode,
+    PitchClass,
+    PitchContour,
+    PitchFrame,
+    SosFilter,
 )
 
 from . import generation as generation
 from . import io as io
-from . import plotting as plotting
 from . import utils as utils
 from . import audio_math as audio_math
 from . import mpl as mpl
@@ -65,6 +75,14 @@ from .generation import (
     stereo_sine_wave,
     stereo_chirp,
     stereo_silence,
+    square_wave_bandlimited,
+    sawtooth_wave_bandlimited,
+    triangle_wave_bandlimited,
+    exponential_chirp,
+    fm_signal,
+    am_signal,
+    compound_tone,
+    exponential_bursts,
 )
 
 __all__ = [
@@ -84,9 +102,15 @@ __all__ = [
     "stereo_sine_wave",
     "stereo_chirp",
     "stereo_silence",
+    "square_wave_bandlimited",
+    "sawtooth_wave_bandlimited",
+    "triangle_wave_bandlimited",
+    "exponential_chirp",
+    "fm_signal",
+    "am_signal",
+    "compound_tone",
+    "exponential_bursts",
     "AudioSamples",
-    "concatenate",
-    "stack",
     "IirFilterDesign",
     "EqBand",
     "ParametricEq",
@@ -101,14 +125,6 @@ __all__ = [
     "VadConfig",
     "VadMethod",
     "VadChannelPolicy",
-    "Layout",
-    "ChannelManagementStrategy",
-    "WaveformPlotParams",
-    "SpectrogramPlotParams",
-    "MagnitudeSpectrumParams",
-    "WaveformPlot",
-    "SpectrogramPlot",
-    "MagnitudeSpectrumPlot",
     "PadSide",
     "PerturbationConfig",
     "FadeCurve",
@@ -318,6 +334,27 @@ class AudioSamples:
         """
         ...
 
+    @classmethod
+    def concatenate_owned(cls, segments: list[AudioSamples]) -> AudioSamples:
+        """Concatenate multiple owned buffers end to end.
+
+        Behaves identically to :meth:`concatenate`; it mirrors the crate's
+        owned-segment variant. All segments must share the same dtype, sample
+        rate, and channel count.
+
+        Args:
+            segments: Non-empty list of buffers to join.
+
+        Returns:
+            AudioSamples: Combined buffer spanning all segments.
+
+        Raises:
+            ValueError: If the segment list is empty.
+            TypeError: If segments differ in dtype or are not AudioSamples.
+            AudioError: If concatenation fails.
+        """
+        ...
+
     # AudioEditing methods
     def repeat(self, count: int) -> AudioSamples:
         """Repeat the audio samples count times."""
@@ -325,6 +362,29 @@ class AudioSamples:
 
     def trim_silence(self, threshold_db: float) -> AudioSamples:
         """Trim silence from the beginning and end of the audio based on a dB threshold."""
+        ...
+
+    def trim_all_silence(
+        self, threshold_db: float, min_silence_duration_seconds: float
+    ) -> AudioSamples:
+        """Remove every silent region longer than a minimum duration.
+
+        Unlike :meth:`trim_silence`, which only trims leading and trailing
+        silence, this removes interior silence runs as well. A region is treated
+        as silent when its level stays below ``threshold_db`` for at least
+        ``min_silence_duration_seconds``.
+
+        Args:
+            threshold_db: Silence threshold in decibels.
+            min_silence_duration_seconds: Minimum duration, in seconds, a silent
+                run must reach before it is removed.
+
+        Returns:
+            AudioSamples: Buffer with qualifying silence removed.
+
+        Raises:
+            AudioError: If trimming fails.
+        """
         ...
 
     def perturb(self, config: "PerturbationConfig") -> AudioSamples:
@@ -509,19 +569,23 @@ class AudioSamples:
         threshold: float = 0.1,
         min_frequency: float = 50.0,
         max_frequency: float = 2000.0,
-    ) -> list[tuple[float, Optional[float]]]:
-        """Track pitch over time. Returns list of (time, frequency) tuples.
+    ) -> PitchContour:
+        """Track the detected pitch over successive analysis windows.
 
         Args:
-            window_size: Size of each analysis window in samples
-            hop_size: Step between windows in samples
-            pitch_method: Detection strategy to apply per window
-            threshold: Detection threshold interpreted by the selected method
-            min_frequency: Minimum expected frequency in Hz
-            max_frequency: Maximum expected frequency in Hz
+            window_size: Size of each analysis window in samples; must be greater than zero.
+            hop_size: Step between windows in samples; must be greater than zero.
+            pitch_method: Detection strategy to apply per window.
+            threshold: Detection threshold interpreted by the selected method.
+            min_frequency: Minimum expected frequency in Hz.
+            max_frequency: Maximum expected frequency in Hz.
 
         Returns:
-            Sequence of (time_seconds, pitch_hz) pairs
+            PitchContour: Time-ordered pitch track of per-window frames.
+
+        Raises:
+            ValueError: If window_size or hop_size is zero.
+            AudioError: If pitch tracking fails.
         """
         ...
 
@@ -567,14 +631,18 @@ class AudioSamples:
         """
         ...
 
-    def estimate_key(self, stft_params: StftParams) -> tuple[int, float]:
+    def estimate_key(self, stft_params: StftParams) -> Key:
         """Estimate the musical key of the audio signal.
 
         Args:
-            stft_params: Parameters controlling the underlying STFT analysis
+            stft_params: Parameters controlling the underlying STFT analysis.
 
         Returns:
-            Tuple of (key_index, confidence_score)
+            Key: Detected key, including tonic pitch class, mode (major/minor),
+                and confidence score.
+
+        Raises:
+            AudioError: If key estimation fails.
         """
         ...
 
@@ -834,83 +902,66 @@ class AudioSamples:
         """
         ...
 
-    # AudioPlotting methods
-    def plot_waveform(
-        self, params: Optional[WaveformPlotParams] = None
-    ) -> WaveformPlot:
-        """Plot the waveform of the audio signal.
+    def estimate_tempo(self, config: BeatTrackingConfig) -> float:
+        """Estimate the global tempo of the signal in beats per minute.
 
-        Creates an interactive time-domain waveform visualization using Plotly.
-        The resulting plot can be saved as HTML or static images (PNG, SVG, etc.).
+        This runs the same onset and tempo analysis as :meth:`detect_beats` but
+        returns only the estimated tempo, skipping the per-beat tracking step.
 
         Args:
-            params: Optional waveform plot configuration parameters
+            config: Parameters controlling tempo targets and onset detection.
 
         Returns:
-            WaveformPlot object with html(), save(), and show() methods
+            float: Estimated tempo in beats per minute.
 
-        Examples:
-            >>> from audio_samples import AudioSamples, WaveformPlotParams
-            >>> audio = AudioSamples.read("audio.wav")
-            >>> # Default plot
-            >>> plot = audio.plot_waveform()
-            >>> plot.save("waveform.html")
-            >>> # Custom plot
-            >>> params = WaveformPlotParams(title="My Audio", color="blue")
-            >>> plot = audio.plot_waveform(params)
-            >>> plot.save("waveform.png")
+        Raises:
+            AudioError: If tempo estimation fails.
         """
         ...
 
-    def plot_spectrogram(
-        self, params: Optional[SpectrogramPlotParams] = None
-    ) -> "SpectrogramPlot":
-        """Plot the spectrogram of the audio signal.
+    def windows(
+        self, window_size: int, hop_size: int
+    ) -> list[NDArray[np.float64]]:
+        """Split the signal into fixed-size, optionally overlapping windows.
 
-        Creates an interactive time-frequency spectrogram visualization using Plotly.
-        Shows how the frequency content of the audio changes over time.
+        Each window covers ``window_size`` samples per channel and successive
+        windows start ``hop_size`` samples apart, so windows overlap when
+        ``hop_size < window_size``. Trailing data that does not fill a complete
+        window is zero-padded.
 
         Args:
-            params: Optional spectrogram plot configuration parameters
+            window_size: Samples per channel in each window; must be > 0.
+            hop_size: Samples between successive window starts; must be > 0.
 
         Returns:
-            SpectrogramPlot object with html(), save(), and show() methods
+            list[numpy.ndarray]: One array per window, each shaped ``(samples,)``
+                for mono audio or ``(channels, samples)`` for multi-channel audio.
 
-        Examples:
-            >>> from audio_samples import AudioSamples, SpectrogramPlotParams
-            >>> audio = AudioSamples.read("audio.wav")
-            >>> # Default plot
-            >>> plot = audio.plot_spectrogram()
-            >>> plot.save("spectrogram.html")
-            >>> # Custom plot
-            >>> params = SpectrogramPlotParams(title="Audio Spectrogram")
-            >>> plot = audio.plot_spectrogram(params)
+        Raises:
+            ValueError: If window_size or hop_size is zero.
         """
         ...
 
-    def plot_magnitude_spectrum(
-        self, params: Optional["MagnitudeSpectrumParams"] = None
-    ) -> "MagnitudeSpectrumPlot":
-        """Plot the magnitude spectrum of the audio signal.
+    def frames(self) -> list[NDArray[np.float64]]:
+        """Iterate over time-aligned frames of the signal.
 
-        Creates an interactive frequency-domain magnitude spectrum visualization.
-        Shows the frequency content (amplitude vs frequency) of the audio.
-
-        Args:
-            params: Optional magnitude spectrum configuration parameters
+        Each frame is a snapshot across all channels at a single time index, so
+        the number of frames equals the number of samples per channel.
 
         Returns:
-            MagnitudeSpectrumPlot object with html(), save(), and show() methods
+            list[numpy.ndarray]: One array per time index, each shaped ``(1,)``
+                for mono audio or ``(channels, 1)`` for multi-channel audio.
+        """
+        ...
 
-        Examples:
-            >>> from audio_samples import AudioSamples, MagnitudeSpectrumParams
-            >>> audio = AudioSamples.read("audio.wav")
-            >>> # Default plot
-            >>> plot = audio.plot_magnitude_spectrum()
-            >>> plot.save("spectrum.html")
-            >>> # Custom plot with higher resolution
-            >>> params = MagnitudeSpectrumParams(title="Frequency Spectrum", n_fft=4096)
-            >>> plot = audio.plot_magnitude_spectrum(params)
+    def iter_channels(self) -> list[NDArray[np.float64]]:
+        """Iterate over the complete signal of each channel.
+
+        Each item is the full temporal sequence of one channel, yielded in
+        increasing channel-index order.
+
+        Returns:
+            list[numpy.ndarray]: One mono array per channel.
         """
         ...
 
@@ -1033,12 +1084,196 @@ class AudioSamples:
         """
         ...
 
-    def spectral_centroid(self) -> float:
-        """Calculate the spectral centroid."""
+    def spectral_centroid(
+        self, reduction: ChannelReduction = ChannelReduction.average
+    ) -> float:
+        """Compute the spectral centroid using the current FFT backend.
+
+        Args:
+            reduction: Channel-reduction policy applied to multi-channel input.
+                Defaults to ``ChannelReduction.average``.
+
+        Returns:
+            float: Frequency-weighted centroid of the magnitude spectrum.
+
+        Raises:
+            AudioError: If the FFT computation fails or the reduction is invalid
+                for the channel layout.
+        """
         ...
 
-    def spectral_rolloff(self, rolloff_percent: float) -> float:
-        """Calculate spectral rolloff at given percentage."""
+    def spectral_rolloff(
+        self,
+        rolloff_percent: float = 0.85,
+        reduction: ChannelReduction = ChannelReduction.average,
+    ) -> float:
+        """Compute the spectral rolloff point for the provided energy fraction.
+
+        Args:
+            rolloff_percent: Target cumulative spectral energy fraction between 0 and 1.
+            reduction: Channel-reduction policy applied to multi-channel input.
+                Defaults to ``ChannelReduction.average``.
+
+        Returns:
+            float: Frequency where the cumulative spectrum reaches the rolloff threshold.
+
+        Raises:
+            AudioError: If the FFT computation fails or rolloff_percent is invalid.
+        """
+        ...
+
+    def spectral_bandwidth(
+        self, reduction: ChannelReduction = ChannelReduction.average
+    ) -> float:
+        """Compute the spectral bandwidth (spectral spread) of the signal.
+
+        The magnitude-weighted standard deviation of the spectrum about its
+        spectral centroid. Larger values indicate energy spread across a wider
+        frequency range; a pure tone yields a value near zero.
+
+        Args:
+            reduction: Channel-reduction policy applied to multi-channel input.
+                Defaults to ``ChannelReduction.average``.
+
+        Returns:
+            float: Spectral bandwidth in Hz. Returns 0.0 for silence.
+
+        Raises:
+            AudioError: If the FFT computation fails or the reduction is invalid
+                for the channel layout.
+        """
+        ...
+
+    def spectral_flatness(
+        self, reduction: ChannelReduction = ChannelReduction.average
+    ) -> float:
+        """Compute the spectral flatness (Wiener entropy) of the signal.
+
+        The ratio of the geometric mean to the arithmetic mean of the power
+        spectrum. Values near 1 indicate noise-like (flat) spectra, while values
+        near 0 indicate tonal spectra dominated by a few peaks.
+
+        Args:
+            reduction: Channel-reduction policy applied to multi-channel input.
+                Defaults to ``ChannelReduction.average``.
+
+        Returns:
+            float: Spectral flatness in [0, 1]. Returns 0.0 for silence.
+
+        Raises:
+            AudioError: If the FFT computation fails or the reduction is invalid
+                for the channel layout.
+        """
+        ...
+
+    def spectral_crest(
+        self, reduction: ChannelReduction = ChannelReduction.average
+    ) -> float:
+        """Compute the spectral crest factor of the signal.
+
+        The ratio of the peak magnitude to the mean magnitude of the spectrum.
+        High values indicate a strongly peaked (tonal) spectrum; a flat spectrum
+        approaches 1.
+
+        Args:
+            reduction: Channel-reduction policy applied to multi-channel input.
+                Defaults to ``ChannelReduction.average``.
+
+        Returns:
+            float: Spectral crest factor (>= 1 for non-silent signals). Returns
+                0.0 for silence.
+
+        Raises:
+            AudioError: If the FFT computation fails or the reduction is invalid
+                for the channel layout.
+        """
+        ...
+
+    def spectral_slope(
+        self, reduction: ChannelReduction = ChannelReduction.average
+    ) -> float:
+        """Compute the spectral slope of the signal.
+
+        The slope of an ordinary least-squares linear fit of the linear magnitude
+        spectrum against frequency (Hz), in units of magnitude per Hz. A negative
+        slope indicates energy concentrated at low frequencies.
+
+        Args:
+            reduction: Channel-reduction policy applied to multi-channel input.
+                Defaults to ``ChannelReduction.average``.
+
+        Returns:
+            float: Least-squares slope (magnitude per Hz). Returns 0.0 for
+                silence or a degenerate single-bin spectrum.
+
+        Raises:
+            AudioError: If the FFT computation fails or the reduction is invalid
+                for the channel layout.
+        """
+        ...
+
+    def spectral_contrast(
+        self,
+        n_bands: int,
+        reduction: ChannelReduction = ChannelReduction.average,
+    ) -> list[float]:
+        """Compute spectral contrast across octave-spaced sub-bands.
+
+        The spectrum is partitioned into ``n_bands`` octave-spaced sub-bands.
+        Within each band the contrast is the dB difference between the mean of the
+        top quantile (peaks) and the mean of the bottom quantile (valleys). High
+        contrast indicates clear tonal/harmonic structure.
+
+        Args:
+            n_bands: Number of octave-spaced sub-bands; must be greater than zero.
+            reduction: Channel-reduction policy applied to multi-channel input.
+                Defaults to ``ChannelReduction.average``.
+
+        Returns:
+            list[float]: ``n_bands`` contrast values in dB, low band to high band.
+
+        Raises:
+            ValueError: If n_bands is zero.
+            AudioError: If the FFT computation fails or the reduction is invalid
+                for the channel layout.
+        """
+        ...
+
+    def midpoint_sample(self) -> Optional[float]:
+        """Return the value at the temporal midpoint of a mono signal.
+
+        For even-length signals the result is the average of the two central
+        samples; for odd-length signals the single central sample is returned.
+        Samples are selected by index position; the buffer is not sorted.
+
+        Returns:
+            Optional[float]: Midpoint value for mono audio, or None if the signal
+                is multi-channel.
+        """
+        ...
+
+    def rms_and_peak(self) -> tuple[float, int | float]:
+        """Compute the RMS and peak absolute value in a single pass.
+
+        Equivalent to calling ``rms`` and ``peak`` separately, but reads the
+        sample buffer only once.
+
+        Returns:
+            tuple[float, int | float]: A ``(rms, peak)`` pair where ``rms`` is the
+                root-mean-square as a float and ``peak`` is the maximum absolute
+                sample value in the native sample type.
+        """
+        ...
+
+    def amplitude(self) -> int | float:
+        """Return the peak (maximum absolute value) across all samples and channels.
+
+        Alias for ``peak``, provided to match the conventional term "amplitude"
+        used in some audio contexts.
+
+        Returns:
+            int | float: Maximum absolute amplitude present in the buffer.
+        """
         ...
 
     # Amplitude processing
@@ -1144,24 +1379,124 @@ class AudioSamples:
         """Apply limiting (in-place)."""
         ...
 
-    def apply_gate(
-        self,
-        threshold_db: float,
-        ratio: float,
-        attack_ms: float,
-        release_ms: float,
-    ) -> None:
-        """Apply noise gate (in-place)."""
+    def apply_gate(self, config: GateConfig) -> None:
+        """Apply a downward noise gate in place.
+
+        Args:
+            config: Gate parameters controlling threshold, ratio, and timing.
+
+        Returns:
+            None: Operation mutates the current buffer.
+
+        Raises:
+            AudioError: If gating fails.
+        """
         ...
 
-    def apply_expander(
-        self,
-        threshold_db: float,
-        ratio: float,
-        attack_ms: float,
-        release_ms: float,
-    ) -> None:
-        """Apply expander (in-place)."""
+    def apply_expander(self, config: ExpanderConfig) -> None:
+        """Apply a downward expander in place.
+
+        Args:
+            config: Expander parameters controlling threshold, ratio, and timing.
+
+        Returns:
+            None: Operation mutates the current buffer.
+
+        Raises:
+            AudioError: If expansion fails.
+        """
+        ...
+
+    def apply_compressor_sidechain(
+        self, config: CompressorConfig, sidechain: AudioSamples
+    ) -> AudioSamples:
+        """Apply sidechain compression, returning a new buffer.
+
+        The compressor's gain reduction is driven by the level of ``sidechain``
+        rather than the main signal. Sidechain processing must be enabled on the
+        configuration. Only mono-to-mono sidechain processing is supported.
+
+        Args:
+            config: Compressor parameters with sidechain enabled.
+            sidechain: External control signal. Must match the main signal's
+                dtype and length.
+
+        Returns:
+            AudioSamples: A new sidechain-compressed buffer.
+
+        Raises:
+            TypeError: If the main and sidechain dtypes differ.
+            ValueError: If sidechain is not enabled, lengths differ, or either
+                signal is multi-channel.
+            AudioError: If compression fails.
+        """
+        ...
+
+    def apply_limiter_sidechain(
+        self, config: LimiterConfig, sidechain: AudioSamples
+    ) -> AudioSamples:
+        """Apply sidechain limiting, returning a new buffer.
+
+        The limiter's gain reduction ceiling is enforced based on the level of
+        ``sidechain`` rather than the main signal. Sidechain processing must be
+        enabled on the configuration. Only mono-to-mono processing is supported.
+
+        Args:
+            config: Limiter parameters with sidechain enabled.
+            sidechain: External control signal. Must match the main signal's
+                dtype and length.
+
+        Returns:
+            AudioSamples: A new sidechain-limited buffer.
+
+        Raises:
+            TypeError: If the main and sidechain dtypes differ.
+            ValueError: If sidechain is not enabled, lengths differ, or either
+                signal is multi-channel.
+            AudioError: If limiting fails.
+        """
+        ...
+
+    def get_compression_curve(
+        self, config: CompressorConfig, input_levels_db: NDArray[np.float64]
+    ) -> NDArray[np.float64]:
+        """Compute the static compression input/output curve.
+
+        Maps each input level through the compressor's static gain characteristic
+        (threshold, ratio, knee) plus makeup gain. This is purely analytical and
+        does not modify or use the audio content (no envelope following).
+
+        Args:
+            config: Compressor parameters.
+            input_levels_db: Non-empty array of input levels in dBFS to evaluate.
+
+        Returns:
+            numpy.ndarray: Output levels in dBFS, one per input, in the same order.
+
+        Raises:
+            ValueError: If ``input_levels_db`` is empty or the configuration is invalid.
+            AudioError: If the computation fails.
+        """
+        ...
+
+    def get_gain_reduction(self, config: CompressorConfig) -> NDArray[np.float64]:
+        """Compute the per-sample gain reduction the compressor would apply.
+
+        Passes the audio through the envelope follower and compression gain
+        calculation, collecting the gain reduction (in dB) at every sample
+        without modifying the signal. For multi-channel audio, only the first
+        channel is analysed.
+
+        Args:
+            config: Compressor parameters.
+
+        Returns:
+            numpy.ndarray: Gain reduction values in dB (each >= 0.0), one per
+                sample (first channel for multi-channel audio).
+
+        Raises:
+            AudioError: If the configuration is invalid or processing fails.
+        """
         ...
 
     # Filtering (in-place)
@@ -1196,13 +1531,341 @@ class AudioSamples:
         """Apply Chebyshev Type I filter (in-place)."""
         ...
 
+    def apply_chebyshev_ii_lowpass(
+        self, order: int, cutoff_frequency: float, stopband_attenuation: float
+    ) -> None:
+        """Apply a Chebyshev Type II low-pass filter in place.
+
+        Chebyshev Type II (inverse Chebyshev) filters have a maximally flat
+        passband and equiripple stopband. They are specified by the stopband
+        attenuation rather than passband ripple.
+
+        Args:
+            order: Filter order; must be greater than zero.
+            cutoff_frequency: Stopband edge frequency in hertz.
+            stopband_attenuation: Minimum stopband attenuation in decibels
+                (typically 20-80 dB); must be positive.
+
+        Returns:
+            None: Operation mutates the current buffer.
+
+        Raises:
+            ValueError: If order is zero or a parameter is invalid.
+            AudioError: If filter design or application fails.
+        """
+        ...
+
+    def apply_chebyshev_ii_highpass(
+        self, order: int, cutoff_frequency: float, stopband_attenuation: float
+    ) -> None:
+        """Apply a Chebyshev Type II high-pass filter in place.
+
+        Args:
+            order: Filter order; must be greater than zero.
+            cutoff_frequency: Stopband edge frequency in hertz.
+            stopband_attenuation: Minimum stopband attenuation in decibels;
+                must be positive.
+
+        Returns:
+            None: Operation mutates the current buffer.
+
+        Raises:
+            ValueError: If order is zero or a parameter is invalid.
+            AudioError: If filter design or application fails.
+        """
+        ...
+
+    def apply_chebyshev_ii_bandpass(
+        self,
+        order: int,
+        low_frequency: float,
+        high_frequency: float,
+        stopband_attenuation: float,
+    ) -> None:
+        """Apply a Chebyshev Type II band-pass filter in place.
+
+        Args:
+            order: Prototype filter order per edge; must be greater than zero.
+            low_frequency: Lower band edge in hertz.
+            high_frequency: Upper band edge in hertz.
+            stopband_attenuation: Minimum stopband attenuation in decibels;
+                must be positive.
+
+        Returns:
+            None: Operation mutates the current buffer.
+
+        Raises:
+            ValueError: If order is zero or a parameter is invalid.
+            AudioError: If filter design or application fails.
+        """
+        ...
+
+    def apply_chebyshev_ii_bandstop(
+        self,
+        order: int,
+        low_frequency: float,
+        high_frequency: float,
+        stopband_attenuation: float,
+    ) -> None:
+        """Apply a Chebyshev Type II band-stop filter in place.
+
+        Args:
+            order: Prototype filter order per edge; must be greater than zero.
+            low_frequency: Lower band edge in hertz.
+            high_frequency: Upper band edge in hertz.
+            stopband_attenuation: Minimum stopband attenuation in decibels;
+                must be positive.
+
+        Returns:
+            None: Operation mutates the current buffer.
+
+        Raises:
+            ValueError: If order is zero or a parameter is invalid.
+            AudioError: If filter design or application fails.
+        """
+        ...
+
+    def apply_elliptic_lowpass(
+        self,
+        order: int,
+        cutoff_frequency: float,
+        passband_ripple: float,
+        stopband_attenuation: float,
+    ) -> None:
+        """Apply an elliptic (Cauer) low-pass filter in place.
+
+        Elliptic filters are equiripple in both passband and stopband, giving the
+        steepest transition for a given order. They are specified by both the
+        passband ripple and the stopband attenuation.
+
+        Args:
+            order: Filter order; must be greater than zero.
+            cutoff_frequency: Passband edge frequency in hertz.
+            passband_ripple: Peak passband ripple in decibels; must be positive.
+            stopband_attenuation: Minimum stopband attenuation in decibels;
+                must be positive and greater than ``passband_ripple``.
+
+        Returns:
+            None: Operation mutates the current buffer.
+
+        Raises:
+            ValueError: If order is zero or a parameter is invalid.
+            AudioError: If filter design or application fails.
+        """
+        ...
+
+    def apply_elliptic_highpass(
+        self,
+        order: int,
+        cutoff_frequency: float,
+        passband_ripple: float,
+        stopband_attenuation: float,
+    ) -> None:
+        """Apply an elliptic (Cauer) high-pass filter in place.
+
+        Args:
+            order: Filter order; must be greater than zero.
+            cutoff_frequency: Passband edge frequency in hertz.
+            passband_ripple: Peak passband ripple in decibels; must be positive.
+            stopband_attenuation: Minimum stopband attenuation in decibels;
+                must be positive and greater than ``passband_ripple``.
+
+        Returns:
+            None: Operation mutates the current buffer.
+
+        Raises:
+            ValueError: If order is zero or a parameter is invalid.
+            AudioError: If filter design or application fails.
+        """
+        ...
+
+    def apply_elliptic_bandpass(
+        self,
+        order: int,
+        low_frequency: float,
+        high_frequency: float,
+        passband_ripple: float,
+        stopband_attenuation: float,
+    ) -> None:
+        """Apply an elliptic (Cauer) band-pass filter in place.
+
+        Args:
+            order: Prototype filter order per edge; must be greater than zero.
+            low_frequency: Lower band edge in hertz.
+            high_frequency: Upper band edge in hertz.
+            passband_ripple: Peak passband ripple in decibels; must be positive.
+            stopband_attenuation: Minimum stopband attenuation in decibels;
+                must be positive and greater than ``passband_ripple``.
+
+        Returns:
+            None: Operation mutates the current buffer.
+
+        Raises:
+            ValueError: If order is zero or a parameter is invalid.
+            AudioError: If filter design or application fails.
+        """
+        ...
+
+    def apply_elliptic_bandstop(
+        self,
+        order: int,
+        low_frequency: float,
+        high_frequency: float,
+        passband_ripple: float,
+        stopband_attenuation: float,
+    ) -> None:
+        """Apply an elliptic (Cauer) band-stop filter in place.
+
+        Args:
+            order: Prototype filter order per edge; must be greater than zero.
+            low_frequency: Lower band edge in hertz.
+            high_frequency: Upper band edge in hertz.
+            passband_ripple: Peak passband ripple in decibels; must be positive.
+            stopband_attenuation: Minimum stopband attenuation in decibels;
+                must be positive and greater than ``passband_ripple``.
+
+        Returns:
+            None: Operation mutates the current buffer.
+
+        Raises:
+            ValueError: If order is zero or a parameter is invalid.
+            AudioError: If filter design or application fails.
+        """
+        ...
+
+    def apply_bessel_lowpass(self, order: int, cutoff_frequency: float) -> None:
+        """Apply a Bessel low-pass filter in place.
+
+        Bessel filters have a maximally flat group delay in the passband,
+        preserving the wave shape of in-band signals. The cutoff is the -3 dB point.
+
+        Args:
+            order: Filter order; must be greater than zero.
+            cutoff_frequency: -3 dB cutoff frequency in hertz.
+
+        Returns:
+            None: Operation mutates the current buffer.
+
+        Raises:
+            ValueError: If order is zero or a parameter is invalid.
+            AudioError: If filter design or application fails.
+        """
+        ...
+
+    def apply_bessel_highpass(self, order: int, cutoff_frequency: float) -> None:
+        """Apply a Bessel high-pass filter in place.
+
+        Args:
+            order: Filter order; must be greater than zero.
+            cutoff_frequency: -3 dB cutoff frequency in hertz.
+
+        Returns:
+            None: Operation mutates the current buffer.
+
+        Raises:
+            ValueError: If order is zero or a parameter is invalid.
+            AudioError: If filter design or application fails.
+        """
+        ...
+
+    def apply_bessel_bandpass(
+        self, order: int, low_frequency: float, high_frequency: float
+    ) -> None:
+        """Apply a Bessel band-pass filter in place.
+
+        Args:
+            order: Prototype filter order per edge; must be greater than zero.
+            low_frequency: Lower band edge in hertz.
+            high_frequency: Upper band edge in hertz.
+
+        Returns:
+            None: Operation mutates the current buffer.
+
+        Raises:
+            ValueError: If order is zero or a parameter is invalid.
+            AudioError: If filter design or application fails.
+        """
+        ...
+
+    def apply_bessel_bandstop(
+        self, order: int, low_frequency: float, high_frequency: float
+    ) -> None:
+        """Apply a Bessel band-stop filter in place.
+
+        Args:
+            order: Prototype filter order per edge; must be greater than zero.
+            low_frequency: Lower band edge in hertz.
+            high_frequency: Upper band edge in hertz.
+
+        Returns:
+            None: Operation mutates the current buffer.
+
+        Raises:
+            ValueError: If order is zero or a parameter is invalid.
+            AudioError: If filter design or application fails.
+        """
+        ...
+
+    def filtfilt(self, design: IirFilterDesign) -> None:
+        """Apply a zero-phase (forward-backward) IIR filter in place.
+
+        Filters the signal twice -- once forward and once backward -- so the net
+        phase response is zero. This doubles the effective filter order and
+        squares the magnitude response. Useful when phase distortion must be
+        avoided (e.g. analysis or offline processing).
+
+        Args:
+            design: Filter definition to apply forward and backward.
+
+        Returns:
+            None: Operation mutates the current buffer.
+
+        Raises:
+            AudioError: If filter design or application fails.
+        """
+        ...
+
     # Equalization (in-place)
     def apply_parametric_eq(self, eq: ParametricEq) -> None:
         """Apply parametric equalizer (in-place)."""
         ...
 
+    def parametric_eq(self, eq: ParametricEq) -> AudioSamples:
+        """Apply a parametric equalizer configuration, returning a new buffer.
+
+        Non-mutating twin of :meth:`apply_parametric_eq`; leaves the current
+        buffer unchanged.
+
+        Args:
+            eq: Equalizer definition containing one or more bands.
+
+        Returns:
+            AudioSamples: A new equalized buffer.
+
+        Raises:
+            AudioError: If filter application fails.
+        """
+        ...
+
     def apply_eq_band(self, band: EqBand) -> None:
         """Apply single EQ band (in-place)."""
+        ...
+
+    def eq_band(self, band: EqBand) -> AudioSamples:
+        """Apply a single EQ band, returning a new buffer.
+
+        Non-mutating twin of :meth:`apply_eq_band`; leaves the current buffer
+        unchanged.
+
+        Args:
+            band: Parametric band definition to apply.
+
+        Returns:
+            AudioSamples: A new buffer with the band applied.
+
+        Raises:
+            AudioError: If filter application fails.
+        """
         ...
 
     def apply_peak_filter(
@@ -1223,17 +1886,44 @@ class AudioSamples:
         """Apply high shelf filter (in-place)."""
         ...
 
-    def apply_three_band_eq(
-        self,
-        low_freq: float,
-        low_gain: float,
-        mid_freq: float,
-        mid_gain: float,
-        mid_q: float,
-        high_freq: float,
-        high_gain: float,
-    ) -> None:
-        """Apply three-band equalizer (in-place)."""
+    def apply_three_band_eq(self, config: ThreeBandEqConfig) -> None:
+        """Apply a three-band equalizer in place.
+
+        Args:
+            config: Three-band EQ configuration describing the low shelf, mid
+                peak, and high shelf bands.
+
+        Returns:
+            None: Operation mutates the current buffer.
+
+        Raises:
+            AudioError: If filter application fails.
+        """
+        ...
+
+    def eq_frequency_response(
+        self, eq: ParametricEq, frequencies: NDArray[np.float64]
+    ) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+        """Compute the combined magnitude and phase response of a parametric EQ.
+
+        Evaluates each enabled band's biquad filter at every requested frequency
+        and combines the results (magnitudes multiplied, phases summed), applying
+        the EQ's output gain to the combined magnitude. Disabled bands are skipped.
+        This is purely analytical and does not modify the audio.
+
+        Args:
+            eq: The equalizer whose response to evaluate.
+            frequencies: Frequencies in hertz at which to evaluate the response.
+
+        Returns:
+            tuple[numpy.ndarray, numpy.ndarray]: Linear magnitude (1.0 = unity
+                gain) and phase (radians) arrays, each the same length as
+                ``frequencies``.
+
+        Raises:
+            AudioError: If any enabled band fails to design a filter (e.g. a
+                frequency above the Nyquist limit).
+        """
         ...
 
     # Frequency analysis
@@ -1267,8 +1957,114 @@ class AudioSamples:
 
     def power_spectral_density(
         self, window_size: int = 2048, overlap: float = 0.5
-    ) -> np.typing.NDArray[np.float64]:
-        """Calculate power spectral density."""
+    ) -> Psd:
+        """Estimate the power spectral density across overlapping windows.
+
+        Args:
+            window_size: STFT window length in samples; must be greater than zero.
+            overlap: Fractional overlap between successive windows.
+
+        Returns:
+            Psd: Power spectral density carrying both the frequency axis and the
+                power-per-Hz density, averaged over time.
+
+        Raises:
+            ValueError: If window_size is zero.
+            AudioError: If the PSD computation fails.
+        """
+        ...
+
+    def convolve(self, other: AudioSamples) -> AudioSamples:
+        """Compute the linear convolution of this signal with another.
+
+        Both signals are converted to f64 internally. The result is mono and
+        carries this signal's sample rate, with length
+        ``len(self) + len(other) - 1``.
+
+        Args:
+            other: Signal to convolve with. Must be mono and share this signal's
+                data type.
+
+        Returns:
+            AudioSamples: The convolved mono signal.
+
+        Raises:
+            TypeError: If the two signals have different data types.
+            AudioError: If either signal is multi-channel or the FFT fails.
+        """
+        ...
+
+    def deconvolve(
+        self, other: AudioSamples, regularization: float = 0.0
+    ) -> AudioSamples:
+        """Recover a system response by regularised spectral-division deconvolution.
+
+        Solves ``self = denominator (*) h`` for ``h``. The ``regularization``
+        term (>= 0) is scaled by the denominator's peak power to stabilise the
+        division near spectral nulls. The result is mono at this signal's sample
+        rate.
+
+        Args:
+            other: The denominator signal. Must be mono and share this signal's
+                data type.
+            regularization: Non-negative regularisation factor.
+
+        Returns:
+            AudioSamples: The deconvolved mono signal.
+
+        Raises:
+            TypeError: If the two signals have different data types.
+            AudioError: If either signal is multi-channel or the FFT fails.
+        """
+        ...
+
+    def constant_q_transform(
+        self, params: CqtParams, hop_size: int
+    ) -> NDArray[np.complexfloating]:
+        """Compute the Constant-Q Transform (CQT) of a mono signal.
+
+        Args:
+            params: CQT configuration (bins per octave, number of octaves,
+                minimum frequency).
+            hop_size: Hop size in samples between successive frames; must be
+                greater than zero.
+
+        Returns:
+            numpy.ndarray: Complex CQT coefficients shaped (frequency_bins, time_frames).
+
+        Raises:
+            ValueError: If hop_size is zero.
+            AudioError: If the signal is multi-channel or the computation fails.
+        """
+        ...
+
+    @staticmethod
+    def magphase(
+        complex_spect: NDArray[np.complexfloating], power: Optional[int] = None
+    ) -> tuple[NDArray[np.float64], NDArray[np.complexfloating]]:
+        """Decompose a complex spectrogram into magnitude and phase.
+
+        Given a complex matrix ``D``, returns ``(magnitude, phase)`` such that
+        ``D = magnitude * phase`` elementwise, where ``phase`` contains
+        unit-magnitude complex factors. Bins where the magnitude is zero are
+        assigned a phase of ``1 + 0j``.
+
+        This is a static method that operates on a complex spectrogram array
+        (such as the output of ``fft`` or ``constant_q_transform``) rather than on
+        an ``AudioSamples`` instance.
+
+        Args:
+            complex_spect: Complex 2-D STFT or FFT matrix.
+            power: Exponent applied to the magnitude values. Defaults to 1 (raw
+                magnitude); must be greater than zero if given.
+
+        Returns:
+            tuple[numpy.ndarray, numpy.ndarray]: The real-valued magnitude matrix
+                and the complex unit-magnitude phase matrix.
+
+        Raises:
+            ValueError: If power is provided and is zero.
+        """
         ...
 
     def mel_spectrogram(
@@ -1424,6 +2220,59 @@ class AudioSamples:
         """Extract a single channel."""
         ...
 
+    def borrow_channel(self, channel_index: int) -> AudioSamples:
+        """Return a single channel as a new mono buffer.
+
+        Copies the selected channel into an owned buffer before returning it.
+
+        Args:
+            channel_index: Zero-based index of the channel to borrow. Ignored
+                for mono audio.
+
+        Returns:
+            AudioSamples: An owned mono buffer containing the selected channel.
+
+        Raises:
+            ValueError: If the channel index is out of range.
+        """
+        ...
+
+    @staticmethod
+    def interleave_channels(channels: list[AudioSamples]) -> AudioSamples:
+        """Combine multiple mono buffers into a single multi-channel buffer.
+
+        The first buffer becomes channel 0, the second channel 1, and so on. All
+        inputs must share the same dtype and number of samples; the output sample
+        rate is taken from the first input.
+
+        Args:
+            channels: Non-empty list of mono buffers, all of the same dtype and
+                length.
+
+        Returns:
+            AudioSamples: A multi-channel buffer with one channel per input.
+
+        Raises:
+            ValueError: If the list is empty, the dtypes differ, or the inputs do
+                not all have the same sample count.
+        """
+        ...
+
+    def deinterleave_channels(self) -> list[AudioSamples]:
+        """Split a multi-channel buffer into individual mono buffers.
+
+        Channel 0 becomes element 0, channel 1 becomes element 1, and so on. For
+        mono input a single-element list is returned. This is the inverse of
+        :meth:`interleave_channels`.
+
+        Returns:
+            list[AudioSamples]: One owned mono buffer per input channel.
+
+        Raises:
+            AudioError: If channel separation fails.
+        """
+        ...
+
     def swap_channels(self, channel1: int, channel2: int) -> None:
         """Swap two channels (in-place)."""
         ...
@@ -1473,10 +2322,6 @@ class AudioSamples:
 
     def is_multi_channel(self) -> bool:
         """Check if audio is multi-channel."""
-        ...
-
-    def is_empty(self) -> bool:
-        """Check if audio data is empty."""
         ...
 
     duration_seconds: float
@@ -1941,205 +2786,3 @@ class VadConfig:
         """
         ...
 
-class Layout:
-    """Plot layout direction for multi-channel visualizations."""
-
-    vertical: Layout
-    """Vertical layout (stacked plots)."""
-
-    horizontal: Layout
-    """Horizontal layout (side-by-side plots)."""
-
-    @staticmethod
-    def default() -> Layout:
-        """Default layout (Vertical)."""
-        ...
-
-class ChannelManagementStrategy:
-    """Strategy for handling multi-channel audio in plots."""
-
-    average: ChannelManagementStrategy
-    """Average all channels together into a single plot."""
-
-    separate: ChannelManagementStrategy
-    """Plot channels separately with specified layout."""
-
-    first: ChannelManagementStrategy
-    """Plot only the first channel."""
-
-    last: ChannelManagementStrategy
-    """Plot only the last channel."""
-
-    overlap: ChannelManagementStrategy
-    """Overlay all channels on the same plot."""
-
-    @classmethod
-    def default(cls) -> ChannelManagementStrategy:
-        """Default strategy (Separate with Vertical layout)."""
-        ...
-
-class WaveformPlotParams:
-    """Configuration parameters for waveform plots."""
-
-    def __init__(
-        self,
-        title: Optional[str] = None,
-        channel_strategy: Optional[ChannelManagementStrategy] = None,
-        color: Optional[str] = None,
-        line_width: Optional[float] = None,
-        markers: bool = False,
-    ) -> None:
-        """
-        Create waveform plot parameters.
-
-        Args:
-            title: Plot title
-            channel_strategy: How to handle multi-channel audio
-            color: Line color (CSS color string)
-            line_width: Line width in pixels
-            markers: Whether to show markers at each sample point
-        """
-        ...
-
-    @classmethod
-    def default(cls) -> WaveformPlotParams:
-        """Create default waveform plot parameters."""
-        ...
-
-class SpectrogramPlotParams:
-    """Configuration parameters for spectrogram plots."""
-
-    def __init__(self, title: Optional[str] = None) -> None:
-        """
-        Create spectrogram plot parameters.
-
-        Args:
-            title: Plot title
-        """
-        ...
-
-    @staticmethod
-    def default() -> SpectrogramPlotParams:
-        """Create default spectrogram plot parameters."""
-        ...
-
-class MagnitudeSpectrumParams:
-    """Configuration parameters for magnitude spectrum plots."""
-
-    def __init__(
-        self, title: Optional[str] = None, n_fft: Optional[int] = None
-    ) -> None:
-        """
-        Create magnitude spectrum parameters.
-
-        Args:
-            title: Plot title
-            n_fft: FFT size (default: 2048)
-        """
-        ...
-
-    @classmethod
-    def default(cls) -> MagnitudeSpectrumParams:
-        """Create default magnitude spectrum parameters."""
-        ...
-
-class WaveformPlot:
-    """Waveform plot result with methods for display and export."""
-
-    def html(self) -> str:
-        """Get HTML representation of the plot.
-
-        Returns:
-            HTML string containing the interactive Plotly plot
-        """
-        ...
-
-    def save(self, path: str | Path) -> None:
-        """Save plot to file.
-
-        Supports multiple formats based on file extension:
-        - .html: Interactive HTML
-        - .png: Static PNG image
-        - .svg: Static SVG image
-        - .jpg/.jpeg: Static JPEG image
-        - .webp: Static WebP image
-
-        Args:
-            path: Output file path with extension
-        """
-        ...
-
-    def show(self) -> None:
-        """Show plot in browser .
-
-        Opens the plot.
-        """
-        ...
-
-class SpectrogramPlot:
-    """Spectrogram plot result with methods for display and export."""
-
-    def html(self) -> str:
-        """Get HTML representation of the plot.
-
-        Returns:
-            HTML string containing the interactive Plotly plot
-        """
-        ...
-
-    def save(self, path: str) -> None:
-        """Save plot to file.
-
-        Supports multiple formats based on file extension:
-        - .html: Interactive HTML
-        - .png: Static PNG image
-        - .svg: Static SVG image
-        - .jpg/.jpeg: Static JPEG image
-        - .webp: Static WebP image
-
-        Args:
-            path: Output file path with extension
-        """
-        ...
-
-    def show(self) -> None:
-        """Show plot."""
-        ...
-
-class MagnitudeSpectrumPlot:
-    """Magnitude spectrum plot result with methods for display and export."""
-
-    def html(self) -> str:
-        """Get HTML representation of the plot.
-
-        Returns:
-            HTML string containing the interactive Plotly plot
-        """
-        ...
-
-    def save(self, path: str | Path) -> None:
-        """Save plot to file.
-
-        Supports multiple formats based on file extension:
-        - .html: Interactive HTML
-        - .png: Static PNG image
-        - .svg: Static SVG image
-        - .jpg/.jpeg: Static JPEG image
-        - .webp: Static WebP image
-
-        Args:
-            path: Output file path with extension
-        """
-        ...
-
-    def show(self) -> None:
-        """Show plot."""
-        ...
-
-def concatenate(signals: list[AudioSamples]) -> AudioSamples:
-    """Concatenates multiple audio segments into one signal"""
-    ...
-
-def stack(signals: list[AudioSamples]) -> AudioSamples:
-    """Concatenates multiple mono audio segments into one stacked multi-channel signal"""
-    ...

@@ -20,7 +20,28 @@ Writing Audio Files
 
 .. autofunction:: save
 
-.. autofunction:: save_as_type
+.. autofunction:: write_with_options
+
+.. autofunction:: write_with_metadata
+
+Resampling on Read
+------------------
+
+.. autofunction:: read_and_resample
+
+.. autofunction:: peek_native_type
+
+Streaming I/O
+-------------
+
+.. autoclass:: StreamedAudioReader
+   :members:
+
+.. autoclass:: StreamedAudioWriter
+   :members:
+
+.. autoclass:: WavSink
+   :members:
 
 File Information
 ----------------
@@ -94,7 +115,7 @@ Get detailed information about audio files before loading:
 Format Conversion During Save
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Convert audio format when saving:
+Convert audio format when saving via the ``as_type`` argument:
 
 .. code-block:: python
 
@@ -102,9 +123,9 @@ Convert audio format when saving:
    audio = aus.io.read("input.wav")
 
    # Save as different formats
-   aus.io.save_as_type("output_16bit.wav", audio, np.int16)
-   aus.io.save_as_type("output_32bit.wav", audio, np.int32)
-   aus.io.save_as_type("output_float.wav", audio, np.float32)
+   aus.io.save("output_16bit.wav", audio, as_type=np.int16)
+   aus.io.save("output_32bit.wav", audio, as_type=np.int32)
+   aus.io.save("output_float.wav", audio, as_type=np.float32)
 
 Batch Processing
 ~~~~~~~~~~~~~~~~

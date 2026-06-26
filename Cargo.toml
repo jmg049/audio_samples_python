@@ -28,19 +28,19 @@ crate-type = ["cdylib"]
 
 [dependencies]
 ndarray = "0.17.1"
-pyo3 = { version = "0.28", features = [
+pyo3 = { version = "0.29", features = [
     "extension-module",
     "multiple-pymethods",
     "experimental-inspect",
 ] }
-audio_samples = { version = "1.0.6", features = [
+audio_samples = { path = "../audio_samples", features = [
     "python", "full_no_plotting"
 ] }
-audio_samples_io = { version = "0.2.0", features = ["wav", "numpy", "flac"] }
-numpy = "0.28"
+audio_samples_io = { path = "../audio_samples_io", features = ["wav", "numpy", "flac"] }
+numpy = "0.29"
 serde_json = "1.0.149"
-spectrograms = { version = "1.4.0", features = ["python"] }
-non-empty-slice = "0.5.1"
+spectrograms = { version = "1.4.4", features = ["python"] }
+non-empty-slice = "0.6"
 num-complex = "0.4"
 
 [features]

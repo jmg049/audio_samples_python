@@ -5,6 +5,7 @@ pub mod editing;
 pub mod envelopes;
 pub mod hpss;
 pub mod iir_filtering;
+pub mod iterators;
 pub mod onset_detection;
 pub mod parametric_eq;
 pub mod pitch_analysis;

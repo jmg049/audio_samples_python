@@ -6,147 +6,137 @@ Audio signal analysis and detection utilities.
 
 from __future__ import annotations
 
-from typing import Iterable, Optional, TypeVar
+from typing import Optional
 
-from . import AudioSamples, VadConfig
+import numpy
 
-TNum = TypeVar("TNum", int, float)
+from . import AudioSamples
 
 def detect_sample_rate(audio: AudioSamples) -> Optional[int]:
     """
-    Attempt to infer the effective sample rate of an audio signal from its content.
+    Heuristically detect the original sample rate of a signal from its spectral content.
 
-    The function analyses spectral structure to detect aliasing or band-limiting
-    artefacts that may indicate resampling or incorrect metadata.
+    Analyses the power spectrum for sharp high-frequency cutoffs characteristic of
+    anti-aliasing filters and matches them against common sample rates. Only the first
+    channel is used. Returns ``None`` when no candidate rate can be identified.
 
     Parameters
     ----------
     audio
-        Audio signal to analyse.
+        The audio signal to analyse.
 
     Returns
     -------
     int | None
-        Detected sample rate in Hz, or ``None`` if no reliable estimate can be made.
+        The detected original sample rate in Hz, or ``None``.
     """
     ...
 
 def detect_fundamental_frequency(audio: AudioSamples) -> Optional[float]:
     """
-    Detect the fundamental frequency of an audio signal using spectral analysis.
+    Estimate the fundamental frequency of a signal using autocorrelation.
 
     Parameters
     ----------
     audio
-        Audio signal to analyse.
+        The audio signal to analyse.
 
     Returns
     -------
     float | None
-        Estimated fundamental frequency in Hz, or ``None`` if no dominant
-        fundamental is detected.
+        The estimated fundamental frequency in Hz, or ``None`` if no periodic
+        component is found.
     """
     ...
 
 def detect_silence_regions(
     audio: AudioSamples,
-    threshold: TNum,
+    threshold: float,
 ) -> list[tuple[float, float]]:
     """
-    Detect contiguous silence regions in an audio signal.
+    Detect time intervals where the signal amplitude falls below a threshold.
 
-    A region is considered silent when the signal amplitude remains below the
-    given threshold.
+    For mono signals each sample is checked directly. For multi-channel signals a
+    position is considered silent only when **all** channels are below the threshold.
 
     Parameters
     ----------
     audio
-        Audio signal to analyse.
+        The audio signal to analyse.
     threshold
-        Amplitude threshold below which samples are considered silent.
+        Amplitude threshold in the signal's native sample scale (e.g. 0..1 for float
+        audio). Samples with absolute value below this are considered silent.
 
     Returns
     -------
     list[tuple[float, float]]
-        List of ``(start_time, end_time)`` tuples in seconds.
-    """
-    ...
-
-def detect_voice_activity_mask(
-    audio: AudioSamples,
-    config: VadConfig,
-) -> list[bool]:
-    """
-    Compute a per-frame voice activity mask using the configured VAD.
-
-    This is a convenience wrapper around
-    ``AudioVoiceActivityDetection.voice_activity_mask``.
-
-    Returns one boolean decision per analysis frame.
-    """
-    ...
-
-def detect_speech_regions(
-    audio: AudioSamples,
-    config: VadConfig,
-) -> list[tuple[int, int]]:
-    """
-    Compute contiguous speech regions as ``(start_sample, end_sample)`` pairs.
-
-    This is a convenience wrapper around
-    ``AudioVoiceActivityDetection.speech_regions``.
-    ``end_sample`` is exclusive.
-    """
-    ...
-
-def detect_dynamic_range(audio: AudioSamples) -> tuple[float, float, float]:
-    """
-    Estimate the dynamic range of an audio signal.
-
-    Parameters
-    ----------
-    audio
-        Audio signal to analyse.
-
-    Returns
-    -------
-    tuple[float, float, float]
-        ``(peak_amplitude, rms_amplitude, dynamic_range_db)``.
+        A list of ``(start_time, end_time)`` tuples in seconds, one per silent region.
     """
     ...
 
 def detect_clipping(
     audio: AudioSamples,
-    threshold: float,
+    threshold_ratio: float = 0.99,
 ) -> list[tuple[float, float]]:
     """
-    Detect clipped regions in an audio signal.
+    Detect time intervals where the signal reaches or exceeds the full-scale value.
 
-    A region is considered clipped when the signal remains close to the extrema
-    defined by the threshold.
+    A sample is considered clipped when it reaches or exceeds ``threshold_ratio`` of the
+    sample type's positive full scale, or falls at or below ``threshold_ratio`` of its
+    negative full scale. For multi-channel signals a position is clipped when **any**
+    channel is clipped.
 
     Parameters
     ----------
     audio
-        Audio signal to analyse.
-    threshold
-        Absolute or normalised amplitude threshold defining clipping.
+        The audio signal to analyse.
+    threshold_ratio
+        Fraction of full scale that constitutes clipping, in (0, 1] (default: 0.99).
 
     Returns
     -------
     list[tuple[float, float]]
-        List of ``(start_time, end_time)`` tuples in seconds.
+        A list of ``(start_time, end_time)`` tuples in seconds, one per clipped region.
+    """
+    ...
+
+def detect_dynamic_range(audio: AudioSamples) -> tuple[float, float, float]:
+    """
+    Compute the dynamic-range characteristics of a signal.
+
+    All samples across all channels are considered together.
+
+    Parameters
+    ----------
+    audio
+        The audio signal to analyse.
+
+    Returns
+    -------
+    tuple[float, float, float]
+        A tuple ``(peak_amplitude, rms_amplitude, dynamic_range_db)`` where the dynamic
+        range is the crest factor ``20 * log10(peak / rms)`` in decibels (0.0 when rms
+        is 0).
     """
     ...
 
 def estimate_noise_floor(audio: AudioSamples) -> Optional[float]:
     """
-    Estimate the noise floor of an audio signal.
+    Estimate the noise floor of a signal in dBFS.
+
+    Computes the noise floor from the quietest 10th percentile of sample magnitudes.
+    Only the first channel is used for multi-channel signals.
+
+    Parameters
+    ----------
+    audio
+        The audio signal to analyse.
 
     Returns
     -------
     float | None
-        Estimated noise floor level, or ``None`` if it cannot be reliably inferred.
+        The estimated noise floor in dBFS (always below 0), or ``None`` if it cannot be
+        estimated (e.g. the signal is too short or entirely silent).
     """
     ...
 
@@ -154,54 +144,80 @@ def estimate_frequency_range(
     audio: AudioSamples,
 ) -> Optional[tuple[float, float]]:
     """
-    Estimate the effective frequency response range of the signal.
+    Estimate the active frequency range of a signal.
+
+    Computes the power spectrum of the first channel and returns the lowest and highest
+    frequencies carrying more than 1% of the peak spectral energy.
+
+    Parameters
+    ----------
+    audio
+        The audio signal to analyse.
 
     Returns
     -------
     tuple[float, float] | None
-        ``(low_freq, high_freq)`` in Hz, or ``None`` if undefined.
-    """
-    ...
-
-def compute_spectrum(audio: AudioSamples) -> list[float]:
-    """
-    Compute the magnitude spectrum of the audio signal using an FFT.
+        A ``(low_hz, high_hz)`` tuple, or ``None`` when the signal is shorter than 1024
+        samples or no bin exceeds the threshold.
     """
     ...
 
 def analyze_spectrum_for_cutoff(
-    spectrum: Iterable[float],
+    spectrum: numpy.ndarray,
     nyquist_freq: float,
 ) -> Optional[int]:
     """
-    Analyse a frequency spectrum for potential cutoff frequencies that may
-    indicate resampling or bandwidth limitation.
+    Analyse a power spectrum for a spectral cutoff indicating prior resampling.
+
+    Checks candidate Nyquist frequencies (derived from common sample rates) for a 2x or
+    greater energy drop, and returns the first (lowest-frequency) matching sample rate.
+
+    Parameters
+    ----------
+    spectrum
+        A non-empty 1-D power spectrum (FFT magnitude-squared) as a NumPy float array.
+        Only the lower half of the bins is examined.
+    nyquist_freq
+        The Nyquist frequency of the audio that produced ``spectrum`` in Hz.
 
     Returns
     -------
     int | None
-        Index (or bin) of the detected cutoff, or ``None`` if no clear cutoff
-        is detected.
+        The first candidate sample rate in Hz with a significant energy drop, or
+        ``None``.
+
+    Raises
+    ------
+    ValueError
+        If ``spectrum`` is empty or ``nyquist_freq`` is non-finite.
     """
     ...
 
 def detect_fundamental_autocorrelation(
-    data: Iterable[TNum],
+    data: numpy.ndarray,
     sample_rate: float,
 ) -> Optional[float]:
     """
-    Detect the fundamental frequency using autocorrelation analysis.
+    Estimate the fundamental frequency of a raw sample buffer using autocorrelation.
+
+    Searches candidate periods corresponding to fundamentals in the range 50..2000 Hz.
 
     Parameters
     ----------
     data
-        Time-domain samples.
+        A non-empty 1-D array of mono f64 samples.
     sample_rate
-        Sampling rate in Hz.
+        The sample rate in Hz (must be finite and positive).
 
     Returns
     -------
     float | None
-        Estimated fundamental frequency in Hz, or ``None`` if undetectable.
+        The estimated fundamental frequency in Hz, or ``None`` if no periodic component
+        is found or the signal is too short.
+
+    Raises
+    ------
+    ValueError
+        If ``data`` is empty or ``sample_rate`` is not finite and positive.
     """
     ...

@@ -4,6 +4,7 @@
 //! providing signal comparison functions like correlation, MSE, SNR, and signal alignment.
 
 use audio_samples::utils::comparison;
+use numpy::{IntoPyArray, PyArray1};
 use pyo3::prelude::*;
 
 use crate::{PyAudioSamples, audio_err_to_py};
@@ -364,4 +365,218 @@ pub fn align_signals(
             "Audio samples must have the same data type for alignment",
         )),
     }
+}
+
+/// Dispatch a two-signal comparison over matching dtype variants.
+///
+/// `$call` is invoked as `$call(&a_view, &b_view)` and must return
+/// `audio_samples::AudioSampleResult<R>`. The two inputs must share the same dtype.
+macro_rules! dispatch_pair {
+    ($a:expr, $b:expr, $py:expr, $call:expr) => {{
+        use crate::PyAudioDataInner;
+        let a_inner = $a.inner();
+        let b_inner = $b.inner();
+        match (a_inner, b_inner) {
+            (PyAudioDataInner::U8(a_data), PyAudioDataInner::U8(b_data)) => a_data
+                .with_view($py, |a_view| {
+                    b_data.with_view($py, |b_view| {
+                        $call(&a_view, &b_view).map_err(audio_err_to_py)
+                    })
+                }),
+            (PyAudioDataInner::I16(a_data), PyAudioDataInner::I16(b_data)) => a_data
+                .with_view($py, |a_view| {
+                    b_data.with_view($py, |b_view| {
+                        $call(&a_view, &b_view).map_err(audio_err_to_py)
+                    })
+                }),
+            (PyAudioDataInner::I24(a_data), PyAudioDataInner::I24(b_data)) => a_data
+                .with_view($py, |a_view| {
+                    b_data.with_view($py, |b_view| {
+                        $call(&a_view, &b_view).map_err(audio_err_to_py)
+                    })
+                }),
+            (PyAudioDataInner::I32(a_data), PyAudioDataInner::I32(b_data)) => a_data
+                .with_view($py, |a_view| {
+                    b_data.with_view($py, |b_view| {
+                        $call(&a_view, &b_view).map_err(audio_err_to_py)
+                    })
+                }),
+            (PyAudioDataInner::F32(a_data), PyAudioDataInner::F32(b_data)) => a_data
+                .with_view($py, |a_view| {
+                    b_data.with_view($py, |b_view| {
+                        $call(&a_view, &b_view).map_err(audio_err_to_py)
+                    })
+                }),
+            (PyAudioDataInner::F64(a_data), PyAudioDataInner::F64(b_data)) => a_data
+                .with_view($py, |a_view| {
+                    b_data.with_view($py, |b_view| {
+                        $call(&a_view, &b_view).map_err(audio_err_to_py)
+                    })
+                }),
+            _ => Err(pyo3::exceptions::PyTypeError::new_err(
+                "Audio samples must have the same data type for comparison",
+            )),
+        }
+    }};
+}
+
+#[pyfunction]
+#[pyo3(signature = (reference, test), text_signature = "(reference: AudioSamples, test: AudioSamples) -> float")]
+/// Computes the peak signal-to-noise ratio (PSNR) in decibels between two signals.
+///
+/// PSNR relates the peak amplitude of the reference signal to the mean squared error
+/// between the two signals. Higher values indicate greater similarity; identical signals
+/// yield positive infinity.
+///
+/// Args:
+///     reference: The reference (clean) signal.
+///     test: The signal to compare against the reference.
+///
+/// Returns:
+///     The PSNR in decibels. Returns positive infinity for identical signals.
+///
+/// Raises:
+///     ValueError: If the signals have different dimensions or channel configurations.
+#[inline]
+pub fn psnr(py: Python, reference: &PyAudioSamples, test: &PyAudioSamples) -> PyResult<f64> {
+    dispatch_pair!(reference, test, py, comparison::psnr)
+}
+
+#[pyfunction]
+#[pyo3(signature = (signal, noise, segment_len=256), text_signature = "(signal: AudioSamples, noise: AudioSamples, segment_len: int = 256) -> float")]
+/// Computes the segmental signal-to-noise ratio (segmental SNR) in decibels.
+///
+/// The signals are divided into fixed-length segments; the SNR of each segment is computed,
+/// clamped to a perceptually motivated range, and then averaged. This often correlates better
+/// with perceived quality than a single global SNR.
+///
+/// Args:
+///     signal: The signal component.
+///     noise: The noise component.
+///     segment_len: Number of samples per segment (must be positive, default: 256).
+///
+/// Returns:
+///     The mean of the per-segment SNR values in decibels.
+///
+/// Raises:
+///     ValueError: If the signals have different dimensions/channels, or `segment_len` is 0.
+#[inline]
+pub fn segmental_snr(
+    py: Python,
+    signal: &PyAudioSamples,
+    noise: &PyAudioSamples,
+    segment_len: usize,
+) -> PyResult<f64> {
+    let segment_len = std::num::NonZeroUsize::new(segment_len).ok_or_else(|| {
+        pyo3::exceptions::PyValueError::new_err("segment_len must be greater than 0")
+    })?;
+    dispatch_pair!(signal, noise, py, |a, b| comparison::segmental_snr(
+        a,
+        b,
+        segment_len
+    ))
+}
+
+#[pyfunction]
+#[pyo3(signature = (a, b), text_signature = "(a: AudioSamples, b: AudioSamples) -> float")]
+/// Computes the log-spectral distance (LSD) between two audio signals.
+///
+/// LSD measures the average difference between the log-power spectra of the two signals.
+/// Lower values indicate greater spectral similarity; identical signals yield 0.0.
+///
+/// Args:
+///     a: The first audio signal.
+///     b: The second audio signal.
+///
+/// Returns:
+///     The log-spectral distance as a non-negative scalar value.
+///
+/// Raises:
+///     ValueError: If the signals have different dimensions or channel configurations.
+#[inline]
+pub fn log_spectral_distance(
+    py: Python,
+    a: &PyAudioSamples,
+    b: &PyAudioSamples,
+) -> PyResult<f64> {
+    dispatch_pair!(a, b, py, comparison::log_spectral_distance)
+}
+
+#[pyfunction]
+#[pyo3(signature = (a, b), text_signature = "(a: AudioSamples, b: AudioSamples) -> numpy.ndarray")]
+/// Computes the Pearson correlation coefficient for each channel independently.
+///
+/// Mirrors :func:`correlation` but returns one value per channel instead of an average.
+/// For mono input the returned array has a single element.
+///
+/// Args:
+///     a: The first audio signal.
+///     b: The second audio signal.
+///
+/// Returns:
+///     A 1-D NumPy array of per-channel correlation coefficients, in channel order.
+///
+/// Raises:
+///     ValueError: If the signals have different dimensions or channel configurations.
+#[inline]
+pub fn correlation_per_channel<'py>(
+    py: Python<'py>,
+    a: &PyAudioSamples,
+    b: &PyAudioSamples,
+) -> PyResult<Bound<'py, PyArray1<f64>>> {
+    let values: Vec<f64> = dispatch_pair!(a, b, py, comparison::correlation_per_channel)?;
+    Ok(values.into_pyarray(py))
+}
+
+#[pyfunction]
+#[pyo3(signature = (a, b), text_signature = "(a: AudioSamples, b: AudioSamples) -> numpy.ndarray")]
+/// Computes the mean squared error (MSE) for each channel independently.
+///
+/// Mirrors :func:`mse` but returns one value per channel instead of an average.
+/// For mono input the returned array has a single element.
+///
+/// Args:
+///     a: The first audio signal.
+///     b: The second audio signal.
+///
+/// Returns:
+///     A 1-D NumPy array of per-channel MSE values, in channel order.
+///
+/// Raises:
+///     ValueError: If the signals have different dimensions or channel configurations.
+#[inline]
+pub fn mse_per_channel<'py>(
+    py: Python<'py>,
+    a: &PyAudioSamples,
+    b: &PyAudioSamples,
+) -> PyResult<Bound<'py, PyArray1<f64>>> {
+    let values: Vec<f64> = dispatch_pair!(a, b, py, comparison::mse_per_channel)?;
+    Ok(values.into_pyarray(py))
+}
+
+#[pyfunction]
+#[pyo3(signature = (signal, noise), text_signature = "(signal: AudioSamples, noise: AudioSamples) -> numpy.ndarray")]
+/// Computes the signal-to-noise ratio (SNR) in decibels for each channel independently.
+///
+/// Mirrors :func:`snr` but returns one value per channel instead of aggregating across all
+/// channels. A channel with zero noise power yields positive infinity. For mono input the
+/// returned array has a single element.
+///
+/// Args:
+///     signal: The signal component.
+///     noise: The noise component.
+///
+/// Returns:
+///     A 1-D NumPy array of per-channel SNR values in decibels, in channel order.
+///
+/// Raises:
+///     ValueError: If the signals have different dimensions or channel configurations.
+#[inline]
+pub fn snr_per_channel<'py>(
+    py: Python<'py>,
+    signal: &PyAudioSamples,
+    noise: &PyAudioSamples,
+) -> PyResult<Bound<'py, PyArray1<f64>>> {
+    let values: Vec<f64> = dispatch_pair!(signal, noise, py, comparison::snr_per_channel)?;
+    Ok(values.into_pyarray(py))
 }

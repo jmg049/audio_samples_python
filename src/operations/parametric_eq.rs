@@ -1,9 +1,10 @@
 use audio_samples::AudioParametricEq;
-use pyo3::{PyResult, Python, pymethods};
+use numpy::{IntoPyArray, PyArray1, PyArrayMethods};
+use pyo3::{Bound, PyResult, Python, pymethods};
 
 use crate::{
-    PyAudioSamples, audio_err_to_py, dispatch_with_view_mut,
-    types::{PyEqBand, PyParametricEq},
+    PyAudioSamples, audio_err_to_py, dispatch_with_view, dispatch_with_view_mut,
+    types::{PyEqBand, PyParametricEq, PyThreeBandEqConfig},
 };
 
 #[pymethods]
@@ -21,7 +22,30 @@ impl PyAudioSamples {
     #[pyo3(signature = (eq: "ParametricEq"), text_signature = "($self, eq: ParametricEq) -> None")]
     fn apply_parametric_eq(&mut self, py: Python<'_>, eq: PyParametricEq) -> PyResult<()> {
         dispatch_with_view_mut!(self, py, |mut audio| {
-            audio.apply_parametric_eq(&(*eq)).map_err(audio_err_to_py)
+            audio.apply_parametric_eq_in_place(&(*eq)).map_err(audio_err_to_py)
+        })
+    }
+
+    /// Apply a parametric equalizer configuration, returning a new buffer.
+    ///
+    /// Non-mutating twin of :meth:`apply_parametric_eq`; leaves the current
+    /// buffer unchanged.
+    ///
+    /// Args:
+    ///     eq (ParametricEq): Equalizer definition containing one or more bands.
+    ///
+    /// Returns:
+    ///     AudioSamples: A new equalized buffer.
+    ///
+    /// Raises:
+    ///     AudioError: If filter application fails.
+    #[pyo3(signature = (eq: "ParametricEq"), text_signature = "($self, eq: ParametricEq) -> AudioSamples")]
+    fn parametric_eq(&self, py: Python<'_>, eq: PyParametricEq) -> PyResult<Self> {
+        dispatch_with_view!(self, py, |audio| {
+            audio
+                .apply_parametric_eq(&(*eq))
+                .map_err(audio_err_to_py)
+                .map(|a| Self::from_audio_samples(a.into_owned()))
         })
     }
 
@@ -38,7 +62,30 @@ impl PyAudioSamples {
     #[pyo3(signature = (band: "EqBand"), text_signature = "($self, band: EqBand) -> None")]
     fn apply_eq_band(&mut self, py: Python<'_>, band: &PyEqBand) -> PyResult<()> {
         dispatch_with_view_mut!(self, py, |mut audio| {
-            audio.apply_eq_band(&(*band)).map_err(audio_err_to_py)
+            audio.apply_eq_band_in_place(&(*band)).map_err(audio_err_to_py)
+        })
+    }
+
+    /// Apply a single EQ band, returning a new buffer.
+    ///
+    /// Non-mutating twin of :meth:`apply_eq_band`; leaves the current buffer
+    /// unchanged.
+    ///
+    /// Args:
+    ///     band (EqBand): Parametric band definition to apply.
+    ///
+    /// Returns:
+    ///     AudioSamples: A new buffer with the band applied.
+    ///
+    /// Raises:
+    ///     AudioError: If filter application fails.
+    #[pyo3(signature = (band: "EqBand"), text_signature = "($self, band: EqBand) -> AudioSamples")]
+    fn eq_band(&self, py: Python<'_>, band: &PyEqBand) -> PyResult<Self> {
+        dispatch_with_view!(self, py, |audio| {
+            audio
+                .apply_eq_band(&(*band))
+                .map_err(audio_err_to_py)
+                .map(|a| Self::from_audio_samples(a.into_owned()))
         })
     }
 
@@ -64,7 +111,7 @@ impl PyAudioSamples {
     ) -> PyResult<()> {
         dispatch_with_view_mut!(self, py, |mut audio| {
             audio
-                .apply_peak_filter(frequency, gain_db, q_factor)
+                .apply_peak_filter_in_place(frequency, gain_db, q_factor)
                 .map_err(audio_err_to_py)
         })
     }
@@ -91,7 +138,7 @@ impl PyAudioSamples {
     ) -> PyResult<()> {
         dispatch_with_view_mut!(self, py, |mut audio| {
             audio
-                .apply_low_shelf(frequency, gain_db, q_factor)
+                .apply_low_shelf_in_place(frequency, gain_db, q_factor)
                 .map_err(audio_err_to_py)
         })
     }
@@ -118,7 +165,7 @@ impl PyAudioSamples {
     ) -> PyResult<()> {
         dispatch_with_view_mut!(self, py, |mut audio| {
             audio
-                .apply_high_shelf(frequency, gain_db, q_factor)
+                .apply_high_shelf_in_place(frequency, gain_db, q_factor)
                 .map_err(audio_err_to_py)
         })
     }
@@ -126,37 +173,60 @@ impl PyAudioSamples {
     /// Apply a three-band equalizer in place.
     ///
     /// Args:
-    ///     low_freq (float): Low-shelf corner frequency in hertz.
-    ///     low_gain (float): Low-shelf gain in decibels.
-    ///     mid_freq (float): Mid-band center frequency in hertz.
-    ///     mid_gain (float): Mid-band gain in decibels.
-    ///     mid_q (float): Mid-band quality factor.
-    ///     high_freq (float): High-shelf corner frequency in hertz.
-    ///     high_gain (float): High-shelf gain in decibels.
+    ///     config (ThreeBandEqConfig): Three-band EQ configuration describing the
+    ///         low shelf, mid peak, and high shelf bands.
     ///
     /// Returns:
     ///     None: Operation mutates the current buffer.
     ///
     /// Raises:
     ///     AudioError: If filter application fails.
-    #[pyo3(signature = (low_freq: "float", low_gain:"float", mid_freq:"float", mid_gain:"float", mid_q:"float", high_freq: "float", high_gain: "float"), text_signature = "($self, low_freq: float, low_gain: float, mid_freq: float, mid_gain: float, mid_q: float, high_freq: float, high_gain: float) -> None")]
+    #[pyo3(signature = (config: "ThreeBandEqConfig"), text_signature = "($self, config: ThreeBandEqConfig) -> None")]
     fn apply_three_band_eq(
         &mut self,
         py: Python<'_>,
-        low_freq: f64,
-        low_gain: f64,
-        mid_freq: f64,
-        mid_gain: f64,
-        mid_q: f64,
-        high_freq: f64,
-        high_gain: f64,
+        config: PyThreeBandEqConfig,
     ) -> PyResult<()> {
         dispatch_with_view_mut!(self, py, |mut audio| {
             audio
-                .apply_three_band_eq(
-                    low_freq, low_gain, mid_freq, mid_gain, mid_q, high_freq, high_gain,
-                )
+                .apply_three_band_eq_in_place(&config.inner)
                 .map_err(audio_err_to_py)
         })
+    }
+
+    /// Compute the combined magnitude and phase response of a parametric EQ.
+    ///
+    /// Evaluates each enabled band's biquad filter at every requested frequency
+    /// and combines the results (magnitudes multiplied, phases summed), applying
+    /// the EQ's output gain to the combined magnitude. Disabled bands are skipped.
+    /// This is purely analytical and does not modify the audio.
+    ///
+    /// Args:
+    ///     eq (ParametricEq): The equalizer whose response to evaluate.
+    ///     frequencies (np.typing.NDArray[np.float64]): Frequencies in hertz at
+    ///         which to evaluate the response.
+    ///
+    /// Returns:
+    ///     tuple[np.typing.NDArray[np.float64], np.typing.NDArray[np.float64]]:
+    ///     Linear magnitude (1.0 = unity gain) and phase (radians) arrays, each
+    ///     the same length as ``frequencies``.
+    ///
+    /// Raises:
+    ///     AudioError: If any enabled band fails to design a filter (e.g. a
+    ///         frequency above the Nyquist limit).
+    #[pyo3(signature = (eq: "ParametricEq", frequencies: "np.typing.NDArray[np.float64]"), text_signature = "($self, eq: ParametricEq, frequencies: np.typing.NDArray[np.float64]) -> tuple[np.typing.NDArray[np.float64], np.typing.NDArray[np.float64]]")]
+    fn eq_frequency_response<'py>(
+        &self,
+        py: Python<'py>,
+        eq: PyParametricEq,
+        frequencies: &Bound<'py, PyArray1<f64>>,
+    ) -> PyResult<(Bound<'py, PyArray1<f64>>, Bound<'py, PyArray1<f64>>)> {
+        let freqs = frequencies.readonly().as_array().to_vec();
+        let (magnitudes, phases) = dispatch_with_view!(self, py, |audio| {
+            audio
+                .eq_frequency_response(&(*eq), &freqs)
+                .map_err(audio_err_to_py)
+        })?;
+        Ok((magnitudes.into_pyarray(py), phases.into_pyarray(py)))
     }
 }

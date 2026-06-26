@@ -1,5 +1,6 @@
 use crate::{
-    PyAudioSamples, audio_err_to_py, dispatch_with_view, nzu_or_err, types::PyPitchDetectionMethod,
+    PyAudioSamples, audio_err_to_py, dispatch_with_view, nzu_or_err,
+    types::{PyKey, PyPitchContour, PyPitchDetectionMethod},
 };
 use audio_samples::AudioPitchAnalysis;
 use pyo3::prelude::*;
@@ -70,12 +71,12 @@ impl PyAudioSamples {
     ///     max_frequency (float): Maximum expected frequency in hertz.
     ///
     /// Returns:
-    ///     list[tuple[float, Optional[float]]]: Sequence of (time_seconds, pitch_hz) pairs.
+    ///     PitchContour: Time-ordered pitch track of per-window frames.
     ///
     /// Raises:
     ///     ValueError: If window_size or hop_size is zero.
     ///     AudioError: If pitch tracking fails.
-    #[pyo3(signature = (window_size: "int", hop_size: "int", pitch_method: "PitchDetectionMethod" = PyPitchDetectionMethod::detect_yin(), threshold: "float" = 0.1, min_frequency: "float" = 50.0, max_frequency: "float" = 2000.0), text_signature = "($self, window_size: int, hop_size: int, pitch_method=PitchDetection.yin, threshold: float = 0.1, min_frequency: float = 50.0, max_frequency: float = 2000.0) -> list[tuple[float, Optional[float]]]")]
+    #[pyo3(signature = (window_size: "int", hop_size: "int", pitch_method: "PitchDetectionMethod" = PyPitchDetectionMethod::detect_yin(), threshold: "float" = 0.1, min_frequency: "float" = 50.0, max_frequency: "float" = 2000.0), text_signature = "($self, window_size: int, hop_size: int, pitch_method=PitchDetection.yin, threshold: float = 0.1, min_frequency: float = 50.0, max_frequency: float = 2000.0) -> PitchContour")]
     fn track_pitch(
         &self,
         py: Python<'_>,
@@ -85,7 +86,7 @@ impl PyAudioSamples {
         threshold: f64,
         min_frequency: f64,
         max_frequency: f64,
-    ) -> PyResult<Vec<(f64, Option<f64>)>> {
+    ) -> PyResult<PyPitchContour> {
         let window_size = nzu_or_err(window_size)?;
         let hop_size = nzu_or_err(hop_size)?;
         dispatch_with_view!(self, py, |audio| {
@@ -98,6 +99,7 @@ impl PyAudioSamples {
                     min_frequency,
                     max_frequency,
                 )
+                .map(PyPitchContour::from)
                 .map_err(audio_err_to_py)
         })
     }
@@ -183,19 +185,19 @@ impl PyAudioSamples {
     ///     stft_params (StftParams): Parameters controlling the underlying STFT analysis.
     ///
     /// Returns:
-    ///     tuple[int, float]: Detected key index and confidence score.
+    ///     Key: Detected key, including tonic pitch class, mode (major/minor),
+    ///         and confidence score.
     ///
     /// Raises:
     ///     AudioError: If key estimation fails.
-    pub fn estimate_key(
-        &self,
-        py: Python<'_>,
-        stft_params: &PyStftParams,
-    ) -> PyResult<(usize, f64)> {
+    pub fn estimate_key(&self, py: Python<'_>, stft_params: &PyStftParams) -> PyResult<PyKey> {
         let stft_params = &stft_params.inner;
 
         dispatch_with_view!(self, py, |audio| {
-            audio.estimate_key(stft_params).map_err(audio_err_to_py)
+            audio
+                .estimate_key(stft_params)
+                .map(PyKey::from)
+                .map_err(audio_err_to_py)
         })
     }
 }

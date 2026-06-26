@@ -335,6 +335,32 @@ impl PyAudioSamples {
     }
 
     #[classmethod]
+    #[pyo3(signature = (segments: "list[AudioSamples]"), text_signature = "($cls, segments: list[AudioSamples]) -> AudioSamples")]
+    /// Concatenate multiple owned buffers end to end.
+    ///
+    /// Behaves identically to :meth:`concatenate`; it mirrors the crate's
+    /// owned-segment variant. All segments must share the same dtype, sample
+    /// rate, and channel count.
+    ///
+    /// Args:
+    ///     segments (list[AudioSamples]): Non-empty list of buffers to join.
+    ///
+    /// Returns:
+    ///     AudioSamples: Combined buffer spanning all segments.
+    ///
+    /// Raises:
+    ///     ValueError: If the segment list is empty.
+    ///     TypeError: If segments differ in dtype or are not AudioSamples.
+    ///     AudioError: If concatenation fails.
+    fn concatenate_owned(
+        cls: &Bound<'_, PyType>,
+        py: Python<'_>,
+        segments: &Bound<'_, PyList>,
+    ) -> PyResult<Self> {
+        Self::concatenate(cls, py, segments)
+    }
+
+    #[classmethod]
     #[pyo3(signature = (sources: "list[AudioSamples]", weights: "Optional[list[float]]"=None), text_signature = "($cls, sources: list[AudioSamples], weights: Optional[list[float]] = None) -> AudioSamples")]
     /// Mix multiple buffers together with optional weights.
     ///
@@ -554,7 +580,7 @@ impl PyAudioSamples {
     ) -> PyResult<()> {
         dispatch_with_view_mut!(self, py, |mut audio| {
             audio
-                .fade_in(duration_seconds, curve.inner)
+                .fade_in_in_place(duration_seconds, curve.inner)
                 .map_err(audio_err_to_py)
         })
     }
@@ -579,7 +605,7 @@ impl PyAudioSamples {
     ) -> PyResult<()> {
         dispatch_with_view_mut!(self, py, |mut audio| {
             audio
-                .fade_out(duration_seconds, curve.inner)
+                .fade_out_in_place(duration_seconds, curve.inner)
                 .map_err(audio_err_to_py)
         })
     }
@@ -616,6 +642,38 @@ impl PyAudioSamples {
     fn trim_silence(&self, py: Python<'_>, threshold_db: f64) -> PyResult<Self> {
         dispatch_with_view!(self, py, |audio| {
             let trimmed = audio.trim_silence(threshold_db).map_err(audio_err_to_py)?;
+            Ok(Self::from_audio_samples(trimmed))
+        })
+    }
+
+    #[pyo3(signature = (threshold_db: "float", min_silence_duration_seconds: "float"), text_signature = "($self, threshold_db: float, min_silence_duration_seconds: float) -> AudioSamples")]
+    /// Remove every silent region longer than a minimum duration.
+    ///
+    /// Unlike :meth:`trim_silence`, which only trims leading and trailing
+    /// silence, this removes interior silence runs as well. A region is treated
+    /// as silent when its level stays below ``threshold_db`` for at least
+    /// ``min_silence_duration_seconds``.
+    ///
+    /// Args:
+    ///     threshold_db (float): Silence threshold in decibels.
+    ///     min_silence_duration_seconds (float): Minimum duration, in seconds, a
+    ///         silent run must reach before it is removed.
+    ///
+    /// Returns:
+    ///     AudioSamples: Buffer with qualifying silence removed.
+    ///
+    /// Raises:
+    ///     AudioError: If trimming fails.
+    fn trim_all_silence(
+        &self,
+        py: Python<'_>,
+        threshold_db: f64,
+        min_silence_duration_seconds: f64,
+    ) -> PyResult<Self> {
+        dispatch_with_view!(self, py, |audio| {
+            let trimmed = audio
+                .trim_all_silence(threshold_db, min_silence_duration_seconds)
+                .map_err(audio_err_to_py)?;
             Ok(Self::from_audio_samples(trimmed))
         })
     }
