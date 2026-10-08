@@ -42,6 +42,12 @@ spectrograms = { version = "2.1.3", features = ["python"] }
 non-empty-slice = "0.6"
 num-complex = "0.4"
 
+# Build against the sibling audio_samples checkout (for this crate and for
+# audio_samples_io, which depends on it) so binding builds pick up unreleased
+# fixes. Remove once the matching audio_samples release is on crates.io.
+[patch.crates-io]
+audio_samples = { path = "../audio_samples" }
+
 [features]
 default = []
 audio-samples-plotting = ["audio_samples/plotting"]

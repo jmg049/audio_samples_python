@@ -139,17 +139,21 @@ impl PyAudioSamples {
         })
     }
 
-    /// Apply a low-pass filter to the signal.
+    /// Apply a first-order Butterworth low-pass filter, returning a new buffer.
+    ///
+    /// -3 dB at ``cutoff_hz``, 6 dB/octave; identical to
+    /// ``scipy.signal.sosfilt(scipy.signal.butter(1, cutoff_hz, fs=fs, output='sos'), x)``.
+    /// ``self`` is not modified.
     ///
     /// Args:
-    ///     cutoff_hz (float): Frequency threshold above which content is attenuated.
+    ///     cutoff_hz (float): Cutoff frequency in hertz, in (0, Nyquist).
     ///
     /// Returns:
     ///     AudioSamples: New buffer containing the filtered signal.
     ///
     /// Raises:
     ///     AudioError: If filtering fails.
-    #[pyo3(signature = (cutoff_hz: "float"), text_signature = "($self, cutoff_hz: float) -> None")]
+    #[pyo3(signature = (cutoff_hz: "float"), text_signature = "($self, cutoff_hz: float) -> AudioSamples")]
     pub fn low_pass_filter(&self, py: Python<'_>, cutoff_hz: f64) -> PyResult<Self> {
         dispatch_with_view!(self, py, |audio| {
             audio
@@ -159,17 +163,21 @@ impl PyAudioSamples {
         })
     }
 
-    /// Apply a high-pass filter to the signal.
+    /// Apply a first-order Butterworth high-pass filter, returning a new buffer.
+    ///
+    /// -3 dB at ``cutoff_hz``, 6 dB/octave; identical to
+    /// ``scipy.signal.sosfilt(scipy.signal.butter(1, cutoff_hz, 'highpass', fs=fs, output='sos'), x)``.
+    /// ``self`` is not modified.
     ///
     /// Args:
-    ///     cutoff_hz (float): Frequency threshold below which content is attenuated.
+    ///     cutoff_hz (float): Cutoff frequency in hertz, in (0, Nyquist).
     ///
     /// Returns:
     ///     AudioSamples: New buffer containing the filtered signal.
     ///
     /// Raises:
     ///     AudioError: If filtering fails.
-    #[pyo3(signature = (cutoff_hz: "float"), text_signature = "($self, cutoff_hz: float) -> None")]
+    #[pyo3(signature = (cutoff_hz: "float"), text_signature = "($self, cutoff_hz: float) -> AudioSamples")]
     pub fn high_pass_filter(&self, py: Python<'_>, cutoff_hz: f64) -> PyResult<Self> {
         dispatch_with_view!(self, py, |audio| {
             audio
@@ -179,18 +187,21 @@ impl PyAudioSamples {
         })
     }
 
-    /// Apply a band-pass filter to the signal.
+    /// Apply a band-pass filter (first-order Butterworth prototype), returning a new buffer.
+    ///
+    /// Identical to ``scipy.signal.sosfilt(scipy.signal.butter(1, [low, high],
+    /// 'bandpass', fs=fs, output='sos'), x)``. ``self`` is not modified.
     ///
     /// Args:
-    ///     low_cutoff_hz (float): Lower frequency bound to retain.
-    ///     high_cutoff_hz (float): Upper frequency bound to retain.
+    ///     low_cutoff_hz (float): Lower -3 dB edge in hertz.
+    ///     high_cutoff_hz (float): Upper -3 dB edge in hertz.
     ///
     /// Returns:
     ///     AudioSamples: New buffer containing the filtered signal.
     ///
     /// Raises:
     ///     AudioError: If filtering fails.
-    #[pyo3(signature = (low_cutoff_hz: "float", high_cutoff_hz: "float"), text_signature = "($self, low_cutoff_hz: float, high_cutoff_hz: float) -> None")]
+    #[pyo3(signature = (low_cutoff_hz: "float", high_cutoff_hz: "float"), text_signature = "($self, low_cutoff_hz: float, high_cutoff_hz: float) -> AudioSamples")]
     pub fn band_pass_filter(
         &self,
         py: Python<'_>,

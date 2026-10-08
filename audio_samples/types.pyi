@@ -2,6 +2,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Optional
 import numpy
+import numpy.typing
 from spectrograms import CqtParams
 
 class SampleType(Enum):
@@ -570,29 +571,42 @@ class IirFilterDesign:
     def __init__(
         self,
         filter_type: IirFilterType,
-        response: FilterResponse,
+        response: FilterResponse | str,
         order: int,
         cutoff_frequency: Optional[float] = None,
         low_frequency: Optional[float] = None,
         high_frequency: Optional[float] = None,
+        passband_ripple: Optional[float] = None,
+        stopband_attenuation: Optional[float] = None,
+        bessel_norm: Optional[str] = None,
     ) -> None:
         """
         Create a new IIR filter design.
 
+        Designs match ``scipy.signal.iirfilter(..., output='sos', fs=fs)`` for
+        the same specification (coefficients agree to within a few ULPs).
+
         Parameters
         ----------
         filter_type : IirFilterType
-            IIR filter family (e.g. Butterworth, Chebyshev).
-        response : FilterResponse
-            Desired frequency response shape.
+            IIR filter family (Butterworth, Chebyshev I/II, elliptic, Bessel).
+        response : FilterResponse | str
+            ``'lowpass'``, ``'highpass'``, ``'bandpass'`` or ``'bandstop'``.
         order : int
-            Filter order (number of poles).
+            Filter order (number of poles of the low-pass prototype).
         cutoff_frequency : float, optional
             Cutoff frequency in Hz for low-pass and high-pass filters.
         low_frequency : float, optional
             Lower cutoff frequency in Hz for band-pass and band-stop filters.
         high_frequency : float, optional
             Upper cutoff frequency in Hz for band-pass and band-stop filters.
+        passband_ripple : float, optional
+            Passband ripple in dB (Chebyshev I, elliptic).
+        stopband_attenuation : float, optional
+            Stopband attenuation in dB (Chebyshev II, elliptic).
+        bessel_norm : str, optional
+            ``'mag'`` (default, -3 dB at the cutoff), ``'phase'`` (SciPy's
+            default) or ``'delay'``.
         """
         ...
 
@@ -655,6 +669,134 @@ class IirFilterDesign:
     ) -> IirFilterDesign:
         """
         Create a Butterworth band-pass filter design.
+        """
+        ...
+
+    @property
+    def bessel_norm(self) -> str: ...
+    """Bessel normalisation: ``'mag'``, ``'phase'`` or ``'delay'``."""
+
+    @classmethod
+    def butterworth_bandstop(
+        cls, order: int, low_frequency: float, high_frequency: float
+    ) -> IirFilterDesign:
+        """Butterworth band-stop (``scipy.signal.butter(order, [low, high], 'bandstop')``)."""
+        ...
+
+    @classmethod
+    def chebyshev_i(
+        cls,
+        response: FilterResponse | str,
+        order: int,
+        cutoff_frequency: float,
+        passband_ripple: float,
+    ) -> IirFilterDesign:
+        """Chebyshev I low/high-pass (``scipy.signal.cheby1(order, rp, cutoff, response)``)."""
+        ...
+
+    @classmethod
+    def chebyshev_i_band(
+        cls,
+        response: FilterResponse | str,
+        order: int,
+        low_frequency: float,
+        high_frequency: float,
+        passband_ripple: float,
+    ) -> IirFilterDesign:
+        """Chebyshev I band-pass/stop (``scipy.signal.cheby1(order, rp, [low, high], response)``)."""
+        ...
+
+    @classmethod
+    def chebyshev_ii(
+        cls,
+        response: FilterResponse | str,
+        order: int,
+        cutoff_frequency: float,
+        stopband_attenuation: float,
+    ) -> IirFilterDesign:
+        """Chebyshev II low/high-pass (``scipy.signal.cheby2(order, rs, cutoff, response)``)."""
+        ...
+
+    @classmethod
+    def chebyshev_ii_band(
+        cls,
+        response: FilterResponse | str,
+        order: int,
+        low_frequency: float,
+        high_frequency: float,
+        stopband_attenuation: float,
+    ) -> IirFilterDesign:
+        """Chebyshev II band-pass/stop (``scipy.signal.cheby2(order, rs, [low, high], response)``)."""
+        ...
+
+    @classmethod
+    def elliptic(
+        cls,
+        response: FilterResponse | str,
+        order: int,
+        cutoff_frequency: float,
+        passband_ripple: float,
+        stopband_attenuation: float,
+    ) -> IirFilterDesign:
+        """Elliptic low/high-pass (``scipy.signal.ellip(order, rp, rs, cutoff, response)``)."""
+        ...
+
+    @classmethod
+    def elliptic_band(
+        cls,
+        response: FilterResponse | str,
+        order: int,
+        low_frequency: float,
+        high_frequency: float,
+        passband_ripple: float,
+        stopband_attenuation: float,
+    ) -> IirFilterDesign:
+        """Elliptic band-pass/stop (``scipy.signal.ellip(order, rp, rs, [low, high], response)``)."""
+        ...
+
+    @classmethod
+    def bessel(
+        cls,
+        response: FilterResponse | str,
+        order: int,
+        cutoff_frequency: float,
+        norm: str = "mag",
+    ) -> IirFilterDesign:
+        """Bessel low/high-pass (``scipy.signal.bessel(order, cutoff, response, norm=norm)``).
+
+        ``norm`` defaults to ``'mag'``; SciPy's default is ``'phase'``.
+        """
+        ...
+
+    @classmethod
+    def bessel_band(
+        cls,
+        response: FilterResponse | str,
+        order: int,
+        low_frequency: float,
+        high_frequency: float,
+        norm: str = "mag",
+    ) -> IirFilterDesign:
+        """Bessel band-pass/stop (``scipy.signal.bessel(order, [low, high], response, norm=norm)``)."""
+        ...
+
+    def sos(self, sample_rate: float) -> numpy.typing.NDArray[numpy.float64]:
+        """
+        Design the filter and return its second-order sections.
+
+        A ``(n_sections, 6)`` array of ``[b0, b1, b2, a0, a1, a2]`` rows, in the
+        same layout (and section order) as ``scipy.signal.iirfilter(...,
+        output='sos', fs=sample_rate)``; usable directly with
+        ``scipy.signal.sosfilt``.
+        """
+        ...
+
+    def frequency_response(
+        self, frequencies: numpy.typing.ArrayLike, sample_rate: float
+    ) -> tuple[numpy.typing.NDArray[numpy.float64], numpy.typing.NDArray[numpy.float64]]:
+        """
+        Linear magnitude and phase (radians, wrapped to (-pi, pi]) at
+        ``frequencies`` (Hz), as ``scipy.signal.sosfreqz(sos, worN=frequencies, fs=sample_rate)``.
         """
         ...
 
@@ -2474,6 +2616,33 @@ class SosFilter:
         """
         ...
 
+    @staticmethod
+    def from_sos(sos: numpy.typing.NDArray[numpy.float64], sample_rate: float) -> SosFilter:
+        """
+        Build a streaming filter from SciPy-layout second-order sections.
+
+        Accepts the ``(n_sections, 6)`` array returned by
+        ``scipy.signal.butter(..., output='sos')`` and friends, or by
+        :meth:`IirFilterDesign.sos`.
+
+        Raises:
+            ValueError: If the shape is not ``(n, 6)``, the array is empty,
+                contains non-finite values, or has a zero ``a0``.
+        """
+        ...
+
+    def sos(self) -> numpy.typing.NDArray[numpy.float64]:
+        """The ``(n_sections, 6)`` coefficient array (SciPy layout, ``a0 == 1``)."""
+        ...
+
+    def filtfilt(self, samples: numpy.ndarray) -> numpy.ndarray:
+        """
+        Zero-phase forward-backward filtering of a whole signal, returning a
+        new array; equivalent to ``scipy.signal.sosfiltfilt(sos, samples)``.
+        The streaming state is neither used nor modified.
+        """
+        ...
+
     def process_sample(self, x: float) -> float:
         """
         Process a single sample through the cascade.
@@ -2508,10 +2677,13 @@ class SosFilter:
         Process an array of samples in place.
 
         Overwrites each element of ``samples`` with its filtered value. The input
-        array is modified directly.
+        array is modified directly (strided views are supported).
 
         Args:
-            samples (numpy.ndarray): Input/output buffer; modified in place.
+            samples (numpy.ndarray): Input/output float64 buffer; modified in place.
+
+        Raises:
+            ValueError: If ``samples`` is read-only.
         """
         ...
 

@@ -5,12 +5,13 @@ use audio_samples::{
     AudioIirFiltering,
     operations::types::{FilterResponse, IirFilterDesign},
 };
-use numpy::{IntoPyArray, PyArray1, PyArrayMethods};
-use pyo3::{Bound, PyResult, Python, exceptions::PyTypeError, pyclass, pymethods};
+use numpy::{IntoPyArray, PyArray1, PyArray2, PyArrayMethods};
+use pyo3::exceptions::PyValueError;
+use pyo3::{Bound, PyAny, PyErr, PyResult, Python, pyclass, pymethods};
 
 use crate::{
-    PyAudioSamples, audio_err_to_py, dispatch_with_view, dispatch_with_view_mut, nzu_or_err,
-    types::{PyFilterResponse, PyIirFilterDesign},
+    PyAudioSamples, audio_err_to_py, dispatch_with_view_mut, nzu_or_err,
+    types::{PyIirFilterDesign, filter_response_arg},
 };
 
 #[pymethods]
@@ -29,7 +30,9 @@ impl PyAudioSamples {
     fn apply_iir_filter(&mut self, py: Python<'_>, design: &PyIirFilterDesign) -> PyResult<()> {
         dispatch_with_view_mut!(self, py, |mut audio| {
             let rs_design: &IirFilterDesign = design.deref();
-            audio.apply_iir_filter_in_place(rs_design).map_err(audio_err_to_py)
+            audio
+                .apply_iir_filter_in_place(rs_design)
+                .map_err(audio_err_to_py)
         })
     }
 
@@ -56,7 +59,7 @@ impl PyAudioSamples {
         dispatch_with_view_mut!(self, py, |mut audio| {
             audio
                 .butterworth_lowpass_in_place(order, cutoff_frequency)
-                .map_err(|e| PyTypeError::new_err(format!("Audio error: {e}")))?;
+                .map_err(audio_err_to_py)?;
             Ok(())
         })
     }
@@ -84,7 +87,7 @@ impl PyAudioSamples {
         dispatch_with_view_mut!(self, py, |mut audio| {
             audio
                 .butterworth_highpass_in_place(order, cutoff_frequency)
-                .map_err(|e| PyTypeError::new_err(format!("Audio error: {e}")))?;
+                .map_err(audio_err_to_py)?;
             Ok(())
         })
     }
@@ -114,7 +117,7 @@ impl PyAudioSamples {
         dispatch_with_view_mut!(self, py, |mut audio| {
             audio
                 .butterworth_bandpass_in_place(order, low_frequency, high_frequency)
-                .map_err(|e| PyTypeError::new_err(format!("Audio error: {e}")))?;
+                .map_err(audio_err_to_py)?;
             Ok(())
         })
     }
@@ -125,7 +128,9 @@ impl PyAudioSamples {
     ///     order (int): Filter order; must be greater than zero.
     ///     cutoff_frequency (float): Cutoff frequency in hertz.
     ///     passband_ripple (float): Maximum ripple within the passband in decibels.
-    ///     response (str): Filter response type ('lowpass', 'highpass', 'bandpass', 'bandstop').
+    ///     response (FilterResponse | str): ``'lowpass'`` or ``'highpass'``. For
+    ///         band designs use :meth:`IirFilterDesign.chebyshev_i_band` with
+    ///         :meth:`apply_iir_filter`.
     ///
     /// Returns:
     ///     None: Operation mutates the current buffer.
@@ -133,46 +138,52 @@ impl PyAudioSamples {
     /// Raises:
     ///     ValueError: If order is zero.
     ///     AudioError: If filter design or application fails.
-    #[pyo3(signature = (order: "int", cutoff_frequency: "float", passband_ripple: "float", response: "Literal['lowpass', 'highpass', 'bandpass', 'bandstop']"), text_signature = "($self, order: int, cutoff_frequency: float, passband_ripple: float, response: Literal['lowpass', 'highpass', 'bandpass', 'bandstop']) -> None")]
+    #[pyo3(signature = (order: "int", cutoff_frequency: "float", passband_ripple: "float", response: "FilterResponse | str"), text_signature = "($self, order: int, cutoff_frequency: float, passband_ripple: float, response: FilterResponse | str) -> None")]
     fn apply_chebyshev_i(
         &mut self,
         py: Python<'_>,
         order: usize,
         cutoff_frequency: f64,
         passband_ripple: f64,
-        response: PyFilterResponse,
+        response: &Bound<'_, PyAny>,
     ) -> PyResult<()> {
-        let filter_response = response.into();
+        let filter_response = filter_response_arg(response)?;
         let order = nzu_or_err(order)?;
         dispatch_with_view_mut!(self, py, |mut audio| {
             audio
                 .chebyshev_i_in_place(order, cutoff_frequency, passband_ripple, filter_response)
-                .map_err(|e| PyTypeError::new_err(format!("Audio error: {e}")))?;
+                .map_err(audio_err_to_py)?;
             Ok(())
         })
     }
 
-    /// Evaluate the frequency response of the current filter configuration.
+    /// Deprecated: always returns a flat response.
+    ///
+    /// Audio samples do not carry a filter. Use
+    /// :meth:`IirFilterDesign.frequency_response` or
+    /// :meth:`SosFilter.frequency_response` instead. Emits a
+    /// ``DeprecationWarning``.
     ///
     /// Args:
-    ///     frequencies (list[float]): Frequencies in hertz at which to evaluate the response.
+    ///     frequencies (list[float]): Frequencies in hertz.
     ///
     /// Returns:
-    ///     tuple[list[float], list[float]]: Magnitude and phase arrays at the requested frequencies.
-    ///
-    /// Raises:
-    ///     AudioError: If the response computation fails.
+    ///     tuple[list[float], list[float]]: All-ones magnitudes and all-zero phases.
     #[pyo3(signature = (frequencies: "list[float]"), text_signature = "($self, frequencies: list[float]) -> tuple[list[float], list[float]]")]
     fn frequency_response(
         &self,
         py: Python<'_>,
         frequencies: Vec<f64>,
     ) -> PyResult<(Vec<f64>, Vec<f64>)> {
-        dispatch_with_view!(self, py, |audio| {
-            audio
-                .frequency_response(&frequencies)
-                .map_err(audio_err_to_py)
-        })
+        let category = py.get_type::<pyo3::exceptions::PyDeprecationWarning>();
+        PyErr::warn(
+            py,
+            &category,
+            c"AudioSamples.frequency_response() always returns a flat response; use \
+IirFilterDesign.frequency_response(frequencies, sample_rate) or SosFilter.frequency_response()",
+            1,
+        )?;
+        Ok((vec![1.0; frequencies.len()], vec![0.0; frequencies.len()]))
     }
     /// Apply a Butterworth low-pass filter in place.
     ///
@@ -295,7 +306,9 @@ impl PyAudioSamples {
             stopband_attenuation,
         );
         dispatch_with_view_mut!(self, py, |mut audio| {
-            audio.apply_iir_filter_in_place(&design).map_err(audio_err_to_py)
+            audio
+                .apply_iir_filter_in_place(&design)
+                .map_err(audio_err_to_py)
         })
     }
 
@@ -329,7 +342,9 @@ impl PyAudioSamples {
             stopband_attenuation,
         );
         dispatch_with_view_mut!(self, py, |mut audio| {
-            audio.apply_iir_filter_in_place(&design).map_err(audio_err_to_py)
+            audio
+                .apply_iir_filter_in_place(&design)
+                .map_err(audio_err_to_py)
         })
     }
 
@@ -366,7 +381,9 @@ impl PyAudioSamples {
             stopband_attenuation,
         );
         dispatch_with_view_mut!(self, py, |mut audio| {
-            audio.apply_iir_filter_in_place(&design).map_err(audio_err_to_py)
+            audio
+                .apply_iir_filter_in_place(&design)
+                .map_err(audio_err_to_py)
         })
     }
 
@@ -403,7 +420,9 @@ impl PyAudioSamples {
             stopband_attenuation,
         );
         dispatch_with_view_mut!(self, py, |mut audio| {
-            audio.apply_iir_filter_in_place(&design).map_err(audio_err_to_py)
+            audio
+                .apply_iir_filter_in_place(&design)
+                .map_err(audio_err_to_py)
         })
     }
 
@@ -448,7 +467,9 @@ impl PyAudioSamples {
             stopband_attenuation,
         );
         dispatch_with_view_mut!(self, py, |mut audio| {
-            audio.apply_iir_filter_in_place(&design).map_err(audio_err_to_py)
+            audio
+                .apply_iir_filter_in_place(&design)
+                .map_err(audio_err_to_py)
         })
     }
 
@@ -485,7 +506,9 @@ impl PyAudioSamples {
             stopband_attenuation,
         );
         dispatch_with_view_mut!(self, py, |mut audio| {
-            audio.apply_iir_filter_in_place(&design).map_err(audio_err_to_py)
+            audio
+                .apply_iir_filter_in_place(&design)
+                .map_err(audio_err_to_py)
         })
     }
 
@@ -525,7 +548,9 @@ impl PyAudioSamples {
             stopband_attenuation,
         );
         dispatch_with_view_mut!(self, py, |mut audio| {
-            audio.apply_iir_filter_in_place(&design).map_err(audio_err_to_py)
+            audio
+                .apply_iir_filter_in_place(&design)
+                .map_err(audio_err_to_py)
         })
     }
 
@@ -565,7 +590,9 @@ impl PyAudioSamples {
             stopband_attenuation,
         );
         dispatch_with_view_mut!(self, py, |mut audio| {
-            audio.apply_iir_filter_in_place(&design).map_err(audio_err_to_py)
+            audio
+                .apply_iir_filter_in_place(&design)
+                .map_err(audio_err_to_py)
         })
     }
 
@@ -598,7 +625,9 @@ impl PyAudioSamples {
         let order = nzu_or_err(order)?;
         let design = IirFilterDesign::bessel(FilterResponse::LowPass, order, cutoff_frequency);
         dispatch_with_view_mut!(self, py, |mut audio| {
-            audio.apply_iir_filter_in_place(&design).map_err(audio_err_to_py)
+            audio
+                .apply_iir_filter_in_place(&design)
+                .map_err(audio_err_to_py)
         })
     }
 
@@ -624,7 +653,9 @@ impl PyAudioSamples {
         let order = nzu_or_err(order)?;
         let design = IirFilterDesign::bessel(FilterResponse::HighPass, order, cutoff_frequency);
         dispatch_with_view_mut!(self, py, |mut audio| {
-            audio.apply_iir_filter_in_place(&design).map_err(audio_err_to_py)
+            audio
+                .apply_iir_filter_in_place(&design)
+                .map_err(audio_err_to_py)
         })
     }
 
@@ -657,7 +688,9 @@ impl PyAudioSamples {
             high_frequency,
         );
         dispatch_with_view_mut!(self, py, |mut audio| {
-            audio.apply_iir_filter_in_place(&design).map_err(audio_err_to_py)
+            audio
+                .apply_iir_filter_in_place(&design)
+                .map_err(audio_err_to_py)
         })
     }
 
@@ -690,7 +723,9 @@ impl PyAudioSamples {
             high_frequency,
         );
         dispatch_with_view_mut!(self, py, |mut audio| {
-            audio.apply_iir_filter_in_place(&design).map_err(audio_err_to_py)
+            audio
+                .apply_iir_filter_in_place(&design)
+                .map_err(audio_err_to_py)
         })
     }
 
@@ -761,6 +796,72 @@ impl PySosFilter {
         Ok(Self { inner, sample_rate })
     }
 
+    /// Build a streaming filter from second-order-section coefficients.
+    ///
+    /// Accepts the ``(n_sections, 6)`` array returned by
+    /// ``scipy.signal.butter(..., output='sos')`` (and friends) or by
+    /// :meth:`IirFilterDesign.sos`, with rows ``[b0, b1, b2, a0, a1, a2]``.
+    ///
+    /// Args:
+    ///     sos (np.typing.NDArray[np.float64]): Section coefficients, shape ``(n, 6)``.
+    ///     sample_rate (float): Sample rate in hertz (used by :meth:`frequency_response`).
+    ///
+    /// Raises:
+    ///     ValueError: If the array is not ``(n, 6)``, is empty, contains
+    ///         non-finite values, or has a zero ``a0``.
+    #[staticmethod]
+    #[pyo3(signature = (sos: "np.typing.NDArray[np.float64]", sample_rate: "float"), text_signature = "(sos: np.typing.NDArray[np.float64], sample_rate: float) -> SosFilter")]
+    fn from_sos(sos: &Bound<'_, PyArray2<f64>>, sample_rate: f64) -> PyResult<Self> {
+        let arr = sos.readonly();
+        let view = arr.as_array();
+        if view.ncols() != 6 {
+            return Err(PyValueError::new_err(format!(
+                "sos must have shape (n_sections, 6), got {:?}",
+                view.shape()
+            )));
+        }
+        let rows: Vec<[f64; 6]> = view
+            .rows()
+            .into_iter()
+            .map(|r| [r[0], r[1], r[2], r[3], r[4], r[5]])
+            .collect();
+        let inner = SosFilter::from_sos_coefficients(&rows).map_err(audio_err_to_py)?;
+        Ok(Self { inner, sample_rate })
+    }
+
+    /// The filter's second-order sections as a ``(n_sections, 6)`` array
+    /// (SciPy ``sos`` layout, ``a0`` normalised to 1).
+    #[pyo3(signature = (), text_signature = "($self) -> np.typing.NDArray[np.float64]")]
+    fn sos<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyArray2<f64>>> {
+        let rows = self.inner.sos_coefficients();
+        let flat: Vec<f64> = rows.iter().flat_map(|r| r.iter().copied()).collect();
+        let arr = ndarray::Array2::from_shape_vec((rows.len(), 6), flat)
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        Ok(arr.into_pyarray(py))
+    }
+
+    /// Zero-phase forward-backward filtering of a whole signal.
+    ///
+    /// Equivalent to ``scipy.signal.sosfiltfilt(sos, x)`` (odd padding,
+    /// steady-state initial conditions). The streaming state is neither used
+    /// nor modified. Returns a new array.
+    ///
+    /// Args:
+    ///     samples (np.typing.NDArray[np.float64]): The whole signal.
+    ///
+    /// Returns:
+    ///     np.typing.NDArray[np.float64]: Filtered signal, same length.
+    #[pyo3(signature = (samples: "np.typing.NDArray[np.float64]"), text_signature = "($self, samples: np.typing.NDArray[np.float64]) -> np.typing.NDArray[np.float64]")]
+    fn filtfilt<'py>(
+        &self,
+        py: Python<'py>,
+        samples: &Bound<'py, PyArray1<f64>>,
+    ) -> Bound<'py, PyArray1<f64>> {
+        let mut buf = samples.readonly().as_array().to_vec();
+        self.inner.filtfilt_in_place(&mut buf);
+        buf.into_pyarray(py)
+    }
+
     /// Process a single sample through the cascade.
     ///
     /// Feeds ``x`` through each section in order; internal state is updated.
@@ -807,10 +908,8 @@ impl PySosFilter {
     /// Returns:
     ///     None: The provided array is modified in place.
     #[pyo3(signature = (samples: "np.typing.NDArray[np.float64]"), text_signature = "($self, samples: np.typing.NDArray[np.float64]) -> None")]
-    fn process_samples_in_place(&mut self, samples: &Bound<'_, PyArray1<f64>>) {
-        let mut rw = samples.readwrite();
-        let slice = rw.as_slice_mut().expect("contiguous numpy array");
-        self.inner.process_samples_in_place(slice);
+    fn process_samples_in_place(&mut self, samples: &Bound<'_, PyArray1<f64>>) -> PyResult<()> {
+        process_array_in_place(&mut self.inner, samples)
     }
 
     /// Process a block of samples in place, retaining state across calls.
@@ -826,10 +925,8 @@ impl PySosFilter {
     /// Returns:
     ///     None: The provided array is modified in place.
     #[pyo3(signature = (block: "np.typing.NDArray[np.float64]"), text_signature = "($self, block: np.typing.NDArray[np.float64]) -> None")]
-    fn process_block(&mut self, block: &Bound<'_, PyArray1<f64>>) {
-        let mut rw = block.readwrite();
-        let slice = rw.as_slice_mut().expect("contiguous numpy array");
-        self.inner.process_block(slice);
+    fn process_block(&mut self, block: &Bound<'_, PyArray1<f64>>) -> PyResult<()> {
+        process_array_in_place(&mut self.inner, block)
     }
 
     /// Reset all sections' delay lines to zero.
@@ -867,4 +964,26 @@ impl PySosFilter {
         let (mag, phase) = self.inner.frequency_response(&freqs, self.sample_rate);
         (mag.into_pyarray(py), phase.into_pyarray(py))
     }
+}
+
+/// Filter a 1-D float64 numpy array in place with `filter`, handling
+/// non-contiguous (strided) arrays and rejecting read-only ones.
+fn process_array_in_place(
+    filter: &mut SosFilter,
+    samples: &Bound<'_, PyArray1<f64>>,
+) -> PyResult<()> {
+    let mut rw = samples
+        .try_readwrite()
+        .map_err(|e| PyValueError::new_err(format!("cannot write to array: {e}")))?;
+    if let Ok(slice) = rw.as_slice_mut() {
+        filter.process_block(slice);
+    } else {
+        let mut view = rw.as_array_mut();
+        let mut buf = view.to_vec();
+        filter.process_block(&mut buf);
+        for (dst, v) in view.iter_mut().zip(buf) {
+            *dst = v;
+        }
+    }
+    Ok(())
 }

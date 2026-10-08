@@ -285,10 +285,17 @@ audio_f64 = original.to_format(SampleType.F64)
 # Built-in digital filters
 audio = aus.generation.sine_wave(440.0, 0.5, sample_rate)
 
-# Apply filters in-place
-audio.low_pass_filter(1000.0)              # Low-pass at 1kHz
-audio.high_pass_filter(100.0)              # High-pass at 100Hz
-audio.band_pass_filter(200.0, 2000.0)      # Band-pass 200Hz-2kHz
+# Simple first-order filters return a new AudioSamples
+lp = audio.low_pass_filter(1000.0)         # Low-pass at 1kHz
+hp = audio.high_pass_filter(100.0)         # High-pass at 100Hz
+bp = audio.band_pass_filter(200.0, 2000.0) # Band-pass 200Hz-2kHz
+
+# Higher-order IIR filters (match scipy.signal) are applied in place
+audio.butterworth_highpass(4, 80.0)        # 4th-order Butterworth high-pass
+
+# Designs interoperate with scipy: same SOS coefficients
+design = aus.IirFilterDesign.chebyshev_i("lowpass", 6, 5000.0, 0.5)
+sos = design.sos(sample_rate)              # (n_sections, 6), usable with scipy.signal.sosfilt
 ```
 
 ## NumPy Integration

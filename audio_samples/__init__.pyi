@@ -988,10 +988,13 @@ class AudioSamples:
 
     # Simple filter methods
     def low_pass_filter(self, cutoff_hz: float) -> AudioSamples:
-        """Apply a simple low-pass filter. Attenuates frequencies above cutoff.
+        """First-order Butterworth low-pass (-3 dB at ``cutoff_hz``, 6 dB/octave).
+
+        Identical to ``scipy.signal.sosfilt(scipy.signal.butter(1, cutoff_hz,
+        fs=fs, output='sos'), x)``. Does **not** modify ``self``.
 
         Args:
-            cutoff_hz: Frequency threshold above which content is attenuated
+            cutoff_hz: Cutoff frequency in Hz, in (0, Nyquist)
 
         Returns:
             New buffer containing the filtered signal
@@ -999,10 +1002,13 @@ class AudioSamples:
         ...
 
     def high_pass_filter(self, cutoff_hz: float) -> AudioSamples:
-        """Apply a simple high-pass filter. Attenuates frequencies below cutoff.
+        """First-order Butterworth high-pass (-3 dB at ``cutoff_hz``, 6 dB/octave).
+
+        Identical to ``scipy.signal.sosfilt(scipy.signal.butter(1, cutoff_hz,
+        'highpass', fs=fs, output='sos'), x)``. Does **not** modify ``self``.
 
         Args:
-            cutoff_hz: Frequency threshold below which content is attenuated
+            cutoff_hz: Cutoff frequency in Hz, in (0, Nyquist)
 
         Returns:
             New buffer containing the filtered signal
@@ -1012,11 +1018,14 @@ class AudioSamples:
     def band_pass_filter(
         self, low_cutoff_hz: float, high_cutoff_hz: float
     ) -> AudioSamples:
-        """Apply a simple band-pass filter. Passes frequencies between cutoffs.
+        """Band-pass from a first-order Butterworth prototype (one biquad).
+
+        Identical to ``scipy.signal.sosfilt(scipy.signal.butter(1, [low, high],
+        'bandpass', fs=fs, output='sos'), x)``. Does **not** modify ``self``.
 
         Args:
-            low_cutoff_hz: Lower frequency bound to retain
-            high_cutoff_hz: Upper frequency bound to retain
+            low_cutoff_hz: Lower -3 dB edge in Hz
+            high_cutoff_hz: Upper -3 dB edge in Hz
 
         Returns:
             New buffer containing the filtered signal
@@ -1526,9 +1535,14 @@ class AudioSamples:
         order: int,
         cutoff_frequency: float,
         passband_ripple: float,
-        response: FilterResponse,
+        response: FilterResponse | str,
     ) -> None:
-        """Apply Chebyshev Type I filter (in-place)."""
+        """Apply a Chebyshev Type I low-pass or high-pass filter (in-place).
+
+        ``response`` is ``'lowpass'`` / ``'highpass'`` (or a FilterResponse).
+        Equivalent to ``scipy.signal.cheby1(order, passband_ripple,
+        cutoff_frequency, response, fs=fs, output='sos')``.
+        """
         ...
 
     def apply_chebyshev_ii_lowpass(
@@ -1930,7 +1944,11 @@ class AudioSamples:
     def frequency_response(
         self, frequencies: list[float]
     ) -> tuple[list[float], list[float]]:
-        """Calculate frequency response at given frequencies."""
+        """Deprecated: always returns a flat response (emits DeprecationWarning).
+
+        Use ``IirFilterDesign.frequency_response(frequencies, sample_rate)`` or
+        ``SosFilter.frequency_response(frequencies)`` instead.
+        """
         ...
 
     def fft(self, n_fft: int) -> np.typing.NDArray[np.complexfloating]:
@@ -2403,23 +2421,29 @@ class IirFilterDesign:
 
     def __init__(
         self,
-        filter_type: str,
-        response: str,
+        filter_type: IirFilterType,
+        response: FilterResponse | str,
         order: int,
         cutoff_frequency: Optional[float] = None,
         low_frequency: Optional[float] = None,
         high_frequency: Optional[float] = None,
+        passband_ripple: Optional[float] = None,
+        stopband_attenuation: Optional[float] = None,
+        bessel_norm: Optional[str] = None,
     ) -> None:
         """
-        Create IIR filter design.
+        Create IIR filter design (see ``audio_samples.types.IirFilterDesign``).
 
         Args:
-            filter_type: 'butterworth', 'chebyshev1', 'chebyshev2', or 'elliptic'
-            response: Filter response type
+            filter_type: IirFilterType (Butterworth, Chebyshev I/II, elliptic, Bessel)
+            response: 'lowpass', 'highpass', 'bandpass' or 'bandstop'
             order: Filter order
             cutoff_frequency: Cutoff frequency (for lowpass/highpass)
             low_frequency: Low frequency (for bandpass/bandstop)
             high_frequency: High frequency (for bandpass/bandstop)
+            passband_ripple: Passband ripple in dB (Chebyshev I, elliptic)
+            stopband_attenuation: Stopband attenuation in dB (Chebyshev II, elliptic)
+            bessel_norm: 'mag' (default), 'phase' (SciPy's default) or 'delay'
         """
         ...
 

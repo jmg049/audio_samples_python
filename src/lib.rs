@@ -623,6 +623,7 @@ impl PyAudioSamples {
         arr: Bound<'_, PyArray2<T>>,
         sample_rate: NonZeroU32,
     ) -> Self {
+        warn_if_samples_first(&arr);
         let backing = PyAudioBacking::NumpyMulti(arr.into());
         match TypeId::of::<T>() {
             id if id == TypeId::of::<u8>() => {
@@ -1094,7 +1095,11 @@ impl PyAudioSamples {
     ///     sample_rate (int): Sample rate in Hz (e.g., 44100, 48000).
     ///
     /// Returns:
-    ///     AudioSamples: A new audio samples object with zero-copy numpy integration.
+    ///     AudioSamples: A new audio samples object that wraps ``arr`` without
+    ///     copying it. In-place methods (``apply_*``, ``butterworth_*``,
+    ///     ``filtfilt``, ...) therefore modify ``arr`` itself; pass
+    ///     ``arr.copy()`` or call :meth:`copy` to keep the original. Read-only
+    ///     arrays are copied before the first in-place modification.
     ///
     /// Raises:
     ///     TypeError: If array dtype is not supported or dimensions are invalid.
@@ -1109,7 +1114,7 @@ impl PyAudioSamples {
     ///     >>> stereo = np.random.randn(2, 44100).astype(np.float32)
     ///     >>> audio = aus.AudioSamples.from_array(stereo, sample_rate=44100)
     #[staticmethod]
-    #[pyo3(name = "from_array", signature = (arr: "numpy.typing.ArrayLike", sample_rate: "float"), text_signature = "($cls, arr: numpy.typing.ArrayLike, sample_rate: int) -> AudioSamples")]
+    #[pyo3(name = "from_array", signature = (arr: "numpy.typing.ArrayLike", sample_rate: "int"), text_signature = "($cls, arr: numpy.typing.ArrayLike, sample_rate: int) -> AudioSamples")]
     fn from_array(arr: Bound<'_, PyAny>, sample_rate: NonZeroU32) -> PyResult<Self> {
         // Get the array as PyUntypedArray to inspect its properties
         let untyped_array: &Bound<'_, PyUntypedArray> = arr.cast()?;
@@ -1196,65 +1201,65 @@ impl PyAudioSamples {
     }
 
     #[staticmethod]
-    #[pyo3(name = "_new_mono_i16_from_np", signature = (arr: "numpy.typing.ArrayLike", sample_rate: "float"), text_signature = "($cls, arr: numpy.typing.ArrayLike, sample_rate: int) -> AudioSamples")]
+    #[pyo3(name = "_new_mono_i16_from_np", signature = (arr: "numpy.typing.ArrayLike", sample_rate: "int"), text_signature = "($cls, arr: numpy.typing.ArrayLike, sample_rate: int) -> AudioSamples")]
     fn new_mono_i16_from_np(arr: Bound<'_, PyArray1<i16>>, sample_rate: NonZeroU32) -> Self {
         Self::new_mono_from_python::<i16>(arr, sample_rate)
     }
 
     #[staticmethod]
-    #[pyo3(name = "_new_multi_i16_from_np", signature = (arr: "numpy.typing.ArrayLike", sample_rate: "float"), text_signature = "($cls, arr: numpy.typing.ArrayLike, sample_rate: int) -> AudioSamples")]
+    #[pyo3(name = "_new_multi_i16_from_np", signature = (arr: "numpy.typing.ArrayLike", sample_rate: "int"), text_signature = "($cls, arr: numpy.typing.ArrayLike, sample_rate: int) -> AudioSamples")]
     fn new_multi_i16_from_np(arr: Bound<'_, PyArray2<i16>>, sample_rate: NonZeroU32) -> Self {
         Self::new_multi_from_python::<i16>(arr, sample_rate)
     }
 
     #[staticmethod]
-    #[pyo3(name = "_new_mono_i24_from_np", signature = (arr: "numpy.typing.ArrayLike", sample_rate: "float"), text_signature = "($cls, arr: numpy.typing.ArrayLike, sample_rate: int) -> AudioSamples")]
+    #[pyo3(name = "_new_mono_i24_from_np", signature = (arr: "numpy.typing.ArrayLike", sample_rate: "int"), text_signature = "($cls, arr: numpy.typing.ArrayLike, sample_rate: int) -> AudioSamples")]
     fn new_mono_i24_from_np(arr: Bound<'_, PyArray1<I24>>, sample_rate: NonZeroU32) -> Self {
         Self::new_mono_from_python::<I24>(arr, sample_rate)
     }
 
     #[staticmethod]
-    #[pyo3(name = "_new_multi_i24_from_np", signature = (arr: "numpy.typing.ArrayLike", sample_rate: "float"), text_signature = "($cls, arr: numpy.typing.ArrayLike, sample_rate: int) -> AudioSamples")]
+    #[pyo3(name = "_new_multi_i24_from_np", signature = (arr: "numpy.typing.ArrayLike", sample_rate: "int"), text_signature = "($cls, arr: numpy.typing.ArrayLike, sample_rate: int) -> AudioSamples")]
     fn new_multi_i24_from_np(arr: Bound<'_, PyArray2<I24>>, sample_rate: NonZeroU32) -> Self {
         Self::new_multi_from_python::<I24>(arr, sample_rate)
     }
 
     #[staticmethod]
-    #[pyo3(name = "_new_mono_i32_from_np", signature = (arr: "numpy.typing.ArrayLike", sample_rate: "float"), text_signature = "($cls, arr: numpy.typing.ArrayLike, sample_rate: int) -> AudioSamples")]
+    #[pyo3(name = "_new_mono_i32_from_np", signature = (arr: "numpy.typing.ArrayLike", sample_rate: "int"), text_signature = "($cls, arr: numpy.typing.ArrayLike, sample_rate: int) -> AudioSamples")]
     fn new_mono_i32_from_np(arr: Bound<'_, PyArray1<i32>>, sample_rate: NonZeroU32) -> Self {
         Self::new_mono_from_python::<i32>(arr, sample_rate)
     }
 
     #[staticmethod]
-    #[pyo3(name = "_new_multi_i32_from_np", signature = (arr: "numpy.typing.ArrayLike", sample_rate: "float"), text_signature = "($cls, arr: numpy.typing.ArrayLike, sample_rate: int) -> AudioSamples")]
+    #[pyo3(name = "_new_multi_i32_from_np", signature = (arr: "numpy.typing.ArrayLike", sample_rate: "int"), text_signature = "($cls, arr: numpy.typing.ArrayLike, sample_rate: int) -> AudioSamples")]
     fn new_multi_i32_from_np(arr: Bound<'_, PyArray2<i32>>, sample_rate: NonZeroU32) -> Self {
         Self::new_multi_from_python::<i32>(arr, sample_rate)
     }
 
     #[staticmethod]
-    #[pyo3(name = "_new_mono_f32_from_np", signature = (arr: "numpy.typing.ArrayLike", sample_rate: "float"), text_signature = "($cls, arr: numpy.typing.ArrayLike, sample_rate: int) -> AudioSamples")]
+    #[pyo3(name = "_new_mono_f32_from_np", signature = (arr: "numpy.typing.ArrayLike", sample_rate: "int"), text_signature = "($cls, arr: numpy.typing.ArrayLike, sample_rate: int) -> AudioSamples")]
     fn new_mono_f32_from_np(arr: Bound<'_, PyArray1<f32>>, sample_rate: NonZeroU32) -> Self {
         Self::new_mono_from_python::<f32>(arr, sample_rate)
     }
 
     #[staticmethod]
-    #[pyo3(name = "_new_multi_f32_from_np", signature = (arr: "numpy.typing.ArrayLike", sample_rate: "float"), text_signature = "($cls, arr: numpy.typing.ArrayLike, sample_rate: int) -> AudioSamples")]
+    #[pyo3(name = "_new_multi_f32_from_np", signature = (arr: "numpy.typing.ArrayLike", sample_rate: "int"), text_signature = "($cls, arr: numpy.typing.ArrayLike, sample_rate: int) -> AudioSamples")]
     fn new_multi_f32_from_np(arr: Bound<'_, PyArray2<f32>>, sample_rate: NonZeroU32) -> Self {
         Self::new_multi_from_python::<f32>(arr, sample_rate)
     }
     #[staticmethod]
-    #[pyo3(name = "_new_mono_f64_from_np", signature = (arr: "numpy.typing.ArrayLike", sample_rate: "float"), text_signature = "($cls, arr: numpy.typing.ArrayLike, sample_rate: int) -> AudioSamples")]
+    #[pyo3(name = "_new_mono_f64_from_np", signature = (arr: "numpy.typing.ArrayLike", sample_rate: "int"), text_signature = "($cls, arr: numpy.typing.ArrayLike, sample_rate: int) -> AudioSamples")]
     fn new_mono_f64_from_np(arr: Bound<'_, PyArray1<f64>>, sample_rate: NonZeroU32) -> Self {
         Self::new_mono_from_python::<f64>(arr, sample_rate)
     }
     #[staticmethod]
-    #[pyo3(name = "_new_multi_f64_from_np", signature = (arr: "numpy.typing.ArrayLike", sample_rate: "float"), text_signature = "($cls, arr: numpy.typing.ArrayLike, sample_rate: int) -> AudioSamples")]
+    #[pyo3(name = "_new_multi_f64_from_np", signature = (arr: "numpy.typing.ArrayLike", sample_rate: "int"), text_signature = "($cls, arr: numpy.typing.ArrayLike, sample_rate: int) -> AudioSamples")]
     fn new_multi_f64_from_np(arr: Bound<'_, PyArray2<f64>>, sample_rate: NonZeroU32) -> Self {
         Self::new_multi_from_python::<f64>(arr, sample_rate)
     }
 
     #[staticmethod]
-    #[pyo3(name = "new_mono", signature = (arr: "numpy.typing.ArrayLike", sample_rate: "float"), text_signature = "($cls, arr: numpy.typing.ArrayLike, sample_rate: int) -> AudioSamples")]
+    #[pyo3(name = "new_mono", signature = (arr: "numpy.typing.ArrayLike", sample_rate: "int"), text_signature = "($cls, arr: numpy.typing.ArrayLike, sample_rate: int) -> AudioSamples")]
     fn py_new_mono(
         py: Python<'_>,
         arr: Bound<'_, PyUntypedArray>,
@@ -1293,7 +1298,7 @@ impl PyAudioSamples {
     }
 
     #[staticmethod]
-    #[pyo3(name = "new_multi", signature = (arr: "numpy.typing.ArrayLike", sample_rate: "float"), text_signature = "($cls, arr: numpy.typing.ArrayLike, sample_rate: int) -> AudioSamples")]
+    #[pyo3(name = "new_multi", signature = (arr: "numpy.typing.ArrayLike", sample_rate: "int"), text_signature = "($cls, arr: numpy.typing.ArrayLike, sample_rate: int) -> AudioSamples")]
     fn py_new_multi(
         py: Python<'_>,
         arr: Bound<'_, PyUntypedArray>,
@@ -2680,6 +2685,37 @@ impl Display for PyAudioSamples {
     }
 }
 
+/// Warn when a 2-D array looks like it is `(samples, channels)` rather than
+/// the `(channels, samples)` layout AudioSamples expects (more "channels"
+/// than samples is almost always a transposed soundfile/scipy array).
+fn warn_if_samples_first<T: Element>(arr: &Bound<'_, PyArray2<T>>) {
+    let shape = arr.shape();
+    if shape[0] > shape[1] {
+        let py = arr.py();
+        let msg = format!(
+            "array of shape {shape:?} is interpreted as {} channels x {} samples; \
+AudioSamples expects (channels, samples) - pass arr.T for (samples, channels) data",
+            shape[0], shape[1]
+        );
+        if let Ok(msg) = std::ffi::CString::new(msg) {
+            // Ignoring the result is deliberate: if warnings are configured as
+            // errors the error is reported by Python's warning machinery.
+            let _ = PyErr::warn(
+                py,
+                &py.get_type::<pyo3::exceptions::PyUserWarning>(),
+                &msg,
+                1,
+            );
+        }
+    }
+}
+
+/// Whether a numpy array's `WRITEABLE` flag is set.
+fn numpy_is_writeable(ptr: *mut numpy::npyffi::PyArrayObject) -> bool {
+    // SAFETY: `ptr` comes from a live, bound numpy array.
+    unsafe { (*ptr).flags & numpy::npyffi::NPY_ARRAY_WRITEABLE != 0 }
+}
+
 #[derive(Debug)]
 enum PyAudioBacking<T: StandardSample + Element> {
     OwnedMono(Array1<T>),
@@ -2697,27 +2733,30 @@ impl<T: StandardSample + Element> Clone for PyAudioBacking<T> {
             OwnedMono(a) => OwnedMono(a.clone()),
             OwnedMulti(a) => OwnedMulti(a.clone()),
             NumpyMono(handle) => {
-                // Safe: Use with_gil to ensure GIL is held when cloning numpy handle
+                // Deep copy: a clone must not share the numpy buffer, or
+                // mutating the clone would mutate the original. The memory
+                // layout (C / Fortran order) is preserved.
                 Python::attach(|py| {
-                    let bound = handle.bind(py);
-                    let cloned = bound.clone();
-                    NumpyMono(cloned.unbind())
+                    let owned = handle.bind(py).to_owned_array();
+                    NumpyMono(PyArray1::from_owned_array(py, owned).unbind())
                 })
             }
             NumpyMulti(handle) => {
-                // Safe: Use with_gil to ensure GIL is held when cloning numpy handle
+                // Deep copy: a clone must not share the numpy buffer, or
+                // mutating the clone would mutate the original. The memory
+                // layout (C / Fortran order) is preserved.
                 Python::attach(|py| {
-                    let bound = handle.bind(py);
-                    let cloned = bound.clone();
-                    NumpyMulti(cloned.unbind())
+                    let owned = handle.bind(py).to_owned_array();
+                    NumpyMulti(PyArray2::from_owned_array(py, owned).unbind())
                 })
             }
             NumpyInterleaved(handle) => {
-                // Safe: Use with_gil to ensure GIL is held when cloning numpy handle
+                // Deep copy: a clone must not share the numpy buffer, or
+                // mutating the clone would mutate the original. The memory
+                // layout (C / Fortran order) is preserved.
                 Python::attach(|py| {
-                    let bound = handle.bind(py);
-                    let cloned = bound.clone();
-                    NumpyInterleaved(cloned.unbind())
+                    let owned = handle.bind(py).to_owned_array();
+                    NumpyInterleaved(PyArray2::from_owned_array(py, owned).unbind())
                 })
             }
         }
@@ -2725,6 +2764,33 @@ impl<T: StandardSample + Element> Clone for PyAudioBacking<T> {
 }
 
 impl<T: StandardSample + Element> PyAudioBacking<T> {
+    /// Replace a read-only numpy buffer with a writeable private copy.
+    ///
+    /// Mutating operations write through the numpy buffer; numpy arrays that
+    /// are not writeable (``arr.flags.writeable == False``, or views of
+    /// immutable buffers such as ``bytes``) must never be written, so they are
+    /// copied first (copy-on-write).
+    pub(crate) fn ensure_writeable(&mut self, py: Python<'_>) {
+        use PyAudioBacking::*;
+        match self {
+            OwnedMono(_) | OwnedMulti(_) => {}
+            NumpyMono(handle) => {
+                let bound = handle.bind(py);
+                if !numpy_is_writeable(bound.as_array_ptr()) {
+                    let owned = bound.to_owned_array();
+                    *handle = PyArray1::from_owned_array(py, owned).unbind();
+                }
+            }
+            NumpyMulti(handle) | NumpyInterleaved(handle) => {
+                let bound = handle.bind(py);
+                if !numpy_is_writeable(bound.as_array_ptr()) {
+                    let owned = bound.to_owned_array();
+                    *handle = PyArray2::from_owned_array(py, owned).unbind();
+                }
+            }
+        }
+    }
+
     /// Safe clone that requires a Python token
     /// This is necessary for numpy-backed variants which need GIL access
     pub(crate) fn clone_py(&self, py: Python<'_>) -> Self {
@@ -2734,19 +2800,19 @@ impl<T: StandardSample + Element> PyAudioBacking<T> {
             OwnedMono(a) => OwnedMono(a.clone()),
             OwnedMulti(a) => OwnedMulti(a.clone()),
             NumpyMono(handle) => {
-                let bound = handle.bind(py);
-                let cloned = bound.clone();
-                NumpyMono(cloned.unbind())
+                // Deep copy (see `Clone`): never share the numpy buffer.
+                let owned = handle.bind(py).to_owned_array();
+                NumpyMono(PyArray1::from_owned_array(py, owned).unbind())
             }
             NumpyMulti(handle) => {
-                let bound = handle.bind(py);
-                let cloned = bound.clone();
-                NumpyMulti(cloned.unbind())
+                // Deep copy (see `Clone`): never share the numpy buffer.
+                let owned = handle.bind(py).to_owned_array();
+                NumpyMulti(PyArray2::from_owned_array(py, owned).unbind())
             }
             NumpyInterleaved(handle) => {
-                let bound = handle.bind(py);
-                let cloned = bound.clone();
-                NumpyInterleaved(cloned.unbind())
+                // Deep copy (see `Clone`): never share the numpy buffer.
+                let owned = handle.bind(py).to_owned_array();
+                NumpyInterleaved(PyArray2::from_owned_array(py, owned).unbind())
             }
         }
     }
@@ -2957,27 +3023,39 @@ where
             OwnedMono(arr) => {
                 let view = arr.view();
                 // safety: with_view operates on an instantiated TypedAudioSamples which is non-empty
-                let core = AudioSamples::new(unsafe { AudioData::from_borrowed_array1_unchecked(view) }, sr);
+                let core = AudioSamples::new(
+                    unsafe { AudioData::from_borrowed_array1_unchecked(view) },
+                    sr,
+                );
                 f(core)
             }
             OwnedMulti(arr) => {
                 let view = arr.view();
                 // safety: with_view operates on an instantiated TypedAudioSamples which is non-empty
-                let core = AudioSamples::new(unsafe { AudioData::from_borrowed_array2_unchecked(view) }, sr);
+                let core = AudioSamples::new(
+                    unsafe { AudioData::from_borrowed_array2_unchecked(view) },
+                    sr,
+                );
                 f(core)
             }
             NumpyMono(handle) => {
                 let bound = handle.bind(py);
                 let view = unsafe { bound.as_array() };
                 // safety: with_view operates on an instantiated TypedAudioSamples which is non-empty
-                let core = AudioSamples::new(unsafe { AudioData::from_borrowed_array1_unchecked(view) }, sr);
+                let core = AudioSamples::new(
+                    unsafe { AudioData::from_borrowed_array1_unchecked(view) },
+                    sr,
+                );
                 f(core)
             }
             NumpyMulti(handle) => {
                 let bound = handle.bind(py);
                 let view = unsafe { bound.as_array() };
                 // safety: with_view operates on an instantiated TypedAudioSamples which is non-empty
-                let core = AudioSamples::new(unsafe { AudioData::from_borrowed_array2_unchecked(view) }, sr);
+                let core = AudioSamples::new(
+                    unsafe { AudioData::from_borrowed_array2_unchecked(view) },
+                    sr,
+                );
                 f(core)
             }
             NumpyInterleaved(handle) => {
@@ -2986,7 +3064,10 @@ where
                 let bound = handle.bind(py);
                 let view = unsafe { bound.as_array() };
                 // safety: with_view operates on an instantiated TypedAudioSamples which is non-empty
-                let core = AudioSamples::new(unsafe { AudioData::from_borrowed_array2_unchecked(view) }, sr);
+                let core = AudioSamples::new(
+                    unsafe { AudioData::from_borrowed_array2_unchecked(view) },
+                    sr,
+                );
                 f(core)
             }
         }
@@ -2999,32 +3080,45 @@ where
     ) -> R {
         use PyAudioBacking::*;
         let sr = self.sample_rate;
+        self.backing.ensure_writeable(py);
 
         match &mut self.backing {
             OwnedMono(arr) => {
                 let view = arr.view_mut();
                 // safety: with_view operates on an instantiated TypedAudioSamples which is non-empty
-                let core = AudioSamples::new(unsafe { AudioData::from_borrowed_array1_mut_unchecked(view) }, sr);
+                let core = AudioSamples::new(
+                    unsafe { AudioData::from_borrowed_array1_mut_unchecked(view) },
+                    sr,
+                );
                 f(core)
             }
             OwnedMulti(arr) => {
                 let view = arr.view_mut();
                 // safety: with_view operates on an instantiated TypedAudioSamples which is non-empty
-                let core = AudioSamples::new(unsafe { AudioData::from_borrowed_array2_mut_unchecked(view) }, sr);
+                let core = AudioSamples::new(
+                    unsafe { AudioData::from_borrowed_array2_mut_unchecked(view) },
+                    sr,
+                );
                 f(core)
             }
             NumpyMono(handle) => {
                 let bound = handle.bind(py);
                 let view = unsafe { bound.as_array_mut() };
                 // safety: with_view operates on an instantiated TypedAudioSamples which is non-empty
-                let core = AudioSamples::new(unsafe { AudioData::from_borrowed_array1_mut_unchecked(view) }, sr);
+                let core = AudioSamples::new(
+                    unsafe { AudioData::from_borrowed_array1_mut_unchecked(view) },
+                    sr,
+                );
                 f(core)
             }
             NumpyMulti(handle) => {
                 let bound = handle.bind(py);
                 let view = unsafe { bound.as_array_mut() };
                 // safety: with_view operates on an instantiated TypedAudioSamples which is non-empty
-                let core = AudioSamples::new(unsafe { AudioData::from_borrowed_array2_mut_unchecked(view) }, sr);
+                let core = AudioSamples::new(
+                    unsafe { AudioData::from_borrowed_array2_mut_unchecked(view) },
+                    sr,
+                );
                 f(core)
             }
             NumpyInterleaved(handle) => {
@@ -3032,7 +3126,10 @@ where
                 let bound = handle.bind(py);
                 let view = unsafe { bound.as_array_mut() };
                 // safety: with_view operates on an instantiated TypedAudioSamples which is non-empty
-                let core = AudioSamples::new(unsafe { AudioData::from_borrowed_array2_mut_unchecked(view) }, sr);
+                let core = AudioSamples::new(
+                    unsafe { AudioData::from_borrowed_array2_mut_unchecked(view) },
+                    sr,
+                );
                 f(core)
             }
         }
@@ -3060,6 +3157,7 @@ where
     ) -> R {
         use PyAudioBacking::*;
         let sr = self.sample_rate;
+        self.backing.ensure_writeable(py);
 
         match &mut self.backing {
             OwnedMono(arr) => {
@@ -3067,14 +3165,20 @@ where
                 py.detach(move || {
                     let view = arr.view_mut();
                     // safety: with_view operates on an instantiated TypedAudioSamples which is non-empty
-                    let core = AudioSamples::new(unsafe { AudioData::from_borrowed_array1_mut_unchecked(view) }, sr);
+                    let core = AudioSamples::new(
+                        unsafe { AudioData::from_borrowed_array1_mut_unchecked(view) },
+                        sr,
+                    );
                     f(core)
                 })
             }
             OwnedMulti(arr) => py.detach(move || {
                 let view = arr.view_mut();
                 // safety: with_view operates on an instantiated TypedAudioSamples which is non-empty
-                let core = AudioSamples::new(unsafe { AudioData::from_borrowed_array2_mut_unchecked(view) }, sr);
+                let core = AudioSamples::new(
+                    unsafe { AudioData::from_borrowed_array2_mut_unchecked(view) },
+                    sr,
+                );
                 f(core)
             }),
             NumpyMono(handle) => {
@@ -3087,7 +3191,10 @@ where
                 // and ArrayViewMut doesn't require GIL
                 py.detach(move || {
                     // safety: with_view operates on an instantiated TypedAudioSamples which is non-empty
-                    let core = AudioSamples::new(unsafe { AudioData::from_borrowed_array1_mut_unchecked(view) }, sr);
+                    let core = AudioSamples::new(
+                        unsafe { AudioData::from_borrowed_array1_mut_unchecked(view) },
+                        sr,
+                    );
                     f(core)
                 })
             }
@@ -3097,7 +3204,10 @@ where
 
                 py.detach(move || {
                     // safety: with_view operates on an instantiated TypedAudioSamples which is non-empty
-                    let core = AudioSamples::new(unsafe { AudioData::from_borrowed_array2_mut_unchecked(view) }, sr);
+                    let core = AudioSamples::new(
+                        unsafe { AudioData::from_borrowed_array2_mut_unchecked(view) },
+                        sr,
+                    );
                     f(core)
                 })
             }
@@ -3109,7 +3219,10 @@ where
 
                 py.detach(move || {
                     // safety: with_view operates on an instantiated TypedAudioSamples which is non-empty
-                    let core = AudioSamples::new(unsafe { AudioData::from_borrowed_array2_mut_unchecked(view) }, sr);
+                    let core = AudioSamples::new(
+                        unsafe { AudioData::from_borrowed_array2_mut_unchecked(view) },
+                        sr,
+                    );
                     f(core)
                 })
             }
