@@ -352,7 +352,7 @@ fn audio_samples_python(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()>
 /// Primary container for audio data combining raw sample values with essential
 /// metadata including sample rate, channel layout, and type information.
 /// Supports both mono and multi-channel audio with unified interface.
-#[pyclass(name = "AudioSamples", unsendable, module = "audio_samples")]
+#[pyclass(name = "AudioSamples", module = "audio_samples")]
 pub struct PyAudioSamples {
     inner: PyAudioDataInner,
 }

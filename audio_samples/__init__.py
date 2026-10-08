@@ -24,11 +24,18 @@ Example usage:
 # but we need to use the correct module name for the PyInit function
 import importlib.util
 import sys
+import sysconfig
 from pathlib import Path
 
-# Find and load the .so file directly
+# Find and load the .so file directly. Prefer the exact build for this
+# interpreter/platform (multiple cpython-3XX builds can coexist in this
+# directory); fall back to any match only if that exact one is missing.
 _package_dir = Path(__file__).parent
-_so_files = list(_package_dir.glob("audio_samples.cpython-*.so"))
+_exact_so = _package_dir / f"audio_samples{sysconfig.get_config_var('EXT_SUFFIX')}"
+if _exact_so.exists():
+    _so_files = [_exact_so]
+else:
+    _so_files = list(_package_dir.glob("audio_samples.cpython-*.so"))
 if _so_files:
     # The module init function is PyInit_audio_samples, so we must use "audio_samples" as name
     _spec = importlib.util.spec_from_file_location("audio_samples", _so_files[0])
