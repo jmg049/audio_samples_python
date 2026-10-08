@@ -443,6 +443,23 @@ class TestDtypeSupport:
                 )
 
 
+class TestI24ArrayExport:
+    """24-bit audio exposed to numpy through __array_interface__."""
+
+    def test_np_asarray_of_i24_audio_is_stable(self, temp_wav_file):
+        """Regression: the I24 array interface pointed into a freed temporary,
+        so np.asarray(audio) could return corrupted data."""
+        rng = np.random.default_rng(7)
+        data = rng.integers(-(2**23), 2**23, size=(2, 20000), dtype=np.int32)
+        # soundfile treats int32 as full-scale 32-bit: left-justify the 24-bit values.
+        sf.write(temp_wav_file, (data << 8).T, 44100, subtype="PCM_24")
+        audio = aus.io.read(str(temp_wav_file))
+        for _ in range(50):
+            arr = np.asarray(audio)
+            _churn = [np.empty(50000) for _ in range(10)]  # reuse freed memory
+            np.testing.assert_array_equal(arr, data)
+
+
 class TestSoundfileCompatibility:
     """Tests specifically for soundfile compatibility - our gold standard."""
 

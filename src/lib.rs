@@ -2443,13 +2443,21 @@ impl PyAudioSamples {
                 self.set_array_interface_data(py, &dict, audio.data())
             }),
             PyAudioDataInner::I24(_) => {
-                // I24 doesn't have a direct numpy equivalent, so we'll expose as int32
-                let shape = self.shape(py);
-                dict.set_item("shape", shape)?;
-                dict.set_item("typestr", "<i4")?;
-                // For I24, we need to convert to get the data pointer
-                let as_i32 = self.cast_as_i32(py);
-                Ok(as_i32.__array_interface__(py)?)
+                // I24 has no numpy equivalent: expose an owned int32 copy. Its
+                // interface must reference the copy itself (as the `data`
+                // buffer object) rather than a raw pointer, otherwise the copy
+                // is freed when this function returns and numpy reads freed
+                // memory.
+                // C-contiguous so it can be shared through the buffer protocol.
+                let arr = py
+                    .import("numpy")?
+                    .call_method1("ascontiguousarray", (self.cast_as_i32(py).to_numpy(py)?,))?;
+                let iface = arr
+                    .getattr("__array_interface__")?
+                    .cast_into::<PyDict>()
+                    .map_err(PyErr::from)?;
+                iface.set_item("data", &arr)?;
+                Ok(iface.unbind())
             }
             PyAudioDataInner::I32(typed) => typed.with_view(py, |audio| {
                 let shape = match audio.data() {
