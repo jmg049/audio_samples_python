@@ -215,6 +215,10 @@ class TestSosFilter:
         with pytest.raises(ValueError):
             SosFilter.from_sos(sg.butter(2, 1000.0, fs=FS, output="sos"), FS).process_block(arr)
 
+    def test_degenerate_design_raises_value_error(self):
+        with pytest.raises(ValueError):
+            IirFilterDesign.chebyshev_i("lowpass", 2, 1000.0, 1e-17).sos(FS)
+
     def test_bad_sos_shape_raises(self):
         with pytest.raises(ValueError):
             SosFilter.from_sos(np.zeros((2, 5)), FS)
@@ -331,6 +335,9 @@ class TestSafety:
         with warnings.catch_warnings():
             warnings.simplefilter("error")
             aus.AudioSamples.new_multi(frames_by_channels.T.copy(), FS)
+            # Under "error" the warning raises rather than being swallowed.
+            with pytest.raises(UserWarning):
+                aus.AudioSamples.new_multi(frames_by_channels.copy(), FS)
 
     def test_audio_frequency_response_is_deprecated(self, noise):
         audio = aus.AudioSamples.new_mono(noise.copy(), FS)

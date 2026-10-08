@@ -833,7 +833,7 @@ impl PySosFilter {
     /// (SciPy ``sos`` layout, ``a0`` normalised to 1).
     #[pyo3(signature = (), text_signature = "($self) -> np.typing.NDArray[np.float64]")]
     fn sos<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyArray2<f64>>> {
-        let rows = self.inner.sos_coefficients();
+        let rows = self.inner.sos_coefficients().map_err(audio_err_to_py)?;
         let flat: Vec<f64> = rows.iter().flat_map(|r| r.iter().copied()).collect();
         let arr = ndarray::Array2::from_shape_vec((rows.len(), 6), flat)
             .map_err(|e| PyValueError::new_err(e.to_string()))?;
@@ -856,10 +856,10 @@ impl PySosFilter {
         &self,
         py: Python<'py>,
         samples: &Bound<'py, PyArray1<f64>>,
-    ) -> Bound<'py, PyArray1<f64>> {
+    ) -> PyResult<Bound<'py, PyArray1<f64>>> {
         let mut buf = samples.readonly().as_array().to_vec();
-        self.inner.filtfilt_in_place(&mut buf);
-        buf.into_pyarray(py)
+        self.inner.filtfilt_in_place(&mut buf).map_err(audio_err_to_py)?;
+        Ok(buf.into_pyarray(py))
     }
 
     /// Process a single sample through the cascade.

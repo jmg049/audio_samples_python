@@ -623,7 +623,6 @@ impl PyAudioSamples {
         arr: Bound<'_, PyArray2<T>>,
         sample_rate: NonZeroU32,
     ) -> Self {
-        warn_if_samples_first(&arr);
         let backing = PyAudioBacking::NumpyMulti(arr.into());
         match TypeId::of::<T>() {
             id if id == TypeId::of::<u8>() => {
@@ -1118,6 +1117,7 @@ impl PyAudioSamples {
     fn from_array(arr: Bound<'_, PyAny>, sample_rate: NonZeroU32) -> PyResult<Self> {
         // Get the array as PyUntypedArray to inspect its properties
         let untyped_array: &Bound<'_, PyUntypedArray> = arr.cast()?;
+        warn_if_samples_first(untyped_array)?;
 
         // Get array info
         let dtype = untyped_array.dtype();
@@ -1304,6 +1304,7 @@ impl PyAudioSamples {
         arr: Bound<'_, PyUntypedArray>,
         sample_rate: NonZeroU32,
     ) -> PyResult<Self> {
+        warn_if_samples_first(&arr)?;
         let dtype = arr.dtype();
         if dtype.is_equiv_to(&numpy::dtype::<u8>(py)) {
             return Ok(Self::new_multi_from_python::<u8>(
@@ -2696,26 +2697,21 @@ impl Display for PyAudioSamples {
 /// Warn when a 2-D array looks like it is `(samples, channels)` rather than
 /// the `(channels, samples)` layout AudioSamples expects (more "channels"
 /// than samples is almost always a transposed soundfile/scipy array).
-fn warn_if_samples_first<T: Element>(arr: &Bound<'_, PyArray2<T>>) {
+fn warn_if_samples_first(arr: &Bound<'_, PyUntypedArray>) -> PyResult<()> {
     let shape = arr.shape();
-    if shape[0] > shape[1] {
+    if shape.len() == 2 && shape[0] > shape[1] {
         let py = arr.py();
         let msg = format!(
             "array of shape {shape:?} is interpreted as {} channels x {} samples; \
 AudioSamples expects (channels, samples) - pass arr.T for (samples, channels) data",
             shape[0], shape[1]
         );
-        if let Ok(msg) = std::ffi::CString::new(msg) {
-            // Ignoring the result is deliberate: if warnings are configured as
-            // errors the error is reported by Python's warning machinery.
-            let _ = PyErr::warn(
-                py,
-                &py.get_type::<pyo3::exceptions::PyUserWarning>(),
-                &msg,
-                1,
-            );
-        }
+        let msg = std::ffi::CString::new(msg)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
+        // Propagate: under `-W error` the warning must raise.
+        PyErr::warn(py, &py.get_type::<pyo3::exceptions::PyUserWarning>(), &msg, 1)?;
     }
+    Ok(())
 }
 
 /// Whether a numpy array's `WRITEABLE` flag is set.
