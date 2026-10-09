@@ -680,7 +680,9 @@ impl PyVadConfig {
     /// Parameters
     /// ----------
     /// method : VadMethod
-    ///     Voice activity detection method to use.
+    ///     Voice activity detection method to use (positional-only).
+    /// channel_policy : VadChannelPolicy
+    ///     Policy for handling multi-channel audio (positional-only, second).
     /// frame_size : int
     ///     Frame size in samples.
     /// hop_size : int
@@ -688,8 +690,6 @@ impl PyVadConfig {
     ///     ``frame_size``.
     /// pad_end : bool
     ///     Whether to include a final partial frame padded with zeros.
-    /// channel_policy : VadChannelPolicy
-    ///     Policy for handling multi-channel audio.
     /// energy_threshold_db : float
     ///     Energy threshold in dBFS (RMS). Typical values range from approximately
     ///     -60.0 (very sensitive) to -30.0.
@@ -727,7 +727,7 @@ impl PyVadConfig {
     /// This constructor does not automatically validate parameter consistency.
     /// Call ``validate()`` to explicitly check constraints.
     #[new]
-    #[pyo3(signature = (method: "VadMethod", channel_policy: "VadChannelPolicy", /, frame_size: "int", hop_size: "int", pad_end: "bool", energy_threshold_db: "float", zcr_min: "float", zcr_max: "float", min_speech_frames: "int", min_silence_frames: "int", hangover_frames: "int", smooth_frames: "int", speech_band_low_hz: "float", speech_band_high_hz: "float", spectral_ratio_threshold: "float"), text_signature="($cls, method: VadMethod, frame_size: int, hop_size: int, pad_end: bool, channel_policy: VadChannelPolicy, energy_threshold_db: float, zcr_min: float, zcr_max: float, min_speech_frames: int, min_silence_frames: int, hangover_frames: int, smooth_frames: int, speech_band_low_hz: float, speech_band_high_hz: float, spectral_ratio_threshold: float) -> VadConfig")]
+    #[pyo3(signature = (method: "VadMethod", channel_policy: "VadChannelPolicy", /, frame_size: "int", hop_size: "int", pad_end: "bool", energy_threshold_db: "float", zcr_min: "float", zcr_max: "float", min_speech_frames: "int", min_silence_frames: "int", hangover_frames: "int", smooth_frames: "int", speech_band_low_hz: "float", speech_band_high_hz: "float", spectral_ratio_threshold: "float"), text_signature="(method, channel_policy, /, frame_size, hop_size, pad_end, energy_threshold_db, zcr_min, zcr_max, min_speech_frames, min_silence_frames, hangover_frames, smooth_frames, speech_band_low_hz, speech_band_high_hz, spectral_ratio_threshold)")]
     fn new(
         method: PyVadMethod,
         channel_policy: PyVadChannelPolicy,

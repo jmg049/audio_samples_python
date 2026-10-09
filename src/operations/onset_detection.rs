@@ -35,7 +35,8 @@ impl PyAudioSamples {
     ///     config (OnsetDetectionConfig): Parameters controlling the detection function.
     ///
     /// Returns:
-    ///     tuple[list[float], list[float]]: Detection function values and matching timestamps.
+    ///     tuple[list[float], list[float]]: ``(times, odf)``: the frame times in
+    ///         seconds first, then the detection function values (one per frame).
     ///
     /// Raises:
     ///     AudioError: If the detection function computation fails.
@@ -46,10 +47,11 @@ impl PyAudioSamples {
         config: PyOnsetDetectionConfig,
     ) -> PyResult<(Vec<f64>, Vec<f64>)> {
         dispatch_with_view!(self, py, |audio| {
-            let (odf, times) = audio
+            // The Rust method returns (times, odf); keep that order.
+            let (times, odf) = audio
                 .onset_detection_function(&config.inner)
                 .map_err(audio_err_to_py)?;
-            Ok((odf.into_vec(), times.into_vec()))
+            Ok((times.into_vec(), odf.into_vec()))
         })
     }
 
@@ -85,7 +87,8 @@ impl PyAudioSamples {
     ///     method (SpectralFluxMethod): Flux computation strategy.
     ///
     /// Returns:
-    ///     tuple[list[float], list[float]]: Flux values and matching timestamps.
+    ///     tuple[list[float], list[float]]: ``(times, flux)``: the frame times in
+    ///         seconds first, then the flux values (one per frame).
     ///
     /// Raises:
     ///     ValueError: If window_size or hop_size is zero.
@@ -102,7 +105,8 @@ impl PyAudioSamples {
         dispatch_with_view!(self, py, |audio| {
             let window_size_nz = nzu_or_err(window_size)?;
             let hop_size_nz = nzu_or_err(hop_size)?;
-            let (flux, times) = audio
+            // The Rust method returns (times, flux); keep that order.
+            let (times, flux) = audio
                 .spectral_flux(
                     &cqt_params.into(),
                     window_size_nz,
@@ -110,7 +114,7 @@ impl PyAudioSamples {
                     method.inner,
                 )
                 .map_err(audio_err_to_py)?;
-            Ok((flux.into_vec(), times.into_vec()))
+            Ok((times.into_vec(), flux.into_vec()))
         })
     }
 

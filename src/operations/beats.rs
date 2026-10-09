@@ -8,7 +8,14 @@ use crate::{
 
 #[pymethods]
 impl PyAudioSamples {
-    /// Detect beat locations using onset-driven dynamic programming.
+    /// Place beats on a fixed-tempo grid anchored at the strongest onset.
+    ///
+    /// Computes an onset strength envelope, then walks forward and backward
+    /// from the global onset peak in steps of one inter-beat interval at
+    /// ``config.tempo_bpm`` (snapping to nearby onsets within the configured
+    /// tolerance). The tempo is *not* estimated: the returned ``tempo_bpm`` echoes
+    /// the configuration. This is not librosa's dynamic-programming
+    /// ``beat_track``.
     ///
     /// Args:
     ///     config (BeatTrackingConfig): Parameters controlling tempo targets and onset detection.

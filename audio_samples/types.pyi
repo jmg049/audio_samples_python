@@ -3,7 +3,7 @@ from enum import Enum
 from typing import Optional
 import numpy
 import numpy.typing
-from spectrograms import CqtParams
+from spectrograms import CqtParams, StftParams
 
 class SampleType(Enum):
     """
@@ -1502,35 +1502,42 @@ class HpssConfig:
     Configuration for Harmonic / Percussive Source Separation (HPSS).
 
     Separates audio into harmonic and percussive components using STFT
-    magnitude median filtering.
+    magnitude median filtering. Pass it to ``AudioSamples.hpss(config)``.
     """
 
     def __init__(
         self,
         *,
-        n_fft: int = 2048,
-        win_size: int = 2048,
-        hop_size: int = 512,
+        stft_params: Optional[StftParams] = None,
         median_filter_harmonic: int = 17,
         median_filter_percussive: int = 17,
         mask_softness: float = 0.3,
-    ) -> None: ...
+    ) -> None:
+        """
+        Args:
+            stft_params: Analysis STFT parameters; None uses n_fft=2048,
+                hop=512, Hann window, centred.
+            median_filter_harmonic: Harmonic median filter length (frames).
+            median_filter_percussive: Percussive median filter length (bins).
+            mask_softness: Mask softness in [0, 1] (0 = hard mask).
+        """
+        ...
 
     musical: HpssConfig
-    """Optimised for musical content."""
+    """Optimised for musical content (class attribute)."""
 
     percussive: HpssConfig
-    """Optimised for percussive content."""
+    """Optimised for percussive content (class attribute)."""
 
     harmonic: HpssConfig
-    """Optimised for harmonic content."""
+    """Optimised for harmonic content (class attribute)."""
 
-    real_time: HpssConfig
-    """Optimised for low-latency real-time processing."""
+    realtime: HpssConfig
+    """Optimised for low-latency real-time processing (class attribute)."""
 
-    def set_stft_params(self, n_fft: int, win_size: int, hop_size: int) -> None:
+    def set_stft_params(self, n_fft: int, hop_size: int) -> None:
         """
-        Set STFT parameters.
+        Set the STFT size and hop (both > 0).
         """
         ...
 
@@ -1543,12 +1550,6 @@ class HpssConfig:
     def set_mask_softness(self, softness: float) -> None:
         """
         Set mask softness parameter.
-        """
-        ...
-
-    def validate(self, sample_rate: float) -> HpssConfig:
-        """
-        Validate configuration and return this instance.
         """
         ...
 

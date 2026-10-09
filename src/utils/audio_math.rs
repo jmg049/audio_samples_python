@@ -370,28 +370,31 @@ pub fn note_to_midi(note_name: &str) -> PyResult<u8> {
     audio_math::note_to_midi(note_name).map_err(audio_err_to_py)
 }
 
-#[pyfunction]
-#[pyo3(signature = (midi_note), text_signature = "(midi_note: int) -> str")]
 /// Converts a MIDI note number into a scientific pitch notation string.
 ///
 /// Always uses sharp notation for accidentals.
 ///
 /// Args:
-///     midi_note: A MIDI note number (0-127).
+///     midi_note (int): A MIDI note number (0-127).
 ///
 /// Returns:
-///     A note name in scientific pitch notation (e.g., "A4", "C#3").
+///     str: A note name in scientific pitch notation (e.g., "A4", "C#3").
 ///
 /// Raises:
 ///     ValueError: If the MIDI note is outside the valid range 0-127.
 ///
 /// Example:
-///     >>> from audio_samples.audio_math import midi_to_note
-///     >>> note = midi_to_note(69)  # Returns "A4"
-///     >>> note = midi_to_note(61)  # Returns "C#4"
-#[inline]
-pub fn midi_to_note(midi_note: u8) -> PyResult<String> {
-    audio_math::midi_to_note(midi_note).map_err(audio_err_to_py)
+///     >>> from audio_samples.utils import midi_to_note
+///     >>> midi_to_note(69)  # "A4"
+///     >>> midi_to_note(61)  # "C#4"
+#[pyfunction]
+#[pyo3(signature = (midi_note), text_signature = "(midi_note)")]
+pub fn midi_to_note(midi_note: i64) -> PyResult<String> {
+    let m = u8::try_from(midi_note)
+        .ok()
+        .filter(|&m| m <= 127)
+        .ok_or_else(|| value_err("midi_note", format!("must be in 0..=127, got {midi_note}")))?;
+    audio_math::midi_to_note(m).map_err(audio_err_to_py)
 }
 
 #[pyfunction]

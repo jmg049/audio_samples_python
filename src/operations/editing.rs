@@ -97,10 +97,12 @@ impl PyAudioSamples {
     ///     pad_value (float): Value used for padding.
     ///
     /// Returns:
-    ///     AudioSamples: New buffer with the requested length.
+    ///     AudioSamples: New buffer of ``target_num_samples`` samples. If the
+    ///         buffer is already at least that long it is returned unchanged
+    ///         (not truncated, no error).
     ///
     /// Raises:
-    ///     AudioError: If the target length is shorter than the input or padding fails.
+    ///     AudioError: If padding fails.
     fn pad_samples_right(
         &self,
         py: Python<'_>,

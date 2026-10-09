@@ -1,43 +1,71 @@
-use crate::{PyAudioSamples, audio_err_to_py, dispatch_with_view};
+use crate::{PyAudioSamples, audio_err_to_py, dispatch_with_view, types::PyHpssConfig};
 use audio_samples::{AudioDecomposition, operations::HpssConfig};
+use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use spectrograms::python::PyStftParams;
 
 #[pymethods]
 impl PyAudioSamples {
-    /// Separate harmonic and percussive components using HPSS.
-    ///
-    /// Uses Harmonic-Percussive Source Separation to split audio into tonal
-    /// (harmonic) and transient (percussive) components.
+    /// Separate harmonic and percussive components using median-filter HPSS.
     ///
     /// Args:
-    ///     n_fft (int): STFT window size in samples (default: 2048)
-    ///     hop_size (int): STFT hop size in samples (default: 512)
-    ///     median_filter_harmonic (int): Harmonic median filter size (default: 17)
-    ///     median_filter_percussive (int): Percussive median filter size (default: 17)
-    ///     mask_softness (float): Soft masking parameter 0.0-1.0 (default: 0.5)
+    ///     config (StftParams | HpssConfig): Either a complete ``HpssConfig``
+    ///         (the remaining arguments must then be omitted), or the
+    ///         ``StftParams`` of the analysis STFT.
+    ///     median_filter_harmonic (Optional[int]): Harmonic (time-direction)
+    ///         median filter length in frames. Default 17. ``StftParams`` only.
+    ///     median_filter_percussive (Optional[int]): Percussive
+    ///         (frequency-direction) median filter length in bins. Default 17.
+    ///         ``StftParams`` only.
+    ///     mask_softness (Optional[float]): Mask softness in [0, 1] (0 = hard
+    ///         mask). Default 0.5. ``StftParams`` only.
     ///
     /// Returns:
-    ///     tuple: (harmonic_audio, percussive_audio) as separate AudioSamples
+    ///     tuple[AudioSamples, AudioSamples]: ``(harmonic, percussive)``.
+    ///
+    /// Raises:
+    ///     TypeError: If ``config`` is neither ``StftParams`` nor ``HpssConfig``,
+    ///         or filter arguments are given together with an ``HpssConfig``.
+    ///     ValueError: If the configuration is invalid.
     ///
     /// Examples:
-    ///     >>> harmonic, percussive = audio.hpss(win_size=2048, hop_size=512)
-    #[pyo3(signature = (stft_params: "StftParams", median_filter_harmonic: "int" = 17, median_filter_percussive: "int" = 17, mask_softness: "float" = 0.5), text_signature = "($self, win_size: int = 2048, hop_size: int = 512, median_filter_harmonic: int = 17, median_filter_percussive: int = 17, mask_softness: float = 0.5) -> tuple[AudioSamples, AudioSamples]")]
+    ///     >>> harmonic, percussive = audio.hpss(HpssConfig.musical)
+    ///     >>> harmonic, percussive = audio.hpss(StftParams(2048, 512, WindowType.hanning, True))
+    #[pyo3(
+        signature = (config, median_filter_harmonic = None, median_filter_percussive = None, mask_softness = None),
+        text_signature = "($self, config, median_filter_harmonic=None, median_filter_percussive=None, mask_softness=None)"
+    )]
     fn hpss(
         &self,
         py: Python<'_>,
-        stft_params: PyStftParams,
-        median_filter_harmonic: usize,
-        median_filter_percussive: usize,
-        mask_softness: f64,
+        config: &Bound<'_, PyAny>,
+        median_filter_harmonic: Option<usize>,
+        median_filter_percussive: Option<usize>,
+        mask_softness: Option<f64>,
     ) -> PyResult<(Self, Self)> {
+        let config = if let Ok(cfg) = config.extract::<PyHpssConfig>() {
+            if median_filter_harmonic.is_some()
+                || median_filter_percussive.is_some()
+                || mask_softness.is_some()
+            {
+                return Err(PyTypeError::new_err(
+                    "hpss: pass either an HpssConfig alone, or StftParams with the filter arguments",
+                ));
+            }
+            cfg.inner
+        } else if let Ok(stft) = config.extract::<PyStftParams>() {
+            HpssConfig::new(
+                stft.inner,
+                median_filter_harmonic.unwrap_or(17),
+                median_filter_percussive.unwrap_or(17),
+                mask_softness.unwrap_or(0.5),
+            )
+        } else {
+            return Err(PyTypeError::new_err(
+                "hpss: config must be an HpssConfig or a StftParams",
+            ));
+        };
         dispatch_with_view!(self, py, |audio| {
-            let config = HpssConfig::new(
-                stft_params.inner,
-                median_filter_harmonic,
-                median_filter_percussive,
-                mask_softness,
-            );
             let (harmonic, percussive) = audio.hpss(&config).map_err(audio_err_to_py)?;
             Ok((
                 Self::from_audio_samples(harmonic),

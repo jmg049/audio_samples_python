@@ -108,10 +108,12 @@ impl PyAudioSamples {
     }
 
     #[pyo3(signature = (), text_signature = "($self) -> float")]
-    /// Calculate the zero crossing rate of the signal.
+    /// Calculate the zero crossing rate of the whole signal.
     ///
     /// Returns:
-    ///     float: Zero crossings normalized by the number of samples.
+    ///     float: Zero crossings **per second** (crossings / duration),
+    ///         averaged over channels. ``librosa.feature.zero_crossing_rate`` is
+    ///         instead a per-frame fraction of samples.
     fn zero_crossing_rate(&self, py: Python<'_>) -> f64 {
         dispatch_with_view!(self, py, |audio| audio.zero_crossing_rate())
     }
@@ -119,11 +121,16 @@ impl PyAudioSamples {
     #[pyo3(signature = (max_lag), text_signature = "($self, max_lag: int) -> Optional[list[float]]")]
     /// Compute the autocorrelation sequence up to a lag limit.
     ///
+    /// ``r[k] = sum_j x[j] x[j + k] / (n - k)`` (unbiased; ``r[0]`` is the mean
+    /// square) for lags ``0..=min(max_lag, n - 1)``, first channel only.
+    /// ``r[k] * (n - k)`` equals ``librosa.autocorrelate(x, max_size=max_lag + 1)[k]``.
+    ///
     /// Args:
     ///     max_lag (int): Maximum lag to include; must be greater than zero.
     ///
     /// Returns:
-    ///     Optional[list[float]]: Autocorrelation coefficients if the buffer has samples, None otherwise.
+    ///     Optional[list[float]]: ``max_lag + 1`` values (fewer for short
+    ///         signals), or None if the FFT fails.
     ///
     /// Raises:
     ///     ValueError: If max_lag is zero.
@@ -264,7 +271,8 @@ impl PyAudioSamples {
     ///         multi-channel input. Defaults to ``ChannelReduction.average``.
     ///
     /// Returns:
-    ///     float: Frequency-weighted centroid of the magnitude spectrum.
+    ///     float: Centroid in Hz of the **power** spectrum ``|X|**2`` of the whole
+    ///         signal (a single FFT, not frame-wise). Returns 0.0 for silence.
     ///
     /// Raises:
     ///     AudioError: If the FFT computation fails or the reduction is invalid

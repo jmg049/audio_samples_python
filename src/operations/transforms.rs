@@ -149,7 +149,12 @@ impl PyAudioSamples {
     ///     log_params (Optional[LogParams]): Optional parameters for decibel conversion.
     ///
     /// Returns:
-    ///     numpy.ndarray: Mel spectrogram shaped (mel_bins, frames).
+    ///     numpy.ndarray: Mel spectrogram shaped (mel_bins, frames). Without
+    ///         ``log_params`` the values are ``sqrt(M @ |X|**2)`` (the square root
+    ///         of the mel power spectrogram, following the ``spectrograms`` crate),
+    ///         which is neither librosa's default (``power=2``, ``M @ |X|**2``) nor
+    ///         ``power=1`` (``M @ |X|``). For librosa-compatible output use
+    ///         ``melspectrogram()``.
     ///
     /// Raises:
     ///     AudioError: If spectrogram computation fails.
@@ -233,7 +238,9 @@ impl PyAudioSamples {
     ///     mfcc_params (MfccParams): Configuration for the cepstral projection.
     ///
     /// Returns:
-    ///     numpy.ndarray: MFCC matrix shaped (coefficients, frames).
+    ///     numpy.ndarray: MFCC matrix shaped (coefficients, frames). This follows
+    ///         the ``spectrograms`` crate's MFCC (not librosa's); for
+    ///         ``librosa.feature.mfcc``-compatible output use ``mfcc_frames()``.
     ///
     /// Raises:
     ///     ValueError: If n_mels is zero.

@@ -3,12 +3,13 @@ use std::time::Duration;
 use audio_samples::I24;
 use audio_samples::utils::generation::ToneComponent;
 use non_empty_slice::NonEmptyVec;
-use numpy::{PyArrayDescr, PyArrayDescrMethods};
+use numpy::PyArrayDescrMethods;
 use pyo3::{
     exceptions::{PyTypeError, PyValueError},
     prelude::*,
 };
 
+use crate::args::DTypeArg;
 use crate::{PyAudioSamples, nzu32_or_err, reexport};
 
 #[derive(Debug, Clone, Copy)]
@@ -32,7 +33,9 @@ pub enum Generator {
 
 macro_rules! dispatch_audio {
     ($py:expr, $dtype:expr, |$T:ident| $body:expr) => {{
-        let dtype = $dtype.unwrap_or_else(|| numpy::dtype::<f32>($py));
+        let dtype = $dtype
+            .map(|d| d.0)
+            .unwrap_or_else(|| numpy::dtype::<f32>($py));
 
         if dtype.is_equiv_to(&numpy::dtype::<i16>($py)) {
             type $T = i16;
@@ -61,7 +64,7 @@ fn generate_audio(
     duration_secs: f64,
     sample_rate: u32,
     amplitude: f64,
-    dtype: Option<Bound<'_, PyArrayDescr>>,
+    dtype: Option<DTypeArg<'_>>,
 ) -> PyResult<PyAudioSamples> {
     if duration_secs <= 0.0 {
         return Err(PyValueError::new_err("duration_secs must be positive"));
@@ -211,7 +214,7 @@ pub fn generation(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
 ///     duration_secs: Duration of the signal in seconds
 ///     sample_rate: Sample rate in samples per second (default: 44100)
 ///     amplitude: Peak amplitude of the wave (default: 1.0)
-///     dtype: NumPy dtype for the output array (default: f64)
+///     dtype: NumPy dtype (numpy.dtype, scalar type such as numpy.float64, or name) for the output (default: float32)
 ///
 /// Returns:
 ///     PyAudioSamples: Generated sine wave audio data
@@ -223,7 +226,7 @@ pub fn sine_wave(
     duration_secs: f64,
     sample_rate: u32,
     amplitude: f64,
-    dtype: Option<Bound<'_, PyArrayDescr>>,
+    dtype: Option<DTypeArg<'_>>,
 ) -> PyResult<PyAudioSamples> {
     generate_audio(
         py,
@@ -242,7 +245,7 @@ pub fn sine_wave(
 ///     duration_secs: Duration of the signal in seconds
 ///     sample_rate: Sample rate in samples per second (default: 44100)
 ///     amplitude: Peak amplitude of the wave (default: 1.0)
-///     dtype: NumPy dtype for the output array (default: f64)
+///     dtype: NumPy dtype (numpy.dtype, scalar type such as numpy.float64, or name) for the output (default: float32)
 ///
 /// Returns:
 ///     PyAudioSamples: Generated cosine wave audio data
@@ -254,7 +257,7 @@ fn cosine_wave(
     duration_secs: f64,
     sample_rate: u32,
     amplitude: f64,
-    dtype: Option<Bound<'_, PyArrayDescr>>,
+    dtype: Option<DTypeArg<'_>>,
 ) -> PyResult<PyAudioSamples> {
     generate_audio(
         py,
@@ -273,7 +276,7 @@ fn cosine_wave(
 ///     duration_secs: Duration of the signal in seconds
 ///     sample_rate: Sample rate in samples per second (default: 44100)
 ///     amplitude: Peak amplitude of the wave (default: 1.0)
-///     dtype: NumPy dtype for the output array (default: f64)
+///     dtype: NumPy dtype (numpy.dtype, scalar type such as numpy.float64, or name) for the output (default: float32)
 ///
 /// Returns:
 ///     PyAudioSamples: Generated sawtooth wave audio data
@@ -285,7 +288,7 @@ fn sawtooth_wave(
     duration_secs: f64,
     sample_rate: u32,
     amplitude: f64,
-    dtype: Option<Bound<'_, PyArrayDescr>>,
+    dtype: Option<DTypeArg<'_>>,
 ) -> PyResult<PyAudioSamples> {
     generate_audio(
         py,
@@ -304,7 +307,7 @@ fn sawtooth_wave(
 ///     duration_secs: Duration of the signal in seconds
 ///     sample_rate: Sample rate in samples per second (default: 44100)
 ///     amplitude: Peak amplitude of the wave (default: 1.0)
-///     dtype: NumPy dtype for the output array (default: f64)
+///     dtype: NumPy dtype (numpy.dtype, scalar type such as numpy.float64, or name) for the output (default: float32)
 ///
 /// Returns:
 ///     PyAudioSamples: Generated square wave audio data
@@ -316,7 +319,7 @@ fn square_wave(
     duration_secs: f64,
     sample_rate: u32,
     amplitude: f64,
-    dtype: Option<Bound<'_, PyArrayDescr>>,
+    dtype: Option<DTypeArg<'_>>,
 ) -> PyResult<PyAudioSamples> {
     generate_audio(
         py,
@@ -335,7 +338,7 @@ fn square_wave(
 ///     duration_secs: Duration of the signal in seconds
 ///     sample_rate: Sample rate in samples per second (default: 44100)
 ///     amplitude: Peak amplitude of the wave (default: 1.0)
-///     dtype: NumPy dtype for the output array (default: f64)
+///     dtype: NumPy dtype (numpy.dtype, scalar type such as numpy.float64, or name) for the output (default: float32)
 ///
 /// Returns:
 ///     PyAudioSamples: Generated triangle wave audio data
@@ -347,7 +350,7 @@ fn triangle_wave(
     duration_secs: f64,
     sample_rate: u32,
     amplitude: f64,
-    dtype: Option<Bound<'_, PyArrayDescr>>,
+    dtype: Option<DTypeArg<'_>>,
 ) -> PyResult<PyAudioSamples> {
     generate_audio(
         py,
@@ -367,7 +370,7 @@ fn triangle_wave(
 ///     duration_secs: Duration of the signal in seconds
 ///     sample_rate: Sample rate in samples per second (default: 44100)
 ///     amplitude: Peak amplitude of the wave (default: 1.0)
-///     dtype: NumPy dtype for the output array (default: f64)
+///     dtype: NumPy dtype (numpy.dtype, scalar type such as numpy.float64, or name) for the output (default: float32)
 ///
 /// Returns:
 ///     PyAudioSamples: Generated chirp audio data
@@ -380,7 +383,7 @@ fn chirp(
     duration_secs: f64,
     sample_rate: u32,
     amplitude: f64,
-    dtype: Option<Bound<'_, PyArrayDescr>>,
+    dtype: Option<DTypeArg<'_>>,
 ) -> PyResult<PyAudioSamples> {
     generate_audio(
         py,
@@ -398,7 +401,7 @@ fn chirp(
 ///     duration_secs: Duration of the signal in seconds
 ///     sample_rate: Sample rate in samples per second (default: 44100)
 ///     amplitude: Peak amplitude of the noise (default: 1.0)
-///     dtype: NumPy dtype for the output array (default: f64)
+///     dtype: NumPy dtype (numpy.dtype, scalar type such as numpy.float64, or name) for the output (default: float32)
 ///     seed: Optional seed for reproducible noise generation
 ///
 /// Returns:
@@ -410,7 +413,7 @@ fn white_noise(
     duration_secs: f64,
     sample_rate: u32,
     amplitude: f64,
-    dtype: Option<Bound<'_, PyArrayDescr>>,
+    dtype: Option<DTypeArg<'_>>,
     seed: Option<u64>,
 ) -> PyResult<PyAudioSamples> {
     generate_audio(
@@ -429,7 +432,7 @@ fn white_noise(
 ///     duration_secs: Duration of the signal in seconds
 ///     sample_rate: Sample rate in samples per second (default: 44100)
 ///     amplitude: Peak amplitude of the noise (default: 1.0)
-///     dtype: NumPy dtype for the output array (default: f64)
+///     dtype: NumPy dtype (numpy.dtype, scalar type such as numpy.float64, or name) for the output (default: float32)
 ///
 /// Returns:
 ///     PyAudioSamples: Generated pink noise audio data
@@ -440,7 +443,7 @@ fn pink_noise(
     duration_secs: f64,
     sample_rate: u32,
     amplitude: f64,
-    dtype: Option<Bound<'_, PyArrayDescr>>,
+    dtype: Option<DTypeArg<'_>>,
     seed: Option<u64>,
 ) -> PyResult<PyAudioSamples> {
     generate_audio(
@@ -460,7 +463,7 @@ fn pink_noise(
 ///     sample_rate: Sample rate in samples per second (default: 44100)
 ///     step: Step size for the random walk (default: 0.01)
 ///     amplitude: Peak amplitude of the noise (default: 1.0)
-///     dtype: NumPy dtype for the output array (default: f64)
+///     dtype: NumPy dtype (numpy.dtype, scalar type such as numpy.float64, or name) for the output (default: float32)
 ///
 /// Returns:
 ///     PyAudioSamples: Generated brown noise audio data
@@ -472,7 +475,7 @@ fn brown_noise(
     sample_rate: u32,
     step: f64,
     amplitude: f64,
-    dtype: Option<Bound<'_, PyArrayDescr>>,
+    dtype: Option<DTypeArg<'_>>,
     seed: Option<u64>,
 ) -> PyResult<PyAudioSamples> {
     generate_audio(
@@ -492,7 +495,7 @@ fn brown_noise(
 ///     sample_rate: Sample rate in samples per second (default: 44100)
 ///     amplitude: Peak amplitude of the impulse (default: 1.0)
 ///     position: Position of the impulse as fraction of duration (default: 0.5)
-///     dtype: NumPy dtype for the output array (default: f64)
+///     dtype: NumPy dtype (numpy.dtype, scalar type such as numpy.float64, or name) for the output (default: float32)
 ///
 /// Returns:
 ///     PyAudioSamples: Generated impulse audio data
@@ -504,7 +507,7 @@ fn impulse(
     sample_rate: u32,
     amplitude: f64,
     position: f64,
-    dtype: Option<Bound<'_, PyArrayDescr>>,
+    dtype: Option<DTypeArg<'_>>,
 ) -> PyResult<PyAudioSamples> {
     generate_audio(
         py,
@@ -521,7 +524,7 @@ fn impulse(
 /// Args:
 ///     duration_secs: Duration of the signal in seconds
 ///     sample_rate: Sample rate in samples per second (default: 44100)
-///     dtype: NumPy dtype for the output array (default: f64)
+///     dtype: NumPy dtype (numpy.dtype, scalar type such as numpy.float64, or name) for the output (default: float32)
 ///
 /// Returns:
 ///     PyAudioSamples: Generated silence audio data
@@ -531,7 +534,7 @@ fn silence(
     py: Python<'_>,
     duration_secs: f64,
     sample_rate: u32,
-    dtype: Option<Bound<'_, PyArrayDescr>>,
+    dtype: Option<DTypeArg<'_>>,
 ) -> PyResult<PyAudioSamples> {
     generate_audio(
         py,
@@ -550,7 +553,7 @@ fn silence(
 ///     duration_secs: Duration of the signal in seconds
 ///     sample_rate: Sample rate in samples per second (default: 44100)
 ///     amplitude: Peak amplitude of the wave (default: 1.0)
-///     dtype: NumPy dtype for the output array (default: f64)
+///     dtype: NumPy dtype (numpy.dtype, scalar type such as numpy.float64, or name) for the output (default: float32)
 ///
 /// Returns:
 ///     PyAudioSamples: Generated stereo sine wave audio data
@@ -562,7 +565,7 @@ pub fn stereo_sine_wave(
     duration_secs: f64,
     sample_rate: u32,
     amplitude: f64,
-    dtype: Option<Bound<'_, PyArrayDescr>>,
+    dtype: Option<DTypeArg<'_>>,
 ) -> PyResult<PyAudioSamples> {
     if duration_secs <= 0.0 {
         return Err(PyValueError::new_err("duration_secs must be positive"));
@@ -585,7 +588,7 @@ pub fn stereo_sine_wave(
 ///     duration_secs: Duration of the signal in seconds
 ///     sample_rate: Sample rate in samples per second (default: 44100)
 ///     amplitude: Peak amplitude of the chirp (default: 1.0)
-///     dtype: NumPy dtype for the output array (default: f64)
+///     dtype: NumPy dtype (numpy.dtype, scalar type such as numpy.float64, or name) for the output (default: float32)
 ///
 /// Returns:
 ///     PyAudioSamples: Generated stereo chirp audio data
@@ -598,7 +601,7 @@ pub fn stereo_chirp(
     duration_secs: f64,
     sample_rate: u32,
     amplitude: f64,
-    dtype: Option<Bound<'_, PyArrayDescr>>,
+    dtype: Option<DTypeArg<'_>>,
 ) -> PyResult<PyAudioSamples> {
     if duration_secs <= 0.0 {
         return Err(PyValueError::new_err("duration_secs must be positive"));
@@ -623,7 +626,7 @@ pub fn stereo_chirp(
 /// Args:
 ///     duration_secs: Duration of the signal in seconds
 ///     sample_rate: Sample rate in samples per second (default: 44100)
-///     dtype: NumPy dtype for the output array (default: f64)
+///     dtype: NumPy dtype (numpy.dtype, scalar type such as numpy.float64, or name) for the output (default: float32)
 ///
 /// Returns:
 ///     PyAudioSamples: Stereo silence audio data
@@ -633,7 +636,7 @@ pub fn stereo_silence(
     py: Python<'_>,
     duration_secs: f64,
     sample_rate: u32,
-    dtype: Option<Bound<'_, PyArrayDescr>>,
+    dtype: Option<DTypeArg<'_>>,
 ) -> PyResult<PyAudioSamples> {
     if duration_secs <= 0.0 {
         return Err(PyValueError::new_err("duration_secs must be positive"));
@@ -670,7 +673,7 @@ fn square_wave_bandlimited(
     duration_secs: f64,
     sample_rate: u32,
     amplitude: f64,
-    dtype: Option<Bound<'_, PyArrayDescr>>,
+    dtype: Option<DTypeArg<'_>>,
 ) -> PyResult<PyAudioSamples> {
     generate_audio(
         py,
@@ -704,7 +707,7 @@ fn sawtooth_wave_bandlimited(
     duration_secs: f64,
     sample_rate: u32,
     amplitude: f64,
-    dtype: Option<Bound<'_, PyArrayDescr>>,
+    dtype: Option<DTypeArg<'_>>,
 ) -> PyResult<PyAudioSamples> {
     generate_audio(
         py,
@@ -738,7 +741,7 @@ fn triangle_wave_bandlimited(
     duration_secs: f64,
     sample_rate: u32,
     amplitude: f64,
-    dtype: Option<Bound<'_, PyArrayDescr>>,
+    dtype: Option<DTypeArg<'_>>,
 ) -> PyResult<PyAudioSamples> {
     generate_audio(
         py,
@@ -774,7 +777,7 @@ fn exponential_chirp(
     duration_secs: f64,
     sample_rate: u32,
     amplitude: f64,
-    dtype: Option<Bound<'_, PyArrayDescr>>,
+    dtype: Option<DTypeArg<'_>>,
 ) -> PyResult<PyAudioSamples> {
     if start_freq <= 0.0 || end_freq <= 0.0 {
         return Err(PyValueError::new_err(
@@ -821,7 +824,7 @@ fn fm_signal(
     duration_secs: f64,
     sample_rate: u32,
     amplitude: f64,
-    dtype: Option<Bound<'_, PyArrayDescr>>,
+    dtype: Option<DTypeArg<'_>>,
 ) -> PyResult<PyAudioSamples> {
     if duration_secs <= 0.0 {
         return Err(PyValueError::new_err("duration_secs must be positive"));
@@ -867,7 +870,7 @@ fn am_signal(
     duration_secs: f64,
     sample_rate: u32,
     amplitude: f64,
-    dtype: Option<Bound<'_, PyArrayDescr>>,
+    dtype: Option<DTypeArg<'_>>,
 ) -> PyResult<PyAudioSamples> {
     if duration_secs <= 0.0 {
         return Err(PyValueError::new_err("duration_secs must be positive"));
@@ -911,7 +914,7 @@ fn compound_tone(
     components: Vec<(f64, f64)>,
     duration_secs: f64,
     sample_rate: u32,
-    dtype: Option<Bound<'_, PyArrayDescr>>,
+    dtype: Option<DTypeArg<'_>>,
 ) -> PyResult<PyAudioSamples> {
     if duration_secs <= 0.0 {
         return Err(PyValueError::new_err("duration_secs must be positive"));
@@ -961,7 +964,7 @@ fn exponential_bursts(
     duration_secs: f64,
     sample_rate: u32,
     amplitude: f64,
-    dtype: Option<Bound<'_, PyArrayDescr>>,
+    dtype: Option<DTypeArg<'_>>,
 ) -> PyResult<PyAudioSamples> {
     if duration_secs <= 0.0 {
         return Err(PyValueError::new_err("duration_secs must be positive"));

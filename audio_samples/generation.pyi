@@ -22,7 +22,7 @@ def sine_wave(
         duration_secs: Duration of the signal in seconds
         sample_rate: Sample rate in samples per second (default: 44100)
         amplitude: Peak amplitude of the wave (default: 1.0)
-        dtype: NumPy dtype for the output array (default: f64)
+        dtype: NumPy dtype (numpy.dtype, a scalar type such as numpy.float64, or a name such as "float64") for the output (default: float32)
 
     Returns:
         AudioSamples: Generated sine wave audio data
@@ -44,7 +44,7 @@ def cosine_wave(
         duration_secs: Duration of the signal in seconds
         sample_rate: Sample rate in samples per second (default: 44100)
         amplitude: Peak amplitude of the wave (default: 1.0)
-        dtype: NumPy dtype for the output array (default: f64)
+        dtype: NumPy dtype (numpy.dtype, a scalar type such as numpy.float64, or a name such as "float64") for the output (default: float32)
 
     Returns:
         AudioSamples: Generated cosine wave audio data
@@ -66,7 +66,7 @@ def sawtooth_wave(
         duration_secs: Duration of the signal in seconds
         sample_rate: Sample rate in samples per second (default: 44100)
         amplitude: Peak amplitude of the wave (default: 1.0)
-        dtype: NumPy dtype for the output array (default: f64)
+        dtype: NumPy dtype (numpy.dtype, a scalar type such as numpy.float64, or a name such as "float64") for the output (default: float32)
 
     Returns:
         AudioSamples: Generated sawtooth wave audio data
@@ -88,7 +88,7 @@ def square_wave(
         duration_secs: Duration of the signal in seconds
         sample_rate: Sample rate in samples per second (default: 44100)
         amplitude: Peak amplitude of the wave (default: 1.0)
-        dtype: NumPy dtype for the output array (default: f64)
+        dtype: NumPy dtype (numpy.dtype, a scalar type such as numpy.float64, or a name such as "float64") for the output (default: float32)
 
     Returns:
         AudioSamples: Generated square wave audio data
@@ -110,7 +110,7 @@ def triangle_wave(
         duration_secs: Duration of the signal in seconds
         sample_rate: Sample rate in samples per second (default: 44100)
         amplitude: Peak amplitude of the wave (default: 1.0)
-        dtype: NumPy dtype for the output array (default: f64)
+        dtype: NumPy dtype (numpy.dtype, a scalar type such as numpy.float64, or a name such as "float64") for the output (default: float32)
 
     Returns:
         AudioSamples: Generated triangle wave audio data
@@ -134,7 +134,7 @@ def chirp(
         duration_secs: Duration of the signal in seconds
         sample_rate: Sample rate in samples per second (default: 44100)
         amplitude: Peak amplitude of the wave (default: 1.0)
-        dtype: NumPy dtype for the output array (default: f64)
+        dtype: NumPy dtype (numpy.dtype, a scalar type such as numpy.float64, or a name such as "float64") for the output (default: float32)
 
     Returns:
         AudioSamples: Generated chirp audio data
@@ -155,7 +155,7 @@ def white_noise(
         duration_secs: Duration of the signal in seconds
         sample_rate: Sample rate in samples per second (default: 44100)
         amplitude: Peak amplitude of the noise (default: 1.0)
-        dtype: NumPy dtype for the output array (default: f64)
+        dtype: NumPy dtype (numpy.dtype, a scalar type such as numpy.float64, or a name such as "float64") for the output (default: float32)
         seed: Optional seed for reproducible noise (default: None)
 
     Returns:
@@ -176,7 +176,7 @@ def pink_noise(
         duration_secs: Duration of the signal in seconds
         sample_rate: Sample rate in samples per second (default: 44100)
         amplitude: Peak amplitude of the noise (default: 1.0)
-        dtype: NumPy dtype for the output array (default: f64)
+        dtype: NumPy dtype (numpy.dtype, a scalar type such as numpy.float64, or a name such as "float64") for the output (default: float32)
 
     Returns:
         AudioSamples: Generated pink noise audio data
@@ -198,7 +198,7 @@ def brown_noise(
         sample_rate: Sample rate in samples per second (default: 44100)
         step: Step size for the random walk (default: 0.01)
         amplitude: Peak amplitude of the noise (default: 1.0)
-        dtype: NumPy dtype for the output array (default: f64)
+        dtype: NumPy dtype (numpy.dtype, a scalar type such as numpy.float64, or a name such as "float64") for the output (default: float32)
 
     Returns:
         AudioSamples: Generated brown noise audio data
@@ -220,7 +220,7 @@ def impulse(
         sample_rate: Sample rate in samples per second (default: 44100)
         amplitude: Peak amplitude of the impulse (default: 1.0)
         position: Position of the impulse as fraction of duration (default: 0.5)
-        dtype: NumPy dtype for the output array (default: f64)
+        dtype: NumPy dtype (numpy.dtype, a scalar type such as numpy.float64, or a name such as "float64") for the output (default: float32)
 
     Returns:
         AudioSamples: Generated impulse audio data
@@ -236,7 +236,7 @@ def silence(
     Args:
         duration_secs: Duration of the signal in seconds
         sample_rate: Sample rate in samples per second (default: 44100)
-        dtype: NumPy dtype for the output array (default: f64)
+        dtype: NumPy dtype (numpy.dtype, a scalar type such as numpy.float64, or a name such as "float64") for the output (default: float32)
 
     Returns:
         AudioSamples: Generated silence audio data
@@ -474,7 +474,7 @@ def stereo_sine_wave(
         duration_secs: Duration of the signal in seconds
         sample_rate: Sample rate in samples per second (default: 44100)
         amplitude: Peak amplitude of the wave (default: 1.0)
-        dtype: NumPy dtype for the output array (default: f64)
+        dtype: NumPy dtype (numpy.dtype, a scalar type such as numpy.float64, or a name such as "float64") for the output (default: float32)
 
     Returns:
         AudioSamples: Generated stereo sine wave audio data (2 channels)
@@ -498,7 +498,7 @@ def stereo_chirp(
         duration_secs: Duration of the signal in seconds
         sample_rate: Sample rate in samples per second (default: 44100)
         amplitude: Peak amplitude of the chirp (default: 1.0)
-        dtype: NumPy dtype for the output array (default: f64)
+        dtype: NumPy dtype (numpy.dtype, a scalar type such as numpy.float64, or a name such as "float64") for the output (default: float32)
 
     Returns:
         AudioSamples: Generated stereo chirp audio data (2 channels)
@@ -514,7 +514,7 @@ def stereo_silence(
     Args:
         duration_secs: Duration of the signal in seconds
         sample_rate: Sample rate in samples per second (default: 44100)
-        dtype: NumPy dtype for the output array (default: f64)
+        dtype: NumPy dtype (numpy.dtype, a scalar type such as numpy.float64, or a name such as "float64") for the output (default: float32)
 
     Returns:
         AudioSamples: Generated stereo silence audio data (2 channels)

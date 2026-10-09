@@ -300,6 +300,11 @@ fn audio_samples_python(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()>
     // Re-export spectrograms module
     let spectrograms_mod = PyModule::new(py, "spectrograms")?;
     spectrograms::python::register_module(py, &spectrograms_mod)?;
+    // `ChromaParams(norm=...)` takes a ChromaNorm, which the spectrograms crate
+    // does not register; expose it so the norm can actually be chosen.
+    if !spectrograms_mod.hasattr("ChromaNorm")? {
+        spectrograms_mod.add_class::<spectrograms::python::PyChromaNorm>()?;
+    }
     m.add_submodule(&spectrograms_mod)?;
 
     // librosa-compatible array helpers

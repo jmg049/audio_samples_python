@@ -26,6 +26,7 @@ from spectrograms import (
 )
 from audio_samples.types import (
     EqBandType,
+    HpssConfig,
     FilterResponse,
     PeakPickingConfig,
     SampleType,
@@ -437,7 +438,9 @@ class AudioSamples:
             pad_value: Value used for padding
 
         Returns:
-            New buffer with the requested length
+            New buffer of ``target_num_samples`` samples. If the buffer is
+            already at least that long it is returned unchanged (it is not
+            truncated and no error is raised).
         """
         ...
 
@@ -664,15 +667,30 @@ class AudioSamples:
     # AudioDecomposition methods
     def hpss(
         self,
-        stft_params: StftParams,
-        median_filter_harmonic: int = 17,
-        median_filter_percussive: int = 17,
-        mask_softness: float = 0.5,
+        config: StftParams | HpssConfig,
+        median_filter_harmonic: Optional[int] = None,
+        median_filter_percussive: Optional[int] = None,
+        mask_softness: Optional[float] = None,
     ) -> tuple[AudioSamples, AudioSamples]:
-        """Separate harmonic and percussive components using HPSS.
+        """Separate harmonic and percussive components using median-filter HPSS.
+
+        Args:
+            config: Either a complete ``HpssConfig`` (then the other arguments
+                must be omitted), or the ``StftParams`` of the analysis STFT.
+            median_filter_harmonic: Harmonic (time-direction) median filter
+                length in frames. Default 17. Only with ``StftParams``.
+            median_filter_percussive: Percussive (frequency-direction) median
+                filter length in bins. Default 17. Only with ``StftParams``.
+            mask_softness: Mask softness in [0, 1] (0 = hard mask). Default 0.5.
+                Only with ``StftParams``.
 
         Returns:
-            tuple: (harmonic_audio, percussive_audio)
+            tuple: ``(harmonic, percussive)`` AudioSamples.
+
+        Raises:
+            TypeError: If ``config`` is neither ``StftParams`` nor ``HpssConfig``,
+                or filter arguments are combined with an ``HpssConfig``.
+            ValueError: If the configuration is invalid.
         """
         ...
 
@@ -699,7 +717,8 @@ class AudioSamples:
             config: Onset detection configuration parameters
 
         Returns:
-            Tuple of (odf_values, timestamps) where both are lists of floats
+            Tuple ``(times, odf)``: frame times in seconds first, then the
+            detection function values; both lists have one entry per frame.
         """
         ...
 
@@ -734,7 +753,8 @@ class AudioSamples:
             method: Method for computing spectral flux
 
         Returns:
-            Tuple of (flux_values, timestamps) where both are lists of floats
+            Tuple ``(times, flux)``: frame times in seconds first, then the
+            flux values; both lists have one entry per frame.
         """
         ...
 
@@ -859,8 +879,11 @@ class AudioSamples:
     def detect_beats(self, config: BeatTrackingConfig) -> BeatTrackingData:
         """Detect beats in the audio signal.
 
-        Uses onset detection and dynamic programming to identify beat positions
-        based on a target tempo.
+        Places beats on a fixed-tempo grid at ``config.tempo_bpm``, anchored at
+        the strongest onset and stepped forward/backward by one inter-beat
+        interval (snapping to nearby onsets). The tempo is not estimated (the
+        returned tempo echoes the configuration) and this is not librosa's
+        dynamic-programming beat tracker.
 
         Args:
             config: Beat tracking configuration parameters
@@ -1085,11 +1108,19 @@ class AudioSamples:
         ...
 
     def zero_crossing_rate(self) -> float:
-        """Calculate the zero crossing rate."""
+        """Zero crossings per second of the whole signal, averaged over channels.
+
+        Not librosa's per-frame ``zero_crossing_rate`` (a fraction of samples).
+        """
         ...
 
     def autocorrelation(self, max_lag: int) -> Optional[list[float]]:
-        """Calculate autocorrelation with given maximum lag."""
+        """Unbiased autocorrelation ``r[k] = sum_j x[j] x[j+k] / (n - k)``.
+
+        Lags ``0..=min(max_lag, n - 1)`` of the first channel; ``r[0]`` is the
+        mean square. ``r[k] * (n - k)`` equals
+        ``librosa.autocorrelate(x, max_size=max_lag + 1)[k]``.
+        """
         ...
 
     def cross_correlation(self, other: AudioSamples, max_lag: int) -> list[float]:
@@ -1118,7 +1149,8 @@ class AudioSamples:
                 Defaults to ``ChannelReduction.average``.
 
         Returns:
-            float: Frequency-weighted centroid of the magnitude spectrum.
+            float: Centroid in Hz of the **power** spectrum ``|X|**2`` of the
+                whole signal (one FFT, not frame-wise). Returns 0.0 for silence.
 
         Raises:
             AudioError: If the FFT computation fails or the reduction is invalid
@@ -2498,8 +2530,10 @@ class AudioSamples:
 
     # Metadata and properties
     @property
-    def dtype(self) -> np.dtype[Any]:
-        """Get the numpy dtype of the audio samples."""
+    def dtype(self) -> str:
+        """Sample type as a short string: ``"u8"``, ``"i16"``, ``"i24"``,
+        ``"i32"``, ``"f32"`` or ``"f64"`` (use ``to_numpy().dtype`` for the
+        NumPy dtype)."""
         ...
     @property
     def sample_rate(self) -> int:
@@ -2953,10 +2987,11 @@ class VadConfig:
     def __init__(
         self,
         method: VadMethod,
+        channel_policy: VadChannelPolicy,
+        /,
         frame_size: int,
         hop_size: int,
         pad_end: bool,
-        channel_policy: VadChannelPolicy,
         energy_threshold_db: float,
         zcr_min: float,
         zcr_max: float,
@@ -2972,11 +3007,11 @@ class VadConfig:
         Create VAD configuration.
 
         Args:
-            method: VAD method to use
+            method: VAD method to use (positional-only)
+            channel_policy: Policy for multi-channel audio (positional-only)
             frame_size: Frame size in samples
             hop_size: Hop size in samples (frame step)
             pad_end: Whether to include a final partial frame (zero-padded)
-            channel_policy: Policy for multi-channel audio
             energy_threshold_db: Energy threshold in dBFS (RMS). Typical: -60.0 to -30.0
             zcr_min: Minimum acceptable zero crossing rate in [0, 1]
             zcr_max: Maximum acceptable zero crossing rate in [0, 1]
