@@ -120,6 +120,9 @@ from . import mpl as mpl
 from . import types as types
 from . import spectrograms as spectrograms
 from . import exceptions as exceptions
+from . import explain as explain
+from audio_samples.explain import ExplainDoc as ExplainDoc
+from audio_samples.explain import Explainable as _Explainable
 
 __version__: str
 
@@ -566,6 +569,44 @@ class AudioSamples:
 
     def balance(self, balance: float) -> None:
         """Adjust stereo balance. -1.0 = left only, 0.0 = equal, 1.0 = right only."""
+        ...
+
+    # Explanations (audio_samples.explain)
+    def explain(
+        self,
+        obj: _Explainable,
+        *,
+        f0_range: Optional[tuple[float, float]] = None,
+        n_fft: Optional[int] = None,
+        n_mels: Optional[int] = None,
+    ) -> ExplainDoc:
+        """Explain a configuration in the context of this signal.
+
+        Uses this signal's sample rate, length (samples per channel) and
+        channel count as context.
+
+        Args:
+            obj: The configuration to explain (``StftParams``,
+                ``SpectrogramParams``, ``MelParams``, ``MfccParams``,
+                ``WindowType``, ``IirFilterDesign``, ``EqBand``,
+                ``CompressorConfig``, ``LimiterConfig``, ``VadConfig`` or
+                ``OnsetDetectionConfig``).
+            f0_range: Expected fundamental-frequency range ``(lowest, highest)`` in Hz.
+            n_fft: FFT size a ``MelParams`` will be combined with.
+            n_mels: Number of mel bands an ``MfccParams`` will be combined with.
+
+        Returns:
+            The explanation.
+
+        Raises:
+            TypeError: If ``obj`` is not a supported type.
+
+        Examples:
+            >>> audio = sine_wave(440.0, 1.0, sample_rate=16000)
+            >>> params = StftParams(n_fft=512, hop_size=256, window=WindowType.hanning)
+            >>> audio.explain(params).quantity("Frequency resolution")
+            31.25
+        """
         ...
 
     # AudioTransforms methods
@@ -2651,6 +2692,28 @@ class IirFilterDesign:
         """
         ...
 
+    def explain(
+        self,
+        sample_rate: Optional[float] = None,
+        *,
+        n_samples: Optional[int] = None,
+        n_channels: Optional[int] = None,
+        f0_range: Optional[tuple[float, float]] = None,
+    ) -> ExplainDoc:
+        """Explain what this IIR filter design will do (see ``audio_samples.explain``).
+
+        Args:
+            sample_rate: Sample rate in Hz of the signal it will be applied to.
+                Without it, quantities that need a sample rate are omitted.
+            n_samples: Signal length in samples per channel.
+            n_channels: Number of channels.
+            f0_range: Expected fundamental-frequency range ``(lowest, highest)`` in Hz.
+
+        Returns:
+            The explanation.
+        """
+        ...
+
 class EqBand:
     """Equalizer band for parametric equalization."""
 
@@ -2674,6 +2737,28 @@ class EqBand:
             - ``EqBandType.high_pass``
             - ``EqBandType.band_pass``
             - ``EqBandType.band_stop``
+        """
+        ...
+
+    def explain(
+        self,
+        sample_rate: Optional[float] = None,
+        *,
+        n_samples: Optional[int] = None,
+        n_channels: Optional[int] = None,
+        f0_range: Optional[tuple[float, float]] = None,
+    ) -> ExplainDoc:
+        """Explain what this EQ band will do (see ``audio_samples.explain``).
+
+        Args:
+            sample_rate: Sample rate in Hz of the signal it will be applied to.
+                Without it, quantities that need a sample rate are omitted.
+            n_samples: Signal length in samples per channel.
+            n_channels: Number of channels.
+            f0_range: Expected fundamental-frequency range ``(lowest, highest)`` in Hz.
+
+        Returns:
+            The explanation.
         """
         ...
 
@@ -2729,6 +2814,28 @@ class OnsetDetectionConfig:
     @classmethod
     def speech(cls) -> OnsetDetectionConfig:
         """Preset optimized for speech."""
+        ...
+
+    def explain(
+        self,
+        sample_rate: Optional[float] = None,
+        *,
+        n_samples: Optional[int] = None,
+        n_channels: Optional[int] = None,
+        f0_range: Optional[tuple[float, float]] = None,
+    ) -> ExplainDoc:
+        """Explain what this onset-detection configuration will do (see ``audio_samples.explain``).
+
+        Args:
+            sample_rate: Sample rate in Hz of the signal it will be applied to.
+                Without it, quantities that need a sample rate are omitted.
+            n_samples: Signal length in samples per channel.
+            n_channels: Number of channels.
+            f0_range: Expected fundamental-frequency range ``(lowest, highest)`` in Hz.
+
+        Returns:
+            The explanation.
+        """
         ...
 
 class ComplexOnsetConfig:
@@ -3036,6 +3143,28 @@ class VadConfig:
 
         Raises:
             ValueError: If parameters are invalid
+        """
+        ...
+
+    def explain(
+        self,
+        sample_rate: Optional[float] = None,
+        *,
+        n_samples: Optional[int] = None,
+        n_channels: Optional[int] = None,
+        f0_range: Optional[tuple[float, float]] = None,
+    ) -> ExplainDoc:
+        """Explain what this voice-activity-detection configuration will do (see ``audio_samples.explain``).
+
+        Args:
+            sample_rate: Sample rate in Hz of the signal it will be applied to.
+                Without it, quantities that need a sample rate are omitted.
+            n_samples: Signal length in samples per channel.
+            n_channels: Number of channels.
+            f0_range: Expected fundamental-frequency range ``(lowest, highest)`` in Hz.
+
+        Returns:
+            The explanation.
         """
         ...
 

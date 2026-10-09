@@ -72,6 +72,7 @@ if _so_files:
     utils = _ext.utils
     spectrograms = _ext.spectrograms
     exceptions = _ext.exceptions
+    explain = _ext.explain
 
     # Register the native submodules in sys.modules so that
     # ``from audio_samples.spectrograms import StftParams`` (and the same for
@@ -85,6 +86,7 @@ if _so_files:
         "types": _ext.types,
         "spectrograms": _ext.spectrograms,
         "exceptions": _ext.exceptions,
+        "explain": _ext.explain,
     }.items():
         _sys.modules.setdefault(f"audio_samples.{_subname}", _submod)
 
@@ -122,6 +124,9 @@ if _so_files:
     IirFilterDesign = _ext.IirFilterDesign
     EqBand = _ext.EqBand
     ParametricEq = _ext.ParametricEq
+
+    # Explanations: ``audio_samples.explain`` (submodule) and its result type.
+    ExplainDoc = _ext.ExplainDoc
 
     # Expose generation functions at the top level for convenience
     _generation_functions = [
@@ -170,6 +175,8 @@ __all__ = [
     "mpl",
     "spectrograms",
     "exceptions",
+    "explain",
+    "ExplainDoc",
     # Spectrogram parameter classes (from audio_samples.spectrograms)
     "StftParams",
     "SpectrogramParams",

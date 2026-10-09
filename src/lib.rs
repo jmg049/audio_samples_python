@@ -20,6 +20,7 @@
 #![warn(clippy::undocumented_unsafe_blocks)]
 #![warn(clippy::multiple_unsafe_ops_per_block)]
 
+pub mod explain;
 pub mod io;
 pub mod io_streaming;
 pub mod operations;
@@ -590,6 +591,9 @@ fn audio_samples_python(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()>
     let spectrograms_mod = PyModule::new(py, "spectrograms")?;
     spectrograms::python::register_module(py, &spectrograms_mod)?;
     m.add_submodule(&spectrograms_mod)?;
+
+    // Explanations (audio_samples.explain); ExplainDoc is re-exported at top level.
+    explain::explain_module(py, m)?;
 
     // Re-exports
     let utils_mod = m.getattr("utils")?;

@@ -33,7 +33,7 @@ pyo3 = { version = "0.29", features = [
     "experimental-inspect",
 ] }
 audio_samples = { version = "2.0.1", features = [
-    "python", "full_no_plotting"
+    "python", "full_no_plotting", "educational"
 ] }
 audio_samples_io = { version = "0.3.3", features = ["wav", "numpy", "flac"] }
 numpy = "0.29"

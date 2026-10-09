@@ -4,6 +4,7 @@ from typing import Optional
 import numpy
 import numpy.typing
 from audio_samples.spectrograms import CqtParams
+from audio_samples.explain import ExplainDoc
 
 class SampleType(Enum):
     """
@@ -367,6 +368,28 @@ class VadConfig:
         ...
 
     ...
+
+    def explain(
+        self,
+        sample_rate: Optional[float] = None,
+        *,
+        n_samples: Optional[int] = None,
+        n_channels: Optional[int] = None,
+        f0_range: Optional[tuple[float, float]] = None,
+    ) -> ExplainDoc:
+        """Explain what this voice-activity-detection configuration will do (see ``audio_samples.explain``).
+
+        Args:
+            sample_rate: Sample rate in Hz of the signal it will be applied to.
+                Without it, quantities that need a sample rate are omitted.
+            n_samples: Signal length in samples per channel.
+            n_channels: Number of channels.
+            f0_range: Expected fundamental-frequency range ``(lowest, highest)`` in Hz.
+
+        Returns:
+            The explanation.
+        """
+        ...
 
 class ResamplingQuality:
     """
@@ -802,6 +825,28 @@ class IirFilterDesign:
 
     ...
 
+    def explain(
+        self,
+        sample_rate: Optional[float] = None,
+        *,
+        n_samples: Optional[int] = None,
+        n_channels: Optional[int] = None,
+        f0_range: Optional[tuple[float, float]] = None,
+    ) -> ExplainDoc:
+        """Explain what this IIR filter design will do (see ``audio_samples.explain``).
+
+        Args:
+            sample_rate: Sample rate in Hz of the signal it will be applied to.
+                Without it, quantities that need a sample rate are omitted.
+            n_samples: Signal length in samples per channel.
+            n_channels: Number of channels.
+            f0_range: Expected fundamental-frequency range ``(lowest, highest)`` in Hz.
+
+        Returns:
+            The explanation.
+        """
+        ...
+
 class EqBandType:
     """
     Parametric equaliser band type.
@@ -930,6 +975,28 @@ class EqBand:
     """Whether this band is enabled."""
 
     ...
+
+    def explain(
+        self,
+        sample_rate: Optional[float] = None,
+        *,
+        n_samples: Optional[int] = None,
+        n_channels: Optional[int] = None,
+        f0_range: Optional[tuple[float, float]] = None,
+    ) -> ExplainDoc:
+        """Explain what this EQ band will do (see ``audio_samples.explain``).
+
+        Args:
+            sample_rate: Sample rate in Hz of the signal it will be applied to.
+                Without it, quantities that need a sample rate are omitted.
+            n_samples: Signal length in samples per channel.
+            n_channels: Number of channels.
+            f0_range: Expected fundamental-frequency range ``(lowest, highest)`` in Hz.
+
+        Returns:
+            The explanation.
+        """
+        ...
 
 class ParametricEq:
     """
@@ -1199,6 +1266,28 @@ class CompressorConfig:
 
     ...
 
+    def explain(
+        self,
+        sample_rate: Optional[float] = None,
+        *,
+        n_samples: Optional[int] = None,
+        n_channels: Optional[int] = None,
+        f0_range: Optional[tuple[float, float]] = None,
+    ) -> ExplainDoc:
+        """Explain what this compressor configuration will do (see ``audio_samples.explain``).
+
+        Args:
+            sample_rate: Sample rate in Hz of the signal it will be applied to.
+                Without it, quantities that need a sample rate are omitted.
+            n_samples: Signal length in samples per channel.
+            n_channels: Number of channels.
+            f0_range: Expected fundamental-frequency range ``(lowest, highest)`` in Hz.
+
+        Returns:
+            The explanation.
+        """
+        ...
+
 class LimiterConfig:
     """
     Limiter configuration parameters.
@@ -1292,6 +1381,28 @@ class LimiterConfig:
         ...
 
     ...
+
+    def explain(
+        self,
+        sample_rate: Optional[float] = None,
+        *,
+        n_samples: Optional[int] = None,
+        n_channels: Optional[int] = None,
+        f0_range: Optional[tuple[float, float]] = None,
+    ) -> ExplainDoc:
+        """Explain what this limiter configuration will do (see ``audio_samples.explain``).
+
+        Args:
+            sample_rate: Sample rate in Hz of the signal it will be applied to.
+                Without it, quantities that need a sample rate are omitted.
+            n_samples: Signal length in samples per channel.
+            n_channels: Number of channels.
+            f0_range: Expected fundamental-frequency range ``(lowest, highest)`` in Hz.
+
+        Returns:
+            The explanation.
+        """
+        ...
 
 class AdaptiveThresholdMethod:
     """
@@ -1864,6 +1975,28 @@ class OnsetDetectionConfig:
     def hop_size(self, value: int) -> None: ...
 
     ...
+
+    def explain(
+        self,
+        sample_rate: Optional[float] = None,
+        *,
+        n_samples: Optional[int] = None,
+        n_channels: Optional[int] = None,
+        f0_range: Optional[tuple[float, float]] = None,
+    ) -> ExplainDoc:
+        """Explain what this onset-detection configuration will do (see ``audio_samples.explain``).
+
+        Args:
+            sample_rate: Sample rate in Hz of the signal it will be applied to.
+                Without it, quantities that need a sample rate are omitted.
+            n_samples: Signal length in samples per channel.
+            n_channels: Number of channels.
+            f0_range: Expected fundamental-frequency range ``(lowest, highest)`` in Hz.
+
+        Returns:
+            The explanation.
+        """
+        ...
 
 class BeatTrackingConfig:
     """Configuration for beat detection."""
