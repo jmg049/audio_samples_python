@@ -148,8 +148,8 @@ class WindowType:
         """
         ...
 
-    @classmethod
-    def make_hanning(cls, n: int) -> npt.NDArray[np.float64]:
+    @staticmethod
+    def make_hanning(n: int) -> npt.NDArray[np.float64]:
         """Create a Hanning window of length n.
 
         :param n: Window length
@@ -157,8 +157,8 @@ class WindowType:
         """
         ...
 
-    @classmethod
-    def make_hamming(cls, n: int) -> npt.NDArray[np.float64]:
+    @staticmethod
+    def make_hamming(n: int) -> npt.NDArray[np.float64]:
         """Create a Hamming window of length n.
 
         :param n: Window length
@@ -166,8 +166,8 @@ class WindowType:
         """
         ...
 
-    @classmethod
-    def make_blackman(cls, n: int) -> npt.NDArray[np.float64]:
+    @staticmethod
+    def make_blackman(n: int) -> npt.NDArray[np.float64]:
         """Create a Blackman window of length n.
 
         :param n: Window length
@@ -175,8 +175,8 @@ class WindowType:
         """
         ...
 
-    @classmethod
-    def make_kaiser(cls, n: int, beta: float) -> npt.NDArray[np.float64]:
+    @staticmethod
+    def make_kaiser(n: int, beta: float) -> npt.NDArray[np.float64]:
         """Create a Kaiser window of length n with parameter beta.
 
         :param n: Window length
@@ -185,8 +185,8 @@ class WindowType:
         """
         ...
 
-    @classmethod
-    def make_gaussian(cls, n: int, std: float) -> npt.NDArray[np.float64]:
+    @staticmethod
+    def make_gaussian(n: int, std: float) -> npt.NDArray[np.float64]:
         """Create a Gaussian window of length n with standard deviation std.
 
         :param n: Window length
@@ -236,7 +236,9 @@ class LogParams:
     def __init__(self, floor_db: float) -> None:
         """Create decibel conversion parameters.
 
-        :param floor_db: Minimum power in decibels (values below this are clipped)
+        :param floor_db: Minimum power in decibels (values below this are clipped).
+            This is an absolute floor in dB re 1 (``-80`` clips below -80 dB),
+            not a range below the maximum like librosa's ``top_db``.
         """
         ...
 
@@ -289,6 +291,8 @@ class SpectrogramParams:
         ...
 
 class MelNorm:
+    # Runtime also has ``MelNorm.None`` (no filter normalisation); it cannot be
+    # declared here because ``None`` is a keyword. Use ``getattr(MelNorm, "None")``.
     L1: MelNorm
     L2: MelNorm
     Slaney: MelNorm
@@ -517,6 +521,7 @@ class StftResult:
     shape: tuple[int, ...]
     """Result of a Short-Time Fourier Transform computation."""
 
+    @property
     def data(self) -> npt.NDArray[np.complex128]:
         """STFT data as a 2D array of shape (n_bins, n_frames)."""
         ...
@@ -1987,57 +1992,86 @@ class IldSpectrogram:
     """IldSpectrogram computation result."""
     data: Any
     dtype: Any
-    duration: Any
     frequencies: Any
-    frequency_range: Any
-    histogram: Any
     n_bins: Any
     n_frames: Any
     params: Any
     shape: Any
     times: Any
+    def duration(self) -> float: ...
+    def frequency_range(self) -> tuple[float, float]: ...
+    def histogram(
+        self,
+        num_bins: Optional[int] = None,
+        db_range: Optional[tuple[float, float]] = None,
+        exponent: Optional[int] = None,
+        energy_weighted: bool = False,
+        normalize: bool = False,
+    ) -> npt.NDArray[np.float64]: ...
+
 
 class IlrSpectrogram:
     """IlrSpectrogram computation result."""
     data: Any
     dtype: Any
-    duration: Any
     frequencies: Any
-    frequency_range: Any
-    histogram: Any
     n_bins: Any
     n_frames: Any
     params: Any
     shape: Any
     times: Any
+    def duration(self) -> float: ...
+    def frequency_range(self) -> tuple[float, float]: ...
+    def histogram(
+        self,
+        num_bins: Optional[int] = None,
+        ratio_range: Optional[tuple[float, float]] = None,
+        exponent: Optional[int] = None,
+        energy_weighted: bool = False,
+        normalize: bool = False,
+    ) -> npt.NDArray[np.float64]: ...
+
 
 class IpdSpectrogram:
     """IpdSpectrogram computation result."""
     data: Any
     dtype: Any
-    duration: Any
     frequencies: Any
-    frequency_range: Any
-    histogram: Any
     n_bins: Any
     n_frames: Any
     params: Any
     shape: Any
     times: Any
+    def duration(self) -> float: ...
+    def frequency_range(self) -> tuple[float, float]: ...
+    def histogram(
+        self,
+        num_bins: Optional[int] = None,
+        phase_range: Optional[tuple[float, float]] = None,
+        energy_weighted: bool = False,
+        normalize: bool = False,
+    ) -> npt.NDArray[np.float64]: ...
+
 
 class ItdSpectrogram:
     """ItdSpectrogram computation result."""
     data: Any
     dtype: Any
-    duration: Any
     frequencies: Any
-    frequency_range: Any
-    histogram: Any
     n_bins: Any
     n_frames: Any
     params: Any
     shape: Any
     times: Any
+    def duration(self) -> float: ...
+    def frequency_range(self) -> tuple[float, float]: ...
+    def histogram(
+        self,
+        num_bins: Optional[int] = None,
+        delay_range: Optional[tuple[float, float]] = None,
+        energy_weighted: bool = False,
+        normalize: bool = False,
+    ) -> npt.NDArray[np.float64]: ...
 
 DLPACK_FLAG_BITMASK_IS_COPIED: int
 DLPACK_FLAG_BITMASK_READ_ONLY: int

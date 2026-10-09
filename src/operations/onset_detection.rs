@@ -35,7 +35,8 @@ impl PyAudioSamples {
     ///     config (OnsetDetectionConfig): Parameters controlling the detection function.
     ///
     /// Returns:
-    ///     tuple[list[float], list[float]]: Detection function values and matching timestamps.
+    ///     tuple[list[float], list[float]]: ``(times, values)``: frame times in
+    ///         seconds first, then the detection-function value of each frame.
     ///
     /// Raises:
     ///     AudioError: If the detection function computation fails.

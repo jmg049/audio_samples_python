@@ -96,6 +96,10 @@ impl PyAudioSamples {
     #[pyo3(signature = (channel1: "int", channel2: "int"))]
     /// Swap two channels in place.
     ///
+    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// was created from a NumPy array (``new_mono``/``new_multi``), that array
+    /// is modified too; pass ``arr.copy()`` to keep the original.
+    ///
     /// Args:
     ///     channel1 (int): Zero-based index of the first channel.
     ///     channel2 (int): Zero-based index of the second channel.
@@ -117,6 +121,10 @@ impl PyAudioSamples {
     #[pyo3(signature = (pan_value: "float"))]
     /// Apply stereo panning to the buffer in place.
     ///
+    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// was created from a NumPy array (``new_mono``/``new_multi``), that array
+    /// is modified too; pass ``arr.copy()`` to keep the original.
+    ///
     /// Args:
     ///     pan_value (float): Normalized pan value; negative favors left, positive favors right.
     ///
@@ -135,6 +143,10 @@ impl PyAudioSamples {
 
     #[pyo3(signature = (balance: "float"))]
     /// Adjust the stereo balance in place.
+    ///
+    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// was created from a NumPy array (``new_mono``/``new_multi``), that array
+    /// is modified too; pass ``arr.copy()`` to keep the original.
     ///
     /// Args:
     ///     balance (float): Balance offset; negative favors left, positive favors right.

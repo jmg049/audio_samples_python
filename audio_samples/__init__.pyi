@@ -248,12 +248,22 @@ class AudioSamples:
 
     @staticmethod
     def new_mono(arr: NDArray[Any], sample_rate: int) -> AudioSamples:
-        """Create mono audio from numpy array (auto-detects dtype)."""
+        """Create mono audio from a 1-D numpy array (auto-detects dtype).
+
+        Zero-copy: the AudioSamples views ``arr``'s memory, so in-place
+        methods (``apply_compressor``, ``apply_iir_filter``, ``filtfilt``, ...)
+        modify ``arr``. Pass ``arr.copy()`` to keep the original. No value
+        conversion is performed.
+        """
         ...
 
     @staticmethod
     def new_multi(arr: NDArray[Any], sample_rate: int) -> AudioSamples:
-        """Create multi-channel audio from numpy array (auto-detects dtype)."""
+        """Create multi-channel audio from a 2-D (channels, samples) numpy array.
+
+        Zero-copy: the AudioSamples views ``arr``'s memory, so in-place
+        methods modify ``arr``. Pass ``arr.copy()`` to keep the original.
+        """
         ...
 
     # Factory methods - zeros
@@ -664,6 +674,18 @@ class AudioSamples:
         """
         ...
 
+    def apply_filter(self, coefficients: NDArray[np.float64]) -> AudioSamples:
+        """FIR filter by valid convolution: ``numpy.convolve(x, h, 'valid')`` per channel.
+
+        ``y[i] = sum_k h[k] * x[i + M - 1 - k]``; the output has ``N - M + 1``
+        samples (``convolve`` returns the full ``N + M - 1``).
+        """
+        ...
+
+    def apply_filter_in_place(self, coefficients: NDArray[np.float64]) -> None:
+        """In-place ``apply_filter``; the buffer becomes ``M - 1`` samples shorter."""
+        ...
+
     def apply_window(self, window: NDArray[np.floating]) -> AudioSamples:
         """Apply a window function to the audio samples.
 
@@ -682,7 +704,12 @@ class AudioSamples:
         min_frequency: float = 50.0,
         max_frequency: float = 2000.0,
     ) -> Optional[float]:
-        """Detect pitch using the YIN algorithm. Returns frequency in Hz or None."""
+        """Detect pitch using the YIN algorithm. Returns frequency in Hz or None.
+
+        ``threshold`` is the absolute threshold on YIN's normalised difference
+        d'(tau) in [0, 1]; lower values are stricter (fewer detections, more
+        ``None``), higher values more permissive.
+        """
         ...
 
     def detect_pitch_autocorr(
@@ -812,13 +839,14 @@ class AudioSamples:
     ) -> tuple[list[float], list[float]]:
         """Compute onset detection function (energy-based).
 
-        Returns the onset detection function values and corresponding timestamps.
+        Returns the frame timestamps and the onset detection function values.
 
         Args:
             config: Onset detection configuration parameters
 
         Returns:
-            Tuple of (odf_values, timestamps) where both are lists of floats
+            Tuple of (times, values): frame times in seconds first, then the
+            detection-function value of each frame
         """
         ...
 
@@ -1220,11 +1248,11 @@ class AudioSamples:
         ...
 
     def autocorrelation(self, max_lag: int) -> Optional[list[float]]:
-        """Calculate autocorrelation with given maximum lag."""
+        """Unbiased autocorrelation r[k] = sum x[n]x[n+k] / (N-k), k = 0..max_lag (not normalised)."""
         ...
 
     def cross_correlation(self, other: AudioSamples, max_lag: int) -> list[float]:
-        """Calculate normalized cross-correlation with another audio buffer.
+        """Unbiased, unnormalised cross-correlation r[k] = sum self[n]other[n+k] / (N-k).
 
         Args:
             other: Audio buffer to correlate against
@@ -1234,8 +1262,9 @@ class AudioSamples:
             Cross-correlation coefficients up to the requested lag
 
         Raises:
-            ValueError: If max_lag is zero or sample rates/layouts differ
-            TypeError: If buffers have incompatible dtypes
+            ValueError: If max_lag is zero
+            AudioParameterError: If sample rates or channel counts differ
+            TypeError: If buffers have different dtypes
         """
         ...
 
@@ -2098,24 +2127,24 @@ class AudioSamples:
         ...
 
     def fft(self, n_fft: int) -> np.typing.NDArray[np.complexfloating]:
-        """Calculate FFT.
+        """One-sided FFT: ``numpy.fft.rfft(x, n_fft)`` per channel.
 
         Args:
-            n_fft: FFT size in samples
+            n_fft: FFT size in samples (>= signal length; input is zero-padded)
 
         Returns:
-            Complex spectrum shaped (channels, frequency_bins)
+            Complex spectrum shaped (channels, n_fft // 2 + 1)
         """
         ...
 
     def rfft(self, n_fft: int) -> np.typing.NDArray[np.float64]:
-        """Calculate real-valued FFT.
+        """Magnitude of the one-sided FFT: ``abs(numpy.fft.rfft(x, n_fft))``.
 
         Args:
             n_fft: FFT size in samples
 
         Returns:
-            Real-valued spectrum shaped (channels, frequency_bins)
+            Magnitude spectrum shaped (channels, n_fft // 2 + 1)
         """
         ...
 
@@ -2246,6 +2275,11 @@ class AudioSamples:
             :param mel_params (MelParams): Mel filterbank parameters
             :param log_params (Optional[LogParams]): Optional log scale parameters for dB conversion
             :return numpy.ndarray: Mel spectrogram array
+
+        Notes: without log_params returns sqrt(M @ |X|**2) (square root of mel
+        power); with log_params returns max(10*log10(M @ |X|**2), floor_db),
+        floor_db being an absolute floor in dB re 1 (not librosa's top_db).
+        Slaney mel scale; filters unnormalised unless MelParams(norm="slaney").
         """
         ...
 
@@ -2278,6 +2312,10 @@ class AudioSamples:
             :param n_mels (int): Number of mel bands
             :param mfcc_params (MfccParams): MFCC computation parameters
             :return numpy.ndarray: MFCC feature array
+
+        Notes: 10*log10 of unnormalised Slaney mel power, unnormalised DCT-II,
+        HTK lifter 22. Equals librosa.feature.mfcc (ortho DCT, no lifter) times
+        sqrt(n_mels) (c0) or sqrt(n_mels/2) (q >= 1), times the lifter weights.
         """
         ...
 
@@ -2295,31 +2333,42 @@ class AudioSamples:
         ...
 
     def to_format(self, dtype: SampleType) -> AudioSamples:
-        """Convert audio samples to specified dtype (e.g. i16, f32)."""
+        """Audio-aware conversion to ``dtype``.
+
+        Values are rescaled between full-scale ranges. Integer scaling is
+        asymmetric: float -1.0 -> -32768 and +1.0 -> 32767 for int16
+        (likewise int24/int32); uint8 is offset binary (-1 -> 0, 0 -> 128,
+        1 -> 255). Compare ``cast_as`` (raw numeric cast).
+        """
         ...
 
     def as_u8(self) -> AudioSamples:
-        """Convert audio samples to unsigned 8-bit integer format."""
+        """Audio-aware conversion to unsigned 8-bit integer; ``to_format(SampleType.U8)``."""
         ...
 
     def as_i16(self) -> AudioSamples:
-        """Convert audio samples to signed 16-bit integer format."""
+        """Audio-aware conversion to signed 16-bit integer; ``to_format(SampleType.I16)``."""
         ...
 
     def as_i32(self) -> AudioSamples:
-        """Convert audio samples to signed 32-bit integer format."""
+        """Audio-aware conversion to signed 32-bit integer; ``to_format(SampleType.I32)``."""
         ...
 
     def as_f32(self) -> AudioSamples:
-        """Convert audio samples to 32-bit floating point format."""
+        """Audio-aware conversion to 32-bit floating point; ``to_format(SampleType.F32)``."""
         ...
 
     def as_f64(self) -> AudioSamples:
-        """Convert audio samples to 64-bit floating point format."""
+        """Audio-aware conversion to 64-bit floating point; ``to_format(SampleType.F64)``."""
         ...
 
     def cast_as(self, dtype: SampleType) -> AudioSamples:
-        """Casts audio samples to specified dtype (e.g. i16, f32)."""
+        """Raw numeric cast to ``dtype`` (no rescaling).
+
+        Float-to-integer truncates toward zero and saturates, so float audio
+        in [-1, 1] becomes mostly -1/0/1; int16 16384 becomes 16384.0, not
+        0.5. Use ``to_format``/``as_*`` for audio-aware conversion.
+        """
         ...
 
     def cast_as_u8(self) -> AudioSamples:
@@ -2859,20 +2908,10 @@ class ComplexOnsetConfig:
         """
         ...
 
-    @classmethod
-    def default(cls) -> ComplexOnsetConfig:
-        """Create default configuration."""
-        ...
-
-    @classmethod
-    def music(cls) -> ComplexOnsetConfig:
-        """Preset optimized for music."""
-        ...
-
-    @classmethod
-    def speech(cls) -> ComplexOnsetConfig:
-        """Preset optimized for speech."""
-        ...
+    # Presets are class attributes (no parentheses): ComplexOnsetConfig.musical
+    percussive: ComplexOnsetConfig
+    musical: ComplexOnsetConfig
+    speech: ComplexOnsetConfig
 
 class SpectralFluxConfig:
     """Configuration for spectral flux onset detection."""
@@ -2901,10 +2940,10 @@ class SpectralFluxConfig:
         """
         ...
 
-    @classmethod
-    def default(cls) -> SpectralFluxConfig:
-        """Create default configuration."""
-        ...
+    # Presets are class attributes (no parentheses): SpectralFluxConfig.musical
+    percussive: SpectralFluxConfig
+    musical: SpectralFluxConfig
+    complex: SpectralFluxConfig
 
 class SpectralFluxMethod:
     """Method for computing spectral flux."""
@@ -2960,6 +2999,18 @@ class EnvelopeFollower:
     @classmethod
     def default(cls) -> "EnvelopeFollower":
         """Create default envelope follower (10ms attack, 100ms release at 44100 Hz)."""
+        ...
+
+    def process(self, input: float) -> float:
+        """Process one sample; returns the envelope level (stateful)."""
+        ...
+
+    def process_array(self, samples: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+        """Process a 1-D array; returns the envelope per sample (stateful)."""
+        ...
+
+    def reset(self) -> None:
+        """Reset the envelope to 0."""
         ...
 
 class BeatTrackingConfig:

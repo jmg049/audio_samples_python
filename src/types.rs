@@ -565,10 +565,11 @@ impl PyVadMethod {
         }
     }
 
-    /// Spectral-based detection.
+    /// Spectral-based detection (not implemented).
     ///
-    /// Uses spectral features for voice activity detection, typically providing
-    /// improved robustness in noisy conditions at higher computational cost.
+    /// Reserved for speech-band spectral detection. It is **not implemented**:
+    /// ``voice_activity_mask`` / ``speech_regions`` raise an error when this
+    /// method is selected. Use ``energy``, ``zcr`` or ``combined``.
     #[classattr]
     fn spectral() -> Self {
         PyVadMethod {
@@ -1228,8 +1229,13 @@ impl_py_repr!(PyStereoConversionMethod);
 ///
 /// - ``PitchDetectionMethod.yin``
 /// - ``PitchDetectionMethod.autocorrelation``
-/// - ``PitchDetectionMethod.cepstrum``
-/// - ``PitchDetectionMethod.harmonic_product``
+/// - ``PitchDetectionMethod.cepstrum`` (not implemented)
+/// - ``PitchDetectionMethod.harmonic_product`` (not implemented)
+///
+/// Notes:
+///     Only ``yin`` and ``autocorrelation`` are implemented. ``track_pitch``
+///     raises ``AudioParameterError`` for ``cepstrum`` and
+///     ``harmonic_product``.
 #[pyclass(
     name = "PitchDetectionMethod",
     from_py_object,
@@ -1291,10 +1297,10 @@ impl PyPitchDetectionMethod {
         }
     }
 
-    /// Cepstral pitch detection.
+    /// Cepstral pitch detection (not implemented).
     ///
-    /// Operates in the frequency domain and performs well for voiced speech, but
-    /// can degrade for dense harmonic or noisy spectra.
+    /// Reserved; ``track_pitch`` raises ``AudioParameterError`` for this method.
+    /// Use ``yin`` or ``autocorrelation``.
     #[classattr]
     fn cepstrum() -> Self {
         PyPitchDetectionMethod {
@@ -1302,10 +1308,10 @@ impl PyPitchDetectionMethod {
         }
     }
 
-    /// Harmonic Product Spectrum (HPS).
+    /// Harmonic Product Spectrum (HPS) (not implemented).
     ///
-    /// Emphasises harmonic structure and is well-suited to musical signals with
-    /// strong harmonic content.
+    /// Reserved; ``track_pitch`` raises ``AudioParameterError`` for this method.
+    /// Use ``yin`` or ``autocorrelation``.
     #[classattr]
     fn harmonic_product() -> Self {
         PyPitchDetectionMethod {
@@ -2571,7 +2577,12 @@ impl_py_repr!(PySideChainConfig);
 /// properties internally. Validation can be performed explicitly using
 /// ``validate(sample_rate)``.
 ///
-/// Several common presets are provided as class attributes.
+/// Several common presets are provided as class attributes, accessed
+/// **without** parentheses: ``CompressorConfig.vocal``, ``CompressorConfig.drum``,
+/// ``CompressorConfig.bus``. (By contrast ``CompressorConfig.default()`` and the
+/// ``LimiterConfig`` presets such as ``LimiterConfig.mastering()`` are methods.)
+/// Parameters can be read back through read-only properties such as
+/// ``threshold_db`` and ``ratio``.
 #[pyclass(
     name = "CompressorConfig",
     from_py_object,
@@ -2647,7 +2658,73 @@ impl PyCompressorConfig {
         Self { inner }
     }
 
-    /// Vocal compression preset.
+    /// Threshold level in decibels.
+    #[getter]
+    fn threshold_db(&self) -> f64 {
+        self.inner.threshold_db
+    }
+
+    /// Compression ratio (``1.0`` = no compression).
+    #[getter]
+    fn ratio(&self) -> f64 {
+        self.inner.ratio
+    }
+
+    /// Attack time in milliseconds.
+    #[getter]
+    fn attack_ms(&self) -> f64 {
+        self.inner.attack_ms
+    }
+
+    /// Release time in milliseconds.
+    #[getter]
+    fn release_ms(&self) -> f64 {
+        self.inner.release_ms
+    }
+
+    /// Makeup gain in decibels applied after compression.
+    #[getter]
+    fn makeup_gain_db(&self) -> f64 {
+        self.inner.makeup_gain_db
+    }
+
+    /// Knee characteristic.
+    #[getter]
+    fn knee_type(&self) -> PyKneeType {
+        PyKneeType {
+            inner: self.inner.knee_type,
+        }
+    }
+
+    /// Knee width in decibels.
+    #[getter]
+    fn knee_width_db(&self) -> f64 {
+        self.inner.knee_width_db
+    }
+
+    /// Detection method driving gain reduction.
+    #[getter]
+    fn detection_method(&self) -> PyDynamicRangeMethod {
+        PyDynamicRangeMethod {
+            inner: self.inner.detection_method,
+        }
+    }
+
+    /// Side-chain configuration.
+    #[getter]
+    fn side_chain(&self) -> PySideChainConfig {
+        PySideChainConfig {
+            inner: self.inner.side_chain,
+        }
+    }
+
+    /// Lookahead time in milliseconds.
+    #[getter]
+    fn lookahead_ms(&self) -> f64 {
+        self.inner.lookahead_ms
+    }
+
+    /// Vocal compression preset (class attribute: ``CompressorConfig.vocal``).
     ///
     /// Tuned for moderate dynamic control and natural sounding speech or vocals.
     #[classattr]
@@ -2657,7 +2734,7 @@ impl PyCompressorConfig {
         }
     }
 
-    /// Drum compression preset.
+    /// Drum compression preset (class attribute: ``CompressorConfig.drum``).
     ///
     /// Tuned for fast transient control and strong dynamic shaping.
     #[classattr]
@@ -2667,7 +2744,7 @@ impl PyCompressorConfig {
         }
     }
 
-    /// Bus compression preset.
+    /// Bus compression preset (class attribute: ``CompressorConfig.bus``).
     ///
     /// Tuned for gentle dynamic glue on groups or mix buses.
     #[classattr]
@@ -2716,7 +2793,12 @@ impl_py_repr!(PyCompressorConfig);
 /// properties internally. Validation can be performed explicitly using
 /// ``validate(sample_rate)``.
 ///
-/// Several common presets are provided as static constructors.
+/// Several common presets are provided as class methods
+/// (``LimiterConfig.mastering()``), unlike ``CompressorConfig``'s presets,
+/// which are class attributes.
+///
+/// ``isp_limiting`` is a reserved flag: inter-sample (true-peak) limiting is
+/// not implemented and the flag currently has no effect.
 #[pyclass(name = "LimiterConfig", from_py_object, module = "audio_samples.types")]
 #[derive(Default, Debug, Clone, PartialEq)]
 pub struct PyLimiterConfig {
@@ -2751,7 +2833,8 @@ impl PyLimiterConfig {
     ///     Lookahead time in milliseconds. Allows the limiter to anticipate
     ///     upcoming peaks.
     /// isp_limiting : bool
-    ///     Whether to enable inter-sample peak (ISP) limiting.
+    ///     Reserved flag for inter-sample peak (ISP) limiting. Not implemented:
+    ///     it currently has no effect (sample peaks only).
     ///
     /// Returns
     /// -------
@@ -2838,7 +2921,10 @@ impl PyLimiterConfig {
         self.inner.lookahead_ms
     }
 
-    /// Whether inter-sample peak limiting is enabled.
+    /// Whether inter-sample peak limiting was requested.
+    ///
+    /// Reserved flag: inter-sample (true-peak) limiting is not implemented and
+    /// this flag currently has no effect; the limiter measures sample peaks.
     #[getter]
     fn isp_limiting(&self) -> bool {
         self.inner.isp_limiting
@@ -3763,6 +3849,10 @@ impl_py_repr!(PyAdaptiveThresholdConfig);
 /// Peak picking identifies local maxima in the onset strength function that
 /// exceed a threshold. Temporal constraints ensure detected peaks are
 /// separated by minimum time intervals and can include smoothing.
+///
+/// Presets are class attributes, accessed **without** parentheses:
+/// ``PeakPickingConfig.music``, ``PeakPickingConfig.speech``,
+/// ``PeakPickingConfig.drums``. ``PeakPickingConfig.default()`` is a method.
 #[pyclass(
     name = "PeakPickingConfig",
     from_py_object,
@@ -3830,7 +3920,7 @@ impl PyPeakPickingConfig {
         })
     }
 
-    /// Music preset configuration.
+    /// Music preset configuration (class attribute: ``PeakPickingConfig.music``).
     #[classattr]
     fn music() -> Self {
         PyPeakPickingConfig {
@@ -3838,7 +3928,7 @@ impl PyPeakPickingConfig {
         }
     }
 
-    /// Speech preset configuration.
+    /// Speech preset configuration (class attribute: ``PeakPickingConfig.speech``).
     #[classattr]
     fn speech() -> Self {
         PyPeakPickingConfig {
@@ -3846,12 +3936,18 @@ impl PyPeakPickingConfig {
         }
     }
 
-    /// Drums preset configuration.
+    /// Drums preset configuration (class attribute: ``PeakPickingConfig.drums``).
     #[classattr]
     fn drums() -> Self {
         PyPeakPickingConfig {
             inner: PeakPickingConfig::drums(),
         }
+    }
+
+    /// Minimum separation between detected peaks in frames.
+    #[getter]
+    fn min_peak_separation(&self) -> usize {
+        self.inner.min_peak_separation.get()
     }
 
     /// Minimum separation between detected peaks in frames.
@@ -4113,6 +4209,13 @@ impl PySpectralFluxConfig {
     }
 
     /// Get the peak picking configuration.
+    ///
+    /// Returns a **copy**: setting fields on the returned object does not change
+    /// this config. Modify the copy and assign it back::
+    ///
+    ///     pp = config.peak_picking
+    ///     pp.min_peak_separation = 256
+    ///     config.peak_picking = pp
     #[getter]
     fn peak_picking(&self) -> PyPeakPickingConfig {
         PyPeakPickingConfig {
@@ -4308,6 +4411,13 @@ impl PyComplexOnsetConfig {
     }
 
     /// Get the peak picking configuration.
+    ///
+    /// Returns a **copy**: setting fields on the returned object does not change
+    /// this config. Modify the copy and assign it back::
+    ///
+    ///     pp = config.peak_picking
+    ///     pp.min_peak_separation = 256
+    ///     config.peak_picking = pp
     #[getter]
     fn peak_picking(&self) -> PyPeakPickingConfig {
         PyPeakPickingConfig {
@@ -4388,6 +4498,18 @@ impl_py_repr!(PyComplexOnsetConfig);
 /// Python wrapper for OnsetDetectionConfig.
 ///
 /// Configuration for onset detection using spectral flux method.
+///
+/// Notes:
+///     The keyword defaults of the constructor
+///     ``OnsetDetectionConfig(cqt_params, hop_size, ...)`` are not those of
+///     ``OnsetDetectionConfig.default()``: the constructor uses
+///     ``min_onset_interval_secs=0.07``, ``pre_emphasis=0.0``,
+///     ``median_filter_length=3``, ``adaptive_threshold_multiplier=3.0``,
+///     while ``default()`` uses ``0.1``, ``0.1``, ``5``, ``1.5`` (other fields
+///     agree). Start from ``default()`` for the library defaults.
+///
+///     ``peak_picking`` and ``cqt_params`` return copies; assign a modified
+///     copy back (``config.peak_picking = pp``) to change them.
 #[pyclass(
     name = "OnsetDetectionConfig",
     from_py_object,
@@ -4424,6 +4546,15 @@ impl PyOnsetDetectionConfig {
     ///     Multiplier for adaptive threshold
     /// peak_picking : PyPeakPickingConfig
     ///     Peak picking configuration
+    ///
+    /// Notes
+    /// -----
+    /// The keyword defaults of this constructor are not those of
+    /// ``OnsetDetectionConfig.default()``: the constructor uses
+    /// ``min_onset_interval_secs=0.07``, ``pre_emphasis=0.0``,
+    /// ``median_filter_length=3`` and ``adaptive_threshold_multiplier=3.0``,
+    /// while ``default()`` uses ``0.1``, ``0.1``, ``5`` and ``1.5`` (other
+    /// fields agree). Use ``default()`` and set fields for the library default.
     #[new]
     #[pyo3(signature = (cqt_params, hop_size, window_size=None, threshold=0.3, min_onset_interval_secs=0.07, pre_emphasis=0.0, adaptive_threshold=true, median_filter_length=3, adaptive_threshold_multiplier=3.0, peak_picking=None))]
     fn new(
@@ -4605,6 +4736,13 @@ impl PyOnsetDetectionConfig {
     }
 
     /// Get the peak picking configuration.
+    ///
+    /// Returns a **copy**: setting fields on the returned object does not change
+    /// this config. Modify the copy and assign it back::
+    ///
+    ///     pp = config.peak_picking
+    ///     pp.min_peak_separation = 256
+    ///     config.peak_picking = pp
     #[getter]
     fn peak_picking(&self) -> PyPeakPickingConfig {
         PyPeakPickingConfig {
@@ -4673,6 +4811,59 @@ impl PyEnvelopeFollower {
         PyEnvelopeFollower {
             inner: EnvelopeFollower::new(10.0, 100.0, 44100.0, DynamicRangeMethod::Peak),
         }
+    }
+
+    /// Process one sample and return the current envelope level (>= 0).
+    ///
+    /// The follower is stateful: successive calls continue from the previous
+    /// envelope value. Call :meth:`reset` to start again from 0.
+    ///
+    /// Parameters
+    /// ----------
+    /// input : float
+    ///     Input sample value (any numeric scale).
+    ///
+    /// Returns
+    /// -------
+    /// float
+    ///     Smoothed envelope level.
+    #[pyo3(signature = (input))]
+    fn process(&mut self, input: f64) -> f64 {
+        self.inner.process(input)
+    }
+
+    /// Process a 1-D array sample by sample and return the envelope per sample.
+    ///
+    /// Equivalent to ``np.array([follower.process(v) for v in samples])``; the
+    /// state carries over between calls.
+    ///
+    /// Parameters
+    /// ----------
+    /// samples : numpy.ndarray
+    ///     1-D float64 array of input samples.
+    ///
+    /// Returns
+    /// -------
+    /// numpy.ndarray
+    ///     Envelope level for each input sample.
+    #[pyo3(signature = (samples))]
+    fn process_array<'py>(
+        &mut self,
+        py: Python<'py>,
+        samples: numpy::PyReadonlyArray1<'py, f64>,
+    ) -> Bound<'py, PyArray1<f64>> {
+        let out: Vec<f64> = samples
+            .as_array()
+            .iter()
+            .map(|&v| self.inner.process(v))
+            .collect();
+        out.into_pyarray(py)
+    }
+
+    /// Reset the envelope to 0 (and clear the RMS window).
+    #[pyo3(signature = ())]
+    fn reset(&mut self) {
+        self.inner.reset();
     }
 }
 

@@ -18,6 +18,10 @@ use crate::{
 impl PyAudioSamples {
     /// Apply an arbitrary IIR filter design in place.
     ///
+    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// was created from a NumPy array (``new_mono``/``new_multi``), that array
+    /// is modified too; pass ``arr.copy()`` to keep the original.
+    ///
     /// Args:
     ///     design (IirFilterDesign): Filter definition including coefficients and structure.
     ///
@@ -37,6 +41,10 @@ impl PyAudioSamples {
     }
 
     /// Apply a Butterworth low-pass filter in place.
+    ///
+    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// was created from a NumPy array (``new_mono``/``new_multi``), that array
+    /// is modified too; pass ``arr.copy()`` to keep the original.
     ///
     /// Args:
     ///     order (int): Filter order; must be greater than zero.
@@ -66,6 +74,10 @@ impl PyAudioSamples {
 
     /// Apply a Butterworth high-pass filter in place.
     ///
+    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// was created from a NumPy array (``new_mono``/``new_multi``), that array
+    /// is modified too; pass ``arr.copy()`` to keep the original.
+    ///
     /// Args:
     ///     order (int): Filter order; must be greater than zero.
     ///     cutoff_frequency (float): Cutoff frequency in hertz.
@@ -93,6 +105,10 @@ impl PyAudioSamples {
     }
 
     /// Apply a Butterworth band-pass filter in place.
+    ///
+    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// was created from a NumPy array (``new_mono``/``new_multi``), that array
+    /// is modified too; pass ``arr.copy()`` to keep the original.
     ///
     /// Args:
     ///     order (int): Filter order; must be greater than zero.
@@ -123,6 +139,10 @@ impl PyAudioSamples {
     }
 
     /// Apply a Chebyshev Type I filter in place.
+    ///
+    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// was created from a NumPy array (``new_mono``/``new_multi``), that array
+    /// is modified too; pass ``arr.copy()`` to keep the original.
     ///
     /// Args:
     ///     order (int): Filter order; must be greater than zero.
@@ -187,6 +207,10 @@ IirFilterDesign.frequency_response(frequencies, sample_rate) or SosFilter.freque
     }
     /// Apply a Butterworth low-pass filter in place.
     ///
+    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// was created from a NumPy array (``new_mono``/``new_multi``), that array
+    /// is modified too; pass ``arr.copy()`` to keep the original.
+    ///
     /// Args:
     ///     order (int): Filter order; must be greater than zero.
     ///     cutoff_frequency (float): Cutoff frequency in hertz.
@@ -214,6 +238,10 @@ IirFilterDesign.frequency_response(frequencies, sample_rate) or SosFilter.freque
 
     /// Apply a Butterworth high-pass filter in place.
     ///
+    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// was created from a NumPy array (``new_mono``/``new_multi``), that array
+    /// is modified too; pass ``arr.copy()`` to keep the original.
+    ///
     /// Args:
     ///     order (int): Filter order; must be greater than zero.
     ///     cutoff_frequency (float): Cutoff frequency in hertz.
@@ -240,6 +268,10 @@ IirFilterDesign.frequency_response(frequencies, sample_rate) or SosFilter.freque
     }
 
     /// Apply a Butterworth band-pass filter in place.
+    ///
+    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// was created from a NumPy array (``new_mono``/``new_multi``), that array
+    /// is modified too; pass ``arr.copy()`` to keep the original.
     ///
     /// Args:
     ///     order (int): Filter order; must be greater than zero.
@@ -273,6 +305,10 @@ IirFilterDesign.frequency_response(frequencies, sample_rate) or SosFilter.freque
     // -------------------------------------------------------------------------
 
     /// Apply a Chebyshev Type II low-pass filter in place.
+    ///
+    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// was created from a NumPy array (``new_mono``/``new_multi``), that array
+    /// is modified too; pass ``arr.copy()`` to keep the original.
     ///
     /// Chebyshev Type II (inverse Chebyshev) filters have a maximally flat
     /// passband and equiripple stopband. They are specified by the stopband
@@ -314,6 +350,10 @@ IirFilterDesign.frequency_response(frequencies, sample_rate) or SosFilter.freque
 
     /// Apply a Chebyshev Type II high-pass filter in place.
     ///
+    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// was created from a NumPy array (``new_mono``/``new_multi``), that array
+    /// is modified too; pass ``arr.copy()`` to keep the original.
+    ///
     /// Args:
     ///     order (int): Filter order; must be greater than zero.
     ///     cutoff_frequency (float): Stopband edge frequency in hertz.
@@ -349,6 +389,10 @@ IirFilterDesign.frequency_response(frequencies, sample_rate) or SosFilter.freque
     }
 
     /// Apply a Chebyshev Type II band-pass filter in place.
+    ///
+    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// was created from a NumPy array (``new_mono``/``new_multi``), that array
+    /// is modified too; pass ``arr.copy()`` to keep the original.
     ///
     /// Args:
     ///     order (int): Prototype filter order per edge; must be greater than zero.
@@ -388,6 +432,10 @@ IirFilterDesign.frequency_response(frequencies, sample_rate) or SosFilter.freque
     }
 
     /// Apply a Chebyshev Type II band-stop filter in place.
+    ///
+    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// was created from a NumPy array (``new_mono``/``new_multi``), that array
+    /// is modified too; pass ``arr.copy()`` to keep the original.
     ///
     /// Args:
     ///     order (int): Prototype filter order per edge; must be greater than zero.
@@ -432,6 +480,10 @@ IirFilterDesign.frequency_response(frequencies, sample_rate) or SosFilter.freque
 
     /// Apply an elliptic (Cauer) low-pass filter in place.
     ///
+    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// was created from a NumPy array (``new_mono``/``new_multi``), that array
+    /// is modified too; pass ``arr.copy()`` to keep the original.
+    ///
     /// Elliptic filters are equiripple in both passband and stopband, giving the
     /// steepest transition for a given order. They are specified by both the
     /// passband ripple and the stopband attenuation.
@@ -475,6 +527,10 @@ IirFilterDesign.frequency_response(frequencies, sample_rate) or SosFilter.freque
 
     /// Apply an elliptic (Cauer) high-pass filter in place.
     ///
+    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// was created from a NumPy array (``new_mono``/``new_multi``), that array
+    /// is modified too; pass ``arr.copy()`` to keep the original.
+    ///
     /// Args:
     ///     order (int): Filter order; must be greater than zero.
     ///     cutoff_frequency (float): Passband edge frequency in hertz.
@@ -513,6 +569,10 @@ IirFilterDesign.frequency_response(frequencies, sample_rate) or SosFilter.freque
     }
 
     /// Apply an elliptic (Cauer) band-pass filter in place.
+    ///
+    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// was created from a NumPy array (``new_mono``/``new_multi``), that array
+    /// is modified too; pass ``arr.copy()`` to keep the original.
     ///
     /// Args:
     ///     order (int): Prototype filter order per edge; must be greater than zero.
@@ -555,6 +615,10 @@ IirFilterDesign.frequency_response(frequencies, sample_rate) or SosFilter.freque
     }
 
     /// Apply an elliptic (Cauer) band-stop filter in place.
+    ///
+    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// was created from a NumPy array (``new_mono``/``new_multi``), that array
+    /// is modified too; pass ``arr.copy()`` to keep the original.
     ///
     /// Args:
     ///     order (int): Prototype filter order per edge; must be greater than zero.
@@ -602,6 +666,10 @@ IirFilterDesign.frequency_response(frequencies, sample_rate) or SosFilter.freque
 
     /// Apply a Bessel low-pass filter in place.
     ///
+    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// was created from a NumPy array (``new_mono``/``new_multi``), that array
+    /// is modified too; pass ``arr.copy()`` to keep the original.
+    ///
     /// Bessel filters have a maximally flat group delay in the passband,
     /// preserving the wave shape of in-band signals. The cutoff is the -3 dB point.
     ///
@@ -633,6 +701,10 @@ IirFilterDesign.frequency_response(frequencies, sample_rate) or SosFilter.freque
 
     /// Apply a Bessel high-pass filter in place.
     ///
+    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// was created from a NumPy array (``new_mono``/``new_multi``), that array
+    /// is modified too; pass ``arr.copy()`` to keep the original.
+    ///
     /// Args:
     ///     order (int): Filter order; must be greater than zero.
     ///     cutoff_frequency (float): -3 dB cutoff frequency in hertz.
@@ -660,6 +732,10 @@ IirFilterDesign.frequency_response(frequencies, sample_rate) or SosFilter.freque
     }
 
     /// Apply a Bessel band-pass filter in place.
+    ///
+    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// was created from a NumPy array (``new_mono``/``new_multi``), that array
+    /// is modified too; pass ``arr.copy()`` to keep the original.
     ///
     /// Args:
     ///     order (int): Prototype filter order per edge; must be greater than zero.
@@ -696,6 +772,10 @@ IirFilterDesign.frequency_response(frequencies, sample_rate) or SosFilter.freque
 
     /// Apply a Bessel band-stop filter in place.
     ///
+    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// was created from a NumPy array (``new_mono``/``new_multi``), that array
+    /// is modified too; pass ``arr.copy()`` to keep the original.
+    ///
     /// Args:
     ///     order (int): Prototype filter order per edge; must be greater than zero.
     ///     low_frequency (float): Lower band edge in hertz.
@@ -730,6 +810,10 @@ IirFilterDesign.frequency_response(frequencies, sample_rate) or SosFilter.freque
     }
 
     /// Apply a zero-phase (forward-backward) IIR filter in place.
+    ///
+    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// was created from a NumPy array (``new_mono``/``new_multi``), that array
+    /// is modified too; pass ``arr.copy()`` to keep the original.
     ///
     /// Filters the signal twice -- once forward and once backward -- so the net
     /// phase response is zero. This doubles the effective filter order and

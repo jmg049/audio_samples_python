@@ -361,6 +361,12 @@ peak = np.max(np.abs(audio))                             # same as on audio.to_n
 spectrum = np.fft.rfft(audio)
 ```
 
+**Memory sharing.** `AudioSamples.new_mono(arr, sr)` and `new_multi(arr, sr)`
+do not copy: the `AudioSamples` views `arr`'s memory. Methods that work in place
+(`apply_compressor`, `apply_limiter`, `apply_iir_filter`, `filtfilt`,
+`reverse_in_place`, ...) therefore modify `arr` too. Pass `arr.copy()` if you
+want to keep the original array unchanged.
+
 ## Requirements
 
 - Python >= 3.10

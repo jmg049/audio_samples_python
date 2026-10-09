@@ -132,11 +132,17 @@ impl PyAudioSamples {
     #[pyo3(signature = (max_lag))]
     /// Compute the autocorrelation sequence up to a lag limit.
     ///
+    /// Uses the **unbiased** estimate
+    /// ``r[k] = (1 / (N - k)) * sum_{n=0}^{N-1-k} x[n] * x[n + k]`` for
+    /// ``k = 0 .. max_lag`` (``max_lag + 1`` values). It is not normalised:
+    /// ``r[0]`` is the mean power, not 1. Divide by ``r[0]`` for a normalised
+    /// sequence; multiply ``r[k]`` by ``(N - k) / N`` for the biased estimate.
+    ///
     /// Args:
     ///     max_lag (int): Maximum lag to include; must be greater than zero.
     ///
     /// Returns:
-    ///     Optional[list[float]]: Autocorrelation coefficients if the buffer has samples, None otherwise.
+    ///     Optional[list[float]]: Autocorrelation values ``r[0..=max_lag]`` if the buffer has samples, None otherwise.
     ///
     /// Raises:
     ///     ValueError: If max_lag is zero.
@@ -148,7 +154,11 @@ impl PyAudioSamples {
     }
 
     #[pyo3(signature = (other, max_lag))]
-    /// Compute the normalized cross-correlation with another audio buffer.
+    /// Compute the cross-correlation with another audio buffer.
+    ///
+    /// Uses the same unbiased, unnormalised estimate as :meth:`autocorrelation`:
+    /// ``r[k] = (1 / (N - k)) * sum_n self[n] * other[n + k]`` for
+    /// ``k = 0 .. max_lag``.
     ///
     /// Args:
     ///     other (AudioSamples): Audio buffer to correlate against.
@@ -158,9 +168,10 @@ impl PyAudioSamples {
     ///     list[float]: Cross-correlation coefficients up to the requested lag.
     ///
     /// Raises:
-    ///     ValueError: If max_lag is zero or the sample rates or layouts differ.
-    ///     TypeError: If the buffers have incompatible backings or data types.
-    ///     NotImplementedError: If either buffer uses an interleaved NumPy backing.
+    ///     ValueError: If max_lag is zero.
+    ///     AudioParameterError: If the sample rates or channel counts differ
+    ///         (the message names both values).
+    ///     TypeError: If the buffers have different data types.
     fn cross_correlation(
         &self,
         py: Python<'_>,
@@ -168,6 +179,24 @@ impl PyAudioSamples {
         max_lag: usize,
     ) -> PyResult<Vec<f64>> {
         let max_lag = nzu_or_err(max_lag)?;
+        crate::check_rates_match(
+            "cross_correlation",
+            self.sample_rate(py).get(),
+            other.sample_rate(py).get(),
+        )?;
+        let (self_ch, other_ch) = (self.num_channels(py), other.num_channels(py));
+        if self_ch != other_ch {
+            return Err(crate::make_audio_err(
+                "AudioParameterError",
+                format!(
+                    "cross_correlation requires both signals to have the same number of \
+channels, got {self_ch} and {other_ch}; use to_mono() or extract_channel() first"
+                ),
+                None,
+                None,
+                pyo3::exceptions::PyValueError::new_err,
+            ));
+        }
         fn cross_correlation_dual<T>(
             a: &TypedAudioSamples<T>,
             b: &TypedAudioSamples<T>,
@@ -177,12 +206,6 @@ impl PyAudioSamples {
         where
             T: StandardSample + Element,
         {
-            // Validate compatibility
-            if a.sample_rate != b.sample_rate {
-                return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                    "AudioSamples must have the same sample rate and layout for cross-correlation",
-                ));
-            }
             let max_lag = nzu_or_err(max_lag)?;
             let sr = a.sample_rate;
 
@@ -230,17 +253,13 @@ impl PyAudioSamples {
                     let audio_b = AudioSamples::new(unsafe { AudioData::from_borrowed_array2_unchecked(view_b) }, sr);
                     audio_a.cross_correlation(&audio_b, max_lag)
                 }
-                (NumpyInterleaved(_), NumpyInterleaved(_)) => {
-                    // Interleaved cross-correlation requires complex deinterleaving
-                    // For now, return an error for this case
-                    return Err(PyErr::new::<pyo3::exceptions::PyNotImplementedError, _>(
-                        "Cross-correlation on interleaved NumPy arrays not yet supported",
-                    ));
-                }
                 _ => {
-                    return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
-                        "Incompatible backing types for cross-correlation",
-                    ));
+                    // Mixed backings (e.g. one owned, one NumPy-backed) or
+                    // interleaved NumPy arrays: materialise both as owned
+                    // buffers and correlate those.
+                    let owned_a = a.with_view(py, |audio| audio.into_owned());
+                    let owned_b = b.with_view(py, |audio| audio.into_owned());
+                    owned_a.cross_correlation(&owned_b, max_lag)
                 }
             };
 

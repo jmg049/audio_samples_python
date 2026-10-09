@@ -31,10 +31,12 @@ use crate::{PyAudioSamples, audio_err_to_py};
 ///     ValueError: If the signals have different dimensions or channel configurations.
 ///
 /// Example:
+///     >>> import numpy as np
 ///     >>> from audio_samples import AudioSamples
 ///     >>> from audio_samples.utils import correlation
-///     >>> audio1 = AudioSamples.zeros_mono_f32(44100, 44100)
-///     >>> corr = correlation(audio1, audio1)  # Returns 1.0 for identical signals
+///     >>> audio1 = AudioSamples.new_mono(np.sin(np.arange(100) / 5.0), sample_rate=44100)
+///     >>> correlation(audio1, audio1)  # identical signals
+///     1.0
 #[inline]
 pub fn correlation(py: Python, a: &PyAudioSamples, b: &PyAudioSamples) -> PyResult<f64> {
     // We need to get both AudioSamples and call the comparison function
@@ -118,10 +120,12 @@ pub fn correlation(py: Python, a: &PyAudioSamples, b: &PyAudioSamples) -> PyResu
 ///     ValueError: If the signals have different dimensions or channel configurations.
 ///
 /// Example:
+///     >>> import numpy as np
 ///     >>> from audio_samples import AudioSamples
 ///     >>> from audio_samples.utils import mse
-///     >>> audio1 = AudioSamples.zeros_mono_f32(44100, 44100)
-///     >>> error = mse(audio1, audio1)  # Returns 0.0 for identical signals
+///     >>> audio1 = AudioSamples.new_mono(np.sin(np.arange(100) / 5.0), sample_rate=44100)
+///     >>> mse(audio1, audio1)  # identical signals
+///     0.0
 #[inline]
 pub fn mse(py: Python, a: &PyAudioSamples, b: &PyAudioSamples) -> PyResult<f64> {
     use crate::PyAudioDataInner;
@@ -201,11 +205,13 @@ pub fn mse(py: Python, a: &PyAudioSamples, b: &PyAudioSamples) -> PyResult<f64> 
 ///     ValueError: If the signals have different dimensions or channel configurations.
 ///
 /// Example:
+///     >>> import numpy as np
 ///     >>> from audio_samples import AudioSamples
 ///     >>> from audio_samples.utils import snr
-///     >>> signal = AudioSamples.from_mono_f32([1.0, 2.0, 3.0], 44100)
-///     >>> noise = AudioSamples.from_mono_f32([0.1, 0.2, 0.1], 44100)
-///     >>> ratio = snr(signal, noise)  # Returns positive value in dB
+///     >>> signal = AudioSamples.new_mono(np.array([1.0, 2.0, 3.0]), sample_rate=44100)
+///     >>> noise = AudioSamples.new_mono(np.array([0.1, 0.2, 0.1]), sample_rate=44100)
+///     >>> round(snr(signal, noise), 2)  # 10*log10(mean(s**2) / mean(n**2))
+///     23.68
 #[inline]
 pub fn snr(py: Python, signal: &PyAudioSamples, noise: &PyAudioSamples) -> PyResult<f64> {
     use crate::PyAudioDataInner;
@@ -289,12 +295,14 @@ pub fn snr(py: Python, signal: &PyAudioSamples, noise: &PyAudioSamples) -> PyRes
 ///     ValueError: If the signals have different channel counts or configurations.
 ///
 /// Example:
+///     >>> import numpy as np
 ///     >>> from audio_samples import AudioSamples
 ///     >>> from audio_samples.utils import align_signals
-///     >>> reference = AudioSamples.from_mono_f32([1.0, 2.0, 3.0, 4.0], 44100)
-///     >>> signal = AudioSamples.from_mono_f32([2.0, 3.0, 4.0, 5.0], 44100)
+///     >>> reference = AudioSamples.new_mono(np.array([0, 0, 0, 0, 1.0, 0, 0, 0]), sample_rate=44100)
+///     >>> signal = AudioSamples.new_mono(np.array([0, 0, 1.0, 0, 0, 0, 0, 0]), sample_rate=44100)  # 2 samples early
 ///     >>> aligned, offset = align_signals(reference, signal)
 ///     >>> print(f"Offset: {offset} samples")
+///     Offset: 2 samples
 #[inline]
 pub fn align_signals(
     py: Python,

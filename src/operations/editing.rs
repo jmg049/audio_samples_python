@@ -29,6 +29,10 @@ impl PyAudioSamples {
     #[pyo3(signature = ())]
     /// Reverse the samples in place.
     ///
+    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// was created from a NumPy array (``new_mono``/``new_multi``), that array
+    /// is modified too; pass ``arr.copy()`` to keep the original.
+    ///
     /// Returns:
     ///     None: Operation mutates the current buffer.
     ///
@@ -214,6 +218,10 @@ impl PyAudioSamples {
                     "All segments must have the same dtype for concatenation",
                 ));
             }
+        }
+        let first_sr = segments_vec[0].sample_rate(py).get();
+        for item in segments_vec.iter().skip(1) {
+            crate::check_rates_match("concatenate", first_sr, item.sample_rate(py).get())?;
         }
 
         // Dispatch based on the dtype
@@ -411,6 +419,10 @@ impl PyAudioSamples {
                 ));
             }
         }
+        let first_sr = sources_vec[0].sample_rate(py).get();
+        for item in sources_vec.iter().skip(1) {
+            crate::check_rates_match("mix", first_sr, item.sample_rate(py).get())?;
+        }
 
         // Dispatch based on the dtype
         match &sources_vec[0].inner {
@@ -563,6 +575,10 @@ impl PyAudioSamples {
     #[pyo3(signature = (duration_seconds: "float", curve: "FadeCurve"))]
     /// Apply an in-place fade-in envelope.
     ///
+    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// was created from a NumPy array (``new_mono``/``new_multi``), that array
+    /// is modified too; pass ``arr.copy()`` to keep the original.
+    ///
     /// Args:
     ///     duration_seconds (float): Fade duration.
     ///     curve (FadeCurve): Curve controlling the fade shape.
@@ -587,6 +603,10 @@ impl PyAudioSamples {
 
     #[pyo3(signature = (duration_seconds: "float", curve: "FadeCurve"))]
     /// Apply an in-place fade-out envelope.
+    ///
+    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// was created from a NumPy array (``new_mono``/``new_multi``), that array
+    /// is modified too; pass ``arr.copy()`` to keep the original.
     ///
     /// Args:
     ///     duration_seconds (float): Fade duration.
@@ -698,6 +718,10 @@ impl PyAudioSamples {
 
     #[pyo3(signature = (config: "PerturbationConfig"))]
     /// Apply stochastic perturbations in place.
+    ///
+    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// was created from a NumPy array (``new_mono``/``new_multi``), that array
+    /// is modified too; pass ``arr.copy()`` to keep the original.
     ///
     /// Args:
     ///     config (PerturbationConfig): Configuration describing perturbations to apply.

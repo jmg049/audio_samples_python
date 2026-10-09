@@ -400,6 +400,24 @@ pub(crate) fn make_audio_err(
     })
 }
 
+/// Raise `AudioParameterError` (a `ValueError`) naming both rates when a
+/// two-signal operation receives inputs at different sample rates.
+pub(crate) fn check_rates_match(op: &str, first: u32, other: u32) -> PyResult<()> {
+    if first == other {
+        return Ok(());
+    }
+    Err(make_audio_err(
+        "AudioParameterError",
+        format!(
+            "{op} requires all inputs to share a sample rate, got {first} Hz and {other} Hz; \
+resample one of them first, e.g. other.resample({first})"
+        ),
+        None,
+        None,
+        PyValueError::new_err,
+    ))
+}
+
 /// Extract miette's `code` and `help` from a diagnostic.
 fn diagnostic_parts(d: &dyn miette::Diagnostic) -> (Option<String>, Option<String>) {
     (
@@ -1200,6 +1218,10 @@ impl PyAudioSamples {
                 ));
             }
         }
+        let first_sr = sources_vec[0].sample_rate(py).get();
+        for source in sources_vec.iter().skip(1) {
+            check_rates_match("stack", first_sr, source.sample_rate(py).get())?;
+        }
 
         // Dispatch based on the dtype
         match &sources_vec[0].inner {
@@ -1605,6 +1627,38 @@ impl PyAudioSamples {
         Ok(Self::new_multi_from_python::<f64>(arr, sample_rate))
     }
 
+    /// Create mono audio from a 1-D NumPy array.
+    ///
+    /// The array's dtype becomes the sample type; no value conversion is
+    /// performed (float samples are expected in ``[-1, 1]``, integer samples
+    /// span the full integer range). Supported dtypes: uint8, int16, int32,
+    /// float32, float64.
+    ///
+    /// The returned object wraps ``arr`` without copying it (zero-copy). Methods
+    /// that work in place (``apply_compressor``, ``apply_limiter``,
+    /// ``apply_iir_filter``, ``filtfilt``, ``reverse_in_place``, ...) therefore
+    /// modify ``arr`` itself; pass ``arr.copy()`` to keep the original.
+    /// Methods that return a new buffer, or that replace the buffer wholesale
+    /// (e.g. ``scale``), leave ``arr`` unchanged. Read-only arrays are copied
+    /// before the first in-place modification.
+    ///
+    /// Args:
+    ///     arr (numpy.ndarray): 1-D array of samples (non-empty).
+    ///     sample_rate (int): Sample rate in Hz.
+    ///
+    /// Returns:
+    ///     AudioSamples: Mono audio viewing ``arr``.
+    ///
+    /// Raises:
+    ///     TypeError: If ``arr`` is not 1-D or its dtype is unsupported.
+    ///     ValueError: If ``arr`` is empty.
+    ///
+    /// Examples:
+    ///     >>> import numpy as np, audio_samples as aus
+    ///     >>> a = np.zeros(4)
+    ///     >>> x = aus.AudioSamples.new_mono(a, sample_rate=8000)
+    ///     >>> x.num_channels, x.sample_rate
+    ///     (1, 8000)
     #[staticmethod]
     #[pyo3(name = "new_mono", signature = (arr: "numpy.typing.ArrayLike", sample_rate: "int"))]
     fn py_new_mono(
@@ -1652,6 +1706,36 @@ impl PyAudioSamples {
         ))
     }
 
+    /// Create multi-channel audio from a 2-D ``(channels, samples)`` NumPy array.
+    ///
+    /// Same conventions as :meth:`new_mono`: the dtype becomes the sample type
+    /// and no value conversion is performed. A ``(samples, channels)``-shaped
+    /// array triggers a warning.
+    ///
+    /// The returned object wraps ``arr`` without copying it (zero-copy). Methods
+    /// that work in place (``apply_compressor``, ``apply_limiter``,
+    /// ``apply_iir_filter``, ``filtfilt``, ``reverse_in_place``, ...) therefore
+    /// modify ``arr`` itself; pass ``arr.copy()`` to keep the original.
+    /// Methods that return a new buffer, or that replace the buffer wholesale
+    /// (e.g. ``scale``), leave ``arr`` unchanged. Read-only arrays are copied
+    /// before the first in-place modification.
+    ///
+    /// Args:
+    ///     arr (numpy.ndarray): 2-D array shaped ``(channels, samples)``.
+    ///     sample_rate (int): Sample rate in Hz.
+    ///
+    /// Returns:
+    ///     AudioSamples: Multi-channel audio viewing ``arr``.
+    ///
+    /// Raises:
+    ///     TypeError: If ``arr`` is not 2-D or its dtype is unsupported.
+    ///     ValueError: If ``arr`` is empty.
+    ///
+    /// Examples:
+    ///     >>> import numpy as np, audio_samples as aus
+    ///     >>> x = aus.AudioSamples.new_multi(np.zeros((2, 4), dtype=np.float32), sample_rate=8000)
+    ///     >>> x.num_channels
+    ///     2
     #[staticmethod]
     #[pyo3(name = "new_multi", signature = (arr: "numpy.typing.ArrayLike", sample_rate: "int"))]
     fn py_new_multi(
@@ -2848,6 +2932,30 @@ impl PyAudioSamples {
         dispatch_with_view!(self, py, |audio| { audio.nyquist() })
     }
 
+    /// Convert to another sample type with audio-aware scaling.
+    ///
+    /// Audio-aware conversion: values are rescaled between the formats'
+    /// full-scale ranges, so a float ``1.0`` and an int16 ``32767`` both mean
+    /// full scale. Integer scaling is asymmetric because two's-complement
+    /// ranges are: float ``-1.0`` maps to ``-32768`` and ``+1.0`` to ``32767``
+    /// (int16; likewise for int24/int32), i.e. negative values scale by
+    /// ``2**(bits-1)`` and positive values by ``2**(bits-1) - 1``, with
+    /// rounding and saturation at the integer limits. uint8 is offset binary
+    /// (``-1.0 -> 0``, ``0.0 -> 128``, ``1.0 -> 255``). Float-to-float
+    /// conversions do not clip. Compare :meth:`cast_as`, which keeps the
+    /// numeric value instead.
+    ///
+    /// Args:
+    ///     dtype (SampleType): Target type, e.g. ``SampleType.I16``.
+    ///
+    /// Returns:
+    ///     AudioSamples: New buffer of the target type.
+    ///
+    /// Examples:
+    ///     >>> import numpy as np, audio_samples as aus
+    ///     >>> x = aus.AudioSamples.new_mono(np.array([-1.0, -0.5, 0.0, 0.5, 1.0]), sample_rate=8000)
+    ///     >>> x.to_format(aus.SampleType.I16).to_numpy()
+    ///     array([-32768, -16384,      0,  16384,  32767], dtype=int16)
     #[pyo3(signature = (dtype))]
     fn to_format(&self, py: Python<'_>, dtype: PySampleType) -> PyAudioSamples {
         dispatch_with_view!(self, py, |audio| {
@@ -2862,31 +2970,79 @@ impl PyAudioSamples {
         })
     }
 
+    /// Audio-aware conversion to uint8 (offset binary); shorthand for ``to_format(SampleType.U8)``.
+    ///
+    /// Float ``-1.0``/``+1.0`` map to the integer minimum/maximum
+    /// (asymmetric: int16 ``-32768``/``32767``); see :meth:`to_format`.
+    /// Use ``cast_as_u8`` for a raw numeric cast instead.
     #[pyo3(signature = ())]
     fn as_u8(&self, py: Python<'_>) -> PyAudioSamples {
         self.to_format(py, PySampleType::U8)
     }
 
+    /// Audio-aware conversion to int16; shorthand for ``to_format(SampleType.I16)``.
+    ///
+    /// Float ``-1.0``/``+1.0`` map to the integer minimum/maximum
+    /// (asymmetric: int16 ``-32768``/``32767``); see :meth:`to_format`.
+    /// Use ``cast_as_i16`` for a raw numeric cast instead.
     #[pyo3(signature = ())]
     fn as_i16(&self, py: Python<'_>) -> PyAudioSamples {
         self.to_format(py, PySampleType::I16)
     }
 
+    /// Audio-aware conversion to int32; shorthand for ``to_format(SampleType.I32)``.
+    ///
+    /// Float ``-1.0``/``+1.0`` map to the integer minimum/maximum
+    /// (asymmetric: int16 ``-32768``/``32767``); see :meth:`to_format`.
+    /// Use ``cast_as_i32`` for a raw numeric cast instead.
     #[pyo3(signature = ())]
     fn as_i32(&self, py: Python<'_>) -> PyAudioSamples {
         self.to_format(py, PySampleType::I32)
     }
 
+    /// Audio-aware conversion to float32; shorthand for ``to_format(SampleType.F32)``.
+    ///
+    /// Float ``-1.0``/``+1.0`` map to the integer minimum/maximum
+    /// (asymmetric: int16 ``-32768``/``32767``); see :meth:`to_format`.
+    /// Use ``cast_as_f32`` for a raw numeric cast instead.
     #[pyo3(signature = ())]
     fn as_f32(&self, py: Python<'_>) -> PyAudioSamples {
         self.to_format(py, PySampleType::F32)
     }
 
+    /// Audio-aware conversion to float64; shorthand for ``to_format(SampleType.F64)``.
+    ///
+    /// Float ``-1.0``/``+1.0`` map to the integer minimum/maximum
+    /// (asymmetric: int16 ``-32768``/``32767``); see :meth:`to_format`.
+    /// Use ``cast_as_f64`` for a raw numeric cast instead.
     #[pyo3(signature = ())]
     fn as_f64(&self, py: Python<'_>) -> PyAudioSamples {
         self.to_format(py, PySampleType::F64)
     }
 
+    /// Cast to another sample type without audio-aware scaling.
+    ///
+    /// Raw numeric cast: each value keeps its number (like
+    /// ``numpy.ndarray.astype`` with saturation), with no rescaling between
+    /// full-scale ranges. Float-to-integer casts truncate toward zero and
+    /// saturate at the type's limits, so float audio in ``[-1, 1]`` becomes
+    /// mostly ``-1``, ``0`` and ``1``; int16 ``16384`` cast to float64 is
+    /// ``16384.0``, not ``0.5``. Use :meth:`to_format` / ``as_*`` for
+    /// audio-aware conversion.
+    ///
+    /// Args:
+    ///     dtype (SampleType): Target type, e.g. ``SampleType.F64``.
+    ///
+    /// Returns:
+    ///     AudioSamples: New buffer of the target type.
+    ///
+    /// Examples:
+    ///     >>> import numpy as np, audio_samples as aus
+    ///     >>> x = aus.AudioSamples.new_mono(np.array([16384, -32768], dtype=np.int16), sample_rate=8000)
+    ///     >>> x.cast_as(aus.SampleType.F64).to_numpy()
+    ///     array([ 16384., -32768.])
+    ///     >>> x.to_format(aus.SampleType.F64).to_numpy()
+    ///     array([ 0.50001526, -1.        ])
     #[pyo3(signature = (dtype))]
     fn cast_as(&self, py: Python<'_>, dtype: PySampleType) -> PyAudioSamples {
         dispatch_with_view!(self, py, |audio| {
@@ -2901,26 +3057,41 @@ impl PyAudioSamples {
         })
     }
 
+    /// Raw numeric cast to uint8 (no rescaling); shorthand for
+    /// ``cast_as(SampleType.U8)``. See :meth:`cast_as`; use ``as_u8``
+    /// for audio-aware conversion.
     #[pyo3(signature = ())]
     fn cast_as_u8(&self, py: Python<'_>) -> PyAudioSamples {
         self.cast_as(py, PySampleType::U8)
     }
 
+    /// Raw numeric cast to int16 (no rescaling); shorthand for
+    /// ``cast_as(SampleType.I16)``. See :meth:`cast_as`; use ``as_i16``
+    /// for audio-aware conversion.
     #[pyo3(signature = ())]
     fn cast_as_i16(&self, py: Python<'_>) -> PyAudioSamples {
         self.cast_as(py, PySampleType::I16)
     }
 
+    /// Raw numeric cast to int32 (no rescaling); shorthand for
+    /// ``cast_as(SampleType.I32)``. See :meth:`cast_as`; use ``as_i32``
+    /// for audio-aware conversion.
     #[pyo3(signature = ())]
     fn cast_as_i32(&self, py: Python<'_>) -> PyAudioSamples {
         self.cast_as(py, PySampleType::I32)
     }
 
+    /// Raw numeric cast to float32 (no rescaling); shorthand for
+    /// ``cast_as(SampleType.F32)``. See :meth:`cast_as`; use ``as_f32``
+    /// for audio-aware conversion.
     #[pyo3(signature = ())]
     fn cast_as_f32(&self, py: Python<'_>) -> PyAudioSamples {
         self.cast_as(py, PySampleType::F32)
     }
 
+    /// Raw numeric cast to float64 (no rescaling); shorthand for
+    /// ``cast_as(SampleType.F64)``. See :meth:`cast_as`; use ``as_f64``
+    /// for audio-aware conversion.
     #[pyo3(signature = ())]
     fn cast_as_f64(&self, py: Python<'_>) -> PyAudioSamples {
         self.cast_as(py, PySampleType::F64)

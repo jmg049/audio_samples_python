@@ -66,6 +66,10 @@ macro_rules! dispatch_sidechain {
 impl PyAudioSamples {
     /// Apply a compressor configuration in place.
     ///
+    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// was created from a NumPy array (``new_mono``/``new_multi``), that array
+    /// is modified too; pass ``arr.copy()`` to keep the original.
+    ///
     /// Args:
     ///     compressor_config (CompressorConfig): Parameters controlling threshold, ratio, and timing.
     ///
@@ -88,6 +92,10 @@ impl PyAudioSamples {
     }
 
     /// Apply a limiter configuration in place.
+    ///
+    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// was created from a NumPy array (``new_mono``/``new_multi``), that array
+    /// is modified too; pass ``arr.copy()`` to keep the original.
     ///
     /// Args:
     ///     config (LimiterConfig): Parameters controlling ceiling, attack, and release.
@@ -255,6 +263,10 @@ impl PyAudioSamples {
 
     /// Apply a downward noise gate in place.
     ///
+    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// was created from a NumPy array (``new_mono``/``new_multi``), that array
+    /// is modified too; pass ``arr.copy()`` to keep the original.
+    ///
     /// Args:
     ///     config (GateConfig): Gate parameters controlling threshold, ratio, and timing.
     ///
@@ -273,6 +285,10 @@ impl PyAudioSamples {
     }
 
     /// Apply a downward expander in place.
+    ///
+    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// was created from a NumPy array (``new_mono``/``new_multi``), that array
+    /// is modified too; pass ``arr.copy()`` to keep the original.
     ///
     /// Args:
     ///     config (ExpanderConfig): Expander parameters controlling threshold, ratio,

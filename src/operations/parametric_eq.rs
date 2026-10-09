@@ -11,6 +11,10 @@ use crate::{
 impl PyAudioSamples {
     /// Apply a parametric equalizer configuration in place.
     ///
+    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// was created from a NumPy array (``new_mono``/``new_multi``), that array
+    /// is modified too; pass ``arr.copy()`` to keep the original.
+    ///
     /// Args:
     ///     eq (ParametricEq): Equalizer definition containing one or more bands.
     ///
@@ -50,6 +54,10 @@ impl PyAudioSamples {
     }
 
     /// Apply a single EQ band in place.
+    ///
+    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// was created from a NumPy array (``new_mono``/``new_multi``), that array
+    /// is modified too; pass ``arr.copy()`` to keep the original.
     ///
     /// Args:
     ///     band (EqBand): Parametric band definition to apply.
@@ -91,6 +99,10 @@ impl PyAudioSamples {
 
     /// Apply a parametric peak filter in place.
     ///
+    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// was created from a NumPy array (``new_mono``/``new_multi``), that array
+    /// is modified too; pass ``arr.copy()`` to keep the original.
+    ///
     /// Args:
     ///     frequency (float): Center frequency in hertz.
     ///     gain_db (float): Gain adjustment in decibels.
@@ -117,6 +129,10 @@ impl PyAudioSamples {
     }
 
     /// Apply a low-shelf filter in place.
+    ///
+    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// was created from a NumPy array (``new_mono``/``new_multi``), that array
+    /// is modified too; pass ``arr.copy()`` to keep the original.
     ///
     /// Args:
     ///     frequency (float): Shelf corner frequency in hertz.
@@ -145,6 +161,10 @@ impl PyAudioSamples {
 
     /// Apply a high-shelf filter in place.
     ///
+    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// was created from a NumPy array (``new_mono``/``new_multi``), that array
+    /// is modified too; pass ``arr.copy()`` to keep the original.
+    ///
     /// Args:
     ///     frequency (float): Shelf corner frequency in hertz.
     ///     gain_db (float): Gain adjustment in decibels.
@@ -171,6 +191,10 @@ impl PyAudioSamples {
     }
 
     /// Apply a three-band equalizer in place.
+    ///
+    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// was created from a NumPy array (``new_mono``/``new_multi``), that array
+    /// is modified too; pass ``arr.copy()`` to keep the original.
     ///
     /// Args:
     ///     config (ThreeBandEqConfig): Three-band EQ configuration describing the

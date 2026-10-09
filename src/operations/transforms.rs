@@ -21,11 +21,17 @@ use numpy::Element;
 impl PyAudioSamples {
     /// Compute the Fast Fourier Transform (FFT) of the signal.
     ///
+    /// The spectrum is **one-sided**: only the ``n_fft // 2 + 1`` non-negative
+    /// frequency bins are returned, as ``numpy.fft.rfft(x, n_fft)`` per channel
+    /// (the signal is zero-padded to ``n_fft``, which must be at least the
+    /// signal length; longer input raises an error). Bin ``k`` is at
+    /// ``k * sample_rate / n_fft`` Hz.
+    ///
     /// Args:
     ///     n_fft (int): FFT size in samples; must be greater than zero.
     ///
     /// Returns:
-    ///     numpy.ndarray: Complex spectrum shaped (channels, frequency_bins).
+    ///     numpy.ndarray: Complex spectrum shaped (channels, n_fft // 2 + 1).
     ///
     /// Raises:
     ///     ValueError: If n_fft is zero.
@@ -43,13 +49,17 @@ impl PyAudioSamples {
         })
     }
 
-    /// Compute the real-valued Fast Fourier Transform (RFFT).
+    /// Compute the magnitude of the one-sided FFT.
+    ///
+    /// Equal to ``numpy.abs(numpy.fft.rfft(x, n_fft))`` per channel: real
+    /// magnitudes of the ``n_fft // 2 + 1`` non-negative frequency bins (use
+    /// :meth:`fft` for the complex values).
     ///
     /// Args:
     ///     n_fft (int): FFT size in samples; must be greater than zero.
     ///
     /// Returns:
-    ///     numpy.ndarray: Real-valued spectrum shaped (channels, frequency_bins).
+    ///     numpy.ndarray: Magnitude spectrum shaped (channels, n_fft // 2 + 1).
     ///
     /// Raises:
     ///     ValueError: If n_fft is zero.
@@ -153,6 +163,23 @@ impl PyAudioSamples {
     ///
     /// Raises:
     ///     AudioError: If spectrogram computation fails.
+    ///
+    /// Notes:
+    ///     With ``M`` the mel filterbank and ``|X|**2`` the STFT power:
+    ///
+    ///     - without ``log_params`` the result is ``sqrt(M @ |X|**2)``, the
+    ///       square root of the mel *power* (not ``M @ |X|``);
+    ///     - with ``log_params`` it is ``max(10*log10(M @ |X|**2), floor_db)``.
+    ///       ``floor_db`` is an **absolute** floor in dB re 1 (e.g. ``-80``
+    ///       clips values below -80 dB), not a range below the maximum like
+    ///       librosa's ``top_db``.
+    ///
+    ///     The mel scale is Slaney's (linear below 1 kHz, logarithmic above;
+    ///     librosa ``htk=False``). The filters are **not** normalised by default
+    ///     (``MelParams(norm=None)``, triangles of peak 1); pass
+    ///     ``norm="slaney"`` for librosa's default area normalisation. So
+    ///     ``librosa.filters.mel(sr=..., n_fft=..., n_mels=..., norm=None)``
+    ///     reproduces ``M``.
     #[pyo3(signature = (spec_params: "SpectrogramParams", mel_params: "MelParams", log_params: "Optional[LogParams]"=None))]
     fn mel_spectrogram<'py>(
         &self,
@@ -197,6 +224,10 @@ impl PyAudioSamples {
     ///
     /// Raises:
     ///     AudioError: If spectrogram computation fails.
+    ///
+    /// Notes:
+    ///     ``log_params.floor_db`` is an absolute floor in dB re 1, not a
+    ///     range below the maximum (librosa's ``top_db``).
     #[pyo3(signature = (spec_params: "SpectrogramParams", erb_params: "ErbParams", log_params: "Optional[LogParams]"=None))]
     fn gammatone_spectrogram<'py>(
         &self,
@@ -240,6 +271,18 @@ impl PyAudioSamples {
     /// Raises:
     ///     ValueError: If n_mels is zero.
     ///     AudioError: If the MFCC computation fails.
+    ///
+    /// Notes:
+    ///     Pipeline: mel power spectrogram (Slaney scale, ``n_mels`` bands from
+    ///     0 Hz to ``sample_rate / 2``, no filter normalisation), then
+    ///     ``L = 10*log10(max(., 1e-8))``, then an **unnormalised** DCT-II
+    ///     ``c[q] = sum_b L[b] * cos(pi*q*(b + 0.5)/n_mels)`` keeping the first
+    ///     ``n_mfcc`` coefficients, then the HTK sinusoidal lifter
+    ///     ``1 + (22/2)*sin(pi*q/22)`` (lifter 22).
+    ///
+    ///     Compared with ``librosa.feature.mfcc`` (orthonormal DCT, no lifter,
+    ///     ``top_db=80``): ``ours = librosa * s_q * lifter_q`` with
+    ///     ``s_0 = sqrt(n_mels)`` and ``s_q = sqrt(n_mels / 2)`` for ``q >= 1``.
     #[pyo3(signature = (stft_params: "StftParams", n_mels: "int", mfcc_params: "MfccParams"))]
     fn mfcc<'py>(
         &self,
@@ -296,14 +339,20 @@ impl PyAudioSamples {
     /// carries this signal's sample rate, with length
     /// ``len(self) + len(other) - 1``.
     ///
+    /// This is the *full* convolution (``numpy.convolve(x, h, 'full')``). For
+    /// FIR filtering with a coefficient array, :meth:`apply_filter` returns
+    /// only the *valid* part, ``N - M + 1`` samples
+    /// (``numpy.convolve(x, h, 'valid')``).
+    ///
     /// Args:
     ///     other (AudioSamples): Signal to convolve with. Must be mono and share
-    ///         this signal's data type.
+    ///         this signal's data type and sample rate.
     ///
     /// Returns:
     ///     AudioSamples: The convolved mono signal.
     ///
     /// Raises:
+    ///     AudioParameterError: If the two signals have different sample rates.
     ///     TypeError: If the two signals have different data types.
     ///     AudioError: If either signal is multi-channel or the FFT fails.
     #[pyo3(signature = (other: "AudioSamples"))]
@@ -327,6 +376,7 @@ impl PyAudioSamples {
     ///     AudioSamples: The deconvolved mono signal.
     ///
     /// Raises:
+    ///     AudioParameterError: If the two signals have different sample rates.
     ///     TypeError: If the two signals have different data types.
     ///     AudioError: If either signal is multi-channel or the FFT fails.
     #[pyo3(signature = (other: "AudioSamples", regularization: "float" = 0.0))]
@@ -471,6 +521,15 @@ fn convolve_or_deconvolve(
         Ok(PyAudioSamples::from_audio_samples(result))
     }
 
+    let op_name = match op {
+        ConvOp::Convolve => "convolve",
+        ConvOp::Deconvolve(_) => "deconvolve",
+    };
+    crate::check_rates_match(
+        op_name,
+        this.sample_rate(py).get(),
+        other.sample_rate(py).get(),
+    )?;
     match (&this.inner, &other.inner) {
         (PyAudioDataInner::U8(a), PyAudioDataInner::U8(b)) => run(a, b, py, op),
         (PyAudioDataInner::I16(a), PyAudioDataInner::I16(b)) => run(a, b, py, op),
