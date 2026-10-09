@@ -321,3 +321,94 @@ def assert_metadata_equal(aus_audio, expected_sr, expected_channels, expected_sa
     assert aus_audio.samples_per_channel == expected_samples, (
         f"Sample count mismatch: {aus_audio.samples_per_channel} vs {expected_samples}"
     )
+
+
+# =============================================================================
+# librosa golden fixtures (shared with the Rust reference suite)
+# =============================================================================
+#
+# The audio_samples crate stores librosa 1.0.0 outputs as JSON in
+# ``tests/fixtures/librosa/<area>.json`` (generator:
+# ``tests/reference/librosa/generate_librosa_fixtures.py`` in that repo). The
+# Python tests read the same files. Location: ``$AUDIO_SAMPLES_FIXTURES`` or the
+# sibling checkout ``../audio_samples`` (the path the Cargo ``[patch]`` uses).
+# Tests skip when the fixtures are not available.
+
+import json as _json
+from functools import lru_cache as _lru_cache
+
+
+def librosa_fixture_dir() -> Path:
+    env = os.environ.get("AUDIO_SAMPLES_FIXTURES")
+    if env:
+        return Path(env)
+    return Path(__file__).resolve().parents[2] / "audio_samples" / "tests" / "fixtures" / "librosa"
+
+
+@_lru_cache(maxsize=None)
+def _load_fixture_cached(name: str):
+    path = librosa_fixture_dir() / f"{name}.json"
+    if not path.is_file():
+        return None
+    with open(path) as fh:
+        return _json.load(fh)
+
+
+def load_librosa_fixture(name: str) -> dict:
+    """Load ``<fixtures>/<name>.json`` or skip the test if it is missing."""
+    data = _load_fixture_cached(name)
+    if data is None:
+        pytest.skip(f"librosa fixture {name}.json not found in {librosa_fixture_dir()}")
+    return data
+
+
+def fixture_array(value, dtype=np.float64) -> np.ndarray:
+    """Decode a fixture value: ``{"re", "im"}`` dicts become complex arrays and
+    ``null`` (non-finite values, e.g. DTW's unreachable cells) becomes ``+inf``."""
+    if isinstance(value, dict) and set(value) == {"re", "im"}:
+        return fixture_array(value["re"]) + 1j * fixture_array(value["im"])
+    if isinstance(value, list):
+        def _fix(v):
+            if isinstance(v, list):
+                return [_fix(x) for x in v]
+            return np.inf if v is None else v
+
+        value = _fix(value)
+    return np.asarray(value, dtype=dtype)
+
+
+def fixture_sr() -> int:
+    return int(load_librosa_fixture("signals")["sr"])
+
+
+def fixture_signal(name: str) -> np.ndarray:
+    """A shared fixture signal as float64 (exact: stored as 16-bit PCM codes)."""
+    s = load_librosa_fixture("signals")
+    return np.asarray(s["signals"][name], dtype=np.float64) / float(s["pcm_scale"])
+
+
+def fixture_signal_pcm(name: str) -> np.ndarray:
+    """A shared fixture signal as its int16 PCM codes."""
+    s = load_librosa_fixture("signals")
+    return np.asarray(s["signals"][name], dtype=np.int16)
+
+
+def peak_rel_err(actual, expected) -> float:
+    """``max|a - e| / max|e|`` (complex-aware; 0 when both are all zero)."""
+    a = np.asarray(actual)
+    e = np.asarray(expected)
+    assert a.shape == e.shape, f"shape mismatch: {a.shape} vs {e.shape}"
+    peak = float(np.max(np.abs(e))) if e.size else 0.0
+    err = float(np.max(np.abs(a - e))) if e.size else 0.0
+    return err / peak if peak > 0 else err
+
+
+def assert_peak_close(actual, expected, rtol: float, what: str = "") -> float:
+    """Assert ``max|a - e| <= rtol * max|e|`` and return the measured relative error.
+
+    Peak-relative tolerances match the Rust reference suite
+    (``tests/librosa_reference/common.rs::assert_close``).
+    """
+    rel = peak_rel_err(actual, expected)
+    assert rel <= rtol, f"{what}: peak-relative error {rel:.3e} > {rtol:.1e}"
+    return rel
