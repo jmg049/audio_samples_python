@@ -26,7 +26,7 @@ impl PyAudioSamples {
     ///
     /// Raises:
     ///     AudioError: If filter application fails.
-    #[pyo3(signature = (design: "IirFilterDesign"), text_signature = "($self, design: IirFilterDesign) -> None")]
+    #[pyo3(signature = (design: "IirFilterDesign"))]
     fn apply_iir_filter(&mut self, py: Python<'_>, design: &PyIirFilterDesign) -> PyResult<()> {
         dispatch_with_view_mut!(self, py, |mut audio| {
             let rs_design: &IirFilterDesign = design.deref();
@@ -48,7 +48,7 @@ impl PyAudioSamples {
     /// Raises:
     ///     ValueError: If order is zero.
     ///     AudioError: If filter design or application fails.
-    #[pyo3(signature = (order: "int", cutoff_frequency: "float"), text_signature = "($self, order: int, cutoff_frequency: float) -> None")]
+    #[pyo3(signature = (order: "int", cutoff_frequency: "float"))]
     fn apply_butterworth_lowpass(
         &mut self,
         py: Python<'_>,
@@ -76,7 +76,7 @@ impl PyAudioSamples {
     /// Raises:
     ///     ValueError: If order is zero.
     ///     AudioError: If filter design or application fails.
-    #[pyo3(signature = (order: "int", cutoff_frequency: "float"), text_signature = "($self, order: int, cutoff_frequency: float) -> None")]
+    #[pyo3(signature = (order: "int", cutoff_frequency: "float"))]
     fn apply_butterworth_highpass(
         &mut self,
         py: Python<'_>,
@@ -105,7 +105,7 @@ impl PyAudioSamples {
     /// Raises:
     ///     ValueError: If order is zero.
     ///     AudioError: If filter design or application fails.
-    #[pyo3(signature = (order: "int", low_frequency: "float", high_frequency: "float"), text_signature = "($self, order: int, low_frequency: float, high_frequency: float) -> None")]
+    #[pyo3(signature = (order: "int", low_frequency: "float", high_frequency: "float"))]
     fn apply_butterworth_bandpass(
         &mut self,
         py: Python<'_>,
@@ -138,7 +138,7 @@ impl PyAudioSamples {
     /// Raises:
     ///     ValueError: If order is zero.
     ///     AudioError: If filter design or application fails.
-    #[pyo3(signature = (order: "int", cutoff_frequency: "float", passband_ripple: "float", response: "FilterResponse | str"), text_signature = "($self, order: int, cutoff_frequency: float, passband_ripple: float, response: FilterResponse | str) -> None")]
+    #[pyo3(signature = (order: "int", cutoff_frequency: "float", passband_ripple: "float", response: "FilterResponse | str"))]
     fn apply_chebyshev_i(
         &mut self,
         py: Python<'_>,
@@ -169,7 +169,7 @@ impl PyAudioSamples {
     ///
     /// Returns:
     ///     tuple[list[float], list[float]]: All-ones magnitudes and all-zero phases.
-    #[pyo3(signature = (frequencies: "list[float]"), text_signature = "($self, frequencies: list[float]) -> tuple[list[float], list[float]]")]
+    #[pyo3(signature = (frequencies: "list[float]"))]
     fn frequency_response(
         &self,
         py: Python<'_>,
@@ -197,7 +197,7 @@ IirFilterDesign.frequency_response(frequencies, sample_rate) or SosFilter.freque
     /// Raises:
     ///     ValueError: If order is zero.
     ///     AudioError: If filter design or application fails.
-    #[pyo3(signature = (order: "int", cutoff_frequency: "float"), text_signature = "($self, order: int, cutoff_frequency: float) -> None")]
+    #[pyo3(signature = (order: "int", cutoff_frequency: "float"))]
     fn butterworth_lowpass(
         &mut self,
         py: Python<'_>,
@@ -224,7 +224,7 @@ IirFilterDesign.frequency_response(frequencies, sample_rate) or SosFilter.freque
     /// Raises:
     ///     ValueError: If order is zero.
     ///     AudioError: If filter design or application fails.
-    #[pyo3(signature = (order: "int", cutoff_frequency: "float"), text_signature = "($self, order: int, cutoff_frequency: float) -> None")]
+    #[pyo3(signature = (order: "int", cutoff_frequency: "float"))]
     fn butterworth_highpass(
         &mut self,
         py: Python<'_>,
@@ -252,7 +252,7 @@ IirFilterDesign.frequency_response(frequencies, sample_rate) or SosFilter.freque
     /// Raises:
     ///     ValueError: If order is zero.
     ///     AudioError: If filter design or application fails.
-    #[pyo3(signature = (order: "int", low_frequency: "float", high_frequency: "float"), text_signature = "($self, order: int, low_frequency: float, high_frequency: float) -> None")]
+    #[pyo3(signature = (order: "int", low_frequency: "float", high_frequency: "float"))]
     fn butterworth_bandpass(
         &mut self,
         py: Python<'_>,
@@ -290,7 +290,7 @@ IirFilterDesign.frequency_response(frequencies, sample_rate) or SosFilter.freque
     /// Raises:
     ///     ValueError: If order is zero or a parameter is invalid.
     ///     AudioError: If filter design or application fails.
-    #[pyo3(signature = (order: "int", cutoff_frequency: "float", stopband_attenuation: "float"), text_signature = "($self, order: int, cutoff_frequency: float, stopband_attenuation: float) -> None")]
+    #[pyo3(signature = (order: "int", cutoff_frequency: "float", stopband_attenuation: "float"))]
     fn apply_chebyshev_ii_lowpass(
         &mut self,
         py: Python<'_>,
@@ -326,7 +326,7 @@ IirFilterDesign.frequency_response(frequencies, sample_rate) or SosFilter.freque
     /// Raises:
     ///     ValueError: If order is zero or a parameter is invalid.
     ///     AudioError: If filter design or application fails.
-    #[pyo3(signature = (order: "int", cutoff_frequency: "float", stopband_attenuation: "float"), text_signature = "($self, order: int, cutoff_frequency: float, stopband_attenuation: float) -> None")]
+    #[pyo3(signature = (order: "int", cutoff_frequency: "float", stopband_attenuation: "float"))]
     fn apply_chebyshev_ii_highpass(
         &mut self,
         py: Python<'_>,
@@ -363,7 +363,7 @@ IirFilterDesign.frequency_response(frequencies, sample_rate) or SosFilter.freque
     /// Raises:
     ///     ValueError: If order is zero or a parameter is invalid.
     ///     AudioError: If filter design or application fails.
-    #[pyo3(signature = (order: "int", low_frequency: "float", high_frequency: "float", stopband_attenuation: "float"), text_signature = "($self, order: int, low_frequency: float, high_frequency: float, stopband_attenuation: float) -> None")]
+    #[pyo3(signature = (order: "int", low_frequency: "float", high_frequency: "float", stopband_attenuation: "float"))]
     fn apply_chebyshev_ii_bandpass(
         &mut self,
         py: Python<'_>,
@@ -402,7 +402,7 @@ IirFilterDesign.frequency_response(frequencies, sample_rate) or SosFilter.freque
     /// Raises:
     ///     ValueError: If order is zero or a parameter is invalid.
     ///     AudioError: If filter design or application fails.
-    #[pyo3(signature = (order: "int", low_frequency: "float", high_frequency: "float", stopband_attenuation: "float"), text_signature = "($self, order: int, low_frequency: float, high_frequency: float, stopband_attenuation: float) -> None")]
+    #[pyo3(signature = (order: "int", low_frequency: "float", high_frequency: "float", stopband_attenuation: "float"))]
     fn apply_chebyshev_ii_bandstop(
         &mut self,
         py: Python<'_>,
@@ -449,7 +449,7 @@ IirFilterDesign.frequency_response(frequencies, sample_rate) or SosFilter.freque
     /// Raises:
     ///     ValueError: If order is zero or a parameter is invalid.
     ///     AudioError: If filter design or application fails.
-    #[pyo3(signature = (order: "int", cutoff_frequency: "float", passband_ripple: "float", stopband_attenuation: "float"), text_signature = "($self, order: int, cutoff_frequency: float, passband_ripple: float, stopband_attenuation: float) -> None")]
+    #[pyo3(signature = (order: "int", cutoff_frequency: "float", passband_ripple: "float", stopband_attenuation: "float"))]
     fn apply_elliptic_lowpass(
         &mut self,
         py: Python<'_>,
@@ -488,7 +488,7 @@ IirFilterDesign.frequency_response(frequencies, sample_rate) or SosFilter.freque
     /// Raises:
     ///     ValueError: If order is zero or a parameter is invalid.
     ///     AudioError: If filter design or application fails.
-    #[pyo3(signature = (order: "int", cutoff_frequency: "float", passband_ripple: "float", stopband_attenuation: "float"), text_signature = "($self, order: int, cutoff_frequency: float, passband_ripple: float, stopband_attenuation: float) -> None")]
+    #[pyo3(signature = (order: "int", cutoff_frequency: "float", passband_ripple: "float", stopband_attenuation: "float"))]
     fn apply_elliptic_highpass(
         &mut self,
         py: Python<'_>,
@@ -528,7 +528,7 @@ IirFilterDesign.frequency_response(frequencies, sample_rate) or SosFilter.freque
     /// Raises:
     ///     ValueError: If order is zero or a parameter is invalid.
     ///     AudioError: If filter design or application fails.
-    #[pyo3(signature = (order: "int", low_frequency: "float", high_frequency: "float", passband_ripple: "float", stopband_attenuation: "float"), text_signature = "($self, order: int, low_frequency: float, high_frequency: float, passband_ripple: float, stopband_attenuation: float) -> None")]
+    #[pyo3(signature = (order: "int", low_frequency: "float", high_frequency: "float", passband_ripple: "float", stopband_attenuation: "float"))]
     fn apply_elliptic_bandpass(
         &mut self,
         py: Python<'_>,
@@ -570,7 +570,7 @@ IirFilterDesign.frequency_response(frequencies, sample_rate) or SosFilter.freque
     /// Raises:
     ///     ValueError: If order is zero or a parameter is invalid.
     ///     AudioError: If filter design or application fails.
-    #[pyo3(signature = (order: "int", low_frequency: "float", high_frequency: "float", passband_ripple: "float", stopband_attenuation: "float"), text_signature = "($self, order: int, low_frequency: float, high_frequency: float, passband_ripple: float, stopband_attenuation: float) -> None")]
+    #[pyo3(signature = (order: "int", low_frequency: "float", high_frequency: "float", passband_ripple: "float", stopband_attenuation: "float"))]
     fn apply_elliptic_bandstop(
         &mut self,
         py: Python<'_>,
@@ -615,7 +615,7 @@ IirFilterDesign.frequency_response(frequencies, sample_rate) or SosFilter.freque
     /// Raises:
     ///     ValueError: If order is zero or a parameter is invalid.
     ///     AudioError: If filter design or application fails.
-    #[pyo3(signature = (order: "int", cutoff_frequency: "float"), text_signature = "($self, order: int, cutoff_frequency: float) -> None")]
+    #[pyo3(signature = (order: "int", cutoff_frequency: "float"))]
     fn apply_bessel_lowpass(
         &mut self,
         py: Python<'_>,
@@ -643,7 +643,7 @@ IirFilterDesign.frequency_response(frequencies, sample_rate) or SosFilter.freque
     /// Raises:
     ///     ValueError: If order is zero or a parameter is invalid.
     ///     AudioError: If filter design or application fails.
-    #[pyo3(signature = (order: "int", cutoff_frequency: "float"), text_signature = "($self, order: int, cutoff_frequency: float) -> None")]
+    #[pyo3(signature = (order: "int", cutoff_frequency: "float"))]
     fn apply_bessel_highpass(
         &mut self,
         py: Python<'_>,
@@ -672,7 +672,7 @@ IirFilterDesign.frequency_response(frequencies, sample_rate) or SosFilter.freque
     /// Raises:
     ///     ValueError: If order is zero or a parameter is invalid.
     ///     AudioError: If filter design or application fails.
-    #[pyo3(signature = (order: "int", low_frequency: "float", high_frequency: "float"), text_signature = "($self, order: int, low_frequency: float, high_frequency: float) -> None")]
+    #[pyo3(signature = (order: "int", low_frequency: "float", high_frequency: "float"))]
     fn apply_bessel_bandpass(
         &mut self,
         py: Python<'_>,
@@ -707,7 +707,7 @@ IirFilterDesign.frequency_response(frequencies, sample_rate) or SosFilter.freque
     /// Raises:
     ///     ValueError: If order is zero or a parameter is invalid.
     ///     AudioError: If filter design or application fails.
-    #[pyo3(signature = (order: "int", low_frequency: "float", high_frequency: "float"), text_signature = "($self, order: int, low_frequency: float, high_frequency: float) -> None")]
+    #[pyo3(signature = (order: "int", low_frequency: "float", high_frequency: "float"))]
     fn apply_bessel_bandstop(
         &mut self,
         py: Python<'_>,
@@ -744,7 +744,7 @@ IirFilterDesign.frequency_response(frequencies, sample_rate) or SosFilter.freque
     ///
     /// Raises:
     ///     AudioError: If filter design or application fails.
-    #[pyo3(signature = (design: "IirFilterDesign"), text_signature = "($self, design: IirFilterDesign) -> None")]
+    #[pyo3(signature = (design: "IirFilterDesign"))]
     fn filtfilt(&mut self, py: Python<'_>, design: &PyIirFilterDesign) -> PyResult<()> {
         let rs_design: &IirFilterDesign = design.deref();
         dispatch_with_view_mut!(self, py, |mut audio| {
@@ -789,7 +789,7 @@ impl PySosFilter {
     ///     AudioError: If the design is invalid (out-of-range frequency,
     ///         unsupported response, order too high, etc.).
     #[staticmethod]
-    #[pyo3(signature = (design: "IirFilterDesign", sample_rate: "float"), text_signature = "(design: IirFilterDesign, sample_rate: float) -> SosFilter")]
+    #[pyo3(signature = (design: "IirFilterDesign", sample_rate: "float"))]
     fn from_design(design: &PyIirFilterDesign, sample_rate: f64) -> PyResult<Self> {
         let rs_design: &IirFilterDesign = design.deref();
         let inner = SosFilter::from_design(rs_design, sample_rate).map_err(audio_err_to_py)?;
@@ -810,7 +810,7 @@ impl PySosFilter {
     ///     ValueError: If the array is not ``(n, 6)``, is empty, contains
     ///         non-finite values, or has a zero ``a0``.
     #[staticmethod]
-    #[pyo3(signature = (sos: "np.typing.NDArray[np.float64]", sample_rate: "float"), text_signature = "(sos: np.typing.NDArray[np.float64], sample_rate: float) -> SosFilter")]
+    #[pyo3(signature = (sos: "np.typing.NDArray[np.float64]", sample_rate: "float"))]
     fn from_sos(sos: &Bound<'_, PyArray2<f64>>, sample_rate: f64) -> PyResult<Self> {
         let arr = sos.readonly();
         let view = arr.as_array();
@@ -831,7 +831,7 @@ impl PySosFilter {
 
     /// The filter's second-order sections as a ``(n_sections, 6)`` array
     /// (SciPy ``sos`` layout, ``a0`` normalised to 1).
-    #[pyo3(signature = (), text_signature = "($self) -> np.typing.NDArray[np.float64]")]
+    #[pyo3(signature = ())]
     fn sos<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyArray2<f64>>> {
         let rows = self.inner.sos_coefficients().map_err(audio_err_to_py)?;
         let flat: Vec<f64> = rows.iter().flat_map(|r| r.iter().copied()).collect();
@@ -851,7 +851,7 @@ impl PySosFilter {
     ///
     /// Returns:
     ///     np.typing.NDArray[np.float64]: Filtered signal, same length.
-    #[pyo3(signature = (samples: "np.typing.NDArray[np.float64]"), text_signature = "($self, samples: np.typing.NDArray[np.float64]) -> np.typing.NDArray[np.float64]")]
+    #[pyo3(signature = (samples: "np.typing.NDArray[np.float64]"))]
     fn filtfilt<'py>(
         &self,
         py: Python<'py>,
@@ -871,7 +871,7 @@ impl PySosFilter {
     ///
     /// Returns:
     ///     float: The filtered output sample.
-    #[pyo3(signature = (x: "float"), text_signature = "($self, x: float) -> float")]
+    #[pyo3(signature = (x: "float"))]
     fn process_sample(&mut self, x: f64) -> f64 {
         self.inner.process_sample(x)
     }
@@ -886,7 +886,7 @@ impl PySosFilter {
     ///
     /// Returns:
     ///     np.typing.NDArray[np.float64]: Filtered output, same length as input.
-    #[pyo3(signature = (samples: "np.typing.NDArray[np.float64]"), text_signature = "($self, samples: np.typing.NDArray[np.float64]) -> np.typing.NDArray[np.float64]")]
+    #[pyo3(signature = (samples: "np.typing.NDArray[np.float64]"))]
     fn process_samples<'py>(
         &mut self,
         py: Python<'py>,
@@ -907,7 +907,7 @@ impl PySosFilter {
     ///
     /// Returns:
     ///     None: The provided array is modified in place.
-    #[pyo3(signature = (samples: "np.typing.NDArray[np.float64]"), text_signature = "($self, samples: np.typing.NDArray[np.float64]) -> None")]
+    #[pyo3(signature = (samples: "np.typing.NDArray[np.float64]"))]
     fn process_samples_in_place(&mut self, samples: &Bound<'_, PyArray1<f64>>) -> PyResult<()> {
         process_array_in_place(&mut self.inner, samples)
     }
@@ -924,7 +924,7 @@ impl PySosFilter {
     ///
     /// Returns:
     ///     None: The provided array is modified in place.
-    #[pyo3(signature = (block: "np.typing.NDArray[np.float64]"), text_signature = "($self, block: np.typing.NDArray[np.float64]) -> None")]
+    #[pyo3(signature = (block: "np.typing.NDArray[np.float64]"))]
     fn process_block(&mut self, block: &Bound<'_, PyArray1<f64>>) -> PyResult<()> {
         process_array_in_place(&mut self.inner, block)
     }
@@ -936,7 +936,7 @@ impl PySosFilter {
     ///
     /// Returns:
     ///     None.
-    #[pyo3(signature = (), text_signature = "($self) -> None")]
+    #[pyo3(signature = ())]
     fn reset(&mut self) {
         self.inner.reset();
     }
@@ -954,7 +954,7 @@ impl PySosFilter {
     ///     tuple[np.typing.NDArray[np.float64], np.typing.NDArray[np.float64]]:
     ///     Magnitude and phase (radians) arrays, each the same length as
     ///     ``frequencies``.
-    #[pyo3(signature = (frequencies: "np.typing.NDArray[np.float64]"), text_signature = "($self, frequencies: np.typing.NDArray[np.float64]) -> tuple[np.typing.NDArray[np.float64], np.typing.NDArray[np.float64]]")]
+    #[pyo3(signature = (frequencies: "np.typing.NDArray[np.float64]"))]
     fn frequency_response<'py>(
         &self,
         py: Python<'py>,

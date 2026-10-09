@@ -3,7 +3,7 @@ from enum import Enum
 from typing import Optional
 import numpy
 import numpy.typing
-from spectrograms import CqtParams
+from audio_samples.spectrograms import CqtParams
 
 class SampleType(Enum):
     """

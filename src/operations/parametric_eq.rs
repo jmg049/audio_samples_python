@@ -19,7 +19,7 @@ impl PyAudioSamples {
     ///
     /// Raises:
     ///     AudioError: If filter application fails.
-    #[pyo3(signature = (eq: "ParametricEq"), text_signature = "($self, eq: ParametricEq) -> None")]
+    #[pyo3(signature = (eq: "ParametricEq"))]
     fn apply_parametric_eq(&mut self, py: Python<'_>, eq: PyParametricEq) -> PyResult<()> {
         dispatch_with_view_mut!(self, py, |mut audio| {
             audio.apply_parametric_eq_in_place(&(*eq)).map_err(audio_err_to_py)
@@ -39,7 +39,7 @@ impl PyAudioSamples {
     ///
     /// Raises:
     ///     AudioError: If filter application fails.
-    #[pyo3(signature = (eq: "ParametricEq"), text_signature = "($self, eq: ParametricEq) -> AudioSamples")]
+    #[pyo3(signature = (eq: "ParametricEq"))]
     fn parametric_eq(&self, py: Python<'_>, eq: PyParametricEq) -> PyResult<Self> {
         dispatch_with_view!(self, py, |audio| {
             audio
@@ -59,7 +59,7 @@ impl PyAudioSamples {
     ///
     /// Raises:
     ///     AudioError: If filter application fails.
-    #[pyo3(signature = (band: "EqBand"), text_signature = "($self, band: EqBand) -> None")]
+    #[pyo3(signature = (band: "EqBand"))]
     fn apply_eq_band(&mut self, py: Python<'_>, band: &PyEqBand) -> PyResult<()> {
         dispatch_with_view_mut!(self, py, |mut audio| {
             audio.apply_eq_band_in_place(&(*band)).map_err(audio_err_to_py)
@@ -79,7 +79,7 @@ impl PyAudioSamples {
     ///
     /// Raises:
     ///     AudioError: If filter application fails.
-    #[pyo3(signature = (band: "EqBand"), text_signature = "($self, band: EqBand) -> AudioSamples")]
+    #[pyo3(signature = (band: "EqBand"))]
     fn eq_band(&self, py: Python<'_>, band: &PyEqBand) -> PyResult<Self> {
         dispatch_with_view!(self, py, |audio| {
             audio
@@ -101,7 +101,7 @@ impl PyAudioSamples {
     ///
     /// Raises:
     ///     AudioError: If filter application fails.
-    #[pyo3(signature = (frequency: "float", gain_db: "float", q_factor: "float"), text_signature = "($self, frequency: float, gain_db: float, q_factor: float) -> None")]
+    #[pyo3(signature = (frequency: "float", gain_db: "float", q_factor: "float"))]
     fn apply_peak_filter(
         &mut self,
         py: Python<'_>,
@@ -128,7 +128,7 @@ impl PyAudioSamples {
     ///
     /// Raises:
     ///     AudioError: If filter application fails.
-    #[pyo3(signature = (frequency: "float", gain_db: "float", q_factor: "float"), text_signature = "($self, frequency: float, gain_db: float, q_factor: float) -> None")]
+    #[pyo3(signature = (frequency: "float", gain_db: "float", q_factor: "float"))]
     fn apply_low_shelf(
         &mut self,
         py: Python<'_>,
@@ -155,7 +155,7 @@ impl PyAudioSamples {
     ///
     /// Raises:
     ///     AudioError: If filter application fails.
-    #[pyo3(signature = (frequency: "float", gain_db: "float", q_factor: "float"), text_signature = "($self, frequency: float, gain_db: float, q_factor: float) -> None")]
+    #[pyo3(signature = (frequency: "float", gain_db: "float", q_factor: "float"))]
     fn apply_high_shelf(
         &mut self,
         py: Python<'_>,
@@ -181,7 +181,7 @@ impl PyAudioSamples {
     ///
     /// Raises:
     ///     AudioError: If filter application fails.
-    #[pyo3(signature = (config: "ThreeBandEqConfig"), text_signature = "($self, config: ThreeBandEqConfig) -> None")]
+    #[pyo3(signature = (config: "ThreeBandEqConfig"))]
     fn apply_three_band_eq(
         &mut self,
         py: Python<'_>,
@@ -214,7 +214,7 @@ impl PyAudioSamples {
     /// Raises:
     ///     AudioError: If any enabled band fails to design a filter (e.g. a
     ///         frequency above the Nyquist limit).
-    #[pyo3(signature = (eq: "ParametricEq", frequencies: "np.typing.NDArray[np.float64]"), text_signature = "($self, eq: ParametricEq, frequencies: np.typing.NDArray[np.float64]) -> tuple[np.typing.NDArray[np.float64], np.typing.NDArray[np.float64]]")]
+    #[pyo3(signature = (eq: "ParametricEq", frequencies: "np.typing.NDArray[np.float64]"))]
     fn eq_frequency_response<'py>(
         &self,
         py: Python<'py>,

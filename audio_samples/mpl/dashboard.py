@@ -151,7 +151,7 @@ def plot_speech_analysis(
     """
     import matplotlib.pyplot as plt
     from audio_samples import VadConfig
-    import spectrograms as sp
+    from audio_samples import spectrograms as sp
 
     style = _resolve_style(style)
 
@@ -269,7 +269,7 @@ def plot_music_analysis(
         OnsetDetectionConfig,
         PitchDetectionMethod,
     )
-    import spectrograms as sp
+    from audio_samples import spectrograms as sp
 
     style = _resolve_style(style)
     sr = audio.sample_rate
@@ -404,7 +404,7 @@ def plot_hpss_dashboard(
         ``"spectrogram_perc"``.
     """
     import matplotlib.pyplot as plt
-    import spectrograms as sp
+    from audio_samples import spectrograms as sp
 
     style = _resolve_style(style)
     stft_p = sp.StftParams(

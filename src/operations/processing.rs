@@ -16,7 +16,7 @@ impl PyAudioSamples {
     ///
     /// Args:
     ///     factor (float): Multiplier applied to every sample; values above 1.0 amplify and below 1.0 attenuate.
-    #[pyo3(signature = (factor: "float"), text_signature = "($self, factor: float)")]
+    #[pyo3(signature = (factor: "float"))]
     pub fn scale(&mut self, py: Python<'_>, factor: f64) {
         let result = dispatch_with_view!(self, py, |audio| {
             PyAudioSamples::from_audio_samples(audio.scale(factor).into_owned())
@@ -33,7 +33,7 @@ impl PyAudioSamples {
     ///
     /// Raises:
     ///     AudioError: If normalization fails.
-    #[pyo3(signature = (min: "float", max: "float", method: "NormalizationMethod | str"), text_signature = "($self, min: float, max: float, method: NormalizationMethod | str)")]
+    #[pyo3(signature = (min: "float", max: "float", method: "NormalizationMethod | str"))]
     pub fn normalize(
         &mut self,
         py: Python<'_>,
@@ -77,7 +77,7 @@ impl PyAudioSamples {
     ///
     /// Raises:
     ///     AudioError: If clamping fails or the bounds are invalid.
-    #[pyo3(signature = (min_val: "float", max_val: "float"), text_signature = "($self, min_val: float, max_val: float)")]
+    #[pyo3(signature = (min_val: "float", max_val: "float"))]
     pub fn clip(&mut self, py: Python<'_>, min_val: f64, max_val: f64) -> PyResult<()> {
         let result = dispatch_with_view!(self, py, |audio| {
             audio
@@ -93,7 +93,7 @@ impl PyAudioSamples {
     ///
     /// Raises:
     ///     AudioError: If offset removal fails.
-    #[pyo3(signature = (), text_signature = "($self)")]
+    #[pyo3(signature = ())]
     pub fn remove_dc_offset(&mut self, py: Python<'_>) -> PyResult<()> {
         let result = dispatch_with_view!(self, py, |audio| audio
             .remove_dc_offset()
@@ -113,7 +113,7 @@ impl PyAudioSamples {
     ///
     /// Raises:
     ///     AudioError: If compression fails.
-    #[pyo3(signature = (mu: "float"), text_signature = "($self, mu: float) -> AudioSamples")]
+    #[pyo3(signature = (mu: "float"))]
     pub fn mu_compress(&self, py: Python<'_>, mu: f64) -> PyResult<Self> {
         dispatch_with_view!(self, py, |audio| {
             let a = audio.mu_compress(mu.cast_into()).map_err(audio_err_to_py)?;
@@ -131,7 +131,7 @@ impl PyAudioSamples {
     ///
     /// Raises:
     ///     AudioError: If expansion fails.
-    #[pyo3(signature = (mu: "float"), text_signature = "($self, mu: float) -> AudioSamples")]
+    #[pyo3(signature = (mu: "float"))]
     pub fn mu_expand(&self, py: Python<'_>, mu: f64) -> PyResult<Self> {
         dispatch_with_view!(self, py, |audio| {
             let a = audio.mu_expand(mu.cast_into()).map_err(audio_err_to_py)?;
@@ -153,7 +153,7 @@ impl PyAudioSamples {
     ///
     /// Raises:
     ///     AudioError: If filtering fails.
-    #[pyo3(signature = (cutoff_hz: "float"), text_signature = "($self, cutoff_hz: float) -> AudioSamples")]
+    #[pyo3(signature = (cutoff_hz: "float"))]
     pub fn low_pass_filter(&self, py: Python<'_>, cutoff_hz: f64) -> PyResult<Self> {
         dispatch_with_view!(self, py, |audio| {
             audio
@@ -177,7 +177,7 @@ impl PyAudioSamples {
     ///
     /// Raises:
     ///     AudioError: If filtering fails.
-    #[pyo3(signature = (cutoff_hz: "float"), text_signature = "($self, cutoff_hz: float) -> AudioSamples")]
+    #[pyo3(signature = (cutoff_hz: "float"))]
     pub fn high_pass_filter(&self, py: Python<'_>, cutoff_hz: f64) -> PyResult<Self> {
         dispatch_with_view!(self, py, |audio| {
             audio
@@ -201,7 +201,7 @@ impl PyAudioSamples {
     ///
     /// Raises:
     ///     AudioError: If filtering fails.
-    #[pyo3(signature = (low_cutoff_hz: "float", high_cutoff_hz: "float"), text_signature = "($self, low_cutoff_hz: float, high_cutoff_hz: float) -> AudioSamples")]
+    #[pyo3(signature = (low_cutoff_hz: "float", high_cutoff_hz: "float"))]
     pub fn band_pass_filter(
         &self,
         py: Python<'_>,
@@ -220,6 +220,8 @@ impl PyAudioSamples {
     /// Args:
     ///     target_sample_rate (int): Desired output sample rate in hertz; must be greater than zero.
     ///     quality (ResamplingQuality): Quality preset controlling the resampler.
+    ///         Defaults to ``ResamplingQuality.fast``; pass
+    ///         ``ResamplingQuality.high`` for the highest-fidelity resampler.
     ///
     /// Returns:
     ///     AudioSamples: New buffer rendered at the requested sample rate.
@@ -227,7 +229,7 @@ impl PyAudioSamples {
     /// Raises:
     ///     ValueError: If target_sample_rate is zero.
     ///     AudioError: If resampling fails.
-    #[pyo3(signature = (target_sample_rate: "int", quality:"ResamplingQuality" = PyResamplingQuality::resample_fast()), text_signature = "($self, target_sample_rate: int, quality: ResamplingQuality) -> AudioSamples")]
+    #[pyo3(signature = (target_sample_rate: "int", quality:"ResamplingQuality" = PyResamplingQuality::resample_fast()))]
     pub fn resample(
         &self,
         py: Python<'_>,
@@ -248,13 +250,14 @@ impl PyAudioSamples {
     /// Args:
     ///     ratio (float): Factor applied to the original sample rate.
     ///     quality (ResamplingQuality): Quality preset controlling the resampler.
+    ///         Defaults to ``ResamplingQuality.fast``.
     ///
     /// Returns:
     ///     AudioSamples: New buffer rendered at the scaled sample rate.
     ///
     /// Raises:
     ///     AudioError: If resampling fails.
-    #[pyo3(signature = (ratio: "float", quality: "ResamplingQuality" = PyResamplingQuality::resample_fast()), text_signature = "($self, ratio: float, quality: Literal['fast', 'medium', 'high']) -> AudioSamples")]
+    #[pyo3(signature = (ratio: "float", quality: "ResamplingQuality" = PyResamplingQuality::resample_fast()))]
     pub fn resample_by_ratio<'py>(
         &'py self,
         py: Python<'_>,
@@ -280,7 +283,7 @@ impl PyAudioSamples {
     /// Raises:
     ///     ValueError: If the window length does not equal the audio length.
     ///     AudioError: If windowing fails.
-    #[pyo3(signature = (window: "np.typing.NDArray[np.float64]"), text_signature = "($self, window: np.typing.NDArray[np.float64]) -> None")]
+    #[pyo3(signature = (window: "np.typing.NDArray[np.float64]"))]
     pub fn apply_window(
         &self,
         py: Python<'_>,

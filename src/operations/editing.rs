@@ -14,7 +14,7 @@ use crate::{
 
 #[pymethods]
 impl PyAudioSamples {
-    #[pyo3(signature = (), text_signature = "($self) -> AudioSamples")]
+    #[pyo3(signature = ())]
     /// Reverse the samples and return a new buffer.
     ///
     /// Returns:
@@ -26,7 +26,7 @@ impl PyAudioSamples {
         })
     }
 
-    #[pyo3(signature = (), text_signature = "($self)")]
+    #[pyo3(signature = ())]
     /// Reverse the samples in place.
     ///
     /// Returns:
@@ -40,7 +40,7 @@ impl PyAudioSamples {
             .map_err(audio_err_to_py))
     }
 
-    #[pyo3(signature = (start_seconds: "float", end_seconds: "float"), text_signature = "($self, start_seconds: float, end_seconds: float) -> AudioSamples")]
+    #[pyo3(signature = (start_seconds: "float", end_seconds: "float"))]
     /// Trim the buffer to the given time range.
     ///
     /// Args:
@@ -61,7 +61,7 @@ impl PyAudioSamples {
         })
     }
 
-    #[pyo3(signature = (pad_start_seconds: "float", pad_end_seconds: "float", pad_value: "float"), text_signature = "($self, pad_start_seconds: float, pad_end_seconds: float, pad_value: float) -> AudioSamples")]
+    #[pyo3(signature = (pad_start_seconds: "float", pad_end_seconds: "float", pad_value: "float"))]
     /// Pad the buffer with constant values on both sides.
     ///
     /// Args:
@@ -89,7 +89,7 @@ impl PyAudioSamples {
         })
     }
 
-    #[pyo3(signature = (target_num_samples: "int", pad_value: "float"), text_signature = "($self, target_num_samples: int, pad_value: float) -> AudioSamples")]
+    #[pyo3(signature = (target_num_samples: "int", pad_value: "float"))]
     /// Right-pad the buffer to a fixed sample count.
     ///
     /// Args:
@@ -115,7 +115,7 @@ impl PyAudioSamples {
         })
     }
 
-    #[pyo3(signature = (target_duration_seconds: "float", pad_value: "float", pad_side: "PadSide"), text_signature = "($self, target_duration_seconds: float, pad_value: float, pad_side: PadSide) -> AudioSamples")]
+    #[pyo3(signature = (target_duration_seconds: "float", pad_value: "float", pad_side: "PadSide"))]
     /// Pad the buffer to reach a target duration.
     ///
     /// Args:
@@ -147,7 +147,7 @@ impl PyAudioSamples {
         })
     }
 
-    #[pyo3(signature = (segment_duration_seconds: "float"), text_signature = "($self, segment_duration_seconds: float) -> list[AudioSamples]")]
+    #[pyo3(signature = (segment_duration_seconds: "float"))]
     /// Split the buffer into equal-length segments.
     ///
     /// Args:
@@ -171,7 +171,7 @@ impl PyAudioSamples {
     }
 
     #[classmethod]
-    #[pyo3(signature = (segments: "list[AudioSamples]"), text_signature = "($cls, segments: list[AudioSamples]) -> AudioSamples")]
+    #[pyo3(signature = (segments: "list[AudioSamples]"))]
     /// Concatenate multiple buffers end to end.
     ///
     /// Args:
@@ -335,7 +335,7 @@ impl PyAudioSamples {
     }
 
     #[classmethod]
-    #[pyo3(signature = (segments: "list[AudioSamples]"), text_signature = "($cls, segments: list[AudioSamples]) -> AudioSamples")]
+    #[pyo3(signature = (segments: "list[AudioSamples]"))]
     /// Concatenate multiple owned buffers end to end.
     ///
     /// Behaves identically to :meth:`concatenate`; it mirrors the crate's
@@ -361,7 +361,7 @@ impl PyAudioSamples {
     }
 
     #[classmethod]
-    #[pyo3(signature = (sources: "list[AudioSamples]", weights: "Optional[list[float]]"=None), text_signature = "($cls, sources: list[AudioSamples], weights: Optional[list[float]] = None) -> AudioSamples")]
+    #[pyo3(signature = (sources: "list[AudioSamples]", weights: "Optional[list[float]]"=None))]
     /// Mix multiple buffers together with optional weights.
     ///
     /// Args:
@@ -560,7 +560,7 @@ impl PyAudioSamples {
         }
     }
 
-    #[pyo3(signature = (duration_seconds: "float", curve: "FadeCurve"), text_signature = "($self, duration_seconds: float, curve: FadeCurve) -> None")]
+    #[pyo3(signature = (duration_seconds: "float", curve: "FadeCurve"))]
     /// Apply an in-place fade-in envelope.
     ///
     /// Args:
@@ -585,7 +585,7 @@ impl PyAudioSamples {
         })
     }
 
-    #[pyo3(signature = (duration_seconds: "float", curve: "FadeCurve"), text_signature = "($self, duration_seconds: float, curve: FadeCurve) -> None")]
+    #[pyo3(signature = (duration_seconds: "float", curve: "FadeCurve"))]
     /// Apply an in-place fade-out envelope.
     ///
     /// Args:
@@ -610,7 +610,7 @@ impl PyAudioSamples {
         })
     }
 
-    #[pyo3(signature = (count: "int"), text_signature = "($self, count: int) -> AudioSamples")]
+    #[pyo3(signature = (count: "int"))]
     /// Repeat the buffer a fixed number of times.
     ///
     /// Args:
@@ -628,7 +628,7 @@ impl PyAudioSamples {
         })
     }
 
-    #[pyo3(signature = (threshold_db: "float"), text_signature = "($self, threshold_db: float) -> AudioSamples")]
+    #[pyo3(signature = (threshold_db: "float"))]
     /// Trim leading and trailing silence below a threshold.
     ///
     /// Args:
@@ -646,7 +646,7 @@ impl PyAudioSamples {
         })
     }
 
-    #[pyo3(signature = (threshold_db: "float", min_silence_duration_seconds: "float"), text_signature = "($self, threshold_db: float, min_silence_duration_seconds: float) -> AudioSamples")]
+    #[pyo3(signature = (threshold_db: "float", min_silence_duration_seconds: "float"))]
     /// Remove every silent region longer than a minimum duration.
     ///
     /// Unlike :meth:`trim_silence`, which only trims leading and trailing
@@ -678,7 +678,7 @@ impl PyAudioSamples {
         })
     }
 
-    #[pyo3(signature = (config: "PerturbationConfig"), text_signature = "($self, config: PerturbationConfig) -> AudioSamples")]
+    #[pyo3(signature = (config: "PerturbationConfig"))]
     /// Apply stochastic perturbations and return a new buffer.
     ///
     /// Args:
@@ -696,7 +696,7 @@ impl PyAudioSamples {
         })
     }
 
-    #[pyo3(signature = (config: "PerturbationConfig"), text_signature = "($self, config: PerturbationConfig) -> None")]
+    #[pyo3(signature = (config: "PerturbationConfig"))]
     /// Apply stochastic perturbations in place.
     ///
     /// Args:
@@ -716,7 +716,7 @@ impl PyAudioSamples {
     }
 
     #[classmethod]
-    #[pyo3(name = "stack", signature = (sources: "list[AudioSamples]"), text_signature = "($cls, sources: list[AudioSamples]) -> AudioSamples")]
+    #[pyo3(name = "stack", signature = (sources: "list[AudioSamples]"))]
     /// Stack multiple buffers along the channel axis.
     ///
     /// Args:

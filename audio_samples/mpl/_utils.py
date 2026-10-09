@@ -7,7 +7,7 @@ import numpy as np
 from numpy.typing import NDArray
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure, SubFigure
-from spectrograms import Spectrogram
+from audio_samples.spectrograms import Spectrogram
 
 from audio_samples import AudioSamples
 from .style import MplStyle
@@ -167,7 +167,7 @@ def _compute_stft(
     ``(n_freqs, n_frames)``, freqs has shape ``(n_freqs,)`` and times
     has shape ``(n_frames,)``.
     """
-    import spectrograms as sp
+    from audio_samples import spectrograms as sp
 
     stft_p = sp.StftParams(
         window=sp.WindowType.hanning, hop_size=hop_size, n_fft=n_fft, centre=True

@@ -1,6 +1,6 @@
 use crate::{
-    PyAudioSamples, audio_err_to_py, audio_io_err_to_py, dispatch_with_view, impl_py_repr,
-    impl_py_wrapper_core, nzu32_or_err, reexport, types::PySampleType,
+    PyAudioSamples, audio_err_to_py, audio_io_err_to_py, audio_read_err_to_py, dispatch_with_view,
+    impl_py_repr, impl_py_wrapper_core, nzu32_or_err, reexport, types::PySampleType,
 };
 use audio_samples::operations::ResamplingQuality;
 use audio_samples::{AudioTypeConversion, I24, resample, traits::StandardSample};
@@ -95,9 +95,24 @@ where
     }
 }
 
+/// Read an audio file (WAV or FLAC) and return an ``AudioSamples``.
+///
+/// Args:
+///     fp (str): Path to the audio file.
+///     as_type (SampleType | None): Sample type to convert to, for example
+///         ``SampleType.F32`` for floats in [-1, 1]. Defaults to the file's
+///         native sample type (16-bit files give raw ``int16`` values).
+///
+/// Returns:
+///     AudioSamples: The decoded audio.
+///
+/// Raises:
+///     FileNotFoundError: If ``fp`` does not exist (``AudioFileNotFoundError``).
+///     TypeError: If the file cannot be decoded (``AudioDecodeError``).
 #[pyfunction]
-#[pyo3(signature = (fp: "str|Path", as_type:"SampleType"=None), text_signature = "(fp, as_type=None) -> AudioSamples")]
+#[pyo3(signature = (fp: "str|Path", as_type:"SampleType"=None))]
 pub fn read(py: Python<'_>, fp: &str, as_type: Option<PySampleType>) -> PyResult<PyAudioSamples> {
+    crate::ensure_file_exists(fp)?;
     // Fast path: no type conversion requested → single-pass (one open, one header parse, one read).
     // This eliminates the extra File::open + header parse that peek_native_type() would add.
     #[cfg(target_endian = "little")]
@@ -112,9 +127,8 @@ pub fn read(py: Python<'_>, fp: &str, as_type: Option<PySampleType>) -> PyResult
     let target = match as_type {
         Some(t) => t,
         None => {
-            let native = audio_samples_io::peek_native_type(fp).map_err(|e| {
-                pyo3::exceptions::PyTypeError::new_err(format!("Failed to detect native type: {e}"))
-            })?;
+            let native = audio_samples_io::peek_native_type(fp)
+                .map_err(|e| audio_read_err_to_py(e, fp, "Failed to detect native type"))?;
             let sample_type: audio_samples::SampleType = native.into();
             PySampleType::from_native(sample_type).ok_or_else(|| {
                 pyo3::exceptions::PyTypeError::new_err("Unsupported native sample type")
@@ -125,14 +139,15 @@ pub fn read(py: Python<'_>, fp: &str, as_type: Option<PySampleType>) -> PyResult
 }
 
 #[pyfunction]
-#[pyo3(signature = (fp: "str|Path", as_type: "SampleType" = None), text_signature = "(fp, as_type=None) -> (AudioSamples, AudioInfo)")]
+#[pyo3(signature = (fp: "str|Path", as_type: "SampleType" = None))]
 pub fn read_with_info(
     py: Python<'_>,
     fp: &str,
     as_type: Option<Bound<'_, PyArrayDescr>>,
 ) -> PyResult<(PyAudioSamples, PyAudioInfo)> {
+    crate::ensure_file_exists(fp)?;
     let info = audio_samples_io::info(fp)
-        .map_err(|e| PyTypeError::new_err(format!("Failed to get audio info: {e}")))?;
+        .map_err(|e| audio_read_err_to_py(e, fp, "Failed to get audio info"))?;
 
     let native = PySampleType::from_native(info.sample_type)
         .ok_or_else(|| PyTypeError::new_err("Unsupported native sample type"))?;
@@ -197,10 +212,11 @@ impl_py_wrapper_core!(PyAudioInfo, BaseAudioInfo);
 impl_py_repr!(PyAudioInfo);
 
 #[pyfunction]
-#[pyo3(signature = (fp: "str|Path"), text_signature = "(fp: str | Path) -> AudioInfo")]
+#[pyo3(signature = (fp: "str|Path"))]
 pub fn info(fp: &str) -> PyResult<PyAudioInfo> {
+    crate::ensure_file_exists(fp)?;
     let info = audio_samples_io::info(fp)
-        .map_err(|e| PyTypeError::new_err(format!("Failed to get audio info: {e}")))?;
+        .map_err(|e| audio_read_err_to_py(e, fp, "Failed to get audio info"))?;
     Ok(PyAudioInfo::from(info))
 }
 
@@ -232,7 +248,7 @@ where
 }
 
 #[pyfunction]
-#[pyo3(signature = (fp: "str|Path", samples: "AudioSamples", as_type: "SampleType" = None), text_signature = "(fp: str | Path, samples: AudioSamples, as_type: SampleType = None)")]
+#[pyo3(signature = (fp: "str|Path", samples: "AudioSamples", as_type: "SampleType" = None))]
 pub fn save(
     py: Python<'_>,
     fp: &str,
@@ -319,7 +335,7 @@ pub fn save(
 ///     TypeError: If the file cannot be read or the format is unsupported.
 ///     RuntimeError: If resampling fails.
 #[pyfunction]
-#[pyo3(signature = (fp: "str | Path", target_sr: "int", quality: "ResamplingQuality" = None, as_type: "SampleType" = None), text_signature = "(fp: str | Path, target_sr: int, quality: ResamplingQuality = None, as_type: SampleType = None) -> AudioSamples")]
+#[pyo3(signature = (fp: "str | Path", target_sr: "int", quality: "ResamplingQuality" = None, as_type: "SampleType" = None))]
 pub fn read_and_resample(
     py: Python<'_>,
     fp: &str,
@@ -327,6 +343,7 @@ pub fn read_and_resample(
     quality: Option<crate::types::PyResamplingQuality>,
     as_type: Option<PySampleType>,
 ) -> PyResult<PyAudioSamples> {
+    crate::ensure_file_exists(fp)?;
     let target = nzu32_or_err(target_sr)?;
     let quality: ResamplingQuality = quality.map_or(ResamplingQuality::High, |q| q.inner);
     let as_type = as_type.unwrap_or(PySampleType::F32);
@@ -382,8 +399,9 @@ where
 ///     ValueError: If the format is unsupported or the type cannot be determined.
 ///     OSError: If the file cannot be opened.
 #[pyfunction]
-#[pyo3(signature = (fp: "str | Path"), text_signature = "(fp: str | Path) -> str")]
+#[pyo3(signature = (fp: "str | Path"))]
 pub fn peek_native_type(fp: &str) -> PyResult<&'static str> {
+    crate::ensure_file_exists(fp)?;
     let validated = audio_samples_io::peek_native_type(fp).map_err(audio_io_err_to_py)?;
     let st: audio_samples::SampleType = validated.into();
     Ok(st.as_str())
@@ -408,7 +426,7 @@ pub struct PyWriteOptions {
 #[pymethods]
 impl PyWriteOptions {
     #[new]
-    #[pyo3(signature = (write_buf_capacity: "int" = None), text_signature = "(write_buf_capacity: int = None)")]
+    #[pyo3(signature = (write_buf_capacity: "int" = None))]
     fn new(write_buf_capacity: Option<usize>) -> Self {
         let mut inner = WriteOptions::default();
         if let Some(cap) = write_buf_capacity {
@@ -442,7 +460,7 @@ pub struct PyCompressionLevel {
 #[pymethods]
 impl PyCompressionLevel {
     #[new]
-    #[pyo3(signature = (level: "int" = None), text_signature = "(level: int = None)")]
+    #[pyo3(signature = (level: "int" = None))]
     fn new(level: Option<u8>) -> Self {
         Self {
             inner: level.map_or_else(CompressionLevel::default, CompressionLevel::new),
@@ -451,7 +469,6 @@ impl PyCompressionLevel {
 
     /// Fastest compression (level 0).
     #[staticmethod]
-    #[pyo3(text_signature = "() -> CompressionLevel")]
     fn fastest() -> Self {
         Self {
             inner: CompressionLevel::new(0),
@@ -460,7 +477,6 @@ impl PyCompressionLevel {
 
     /// Best compression (level 8).
     #[staticmethod]
-    #[pyo3(text_signature = "() -> CompressionLevel")]
     fn best() -> Self {
         Self {
             inner: CompressionLevel::new(8),
@@ -522,7 +538,7 @@ info_string_field!(keywords, set_keywords, keywords, "Keywords.");
 #[pymethods]
 impl PyInfoMetadata {
     #[new]
-    #[pyo3(signature = (), text_signature = "()")]
+    #[pyo3(signature = ())]
     fn new() -> Self {
         Self::default()
     }
@@ -581,7 +597,7 @@ pub struct PyWavMetadata {
 #[pymethods]
 impl PyWavMetadata {
     #[new]
-    #[pyo3(signature = (info: "InfoMetadata" = None), text_signature = "(info: InfoMetadata = None)")]
+    #[pyo3(signature = (info: "InfoMetadata" = None))]
     fn new(info: Option<PyInfoMetadata>) -> Self {
         let mut inner = WavMetadata::default();
         inner.info = info.map(|i| i.inner);
@@ -634,7 +650,7 @@ pub struct PyVorbisComment {
 #[pymethods]
 impl PyVorbisComment {
     #[new]
-    #[pyo3(signature = (), text_signature = "()")]
+    #[pyo3(signature = ())]
     fn new() -> Self {
         Self::default()
     }
@@ -650,7 +666,7 @@ impl PyVorbisComment {
     /// Raises:
     ///     ValueError: If the bytes are malformed.
     #[staticmethod]
-    #[pyo3(signature = (data: "bytes"), text_signature = "(data: bytes) -> VorbisComment")]
+    #[pyo3(signature = (data: "bytes"))]
     fn from_bytes(data: &[u8]) -> PyResult<Self> {
         let inner = VorbisComment::from_bytes(data)
             .map_err(|e| PyValueError::new_err(format!("Invalid Vorbis comment: {e}")))?;
@@ -669,31 +685,31 @@ impl PyVorbisComment {
     }
 
     /// Get the first value for ``key``, or ``None``.
-    #[pyo3(signature = (key: "str"), text_signature = "($self, key: str) -> str | None")]
+    #[pyo3(signature = (key: "str"))]
     fn get(&self, key: &str) -> Option<String> {
         self.inner.get(key).map(ToString::to_string)
     }
 
     /// Get all values for ``key`` (empty list if absent).
-    #[pyo3(signature = (key: "str"), text_signature = "($self, key: str) -> list[str]")]
+    #[pyo3(signature = (key: "str"))]
     fn get_all(&self, key: &str) -> Vec<String> {
         self.inner.get_all(key).cloned().unwrap_or_default()
     }
 
     /// Set ``key`` to a single ``value``, replacing any existing values.
-    #[pyo3(signature = (key: "str", value: "str"), text_signature = "($self, key: str, value: str) -> None")]
+    #[pyo3(signature = (key: "str", value: "str"))]
     fn set(&mut self, key: &str, value: String) {
         self.inner.set(key, value);
     }
 
     /// Append ``value`` to the values for ``key``.
-    #[pyo3(signature = (key: "str", value: "str"), text_signature = "($self, key: str, value: str) -> None")]
+    #[pyo3(signature = (key: "str", value: "str"))]
     fn add(&mut self, key: &str, value: String) {
         self.inner.add(key, value);
     }
 
     /// Serialise to a raw Vorbis comment block.
-    #[pyo3(signature = (), text_signature = "($self) -> bytes")]
+    #[pyo3(signature = ())]
     fn to_bytes<'py>(&self, py: Python<'py>) -> Bound<'py, pyo3::types::PyBytes> {
         pyo3::types::PyBytes::new(py, &self.inner.to_bytes())
     }
@@ -779,7 +795,7 @@ impl_py_wrapper_core!(PyStreamInfo, StreamInfo);
 ///     ValueError: If the format is unsupported.
 ///     OSError: If the file cannot be written.
 #[pyfunction]
-#[pyo3(signature = (fp: "str | Path", samples: "AudioSamples", options: "WriteOptions" = None, as_type: "SampleType" = None), text_signature = "(fp: str | Path, samples: AudioSamples, options: WriteOptions = None, as_type: SampleType = None) -> None")]
+#[pyo3(signature = (fp: "str | Path", samples: "AudioSamples", options: "WriteOptions" = None, as_type: "SampleType" = None))]
 pub fn write_with_options(
     py: Python<'_>,
     fp: &str,
@@ -823,7 +839,7 @@ pub fn write_with_options(
 /// Raises:
 ///     OSError: If the file cannot be written.
 #[pyfunction]
-#[pyo3(signature = (fp: "str | Path", samples: "AudioSamples", metadata: "WavMetadata"), text_signature = "(fp: str | Path, samples: AudioSamples, metadata: WavMetadata) -> None")]
+#[pyo3(signature = (fp: "str | Path", samples: "AudioSamples", metadata: "WavMetadata"))]
 pub fn write_with_metadata(
     py: Python<'_>,
     fp: &str,
@@ -852,7 +868,7 @@ pub fn write_with_metadata(
 ///     OSError: If the file cannot be opened.
 ///     ValueError: If the file is not a WAV file or the chunk is malformed.
 #[pyfunction]
-#[pyo3(signature = (fp: "str | Path"), text_signature = "(fp: str | Path) -> InfoMetadata | None")]
+#[pyo3(signature = (fp: "str | Path"))]
 pub fn read_wav_info_tags(fp: &str) -> PyResult<Option<PyInfoMetadata>> {
     use audio_samples_io::traits::AudioFileMetadata;
     use audio_samples_io::wav::wav_file::WavFile;
@@ -884,7 +900,7 @@ pub fn read_wav_info_tags(fp: &str) -> PyResult<Option<PyInfoMetadata>> {
 ///     OSError: If the file cannot be opened.
 ///     ValueError: If the file is not a WAV file or the chunk is malformed.
 #[pyfunction]
-#[pyo3(signature = (fp: "str | Path"), text_signature = "(fp: str | Path) -> list[CuePoint]")]
+#[pyo3(signature = (fp: "str | Path"))]
 pub fn read_wav_cue_points(fp: &str) -> PyResult<Vec<PyCuePoint>> {
     use audio_samples_io::traits::AudioFileMetadata;
     use audio_samples_io::wav::wav_file::WavFile;
@@ -917,7 +933,7 @@ pub fn read_wav_cue_points(fp: &str) -> PyResult<Vec<PyCuePoint>> {
 ///     OSError: If the file cannot be opened.
 ///     ValueError: If the file is not a FLAC file.
 #[pyfunction]
-#[pyo3(signature = (fp: "str | Path"), text_signature = "(fp: str | Path) -> StreamInfo")]
+#[pyo3(signature = (fp: "str | Path"))]
 pub fn read_flac_stream_info(fp: &str) -> PyResult<PyStreamInfo> {
     use audio_samples_io::flac::FlacFile;
     use audio_samples_io::traits::AudioFileMetadata;

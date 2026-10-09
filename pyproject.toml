@@ -22,7 +22,6 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -38,9 +37,12 @@ classifiers = [
     "Typing :: Typed",
 ]
 dynamic = ["version"]
+# The spectrogram classes (StftParams, MelParams, ...) are compiled into the
+# extension and exposed as ``audio_samples.spectrograms``; the separate
+# ``spectrograms`` pip package is not needed (its objects are not accepted by
+# AudioSamples methods).
 dependencies = [
     "numpy>=1.24.4",
-    "spectrograms==1.4.0",
 ]
 
 [project.urls]

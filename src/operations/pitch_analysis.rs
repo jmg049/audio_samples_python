@@ -20,7 +20,7 @@ impl PyAudioSamples {
     ///
     /// Raises:
     ///     AudioError: If pitch detection fails.
-    #[pyo3(signature = (threshold: "float" = 0.1, min_frequency: "float" = 50.0, max_frequency:"float" = 2000.0), text_signature = "($self, threshold: float = 0.1, min_frequency: float = 50.0, max_frequency: float = 2000.0) -> Optional[float]")]
+    #[pyo3(signature = (threshold: "float" = 0.1, min_frequency: "float" = 50.0, max_frequency:"float" = 2000.0))]
     fn detect_pitch_yin(
         &self,
         py: Python<'_>,
@@ -76,7 +76,7 @@ impl PyAudioSamples {
     /// Raises:
     ///     ValueError: If window_size or hop_size is zero.
     ///     AudioError: If pitch tracking fails.
-    #[pyo3(signature = (window_size: "int", hop_size: "int", pitch_method: "PitchDetectionMethod" = PyPitchDetectionMethod::detect_yin(), threshold: "float" = 0.1, min_frequency: "float" = 50.0, max_frequency: "float" = 2000.0), text_signature = "($self, window_size: int, hop_size: int, pitch_method=PitchDetection.yin, threshold: float = 0.1, min_frequency: float = 50.0, max_frequency: float = 2000.0) -> PitchContour")]
+    #[pyo3(signature = (window_size: "int", hop_size: "int", pitch_method: "PitchDetectionMethod" = PyPitchDetectionMethod::detect_yin(), threshold: "float" = 0.1, min_frequency: "float" = 50.0, max_frequency: "float" = 2000.0))]
     fn track_pitch(
         &self,
         py: Python<'_>,

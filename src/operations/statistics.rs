@@ -11,7 +11,7 @@ use crate::{
 
 #[pymethods]
 impl PyAudioSamples {
-    #[pyo3(signature = (), text_signature = "($self) -> int | float")]
+    #[pyo3(signature = ())]
     /// Compute the peak sample value across all channels.
     ///
     /// Returns:
@@ -25,7 +25,7 @@ impl PyAudioSamples {
         })
     }
 
-    #[pyo3(name = "min", signature = (), text_signature = "($self) -> int | float")]
+    #[pyo3(name = "min", signature = ())]
     /// Compute the minimum sample value across all channels.
     ///
     /// Returns:
@@ -39,7 +39,7 @@ impl PyAudioSamples {
         })
     }
 
-    #[pyo3(name = "max", signature = (), text_signature = "($self) -> int | float")]
+    #[pyo3(name = "max", signature = ())]
     /// Compute the maximum sample value across all channels.
     ///
     /// Returns:
@@ -53,7 +53,7 @@ impl PyAudioSamples {
         })
     }
 
-    #[pyo3(signature = (), text_signature = "($self) -> float")]
+    #[pyo3(signature = ())]
     /// Calculate the arithmetic mean of the sample values.
     ///
     /// Returns:
@@ -62,7 +62,7 @@ impl PyAudioSamples {
         dispatch_with_view!(self, py, |audio| audio.mean())
     }
 
-    #[pyo3(signature = (), text_signature = "($self) -> Optional[float]")]
+    #[pyo3(signature = ())]
     /// Calculate the median sample value.
     ///
     /// Returns:
@@ -71,7 +71,7 @@ impl PyAudioSamples {
         dispatch_with_view!(self, py, |audio| audio.midpoint_sample())
     }
 
-    #[pyo3(signature = (), text_signature = "($self) -> float")]
+    #[pyo3(signature = ())]
     /// Compute the root mean square (RMS) energy of the samples.
     ///
     /// Returns:
@@ -89,7 +89,7 @@ impl PyAudioSamples {
         dispatch_with_view!(self, py, |audio| audio.variance())
     }
 
-    #[pyo3(signature = (), text_signature = "($self) -> float")]
+    #[pyo3(signature = ())]
     /// Compute the standard deviation of the sample values.
     ///
     /// Returns:
@@ -98,25 +98,38 @@ impl PyAudioSamples {
         self.variance(py).sqrt()
     }
 
-    #[pyo3(signature = (), text_signature = "($self) -> int")]
+    #[pyo3(signature = ())]
     /// Count the number of zero crossings in the signal.
     ///
+    /// A crossing is counted between consecutive samples ``x[n-1]`` and ``x[n]``
+    /// when one is ``> 0`` and the other is ``<= 0`` (zero counts as
+    /// non-positive). For multi-channel audio the per-channel counts are summed.
+    ///
     /// Returns:
-    ///     int: Number of sign changes across consecutive samples.
+    ///     int: Number of crossings (summed over channels).
     fn zero_crossings(&self, py: Python<'_>) -> usize {
         dispatch_with_view!(self, py, |audio| audio.zero_crossings())
     }
 
-    #[pyo3(signature = (), text_signature = "($self) -> float")]
-    /// Calculate the zero crossing rate of the signal.
+    #[pyo3(signature = ())]
+    /// Calculate the zero-crossing rate of the signal, in crossings per second.
+    ///
+    /// ``zero_crossing_rate = zero_crossings() / duration_seconds``, where
+    /// ``duration_seconds = samples_per_channel / sample_rate``. For
+    /// multi-channel audio the crossings are summed over channels before the
+    /// division. A pure sine of frequency ``f`` gives about ``2 * f``.
+    ///
+    /// Note: unlike ``librosa.feature.zero_crossing_rate``, which returns a
+    /// per-frame fraction of crossings per sample, this is one global value in
+    /// crossings per second. Divide by ``sample_rate`` for crossings per sample.
     ///
     /// Returns:
-    ///     float: Zero crossings normalized by the number of samples.
+    ///     float: Zero crossings per second.
     fn zero_crossing_rate(&self, py: Python<'_>) -> f64 {
         dispatch_with_view!(self, py, |audio| audio.zero_crossing_rate())
     }
 
-    #[pyo3(signature = (max_lag), text_signature = "($self, max_lag: int) -> Optional[list[float]]")]
+    #[pyo3(signature = (max_lag))]
     /// Compute the autocorrelation sequence up to a lag limit.
     ///
     /// Args:
@@ -134,7 +147,7 @@ impl PyAudioSamples {
             .map(|nev| nev.to_vec())))
     }
 
-    #[pyo3(signature = (other, max_lag), text_signature = "($self, other: AudioSamples, max_lag: int) -> Optional[list[float]]")]
+    #[pyo3(signature = (other, max_lag))]
     /// Compute the normalized cross-correlation with another audio buffer.
     ///
     /// Args:
@@ -256,7 +269,7 @@ impl PyAudioSamples {
         }
     }
 
-    #[pyo3(signature = (reduction: "ChannelReduction" = ChannelReduction::Average.into()), text_signature = "($self, reduction: ChannelReduction = ChannelReduction.average) -> float")]
+    #[pyo3(signature = (reduction: "ChannelReduction" = ChannelReduction::Average.into()))]
     /// Compute the spectral centroid using the current FFT backend.
     ///
     /// Args:
@@ -280,7 +293,7 @@ impl PyAudioSamples {
             .map_err(audio_err_to_py))
     }
 
-    #[pyo3(signature = (rolloff_percent: "float" = 0.85, reduction: "ChannelReduction" = ChannelReduction::Average.into()), text_signature = "($self, rolloff_percent: float = 0.85, reduction: ChannelReduction = ChannelReduction.average) -> float")]
+    #[pyo3(signature = (rolloff_percent: "float" = 0.85, reduction: "ChannelReduction" = ChannelReduction::Average.into()))]
     /// Compute the spectral rolloff point for the provided energy fraction.
     ///
     /// Args:
@@ -305,7 +318,7 @@ impl PyAudioSamples {
             .map_err(audio_err_to_py))
     }
 
-    #[pyo3(signature = (reduction: "ChannelReduction" = ChannelReduction::Average.into()), text_signature = "($self, reduction: ChannelReduction = ChannelReduction.average) -> float")]
+    #[pyo3(signature = (reduction: "ChannelReduction" = ChannelReduction::Average.into()))]
     /// Compute the spectral bandwidth (spectral spread) of the signal.
     ///
     /// The magnitude-weighted standard deviation of the spectrum about its
@@ -333,7 +346,7 @@ impl PyAudioSamples {
             .map_err(audio_err_to_py))
     }
 
-    #[pyo3(signature = (reduction: "ChannelReduction" = ChannelReduction::Average.into()), text_signature = "($self, reduction: ChannelReduction = ChannelReduction.average) -> float")]
+    #[pyo3(signature = (reduction: "ChannelReduction" = ChannelReduction::Average.into()))]
     /// Compute the spectral flatness (Wiener entropy) of the signal.
     ///
     /// The ratio of the geometric mean to the arithmetic mean of the power
@@ -361,7 +374,7 @@ impl PyAudioSamples {
             .map_err(audio_err_to_py))
     }
 
-    #[pyo3(signature = (reduction: "ChannelReduction" = ChannelReduction::Average.into()), text_signature = "($self, reduction: ChannelReduction = ChannelReduction.average) -> float")]
+    #[pyo3(signature = (reduction: "ChannelReduction" = ChannelReduction::Average.into()))]
     /// Compute the spectral crest factor of the signal.
     ///
     /// The ratio of the peak magnitude to the mean magnitude of the spectrum.
@@ -390,7 +403,7 @@ impl PyAudioSamples {
             .map_err(audio_err_to_py))
     }
 
-    #[pyo3(signature = (reduction: "ChannelReduction" = ChannelReduction::Average.into()), text_signature = "($self, reduction: ChannelReduction = ChannelReduction.average) -> float")]
+    #[pyo3(signature = (reduction: "ChannelReduction" = ChannelReduction::Average.into()))]
     /// Compute the spectral slope of the signal.
     ///
     /// The slope of an ordinary least-squares linear fit of the linear magnitude
@@ -419,7 +432,7 @@ impl PyAudioSamples {
             .map_err(audio_err_to_py))
     }
 
-    #[pyo3(signature = (n_bands: "int", reduction: "ChannelReduction" = ChannelReduction::Average.into()), text_signature = "($self, n_bands: int, reduction: ChannelReduction = ChannelReduction.average) -> list[float]")]
+    #[pyo3(signature = (n_bands: "int", reduction: "ChannelReduction" = ChannelReduction::Average.into()))]
     /// Compute spectral contrast across octave-spaced sub-bands.
     ///
     /// The spectrum is partitioned into ``n_bands`` octave-spaced sub-bands.
@@ -452,7 +465,7 @@ impl PyAudioSamples {
             .map_err(audio_err_to_py))
     }
 
-    #[pyo3(signature = (), text_signature = "($self) -> Optional[float]")]
+    #[pyo3(signature = ())]
     /// Return the value at the temporal midpoint of a mono signal.
     ///
     /// This is the 2.0 name for what was historically exposed as ``median``.
@@ -467,7 +480,7 @@ impl PyAudioSamples {
         dispatch_with_view!(self, py, |audio| audio.midpoint_sample())
     }
 
-    #[pyo3(signature = (), text_signature = "($self) -> tuple[float, int | float]")]
+    #[pyo3(signature = ())]
     /// Compute the RMS and peak absolute value in a single pass.
     ///
     /// Equivalent to calling ``rms`` and ``peak`` separately, but reads the
@@ -488,7 +501,7 @@ impl PyAudioSamples {
         })
     }
 
-    #[pyo3(signature = (), text_signature = "($self) -> int | float")]
+    #[pyo3(signature = ())]
     /// Return the peak (maximum absolute value) across all samples and channels.
     ///
     /// Alias for ``peak``, provided to match the conventional term "amplitude"

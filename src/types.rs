@@ -410,7 +410,7 @@ impl PyWindowType {
     ///     leakage. Larger values increase side-lobe suppression at the cost of
     ///     wider main lobes.
     #[classmethod]
-    #[pyo3(signature = (beta: "float"), text_signature="")]
+    #[pyo3(signature = (beta: "float"))]
     fn kaiser(_cls: &Bound<'_, PyType>, beta: f64) -> Self {
         PyWindowType {
             inner: WindowType::Kaiser { beta },
@@ -427,7 +427,7 @@ impl PyWindowType {
     /// std : float
     ///     Standard deviation controlling the width of the Gaussian envelope.
     #[classmethod]
-    #[pyo3(signature = (std: "float"), text_signature="")]
+    #[pyo3(signature = (std: "float"))]
     fn gaussian(_cls: &Bound<'_, PyType>, std: f64) -> Self {
         PyWindowType {
             inner: WindowType::Gaussian { std },
@@ -641,7 +641,7 @@ impl PyVadChannelPolicy {
     /// ch : int
     ///     Zero-based channel index to use for VAD.
     #[classmethod]
-    #[pyo3(signature = (ch: "int"), text_signature="($cls, ch: int) -> VadChannelPolicy")]
+    #[pyo3(signature = (ch: "int"))]
     fn channel(_cls: &Bound<'_, PyType>, ch: usize) -> Self {
         PyVadChannelPolicy {
             inner: VadChannelPolicy::Channel(ch),
@@ -727,7 +727,7 @@ impl PyVadConfig {
     /// This constructor does not automatically validate parameter consistency.
     /// Call ``validate()`` to explicitly check constraints.
     #[new]
-    #[pyo3(signature = (method: "VadMethod", channel_policy: "VadChannelPolicy", /, frame_size: "int", hop_size: "int", pad_end: "bool", energy_threshold_db: "float", zcr_min: "float", zcr_max: "float", min_speech_frames: "int", min_silence_frames: "int", hangover_frames: "int", smooth_frames: "int", speech_band_low_hz: "float", speech_band_high_hz: "float", spectral_ratio_threshold: "float"), text_signature="($cls, method: VadMethod, frame_size: int, hop_size: int, pad_end: bool, channel_policy: VadChannelPolicy, energy_threshold_db: float, zcr_min: float, zcr_max: float, min_speech_frames: int, min_silence_frames: int, hangover_frames: int, smooth_frames: int, speech_band_low_hz: float, speech_band_high_hz: float, spectral_ratio_threshold: float) -> VadConfig")]
+    #[pyo3(signature = (method: "VadMethod", channel_policy: "VadChannelPolicy", /, frame_size: "int", hop_size: "int", pad_end: "bool", energy_threshold_db: "float", zcr_min: "float", zcr_max: "float", min_speech_frames: "int", min_silence_frames: "int", hangover_frames: "int", smooth_frames: "int", speech_band_low_hz: "float", speech_band_high_hz: "float", spectral_ratio_threshold: "float"))]
     fn new(
         method: PyVadMethod,
         channel_policy: PyVadChannelPolicy,
@@ -791,10 +791,104 @@ impl PyVadConfig {
     /// ------
     /// ValueError
     ///     If any configuration parameter is invalid or inconsistent.
-    #[pyo3(signature = (), text_signature="($self) -> VadConfig")]
+    #[pyo3(signature = ())]
     fn validate(&mut self) -> PyResult<Self> {
         self.inner.validate().map_err(audio_err_to_py)?;
         Ok(Self { inner: self.inner })
+    }
+
+    /// VAD method.
+    #[getter]
+    const fn method(&self) -> PyVadMethod {
+        PyVadMethod {
+            inner: self.inner.method,
+        }
+    }
+
+    /// Policy for multi-channel audio.
+    #[getter]
+    const fn channel_policy(&self) -> PyVadChannelPolicy {
+        PyVadChannelPolicy {
+            inner: self.inner.channel_policy,
+        }
+    }
+
+    /// Whether to include a final partial frame (zero-padded).
+    #[getter]
+    const fn pad_end(&self) -> bool {
+        self.inner.pad_end
+    }
+
+    /// Analysis frame length in samples.
+    #[getter]
+    const fn frame_size(&self) -> usize {
+        self.inner.frame_size.get()
+    }
+
+    /// Hop size in samples (frame step).
+    #[getter]
+    const fn hop_size(&self) -> usize {
+        self.inner.hop_size.get()
+    }
+
+    /// Hangover in frames: speech stays active this many frames after energy drops.
+    #[getter]
+    const fn hangover_frames(&self) -> usize {
+        self.inner.hangover_frames.get()
+    }
+
+    /// Majority-vote smoothing window in frames (1 = no smoothing).
+    #[getter]
+    const fn smooth_frames(&self) -> usize {
+        self.inner.smooth_frames.get()
+    }
+
+    /// Minimum number of consecutive speech frames to keep a speech region.
+    #[getter]
+    const fn min_speech_frames(&self) -> usize {
+        self.inner.min_speech_frames
+    }
+
+    /// Minimum number of consecutive non-speech frames to keep a silence region.
+    #[getter]
+    const fn min_silence_frames(&self) -> usize {
+        self.inner.min_silence_frames
+    }
+
+    /// Energy threshold in dBFS (frame RMS).
+    #[getter]
+    const fn energy_threshold_db(&self) -> f64 {
+        self.inner.energy_threshold_db
+    }
+
+    /// Minimum zero-crossing rate, in crossings per sample (``[0, 1]``).
+    #[getter]
+    const fn zcr_min(&self) -> f64 {
+        self.inner.zcr_min
+    }
+
+    /// Maximum zero-crossing rate, in crossings per sample (``[0, 1]``).
+    #[getter]
+    const fn zcr_max(&self) -> f64 {
+        self.inner.zcr_max
+    }
+
+    /// Lower bound of the speech band in Hz (``VadMethod.spectral``).
+    #[getter]
+    const fn speech_band_low_hz(&self) -> f64 {
+        self.inner.speech_band_low_hz
+    }
+
+    /// Upper bound of the speech band in Hz (``VadMethod.spectral``).
+    #[getter]
+    const fn speech_band_high_hz(&self) -> f64 {
+        self.inner.speech_band_high_hz
+    }
+
+    /// Threshold on the speech-band energy ratio (``VadMethod.spectral``).
+    #[getter]
+    const fn spectral_ratio_threshold(&self) -> f64 {
+        self.inner.spectral_ratio_threshold
     }
 }
 
@@ -1026,7 +1120,7 @@ impl PyMonoConversionMethod {
     ///     Per-channel weights. The length should match the number of input
     ///     channels.
     #[classmethod]
-    #[pyo3(signature = (weights: "list[float]"), text_signature="($cls, weights: list[float]) -> MonoConversionMethod")]
+    #[pyo3(signature = (weights: "list[float]"))]
     fn weighted(_cls: &Bound<'_, PyType>, weights: Vec<f64>) -> Self {
         PyMonoConversionMethod {
             inner: MonoConversionMethod::Weighted(weights),
@@ -1092,7 +1186,7 @@ impl PyStereoConversionMethod {
     /// pan_value : float
     ///     Pan position in the range [-1, 1].
     #[classmethod]
-    #[pyo3(signature = (pan_value: "float"), text_signature="($cls, pan_value: float) -> StereoConversionMethod")]
+    #[pyo3(signature = (pan_value: "float"))]
     fn pan(_cls: &Bound<'_, PyType>, pan_value: f64) -> Self {
         PyStereoConversionMethod {
             inner: StereoConversionMethod::Pan(pan_value),
@@ -1485,7 +1579,7 @@ impl PyIirFilterDesign {
     /// Parameter consistency is not validated automatically. Invalid or
     /// incompatible combinations may fail later during filter construction.
     #[new]
-    #[pyo3(signature = (filter_type: "FilterType", response: "FilterResponse | str", order: "int", cutoff_frequency=None, low_frequency=None, high_frequency=None, passband_ripple=None, stopband_attenuation=None, bessel_norm=None), text_signature = "($cls, filter_type: IirFilterType, response: FilterResponse | str, order: int, cutoff_frequency: Optional[float] = None, low_frequency: Optional[float] = None, high_frequency: Optional[float] = None, passband_ripple: Optional[float] = None, stopband_attenuation: Optional[float] = None, bessel_norm: Optional[str] = None) -> IirFilterDesign")]
+    #[pyo3(signature = (filter_type: "FilterType", response: "FilterResponse | str", order: "int", cutoff_frequency=None, low_frequency=None, high_frequency=None, passband_ripple=None, stopband_attenuation=None, bessel_norm=None))]
     #[allow(clippy::too_many_arguments)]
     fn new(
         filter_type: PyIirFilterType,
@@ -1585,7 +1679,7 @@ impl PyIirFilterDesign {
     ///
     /// If the order argument is less than or equal to zero
     #[classmethod]
-    #[pyo3(signature = (order: "int", cutoff_frequency: "float"), text_signature = "($cls, order: int, cutoff_frequency: float) -> IirFilterDesign")]
+    #[pyo3(signature = (order: "int", cutoff_frequency: "float"))]
     fn butterworth_lowpass(
         _cls: &Bound<'_, PyType>,
         order: usize,
@@ -1607,7 +1701,7 @@ impl PyIirFilterDesign {
     /// cutoff_frequency : float
     ///     Cutoff frequency in Hz.
     #[classmethod]
-    #[pyo3(signature = (order: "int", cutoff_frequency: "float"), text_signature = "($cls, order: int, cutoff_frequency: float) -> IirFilterDesign")]
+    #[pyo3(signature = (order: "int", cutoff_frequency: "float"))]
     fn butterworth_highpass(
         _cls: &Bound<'_, PyType>,
         order: usize,
@@ -1631,7 +1725,7 @@ impl PyIirFilterDesign {
     /// high_frequency : float
     ///     Upper cutoff frequency in Hz.
     #[classmethod]
-    #[pyo3(signature = (order: "int", low_frequency: "float", high_frequency: "float"), text_signature = "($cls, order: int, low_frequency: float, high_frequency: float) -> IirFilterDesign")]
+    #[pyo3(signature = (order: "int", low_frequency: "float", high_frequency: "float"))]
     fn butterworth_bandpass(
         _cls: &Bound<'_, PyType>,
         order: usize,
@@ -1658,7 +1752,7 @@ impl PyIirFilterDesign {
     ///
     /// Equivalent to ``scipy.signal.butter(order, [low, high], 'bandstop')``.
     #[classmethod]
-    #[pyo3(signature = (order: "int", low_frequency: "float", high_frequency: "float"), text_signature = "($cls, order: int, low_frequency: float, high_frequency: float) -> IirFilterDesign")]
+    #[pyo3(signature = (order: "int", low_frequency: "float", high_frequency: "float"))]
     fn butterworth_bandstop(
         _cls: &Bound<'_, PyType>,
         order: usize,
@@ -1679,7 +1773,7 @@ impl PyIirFilterDesign {
     /// Equivalent to ``scipy.signal.cheby1(order, passband_ripple, cutoff, response)``.
     /// The passband ripples between 0 and ``-passband_ripple`` dB.
     #[classmethod]
-    #[pyo3(signature = (response: "FilterResponse | str", order: "int", cutoff_frequency: "float", passband_ripple: "float"), text_signature = "($cls, response: FilterResponse | str, order: int, cutoff_frequency: float, passband_ripple: float) -> IirFilterDesign")]
+    #[pyo3(signature = (response: "FilterResponse | str", order: "int", cutoff_frequency: "float", passband_ripple: "float"))]
     fn chebyshev_i(
         _cls: &Bound<'_, PyType>,
         response: &Bound<'_, PyAny>,
@@ -1701,7 +1795,7 @@ impl PyIirFilterDesign {
     ///
     /// Equivalent to ``scipy.signal.cheby1(order, passband_ripple, [low, high], response)``.
     #[classmethod]
-    #[pyo3(signature = (response: "FilterResponse | str", order: "int", low_frequency: "float", high_frequency: "float", passband_ripple: "float"), text_signature = "($cls, response: FilterResponse | str, order: int, low_frequency: float, high_frequency: float, passband_ripple: float) -> IirFilterDesign")]
+    #[pyo3(signature = (response: "FilterResponse | str", order: "int", low_frequency: "float", high_frequency: "float", passband_ripple: "float"))]
     fn chebyshev_i_band(
         _cls: &Bound<'_, PyType>,
         response: &Bound<'_, PyAny>,
@@ -1726,7 +1820,7 @@ impl PyIirFilterDesign {
     /// Equivalent to ``scipy.signal.cheby2(order, stopband_attenuation, cutoff, response)``;
     /// ``cutoff_frequency`` is the stopband edge.
     #[classmethod]
-    #[pyo3(signature = (response: "FilterResponse | str", order: "int", cutoff_frequency: "float", stopband_attenuation: "float"), text_signature = "($cls, response: FilterResponse | str, order: int, cutoff_frequency: float, stopband_attenuation: float) -> IirFilterDesign")]
+    #[pyo3(signature = (response: "FilterResponse | str", order: "int", cutoff_frequency: "float", stopband_attenuation: "float"))]
     fn chebyshev_ii(
         _cls: &Bound<'_, PyType>,
         response: &Bound<'_, PyAny>,
@@ -1748,7 +1842,7 @@ impl PyIirFilterDesign {
     ///
     /// Equivalent to ``scipy.signal.cheby2(order, stopband_attenuation, [low, high], response)``.
     #[classmethod]
-    #[pyo3(signature = (response: "FilterResponse | str", order: "int", low_frequency: "float", high_frequency: "float", stopband_attenuation: "float"), text_signature = "($cls, response: FilterResponse | str, order: int, low_frequency: float, high_frequency: float, stopband_attenuation: float) -> IirFilterDesign")]
+    #[pyo3(signature = (response: "FilterResponse | str", order: "int", low_frequency: "float", high_frequency: "float", stopband_attenuation: "float"))]
     fn chebyshev_ii_band(
         _cls: &Bound<'_, PyType>,
         response: &Bound<'_, PyAny>,
@@ -1772,7 +1866,7 @@ impl PyIirFilterDesign {
     ///
     /// Equivalent to ``scipy.signal.ellip(order, passband_ripple, stopband_attenuation, cutoff, response)``.
     #[classmethod]
-    #[pyo3(signature = (response: "FilterResponse | str", order: "int", cutoff_frequency: "float", passband_ripple: "float", stopband_attenuation: "float"), text_signature = "($cls, response: FilterResponse | str, order: int, cutoff_frequency: float, passband_ripple: float, stopband_attenuation: float) -> IirFilterDesign")]
+    #[pyo3(signature = (response: "FilterResponse | str", order: "int", cutoff_frequency: "float", passband_ripple: "float", stopband_attenuation: "float"))]
     fn elliptic(
         _cls: &Bound<'_, PyType>,
         response: &Bound<'_, PyAny>,
@@ -1796,7 +1890,7 @@ impl PyIirFilterDesign {
     ///
     /// Equivalent to ``scipy.signal.ellip(order, passband_ripple, stopband_attenuation, [low, high], response)``.
     #[classmethod]
-    #[pyo3(signature = (response: "FilterResponse | str", order: "int", low_frequency: "float", high_frequency: "float", passband_ripple: "float", stopband_attenuation: "float"), text_signature = "($cls, response: FilterResponse | str, order: int, low_frequency: float, high_frequency: float, passband_ripple: float, stopband_attenuation: float) -> IirFilterDesign")]
+    #[pyo3(signature = (response: "FilterResponse | str", order: "int", low_frequency: "float", high_frequency: "float", passband_ripple: "float", stopband_attenuation: "float"))]
     fn elliptic_band(
         _cls: &Bound<'_, PyType>,
         response: &Bound<'_, PyAny>,
@@ -1824,7 +1918,7 @@ impl PyIirFilterDesign {
     /// ``norm`` defaults to ``"mag"`` (-3 dB at the cutoff); pass ``"phase"`` to
     /// match SciPy's default.
     #[classmethod]
-    #[pyo3(signature = (response: "FilterResponse | str", order: "int", cutoff_frequency: "float", norm: "str" = "mag"), text_signature = "($cls, response: FilterResponse | str, order: int, cutoff_frequency: float, norm: str = 'mag') -> IirFilterDesign")]
+    #[pyo3(signature = (response: "FilterResponse | str", order: "int", cutoff_frequency: "float", norm: "str" = "mag"))]
     fn bessel(
         _cls: &Bound<'_, PyType>,
         response: &Bound<'_, PyAny>,
@@ -1846,7 +1940,7 @@ impl PyIirFilterDesign {
     ///
     /// Equivalent to ``scipy.signal.bessel(order, [low, high], response, norm=norm)``.
     #[classmethod]
-    #[pyo3(signature = (response: "FilterResponse | str", order: "int", low_frequency: "float", high_frequency: "float", norm: "str" = "mag"), text_signature = "($cls, response: FilterResponse | str, order: int, low_frequency: float, high_frequency: float, norm: str = 'mag') -> IirFilterDesign")]
+    #[pyo3(signature = (response: "FilterResponse | str", order: "int", low_frequency: "float", high_frequency: "float", norm: "str" = "mag"))]
     fn bessel_band(
         _cls: &Bound<'_, PyType>,
         response: &Bound<'_, PyAny>,
@@ -1878,7 +1972,7 @@ impl PyIirFilterDesign {
     ///
     /// Raises:
     ///     ValueError: If the design is invalid for ``sample_rate``.
-    #[pyo3(signature = (sample_rate: "float"), text_signature = "($self, sample_rate: float) -> np.typing.NDArray[np.float64]")]
+    #[pyo3(signature = (sample_rate: "float"))]
     fn sos<'py>(&self, py: Python<'py>, sample_rate: f64) -> PyResult<Bound<'py, PyArray2<f64>>> {
         let rows = self
             .inner
@@ -1903,7 +1997,7 @@ impl PyIirFilterDesign {
     ///
     /// Raises:
     ///     ValueError: If the design is invalid for ``sample_rate``.
-    #[pyo3(signature = (frequencies: "np.typing.NDArray[np.float64]", sample_rate: "float"), text_signature = "($self, frequencies: np.typing.NDArray[np.float64], sample_rate: float) -> tuple[np.typing.NDArray[np.float64], np.typing.NDArray[np.float64]]")]
+    #[pyo3(signature = (frequencies: "np.typing.NDArray[np.float64]", sample_rate: "float"))]
     fn frequency_response<'py>(
         &self,
         py: Python<'py>,
@@ -2073,7 +2167,7 @@ impl PyEqBand {
     /// Parameter validity is not automatically checked at construction time.
     /// Invalid configurations may fail later during processing.
     #[new]
-    #[pyo3(signature = (band_type: "EqBandType", frequency: "float", gain_db: "float", q_factor: "float"), text_signature = "($cls, band_type: EqBandType, frequency: float, gain_db: float, q_factor: float) -> EqBand")]
+    #[pyo3(signature = (band_type: "EqBandType", frequency: "float", gain_db: "float", q_factor: "float"))]
     fn new(band_type: PyEqBandType, frequency: f64, gain_db: f64, q_factor: f64) -> PyResult<Self> {
         let band_type: EqBandType = band_type.into();
         let mut inner = EqBand::peak(frequency, gain_db, q_factor);
@@ -2092,7 +2186,7 @@ impl PyEqBand {
     /// q_factor : float
     ///     Quality factor controlling bandwidth.
     #[classmethod]
-    #[pyo3(signature = (frequency: "float", gain_db: "float", q_factor: "float"), text_signature = "($cls, frequency: float, gain_db: float, q_factor: float) -> EqBand")]
+    #[pyo3(signature = (frequency: "float", gain_db: "float", q_factor: "float"))]
     fn peak(_cls: &Bound<'_, PyType>, frequency: f64, gain_db: f64, q_factor: f64) -> Self {
         Self {
             inner: EqBand::peak(frequency, gain_db, q_factor),
@@ -2110,7 +2204,7 @@ impl PyEqBand {
     /// q_factor : float
     ///     Shelf slope control.
     #[classmethod]
-    #[pyo3(signature = (frequency: "float", gain_db: "float", q_factor: "float"), text_signature = "($cls, frequency: float, gain_db: float, q_factor: float) -> EqBand")]
+    #[pyo3(signature = (frequency: "float", gain_db: "float", q_factor: "float"))]
     fn low_shelf(_cls: &Bound<'_, PyType>, frequency: f64, gain_db: f64, q_factor: f64) -> Self {
         Self {
             inner: EqBand::low_shelf(frequency, gain_db, q_factor),
@@ -2128,7 +2222,7 @@ impl PyEqBand {
     /// q_factor : float
     ///     Shelf slope control.
     #[classmethod]
-    #[pyo3(signature = (frequency: "float", gain_db: "float", q_factor: "float"), text_signature = "($cls, frequency: float, gain_db: float, q_factor: float) -> EqBand")]
+    #[pyo3(signature = (frequency: "float", gain_db: "float", q_factor: "float"))]
     fn high_shelf(_cls: &Bound<'_, PyType>, frequency: f64, gain_db: f64, q_factor: f64) -> Self {
         Self {
             inner: EqBand::high_shelf(frequency, gain_db, q_factor),
@@ -2182,7 +2276,7 @@ pub struct PyParametricEq {
 impl PyParametricEq {
     /// Create a new empty parametric equaliser.
     #[new]
-    #[pyo3(signature = (), text_signature = "($cls) -> ParametricEq")]
+    #[pyo3(signature = ())]
     fn new() -> Self {
         Self {
             inner: ParametricEq::new(),
@@ -2195,7 +2289,7 @@ impl PyParametricEq {
     /// ----------
     /// band : EqBand
     ///     Band configuration to append to the equaliser.
-    #[pyo3(signature = (band), text_signature = "($self, band: EqBand) -> None")]
+    #[pyo3(signature = (band))]
     fn add_band(&mut self, band: &PyEqBand) {
         self.inner.add_band(band.inner.clone());
     }
@@ -2211,7 +2305,7 @@ impl PyParametricEq {
     /// -------
     /// EqBand or None
     ///     The removed band if the index was valid, otherwise ``None``.
-    #[pyo3(signature = (index), text_signature = "($self, index: int) -> Optional[EqBand]")]
+    #[pyo3(signature = (index))]
     fn remove_band(&mut self, index: usize) -> Option<PyEqBand> {
         self.inner
             .remove_band(index)
@@ -2412,7 +2506,7 @@ impl PySideChainConfig {
     /// Parameter validity is not automatically checked at construction time.
     /// Invalid configurations may fail later during processing.
     #[new]
-    #[pyo3(signature = (enabled: "bool", high_pass_freq: "Optional[float]"=None, low_pass_freq: "Optional[float]"=None, pre_emphasis_db=0.0, external_mix=0.0), text_signature="($cls, enabled: bool, high_pass_freq: float | None = None, low_pass_freq: float | None = None, pre_emphasis_db: float = 0.0, external_mix: float = 0.0) -> SideChainConfig")]
+    #[pyo3(signature = (enabled: "bool", high_pass_freq: "Optional[float]"=None, low_pass_freq: "Optional[float]"=None, pre_emphasis_db=0.0, external_mix=0.0))]
     fn new(
         enabled: bool,
         high_pass_freq: Option<f64>,
@@ -2526,7 +2620,7 @@ impl PyCompressorConfig {
     /// CompressorConfig
     ///     A new compressor configuration.
     #[new]
-    #[pyo3(signature = (*, threshold_db: "float", ratio: "float", attack_ms: "float", release_ms: "float", makeup_gain_db: "float", knee_type: "KneeType", knee_width_db: "float", detection_method: "DynamicRangeMethod", side_chain: "SideChainConfig", lookahead_ms: "float"), text_signature="($cls, *, threshold_db: float, ratio: float, attack_ms: float, release_ms: float, makeup_gain_db: float, knee_type: KneeType, knee_width_db: float, detection_method: DynamicRangeMethod, side_chain: SideChainConfig, lookahead_ms: float) -> CompressorConfig")]
+    #[pyo3(signature = (*, threshold_db: "float", ratio: "float", attack_ms: "float", release_ms: "float", makeup_gain_db: "float", knee_type: "KneeType", knee_width_db: "float", detection_method: "DynamicRangeMethod", side_chain: "SideChainConfig", lookahead_ms: "float"))]
     fn new(
         threshold_db: f64,
         ratio: f64,
@@ -2600,7 +2694,7 @@ impl PyCompressorConfig {
     /// ------
     /// ValueError
     ///     If any configuration parameter is invalid.
-    #[pyo3(signature = (sample_rate: "float"), text_signature="($self, sample_rate: float) -> CompressorConfig")]
+    #[pyo3(signature = (sample_rate: "float"))]
     fn validate(&mut self, sample_rate: f64) -> PyResult<Self> {
         self.inner.validate(sample_rate).map_err(audio_err_to_py)?;
         Ok(Self { inner: self.inner })
@@ -2664,7 +2758,7 @@ impl PyLimiterConfig {
     /// LimiterConfig
     ///     A new limiter configuration.
     #[new]
-    #[pyo3(signature = (*, ceiling_db: "float", attack_ms: "float", release_ms: "float", knee_type, knee_width_db, detection_method, side_chain, lookahead_ms, isp_limiting), text_signature="($cls, ceiling_db: float, attack_ms: float, release_ms: float, knee_type: KneeType, knee_width_db: float, detection_method: DynamicRangeMethod, side_chain: SideChainConfig, lookahead_ms: float, isp_limiting: bool) -> LimiterConfig")]
+    #[pyo3(signature = (*, ceiling_db: "float", attack_ms: "float", release_ms: "float", knee_type, knee_width_db, detection_method, side_chain, lookahead_ms, isp_limiting))]
     fn new(
         ceiling_db: f64,
         attack_ms: f64,
@@ -2754,7 +2848,7 @@ impl PyLimiterConfig {
     ///
     /// Tuned for minimal audible impact while preventing clipping.
     #[classmethod]
-    #[pyo3(signature=(), text_signature="($cls) -> LimiterConfig")]
+    #[pyo3(signature=())]
     fn transparent(_cls: &Bound<'_, PyType>) -> Self {
         PyLimiterConfig {
             inner: LimiterConfig::transparent(),
@@ -2765,7 +2859,7 @@ impl PyLimiterConfig {
     ///
     /// Tuned for loudness maximisation with controlled transparency.
     #[classmethod]
-    #[pyo3(signature=(), text_signature="($cls) -> LimiterConfig")]
+    #[pyo3(signature=())]
     fn mastering(_cls: &Bound<'_, PyType>) -> Self {
         PyLimiterConfig {
             inner: LimiterConfig::mastering(),
@@ -2776,7 +2870,7 @@ impl PyLimiterConfig {
     ///
     /// Tuned for aggressive peak control and regulatory compliance.
     #[classmethod]
-    #[pyo3(signature=(), text_signature="($cls) -> LimiterConfig")]
+    #[pyo3(signature=())]
     fn broadcast(_cls: &Bound<'_, PyType>) -> Self {
         PyLimiterConfig {
             inner: LimiterConfig::broadcast(),
@@ -2800,7 +2894,7 @@ impl PyLimiterConfig {
     /// ------
     /// ValueError
     ///     If any configuration parameter is invalid.
-    #[pyo3(signature=(sample_rate: "float"), text_signature="($self, sample_rate: float) -> LimiterConfig")]
+    #[pyo3(signature=(sample_rate: "float"))]
     fn validate(&mut self, sample_rate: f64) -> PyResult<Self> {
         self.inner.validate(sample_rate).map_err(audio_err_to_py)?;
         Ok(Self { inner: self.inner })
@@ -2984,7 +3078,7 @@ impl PyPerturbationMethod {
     /// PerturbationMethod
     ///     A Gaussian-noise perturbation configuration.
     #[classmethod]
-    #[pyo3(signature=(target_snr_db: "float"), text_signature="($cls, target_snr_db: float) -> PerturbationMethod")]
+    #[pyo3(signature=(target_snr_db: "float"))]
     fn white_noise(cls: &Bound<'_, PyType>, target_snr_db: f64) -> Self {
         PyPerturbationMethod::gaussian(cls, target_snr_db, PyNoiseColor::white())
     }
@@ -3005,7 +3099,7 @@ impl PyPerturbationMethod {
     /// PerturbationMethod
     ///     A Gaussian-noise perturbation configuration.
     #[classmethod]
-    #[pyo3(signature=(target_snr_db: "float"), text_signature="($cls, target_snr_db: float) -> PerturbationMethod")]
+    #[pyo3(signature=(target_snr_db: "float"))]
     fn pink_noise(cls: &Bound<'_, PyType>, target_snr_db: f64) -> Self {
         PyPerturbationMethod::gaussian(cls, target_snr_db, PyNoiseColor::pink())
     }
@@ -3026,7 +3120,7 @@ impl PyPerturbationMethod {
     /// PerturbationMethod
     ///    A Gaussian-noise perturbation configuration.
     #[classmethod]
-    #[pyo3(signature=(target_snr_db: "float"), text_signature="($cls, target_snr_db: float) -> PerturbationMethod")]
+    #[pyo3(signature=(target_snr_db: "float"))]
     fn brown_noise(cls: &Bound<'_, PyType>, target_snr_db: f64) -> Self {
         PyPerturbationMethod::gaussian(cls, target_snr_db, PyNoiseColor::brown())
     }
@@ -3048,7 +3142,7 @@ impl PyPerturbationMethod {
     /// PerturbationMethod
     ///     A Gaussian-noise perturbation configuration.
     #[classmethod]
-    #[pyo3(signature=(target_snr_db: "float", noise_color: "NoiseColor"), text_signature="($cls, target_snr_db: float, noise_color: NoiseColor) -> PerturbationMethod")]
+    #[pyo3(signature=(target_snr_db: "float", noise_color: "NoiseColor"))]
     fn gaussian(_cls: &Bound<'_, PyType>, target_snr_db: f64, noise_color: PyNoiseColor) -> Self {
         PyPerturbationMethod {
             inner: PerturbationMethod::GaussianNoise {
@@ -3075,7 +3169,7 @@ impl PyPerturbationMethod {
     /// PerturbationMethod
     ///     A random-gain perturbation configuration.
     #[classmethod]
-    #[pyo3(signature=(min_gain_db: "float", max_gain_db: "float"), text_signature="($cls, min_gain_db: float, max_gain_db: float) -> PerturbationMethod")]
+    #[pyo3(signature=(min_gain_db: "float", max_gain_db: "float"))]
     fn random_gain(_cls: &Bound<'_, PyType>, min_gain_db: f64, max_gain_db: f64) -> Self {
         PyPerturbationMethod {
             inner: PerturbationMethod::RandomGain {
@@ -3100,7 +3194,7 @@ impl PyPerturbationMethod {
     /// PerturbationMethod
     ///     A high-pass filter perturbation configuration.
     #[classmethod]
-    #[pyo3(signature=(cutoff_hz: "float"), text_signature="($cls, cutoff_hz: float) -> PerturbationMethod")]
+    #[pyo3(signature=(cutoff_hz: "float"))]
     fn high_pass_filter(_cls: &Bound<'_, PyType>, cutoff_hz: f64) -> Self {
         PyPerturbationMethod {
             inner: PerturbationMethod::HighPassFilter {
@@ -3124,7 +3218,7 @@ impl PyPerturbationMethod {
     /// PerturbationMethod
     ///     A high-pass filter perturbation configuration.
     #[classmethod]
-    #[pyo3(signature=(cutoff_hz: "float", slope_db_per_octave: "float"), text_signature="($cls, cutoff_hz: float, slope_db_per_octave: float) -> PerturbationMethod")]
+    #[pyo3(signature=(cutoff_hz: "float", slope_db_per_octave: "float"))]
     fn high_pass_filter_with_slope(
         _cls: &Bound<'_, PyType>,
         cutoff_hz: f64,
@@ -3153,7 +3247,7 @@ impl PyPerturbationMethod {
     /// PerturbationMethod
     ///     A low-pass filter perturbation configuration.
     #[classmethod]
-    #[pyo3(signature=(cutoff_hz: "float"), text_signature="($cls, cutoff_hz: float) -> PerturbationMethod")]
+    #[pyo3(signature=(cutoff_hz: "float"))]
     fn low_pass_filter(_cls: &Bound<'_, PyType>, cutoff_hz: f64) -> Self {
         PyPerturbationMethod {
             inner: PerturbationMethod::LowPassFilter {
@@ -3177,7 +3271,7 @@ impl PyPerturbationMethod {
     /// PerturbationMethod
     ///     A low-pass filter perturbation configuration.
     #[classmethod]
-    #[pyo3(signature=(cutoff_hz: "float", slope_db_per_octave: "float"), text_signature="($cls, cutoff_hz: float, slope_db_per_octave: float) -> PerturbationMethod")]
+    #[pyo3(signature=(cutoff_hz: "float", slope_db_per_octave: "float"))]
     fn low_pass_filter_with_slope(
         _cls: &Bound<'_, PyType>,
         cutoff_hz: f64,
@@ -3208,7 +3302,7 @@ impl PyPerturbationMethod {
     /// PerturbationMethod
     ///     A pitch-shift perturbation configuration.
     #[classmethod]
-    #[pyo3(signature=(semitones: "float", preserve_formants: "bool"=false), text_signature="($cls, semitones: float, preserve_formants: bool = False) -> PerturbationMethod")]
+    #[pyo3(signature=(semitones: "float", preserve_formants: "bool"=false))]
     fn pitch_shift(_cls: &Bound<'_, PyType>, semitones: f64, preserve_formants: bool) -> Self {
         PyPerturbationMethod {
             inner: PerturbationMethod::PitchShift {
@@ -3234,7 +3328,7 @@ impl PyPerturbationMethod {
     /// ------
     /// ValueError
     ///     If the perturbation parameters are invalid.
-    #[pyo3(signature=(sample_rate: "float"), text_signature="($self, sample_rate: float) -> PerturbationMethod")]
+    #[pyo3(signature=(sample_rate: "float"))]
     fn validate(&self, sample_rate: f64) -> PyResult<Self> {
         self.inner.validate(sample_rate).map_err(audio_err_to_py)?;
         Ok(Self { inner: self.inner })
@@ -3287,7 +3381,7 @@ impl PyPerturbationConfig {
     /// PerturbationConfig
     ///     A new perturbation configuration.
     #[new]
-    #[pyo3(signature=(method: "PerturbationMethod", seed: "Option[u64]"=None), text_signature="($cls, method: PerturbationMethod, seed: Optional[int] = None) -> None")]
+    #[pyo3(signature=(method: "PerturbationMethod", seed: "Option[u64]"=None))]
     fn new(method: PyPerturbationMethod, seed: Option<u64>) -> Self {
         let mut inner = PerturbationConfig::new(method.inner);
         inner.seed = seed;
@@ -3321,7 +3415,7 @@ impl PyPerturbationConfig {
     /// ------
     /// ValueError
     ///     If the configuration or underlying perturbation method is invalid.
-    #[pyo3(signature=(sample_rate: "float"), text_signature="($self, sample_rate: float) -> PerturbationConfig")]
+    #[pyo3(signature=(sample_rate: "float"))]
     fn validate(&self, sample_rate: f64) -> PyResult<Self> {
         self.inner.validate(sample_rate).map_err(audio_err_to_py)?;
         Ok(Self { inner: self.inner })
@@ -3359,8 +3453,7 @@ impl PyHpssConfig {
         stft_params: "Optional[StftParams]" = None,
         median_filter_harmonic: "int"=17,
         median_filter_percussive: "int"=17,
-        mask_softness: "float"=0.3),
-        text_signature="($cls, *, stft_params: Optional[StftParams], median_filter_harmonic: int=17, median_filter_percussive: int=17, mask_softness: float=0.3) -> None")]
+        mask_softness: "float"=0.3))]
     fn new(
         stft_params: Option<PyStftParams>,
         median_filter_harmonic: usize,
@@ -3443,7 +3536,7 @@ impl PyHpssConfig {
     ///     Window size in samples (should be power of 2)
     /// hop_size: int
     ///     Hop size in samples (typically win_size/4)
-    #[pyo3(signature=(n_fft: "int",  hop_size: "int"), text_signature="($self, n_fft: int, hop_size: int) -> None")]
+    #[pyo3(signature=(n_fft: "int",  hop_size: "int"))]
     fn set_stft_params(&mut self, n_fft: usize, hop_size: usize) -> PyResult<()> {
         let n_fft = nzu_or_err(n_fft)?;
         let hop_size = nzu_or_err(hop_size)?;
@@ -3459,7 +3552,7 @@ impl PyHpssConfig {
     ///     Harmonic filter size (odd numbers recommended)
     /// percussive: int
     ///     Percussive filter size (odd numbers recommended)
-    #[pyo3(signature=(harmonic_size: "int", percussive_size: "int"), text_signature="($self, harmonic_size: int, percussive_size: int) -> None")]
+    #[pyo3(signature=(harmonic_size: "int", percussive_size: "int"))]
     fn set_filter_sizes(&mut self, harmonic_size: usize, percussive_size: usize) {
         self.inner.set_filter_sizes(harmonic_size, percussive_size);
     }
@@ -3470,7 +3563,7 @@ impl PyHpssConfig {
     /// ----------
     /// softness: float
     ///     Softness value (0.0 = hard mask, 1.0 = completely soft)
-    #[pyo3(signature=(softness: "float"), text_signature="($self, softness: float) -> None")]
+    #[pyo3(signature=(softness: "float"))]
     fn set_mask_softness(&mut self, softness: f64) {
         self.inner.set_mask_softness(softness);
     }
@@ -3486,26 +3579,26 @@ impl PyHpssConfig {
     // /// -------
     // /// HpssConfig
     // ///    This instance if valid, otherwise raises ValueError.
-    // #[pyo3(signature=(sample_rate: "float"), text_signature="($self, sample_rate: float) -> HpssConfig")]
+    // #[pyo3(signature=(sample_rate: "float"))]
     // fn validate(&self, sample_rate: f64) -> PyResult<Self> {
     //     let inner = self.inner.validate(sample_rate).map_err(audio_err_to_py)?;
     //     Ok(PyHpssConfig { inner })
     // }
 
     /// Calculate the number of frequency bins for this configuration.
-    #[pyo3(signature=(), text_signature="($self) -> int")]
+    #[pyo3(signature=())]
     fn num_freq_bins(&self) -> usize {
         self.inner.num_freq_bins().get()
     }
 
     /// Calculate the frequency resolution in Hz.
-    #[pyo3(signature=(sample_rate: "float"), text_signature="($self, sample_rate: float) -> float")]
+    #[pyo3(signature=(sample_rate: "float"))]
     fn freq_resolution(&self, sample_rate: f64) -> f64 {
         self.inner.freq_resolution(sample_rate)
     }
 
     /// Calculate the time resolution in seconds.
-    #[pyo3(signature=(sample_rate: "float"), text_signature="($self, sample_rate: float) -> float")]
+    #[pyo3(signature=(sample_rate: "float"))]
     fn time_resolution(&self, sample_rate: f64) -> f64 {
         self.inner.time_resolution(sample_rate)
     }
@@ -3553,7 +3646,7 @@ impl PyAdaptiveThresholdConfig {
     /// AdaptiveThresholdConfig
     ///   A new adaptive threshold configuration.
     #[new]
-    #[pyo3(signature = (method: "AdaptiveThresholdMethod", *, delta: "float", percentile: "float", window_size: "int", min_threshold: "float", max_threshold: "float"), text_signature="($cls, method: AdaptiveThresholdMethod, *, delta: float, percentile: float, window_size: int, min_threshold: float, max_threshold: float) -> None")]
+    #[pyo3(signature = (method: "AdaptiveThresholdMethod", *, delta: "float", percentile: "float", window_size: "int", min_threshold: "float", max_threshold: "float"))]
     fn new(
         method: PyAdaptiveThresholdMethod,
         delta: f64,
@@ -3588,7 +3681,7 @@ impl PyAdaptiveThresholdConfig {
     /// AdaptiveThresholdConfig
     ///     A new delta-based adaptive threshold configuration.
     #[classmethod]
-    #[pyo3(signature = (delta: "float", window_size: "int"), text_signature="($cls, delta: float, window_size: int) -> AdaptiveThresholdConfig")]
+    #[pyo3(signature = (delta: "float", window_size: "int"))]
     fn delta(_cls: &Bound<'_, PyType>, delta: f64, window_size: usize) -> Self {
         PyAdaptiveThresholdConfig {
             inner: AdaptiveThresholdConfig::delta(delta, window_size),
@@ -3609,7 +3702,7 @@ impl PyAdaptiveThresholdConfig {
     /// AdaptiveThresholdConfig
     ///     A new percentile-based adaptive threshold configuration.
     #[classmethod]
-    #[pyo3(signature = (percentile: "float", window_size: "int"), text_signature="($cls, percentile: float, window_size: int) -> AdaptiveThresholdConfig")]
+    #[pyo3(signature = (percentile: "float", window_size: "int"))]
     fn percentile(_cls: &Bound<'_, PyType>, percentile: f64, window_size: usize) -> Self {
         PyAdaptiveThresholdConfig {
             inner: AdaptiveThresholdConfig::percentile(percentile, window_size),
@@ -3632,7 +3725,7 @@ impl PyAdaptiveThresholdConfig {
     /// AdaptiveThresholdConfig
     ///    A new combined adaptive threshold configuration.
     #[classmethod]
-    #[pyo3(signature = (delta: "float", percentile: "float", window_size: "int"), text_signature="($cls, delta: float, percentile: float, window_size: int) -> AdaptiveThresholdConfig")]
+    #[pyo3(signature = (delta: "float", percentile: "float", window_size: "int"))]
     fn combined(_cls: &Bound<'_, PyType>, delta: f64, percentile: f64, window_size: usize) -> Self {
         PyAdaptiveThresholdConfig {
             inner: AdaptiveThresholdConfig::combined(delta, percentile, window_size),
@@ -3654,7 +3747,7 @@ impl PyAdaptiveThresholdConfig {
     /// Validate the configuration parameters.
     ///
     /// Raises an error if any parameters are invalid.
-    #[pyo3(signature = (), text_signature="($self) -> AdaptiveThresholdConfig")]
+    #[pyo3(signature = ())]
     fn validate(&mut self) -> PyResult<Self> {
         self.inner.validate().map_err(audio_err_to_py)?;
         Ok(Self { inner: self.inner })
@@ -3710,8 +3803,7 @@ impl PyPeakPickingConfig {
         median_filter: "bool",
         median_filter_length: "int",
         normalize_onset_strength: "bool",
-        normalization_method: "NormalizationMethod"),
-        text_signature="($cls, *, adaptive_threshold_config: AdaptiveThresholdConfig, min_peak_separation: int, pre_emphasis: bool, pre_emphasis_coeff: float, median_filter: bool, median_filter_length: int, normalize_onset_strength: bool, normalization_method: NormalizationMethod) -> PeakPickingConfig")]
+        normalization_method: "NormalizationMethod"))]
     fn new(
         adaptive_threshold_config: PyAdaptiveThresholdConfig,
         min_peak_separation: usize,
@@ -3770,20 +3862,20 @@ impl PyPeakPickingConfig {
     }
 
     /// Set minimum peak separation in milliseconds.
-    #[pyo3(signature = (value: "float", sample_rate: "float"), text_signature="($self, value: float, sample_rate: float) -> None")]
+    #[pyo3(signature = (value: "float", sample_rate: "float"))]
     fn set_min_peak_separation_ms(&mut self, value: f64, sample_rate: f64) {
         self.inner.set_min_peak_separation_ms(value, sample_rate);
     }
 
     /// Enable or disable pre-emphasis filtering.
-    #[pyo3(signature = (enabled: "bool", coeff: "float"), text_signature="($self, enabled: bool, coeff: float) -> None")]
+    #[pyo3(signature = (enabled: "bool", coeff: "float"))]
     fn set_pre_emphasis(&mut self, enabled: bool, coeff: f64) {
         self.inner.pre_emphasis = enabled;
         self.inner.pre_emphasis_coeff = coeff;
     }
 
     /// Enable or disable median filtering.
-    #[pyo3(signature = (enabled: "bool", length: "int"), text_signature="($self, enabled: bool, length: int) -> None")]
+    #[pyo3(signature = (enabled: "bool", length: "int"))]
     fn set_median_filter(&mut self, enabled: bool, length: usize) -> PyResult<()> {
         self.inner.median_filter = enabled;
         self.inner.median_filter_length = nzu_or_err(length)?;
@@ -3791,7 +3883,7 @@ impl PyPeakPickingConfig {
     }
 
     /// Validate the configuration parameters.
-    #[pyo3(signature = (), text_signature="($self) -> PeakPickingConfig")]
+    #[pyo3(signature = ())]
     fn validate(&mut self) -> PyResult<Self> {
         self.inner.validate().map_err(audio_err_to_py)?;
         Ok(Self { inner: self.inner })
@@ -3909,7 +4001,7 @@ impl PySpectralFluxConfig {
     /// SpectralFluxConfig
     ///     A new spectral flux configuration.
     #[new]
-    #[pyo3(signature = (*, cqt_params, hop_size, window_size = None, flux_method, peak_picking, rectify, log_compression), text_signature="($cls, *, cqt_params: CqtParams, hop_size: int, window_size: Optional[int], flux_method: SpectralFluxMethod, peak_picking: PeakPickingConfig, rectify: bool, log_compression: float)")]
+    #[pyo3(signature = (*, cqt_params, hop_size, window_size = None, flux_method, peak_picking, rectify, log_compression))]
     fn new(
         cqt_params: PyCqtParams,
         hop_size: usize,
@@ -3960,7 +4052,7 @@ impl PySpectralFluxConfig {
     }
 
     /// Validate the configuration parameters.
-    #[pyo3(signature = (), text_signature="($self) -> SpectralFluxConfig")]
+    #[pyo3(signature = ())]
     fn validate(&mut self) -> PyResult<Self> {
         self.inner.validate().map_err(audio_err_to_py)?;
         Ok(Self {
@@ -4107,7 +4199,7 @@ impl PyComplexOnsetConfig {
     /// ComplexOnsetConfig
     ///     A new complex onset detection configuration.
     #[new]
-    #[pyo3(signature = (*, cqt_params: "CqtParams", hop_size: "int", window_size: "Optional[int]", peak_picking: "PeakPickingConfig", magnitude_weight: "float", phase_weight: "float", magnitude_rectify: "bool", phase_rectify: "bool", log_compression: "float"), text_signature="($cls, *, cqt_params: CqtParams, hop_size: int, window_size: Optional[int], peak_picking: PeakPickingConfig, magnitude_weight: float, phase_weight: float, magnitude_rectify: bool, phase_rectify: bool, log_compression: float) -> ComplexOnsetConfig")]
+    #[pyo3(signature = (*, cqt_params: "CqtParams", hop_size: "int", window_size: "Optional[int]", peak_picking: "PeakPickingConfig", magnitude_weight: "float", phase_weight: "float", magnitude_rectify: "bool", phase_rectify: "bool", log_compression: "float"))]
     fn new(
         cqt_params: PyCqtParams,
         hop_size: usize,
@@ -4162,14 +4254,14 @@ impl PyComplexOnsetConfig {
     }
 
     /// Set the magnitude and phase weighting factors.
-    #[pyo3(signature = (magnitude_weight: "float", phase_weight: "float"), text_signature="($self, magnitude_weight: float, phase_weight: float) -> None")]
+    #[pyo3(signature = (magnitude_weight: "float", phase_weight: "float"))]
     fn set_weights(&mut self, magnitude_weight: f64, phase_weight: f64) {
         self.inner.magnitude_weight = magnitude_weight;
         self.inner.phase_weight = phase_weight;
     }
 
     /// Validate the configuration parameters.
-    #[pyo3(signature = (), text_signature="($self) -> ComplexOnsetConfig")]
+    #[pyo3(signature = ())]
     fn validate(&mut self) -> PyResult<Self> {
         self.inner.validate().map_err(audio_err_to_py)?;
         Ok(Self {
@@ -4800,7 +4892,7 @@ impl PyChannelReduction {
     /// index : int
     ///     Zero-based channel index to select.
     #[staticmethod]
-    #[pyo3(signature = (index: "int"), text_signature = "(index: int) -> ChannelReduction")]
+    #[pyo3(signature = (index: "int"))]
     fn channel(index: usize) -> Self {
         PyChannelReduction {
             inner: ChannelReduction::Channel(index),
@@ -4854,7 +4946,7 @@ impl PyGateConfig {
     /// GateConfig
     ///     A new gate configuration.
     #[new]
-    #[pyo3(signature = (*, threshold_db: "float", ratio: "float", attack_ms: "float", release_ms: "float"), text_signature = "($cls, *, threshold_db: float, ratio: float, attack_ms: float, release_ms: float) -> GateConfig")]
+    #[pyo3(signature = (*, threshold_db: "float", ratio: "float", attack_ms: "float", release_ms: "float"))]
     fn new(threshold_db: f64, ratio: f64, attack_ms: f64, release_ms: f64) -> Self {
         Self {
             inner: GateConfig::with_params(threshold_db, ratio, attack_ms, release_ms),
@@ -4907,7 +4999,7 @@ impl PyGateConfig {
     /// ------
     /// ValueError
     ///     If any configuration parameter is invalid.
-    #[pyo3(signature = (), text_signature = "($self) -> GateConfig")]
+    #[pyo3(signature = ())]
     fn validate(&mut self) -> PyResult<Self> {
         self.inner.validate().map_err(audio_err_to_py)?;
         Ok(Self { inner: self.inner })
@@ -4962,7 +5054,7 @@ impl PyExpanderConfig {
     /// ExpanderConfig
     ///     A new expander configuration.
     #[new]
-    #[pyo3(signature = (*, threshold_db: "float", ratio: "float", attack_ms: "float", release_ms: "float"), text_signature = "($cls, *, threshold_db: float, ratio: float, attack_ms: float, release_ms: float) -> ExpanderConfig")]
+    #[pyo3(signature = (*, threshold_db: "float", ratio: "float", attack_ms: "float", release_ms: "float"))]
     fn new(threshold_db: f64, ratio: f64, attack_ms: f64, release_ms: f64) -> Self {
         Self {
             inner: ExpanderConfig::with_params(threshold_db, ratio, attack_ms, release_ms),
@@ -5015,7 +5107,7 @@ impl PyExpanderConfig {
     /// ------
     /// ValueError
     ///     If any configuration parameter is invalid.
-    #[pyo3(signature = (), text_signature = "($self) -> ExpanderConfig")]
+    #[pyo3(signature = ())]
     fn validate(&mut self) -> PyResult<Self> {
         self.inner.validate().map_err(audio_err_to_py)?;
         Ok(Self { inner: self.inner })
@@ -5075,7 +5167,7 @@ impl PyThreeBandEqConfig {
     /// ThreeBandEqConfig
     ///     A new three-band EQ configuration.
     #[new]
-    #[pyo3(signature = (*, low_freq: "float", low_gain: "float", mid_freq: "float", mid_gain: "float", mid_q: "float", high_freq: "float", high_gain: "float"), text_signature = "($cls, *, low_freq: float, low_gain: float, mid_freq: float, mid_gain: float, mid_q: float, high_freq: float, high_gain: float) -> ThreeBandEqConfig")]
+    #[pyo3(signature = (*, low_freq: "float", low_gain: "float", mid_freq: "float", mid_gain: "float", mid_q: "float", high_freq: "float", high_gain: "float"))]
     fn new(
         low_freq: f64,
         low_gain: f64,
@@ -5157,7 +5249,7 @@ impl PyThreeBandEqConfig {
     /// ValueError
     ///     If any configuration parameter is invalid (non-positive frequency,
     ///     mis-ordered frequencies, or non-positive mid Q).
-    #[pyo3(signature = (), text_signature = "($self) -> ThreeBandEqConfig")]
+    #[pyo3(signature = ())]
     fn validate(&mut self) -> PyResult<Self> {
         self.inner.validate().map_err(audio_err_to_py)?;
         Ok(Self { inner: self.inner })
@@ -5216,7 +5308,7 @@ impl PyPsd {
     /// tuple[numpy.ndarray, numpy.ndarray]
     ///     A pair of 1-D NumPy arrays containing the frequency axis and the
     ///     density values respectively.
-    #[pyo3(signature = (), text_signature = "($self) -> tuple[numpy.ndarray, numpy.ndarray]")]
+    #[pyo3(signature = ())]
     fn into_parts<'py>(
         &self,
         py: Python<'py>,
@@ -5363,7 +5455,7 @@ impl PyPitchClass {
     /// ValueError
     ///     If ``index`` is greater than 11.
     #[staticmethod]
-    #[pyo3(signature = (index: "int"), text_signature = "(index: int) -> PitchClass")]
+    #[pyo3(signature = (index: "int"))]
     fn from_index(index: u8) -> PyResult<Self> {
         if index > 11 {
             return Err(pyo3::exceptions::PyValueError::new_err(format!(
@@ -5376,7 +5468,7 @@ impl PyPitchClass {
     }
 
     /// The chromatic index of this pitch class (C = 0, B = 11).
-    #[pyo3(signature = (), text_signature = "($self) -> int")]
+    #[pyo3(signature = ())]
     fn to_index(&self) -> u8 {
         self.inner.to_index()
     }
@@ -5475,7 +5567,7 @@ impl PyKey {
     /// Key
     ///     A new key estimate.
     #[new]
-    #[pyo3(signature = (tonic: "PitchClass", mode: "Mode", confidence: "float"), text_signature = "($cls, tonic: PitchClass, mode: Mode, confidence: float) -> Key")]
+    #[pyo3(signature = (tonic: "PitchClass", mode: "Mode", confidence: "float"))]
     fn new(tonic: PyPitchClass, mode: PyMode, confidence: f64) -> Self {
         Self {
             inner: Key {
@@ -5563,7 +5655,7 @@ impl PyPitchFrame {
     /// PitchFrame
     ///     A new pitch frame.
     #[new]
-    #[pyo3(signature = (time: "float", frequency = None), text_signature = "($cls, time: float, frequency: Optional[float] = None) -> PitchFrame")]
+    #[pyo3(signature = (time: "float", frequency = None))]
     fn new(time: f64, frequency: Option<f64>) -> Self {
         Self {
             inner: PitchFrame { time, frequency },
@@ -5625,7 +5717,7 @@ impl PyPitchContour {
     /// -------
     /// list[PitchFrame]
     ///     The complete list of pitch frames.
-    #[pyo3(signature = (), text_signature = "($self) -> list[PitchFrame]")]
+    #[pyo3(signature = ())]
     fn frames(&self) -> Vec<PyPitchFrame> {
         self.inner
             .frames()
@@ -5642,13 +5734,13 @@ impl PyPitchContour {
     /// -------
     /// list[tuple[float, float]]
     ///     The voiced frames as (time, frequency) tuples.
-    #[pyo3(signature = (), text_signature = "($self) -> list[tuple[float, float]]")]
+    #[pyo3(signature = ())]
     fn voiced_frames(&self) -> Vec<(f64, f64)> {
         self.inner.voiced_frames().collect()
     }
 
     /// The mean of all voiced frequencies, or ``None`` when no frame is voiced.
-    #[pyo3(signature = (), text_signature = "($self) -> Optional[float]")]
+    #[pyo3(signature = ())]
     fn mean_pitch(&self) -> Option<f64> {
         self.inner.mean_pitch()
     }
@@ -5666,3 +5758,27 @@ impl PyPitchContour {
 
 impl_py_wrapper_core!(PyPitchContour, PitchContour);
 impl_py_repr!(PyPitchContour);
+
+// Field-listing `__repr__` for configuration classes (shows the Rust Debug
+// form of the wrapped value, e.g. `VadConfig { frame_size: 512, ... }`).
+crate::impl_py_debug_repr!(PyVadConfig);
+crate::impl_py_debug_repr!(PyCompressorConfig);
+crate::impl_py_debug_repr!(PyLimiterConfig);
+crate::impl_py_debug_repr!(PyGateConfig);
+crate::impl_py_debug_repr!(PyExpanderConfig);
+crate::impl_py_debug_repr!(PyIirFilterDesign);
+crate::impl_py_debug_repr!(PyEqBand);
+crate::impl_py_debug_repr!(PyParametricEq);
+crate::impl_py_debug_repr!(PyHpssConfig);
+crate::impl_py_debug_repr!(PyOnsetDetectionConfig);
+crate::impl_py_debug_repr!(PyPeakPickingConfig);
+crate::impl_py_debug_repr!(PyBeatTrackingConfig);
+crate::impl_py_debug_repr!(PySpectralFluxConfig);
+crate::impl_py_debug_repr!(PyComplexOnsetConfig);
+crate::impl_py_debug_repr!(PyAdaptiveThresholdConfig);
+crate::impl_py_debug_repr!(PySideChainConfig);
+crate::impl_py_debug_repr!(PyThreeBandEqConfig);
+crate::impl_py_debug_repr!(PyPerturbationConfig);
+crate::impl_py_debug_repr!(PyEnvelopeFollower);
+crate::impl_py_debug_repr!(PyVadMethod);
+crate::impl_py_debug_repr!(PyVadChannelPolicy);

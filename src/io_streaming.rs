@@ -173,7 +173,7 @@ impl PyStreamedAudioReader {
     ///     OSError: If the file cannot be opened.
     ///     ValueError: If the format is unsupported or the header is corrupt.
     #[new]
-    #[pyo3(signature = (fp: "str | Path"), text_signature = "(fp: str | Path)")]
+    #[pyo3(signature = (fp: "str | Path"))]
     fn new(fp: &str) -> PyResult<Self> {
         Self::open_path(fp)
     }
@@ -246,7 +246,7 @@ impl PyStreamedAudioReader {
     ///     ValueError: If ``frame_count`` is zero.
     ///     RuntimeError: If the reader is closed.
     ///     OSError: If reading fails or the data is corrupt.
-    #[pyo3(signature = (frame_count: "int", dtype: "SampleType" = None), text_signature = "($self, frame_count: int, dtype: SampleType = None) -> AudioSamples | None")]
+    #[pyo3(signature = (frame_count: "int", dtype: "SampleType" = None))]
     fn read_frames(
         &mut self,
         py: Python<'_>,
@@ -287,7 +287,7 @@ impl PyStreamedAudioReader {
     /// Raises:
     ///     OSError: If the frame is beyond the end of the stream or the seek fails.
     ///     RuntimeError: If the reader is closed.
-    #[pyo3(signature = (frame: "int"), text_signature = "($self, frame: int) -> None")]
+    #[pyo3(signature = (frame: "int"))]
     fn seek_to_frame(&mut self, frame: usize) -> PyResult<()> {
         reader_dispatch!(self, |r| r.seek_to_frame(frame).map_err(audio_io_err_to_py))
     }
@@ -297,7 +297,7 @@ impl PyStreamedAudioReader {
     /// Raises:
     ///     OSError: If the underlying seek fails.
     ///     RuntimeError: If the reader is closed.
-    #[pyo3(signature = (), text_signature = "($self) -> None")]
+    #[pyo3(signature = ())]
     fn reset(&mut self) -> PyResult<()> {
         reader_dispatch!(self, |r| r.reset().map_err(audio_io_err_to_py))
     }
@@ -312,7 +312,7 @@ impl PyStreamedAudioReader {
     ///
     /// Returns:
     ///     StreamedFrameIterator: An iterator of :class:`AudioSamples` chunks.
-    #[pyo3(signature = (chunk_frames: "int" = 4096, dtype: "SampleType" = None), text_signature = "($self, chunk_frames: int = 4096, dtype: SampleType = None) -> StreamedFrameIterator")]
+    #[pyo3(signature = (chunk_frames: "int" = 4096, dtype: "SampleType" = None))]
     fn frames(
         slf: Py<Self>,
         chunk_frames: usize,
@@ -343,7 +343,7 @@ impl PyStreamedAudioReader {
     ///
     /// Raises:
     ///     ValueError: If ``window`` or ``hop`` is zero.
-    #[pyo3(signature = (window: "int", hop: "int", dtype: "SampleType" = None), text_signature = "($self, window: int, hop: int, dtype: SampleType = None) -> StreamedFrameIterator")]
+    #[pyo3(signature = (window: "int", hop: "int", dtype: "SampleType" = None))]
     fn windows(
         slf: Py<Self>,
         window: usize,
@@ -370,7 +370,7 @@ impl PyStreamedAudioReader {
     ///
     /// Returns:
     ///     StreamedFrameIterator: An iterator of single-frame :class:`AudioSamples`.
-    #[pyo3(signature = (dtype: "SampleType" = None), text_signature = "($self, dtype: SampleType = None) -> StreamedFrameIterator")]
+    #[pyo3(signature = (dtype: "SampleType" = None))]
     fn samples(slf: Py<Self>, dtype: Option<PySampleType>) -> PyStreamedFrameIterator {
         PyStreamedFrameIterator {
             reader: slf,
@@ -383,7 +383,7 @@ impl PyStreamedAudioReader {
     /// Close the reader and release the underlying file handle.
     ///
     /// Further reads raise :class:`RuntimeError`. Idempotent.
-    #[pyo3(signature = (), text_signature = "($self) -> None")]
+    #[pyo3(signature = ())]
     fn close(&mut self) {
         self.inner = None;
     }
@@ -516,7 +516,7 @@ fn make_wav_writer(
 impl PyStreamedAudioWriter {
     /// Create a streaming writer to ``fp`` (format chosen from the extension).
     #[new]
-    #[pyo3(signature = (fp: "str | Path", channels: "int", sample_rate: "int", dtype: "SampleType" = None), text_signature = "(fp: str | Path, channels: int, sample_rate: int, dtype: SampleType = None)")]
+    #[pyo3(signature = (fp: "str | Path", channels: "int", sample_rate: "int", dtype: "SampleType" = None))]
     fn new(
         fp: &str,
         channels: u16,
@@ -563,7 +563,7 @@ impl PyStreamedAudioWriter {
     ///     OSError: If the file cannot be created.
     ///     ValueError: If the type is not a FLAC-supported integer type.
     #[staticmethod]
-    #[pyo3(signature = (fp: "str | Path", channels: "int", sample_rate: "int", compression: "CompressionLevel" = None, dtype: "SampleType" = None), text_signature = "(fp: str | Path, channels: int, sample_rate: int, compression: CompressionLevel = None, dtype: SampleType = None) -> StreamedAudioWriter")]
+    #[pyo3(signature = (fp: "str | Path", channels: "int", sample_rate: "int", compression: "CompressionLevel" = None, dtype: "SampleType" = None))]
     fn create_flac(
         fp: &str,
         channels: u16,
@@ -609,7 +609,7 @@ impl PyStreamedAudioWriter {
     ///     RuntimeError: If the writer is closed or already finalized.
     ///     ValueError: If the channel count does not match.
     ///     OSError: If the underlying write fails.
-    #[pyo3(signature = (samples: "AudioSamples"), text_signature = "($self, samples: AudioSamples) -> int")]
+    #[pyo3(signature = (samples: "AudioSamples"))]
     fn write_frames(&mut self, py: Python<'_>, samples: &PyAudioSamples) -> PyResult<usize> {
         writer_dispatch!(self, |w| {
             dispatch_with_view!(samples, py, |audio| {
@@ -623,7 +623,7 @@ impl PyStreamedAudioWriter {
     /// Raises:
     ///     RuntimeError: If the writer is closed.
     ///     OSError: If the flush fails.
-    #[pyo3(signature = (), text_signature = "($self) -> None")]
+    #[pyo3(signature = ())]
     fn flush(&mut self) -> PyResult<()> {
         writer_dispatch!(self, |w| w.flush().map_err(audio_io_err_to_py))
     }
@@ -636,7 +636,7 @@ impl PyStreamedAudioWriter {
     /// Raises:
     ///     RuntimeError: If the writer is closed.
     ///     OSError: If the underlying seek/flush fails.
-    #[pyo3(signature = (), text_signature = "($self) -> None")]
+    #[pyo3(signature = ())]
     fn finalize(&mut self) -> PyResult<()> {
         writer_dispatch!(self, |w| w.finalize().map_err(audio_io_err_to_py))
     }
@@ -685,7 +685,7 @@ impl PyStreamedAudioWriter {
     ///
     /// Raises:
     ///     OSError: If finalization fails.
-    #[pyo3(signature = (), text_signature = "($self) -> None")]
+    #[pyo3(signature = ())]
     fn close(&mut self) -> PyResult<()> {
         if let Some(inner) = &mut self.inner {
             let res = match inner {
@@ -774,7 +774,7 @@ pub struct PyWavSink {
 #[pymethods]
 impl PyWavSink {
     #[new]
-    #[pyo3(signature = (fp: "str | Path", channels: "int", sample_rate: "int", dtype: "SampleType" = None, total_frames: "int" = None), text_signature = "(fp: str | Path, channels: int, sample_rate: int, dtype: SampleType = None, total_frames: int = None)")]
+    #[pyo3(signature = (fp: "str | Path", channels: "int", sample_rate: "int", dtype: "SampleType" = None, total_frames: "int" = None))]
     fn new(
         fp: &str,
         channels: u16,
@@ -813,7 +813,7 @@ impl PyWavSink {
     ///     RuntimeError: If the sink is closed or finalized.
     ///     ValueError: If the channel count mismatches or the declared length is exceeded.
     ///     OSError: If the write fails.
-    #[pyo3(signature = (samples: "AudioSamples"), text_signature = "($self, samples: AudioSamples) -> int")]
+    #[pyo3(signature = (samples: "AudioSamples"))]
     fn write_frames(&mut self, py: Python<'_>, samples: &PyAudioSamples) -> PyResult<usize> {
         match &mut self.inner {
             Some(sink) => dispatch_with_view!(samples, py, |audio| {
@@ -824,7 +824,7 @@ impl PyWavSink {
     }
 
     /// Flush buffered data to the underlying file.
-    #[pyo3(signature = (), text_signature = "($self) -> None")]
+    #[pyo3(signature = ())]
     fn flush(&mut self) -> PyResult<()> {
         match &mut self.inner {
             Some(sink) => sink.flush().map_err(audio_io_err_to_py),
@@ -833,7 +833,7 @@ impl PyWavSink {
     }
 
     /// Finalize the sink (idempotent). For a declared-length sink this verifies the count.
-    #[pyo3(signature = (), text_signature = "($self) -> None")]
+    #[pyo3(signature = ())]
     fn finalize(&mut self) -> PyResult<()> {
         match &mut self.inner {
             Some(sink) => sink.finalize().map_err(audio_io_err_to_py),
@@ -851,7 +851,7 @@ impl PyWavSink {
     }
 
     /// Finalize (if needed) and release the file handle. Idempotent.
-    #[pyo3(signature = (), text_signature = "($self) -> None")]
+    #[pyo3(signature = ())]
     fn close(&mut self) -> PyResult<()> {
         if let Some(sink) = &mut self.inner {
             let res = sink.finalize();

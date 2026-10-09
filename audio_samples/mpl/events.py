@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import numpy as np
-from spectrograms import CqtParams
+from audio_samples.spectrograms import CqtParams
 
 from audio_samples import (
     AudioSamples,
@@ -254,7 +254,7 @@ def plot_spectral_flux(
         ``(fig, ax)``.
     """
     from audio_samples import SpectralFluxMethod
-    import spectrograms as sp
+    from audio_samples import spectrograms as sp
 
     style = _resolve_style(style)
     fig, ax = _ensure_axes(ax, style)

@@ -30,7 +30,7 @@ impl PyAudioSamples {
     /// Raises:
     ///     ValueError: If n_fft is zero.
     ///     AudioError: If the FFT computation fails.
-    #[pyo3(signature = (n_fft: "int"), text_signature = "($self, n_fft: int) -> numpy.ndarray")]
+    #[pyo3(signature = (n_fft: "int"))]
     fn fft<'py>(
         &self,
         py: Python<'py>,
@@ -54,7 +54,7 @@ impl PyAudioSamples {
     /// Raises:
     ///     ValueError: If n_fft is zero.
     ///     AudioError: If the RFFT computation fails.
-    #[pyo3(signature = (n_fft: "int"), text_signature = "($self, n_fft: int) -> numpy.ndarray")]
+    #[pyo3(signature = (n_fft: "int"))]
     fn rfft<'py>(&self, py: Python<'py>, n_fft: usize) -> PyResult<Bound<'py, PyArray2<f64>>> {
         dispatch_with_view!(self, py, |audio| {
             let n_fft_nz = nzu_or_err(n_fft)?;
@@ -72,7 +72,7 @@ impl PyAudioSamples {
     ///
     /// Raises:
     ///     AudioError: If the STFT computation fails.
-    #[pyo3(signature = (params: "StftParams"), text_signature = "($self, params: StftParams) -> StftResult")]
+    #[pyo3(signature = (params: "StftParams"))]
     fn stft(&self, py: Python<'_>, params: PyStftParams) -> PyResult<PyStftResult> {
         dispatch_with_view!(self, py, |audio| {
             let result = audio.stft(&params.inner).map_err(audio_err_to_py)?;
@@ -91,7 +91,7 @@ impl PyAudioSamples {
     /// Raises:
     ///     AudioError: If reconstruction fails.
     #[classmethod]
-    #[pyo3(signature = (stft_result: "StftResult"), text_signature = "($cls, stft_result: StftResult) -> AudioSamples")]
+    #[pyo3(signature = (stft_result: "StftResult"))]
     fn istft(
         _cls: &Bound<'_, PyType>,
         py: Python<'_>,
@@ -124,7 +124,7 @@ impl PyAudioSamples {
     /// Raises:
     ///     ValueError: If window_size is zero.
     ///     AudioError: If the PSD computation fails.
-    #[pyo3(signature = (window_size: "int"=2048, overlap: "float"=0.5), text_signature = "($self, window_size: int = 2048, overlap: float = 0.5) -> Psd")]
+    #[pyo3(signature = (window_size: "int"=2048, overlap: "float"=0.5))]
     fn power_spectral_density(
         &self,
         py: Python<'_>,
@@ -153,7 +153,7 @@ impl PyAudioSamples {
     ///
     /// Raises:
     ///     AudioError: If spectrogram computation fails.
-    #[pyo3(signature = (spec_params: "SpectrogramParams", mel_params: "MelParams", log_params: "Optional[LogParams]"=None), text_signature = "($self, spec_params: SpectrogramParams, mel_params: MelParams, log_params: Optional[LogParams] = None) -> numpy.ndarray")]
+    #[pyo3(signature = (spec_params: "SpectrogramParams", mel_params: "MelParams", log_params: "Optional[LogParams]"=None))]
     fn mel_spectrogram<'py>(
         &self,
         py: Python<'py>,
@@ -162,6 +162,7 @@ impl PyAudioSamples {
         log_params: Option<PyLogParams>,
     ) -> PyResult<Bound<'py, PyArray2<f64>>> {
         let spec_params: SpectrogramParams = spec_params.into();
+        check_spec_sample_rate(self, py, &spec_params)?;
         let mel_params: MelParams = mel_params.into();
         let log_params_ref = log_params.as_ref().map(|lp| lp.as_inner());
 
@@ -196,7 +197,7 @@ impl PyAudioSamples {
     ///
     /// Raises:
     ///     AudioError: If spectrogram computation fails.
-    #[pyo3(signature = (spec_params: "SpectrogramParams", erb_params: "ErbParams", log_params: "Optional[LogParams]"=None), text_signature = "($self, spec_params: SpectrogramParams, erb_params: ErbParams, log_params: Optional[LogParams] = None) -> numpy.ndarray")]
+    #[pyo3(signature = (spec_params: "SpectrogramParams", erb_params: "ErbParams", log_params: "Optional[LogParams]"=None))]
     fn gammatone_spectrogram<'py>(
         &self,
         py: Python<'py>,
@@ -205,6 +206,7 @@ impl PyAudioSamples {
         log_params: Option<PyLogParams>,
     ) -> PyResult<Bound<'py, PyArray2<f64>>> {
         let spec_params: SpectrogramParams = spec_params.into();
+        check_spec_sample_rate(self, py, &spec_params)?;
         let erb_params: ErbParams = erb_params.into_inner();
         let log_params_ref = log_params.as_ref().map(|lp| lp.as_inner());
 
@@ -238,7 +240,7 @@ impl PyAudioSamples {
     /// Raises:
     ///     ValueError: If n_mels is zero.
     ///     AudioError: If the MFCC computation fails.
-    #[pyo3(signature = (stft_params: "StftParams", n_mels: "int", mfcc_params: "MfccParams"), text_signature = "($self, stft_params: StftParams, n_mels: int, mfcc_params: MfccParams) -> numpy.ndarray")]
+    #[pyo3(signature = (stft_params: "StftParams", n_mels: "int", mfcc_params: "MfccParams"))]
     fn mfcc<'py>(
         &self,
         py: Python<'py>,
@@ -270,7 +272,7 @@ impl PyAudioSamples {
     ///
     /// Raises:
     ///     AudioError: If chroma computation fails.
-    #[pyo3(signature = (stft_params: "StftParams", chroma_params: "ChromaParams"), text_signature = "($self, stft_params: StftParams, chroma_params: ChromaParams) -> numpy.ndarray")]
+    #[pyo3(signature = (stft_params: "StftParams", chroma_params: "ChromaParams"))]
     fn chroma<'py>(
         &self,
         py: Python<'py>,
@@ -304,7 +306,7 @@ impl PyAudioSamples {
     /// Raises:
     ///     TypeError: If the two signals have different data types.
     ///     AudioError: If either signal is multi-channel or the FFT fails.
-    #[pyo3(signature = (other: "AudioSamples"), text_signature = "($self, other: AudioSamples) -> AudioSamples")]
+    #[pyo3(signature = (other: "AudioSamples"))]
     fn convolve(&self, py: Python<'_>, other: &PyAudioSamples) -> PyResult<Self> {
         convolve_or_deconvolve(self, other, py, ConvOp::Convolve)
     }
@@ -327,7 +329,7 @@ impl PyAudioSamples {
     /// Raises:
     ///     TypeError: If the two signals have different data types.
     ///     AudioError: If either signal is multi-channel or the FFT fails.
-    #[pyo3(signature = (other: "AudioSamples", regularization: "float" = 0.0), text_signature = "($self, other: AudioSamples, regularization: float = 0.0) -> AudioSamples")]
+    #[pyo3(signature = (other: "AudioSamples", regularization: "float" = 0.0))]
     fn deconvolve(
         &self,
         py: Python<'_>,
@@ -351,7 +353,7 @@ impl PyAudioSamples {
     /// Raises:
     ///     ValueError: If hop_size is zero.
     ///     AudioError: If the signal is multi-channel or the computation fails.
-    #[pyo3(signature = (params: "CqtParams", hop_size: "int"), text_signature = "($self, params: CqtParams, hop_size: int) -> numpy.ndarray")]
+    #[pyo3(signature = (params: "CqtParams", hop_size: "int"))]
     fn constant_q_transform<'py>(
         &self,
         py: Python<'py>,
@@ -391,7 +393,7 @@ impl PyAudioSamples {
     /// Raises:
     ///     ValueError: If power is provided and is zero.
     #[staticmethod]
-    #[pyo3(signature = (complex_spect: "numpy.ndarray", power: "Optional[int]" = None), text_signature = "(complex_spect: numpy.ndarray, power: Optional[int] = None) -> tuple[numpy.ndarray, numpy.ndarray]")]
+    #[pyo3(signature = (complex_spect: "numpy.ndarray", power: "Optional[int]" = None))]
     fn magphase<'py>(
         py: Python<'py>,
         complex_spect: PyReadonlyArray2<'py, Complex<f64>>,
@@ -402,6 +404,31 @@ impl PyAudioSamples {
         let (mag, phase) = <AudioSamples<f64> as AudioTransforms>::magphase(&spect, power);
         Ok((mag.into_pyarray(py), phase.into_pyarray(py)))
     }
+}
+
+/// Raise `AudioParameterError` (a `ValueError`) when `SpectrogramParams` was
+/// built for a different sample rate than the audio: its frequency and mel
+/// axes would silently be wrong.
+fn check_spec_sample_rate(
+    audio: &PyAudioSamples,
+    py: Python<'_>,
+    params: &SpectrogramParams,
+) -> PyResult<()> {
+    let audio_sr = f64::from(audio.sample_rate(py).get());
+    let params_sr = params.sample_rate_hz();
+    if (audio_sr - params_sr).abs() > f64::EPSILON * audio_sr.max(1.0) {
+        return Err(crate::make_audio_err(
+            "AudioParameterError",
+            format!(
+                "SpectrogramParams.sample_rate ({params_sr} Hz) does not match the audio's \
+sample rate ({audio_sr} Hz); build it with SpectrogramParams(stft, sample_rate=audio.sample_rate)"
+            ),
+            None,
+            None,
+            pyo3::exceptions::PyValueError::new_err,
+        ));
+    }
+    Ok(())
 }
 
 /// Which spectral-division operation to perform in [`convolve_or_deconvolve`].

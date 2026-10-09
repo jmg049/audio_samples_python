@@ -17,7 +17,7 @@ use crate::{PyAudioSamples, dispatch_with_view, nzu_or_err};
 
 #[pymethods]
 impl PyAudioSamples {
-    #[pyo3(signature = (window_size: "int", hop_size: "int"), text_signature = "($self, window_size: int, hop_size: int) -> list[numpy.ndarray]")]
+    #[pyo3(signature = (window_size: "int", hop_size: "int"))]
     /// Split the signal into fixed-size, optionally overlapping windows.
     ///
     /// Each window covers ``window_size`` samples per channel and successive
@@ -57,7 +57,7 @@ impl PyAudioSamples {
         PyList::new(py, arrays)
     }
 
-    #[pyo3(signature = (), text_signature = "($self) -> list[numpy.ndarray]")]
+    #[pyo3(signature = ())]
     /// Iterate over time-aligned frames of the signal.
     ///
     /// Each frame is a snapshot across all channels at a single time index, so
@@ -81,7 +81,7 @@ impl PyAudioSamples {
         PyList::new(py, arrays)
     }
 
-    #[pyo3(name = "iter_channels", signature = (), text_signature = "($self) -> list[numpy.ndarray]")]
+    #[pyo3(name = "iter_channels", signature = ())]
     /// Iterate over the complete signal of each channel.
     ///
     /// Each item is the full temporal sequence of one channel, yielded in

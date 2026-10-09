@@ -8,21 +8,40 @@ properties.
 
 from __future__ import annotations
 from pathlib import Path
-from typing import Optional, Any
+from typing import Optional, Any, ClassVar
 import numpy as np
 from numpy.typing import NDArray, DTypeLike
 import numpy.typing as npt
 
-from spectrograms import (
-    ChromaParams,
-    CqtParams,
-    LogParams,
-    MelParams,
-    MfccParams,
-    SpectrogramParams,
-    StftParams,
-    StftResult,
-    ErbParams,
+# Spectrogram parameter classes come from the spectrograms crate compiled into
+# this extension (``audio_samples.spectrograms``), not from the separate
+# ``spectrograms`` pip package, whose objects are rejected at runtime.
+from audio_samples.spectrograms import (
+    ChromaParams as ChromaParams,
+    CqtParams as CqtParams,
+    LogParams as LogParams,
+    MelParams as MelParams,
+    MelNorm as MelNorm,
+    MfccParams as MfccParams,
+    SpectrogramParams as SpectrogramParams,
+    StftParams as StftParams,
+    StftResult as StftResult,
+    ErbParams as ErbParams,
+    WindowType as WindowType,
+)
+from audio_samples.exceptions import (
+    AudioError as AudioError,
+    AudioParameterError as AudioParameterError,
+    AudioLayoutError as AudioLayoutError,
+    AudioConversionError as AudioConversionError,
+    AudioRuntimeError as AudioRuntimeError,
+    AudioProcessingError as AudioProcessingError,
+    AudioFeatureError as AudioFeatureError,
+    AudioSpectrogramError as AudioSpectrogramError,
+    AudioIOError as AudioIOError,
+    AudioFileNotFoundError as AudioFileNotFoundError,
+    AudioFormatError as AudioFormatError,
+    AudioDecodeError as AudioDecodeError,
 )
 from audio_samples.types import (
     EqBandType,
@@ -52,12 +71,57 @@ from audio_samples.types import (
     SosFilter,
 )
 
+# Runtime top-level re-exports of audio_samples.types and audio_samples.io
+from audio_samples.types import (
+    AdaptiveThresholdConfig as AdaptiveThresholdConfig,
+    AdaptiveThresholdMethod as AdaptiveThresholdMethod,
+    HpssConfig as HpssConfig,
+    IirFilterType as IirFilterType,
+    KneeType as KneeType,
+    NoiseColor as NoiseColor,
+    PerturbationMethod as PerturbationMethod,
+    SideChainConfig as SideChainConfig,
+    SpectrogramScale as SpectrogramScale,
+)
+from audio_samples.io import (
+    AudioInfo as AudioInfo,
+    CompressionLevel as CompressionLevel,
+    CuePoint as CuePoint,
+    InfoMetadata as InfoMetadata,
+    StreamInfo as StreamInfo,
+    StreamedAudioReader as StreamedAudioReader,
+    StreamedAudioWriter as StreamedAudioWriter,
+    StreamedFrameIterator as StreamedFrameIterator,
+    VorbisComment as VorbisComment,
+    WavMetadata as WavMetadata,
+    WavSink as WavSink,
+    WriteOptions as WriteOptions,
+    info as info,
+    peek_native_type as peek_native_type,
+    read as read,
+    read_and_resample as read_and_resample,
+    read_flac_stream_info as read_flac_stream_info,
+    read_wav_cue_points as read_wav_cue_points,
+    read_wav_info_tags as read_wav_info_tags,
+    read_with_info as read_with_info,
+    save as save,
+    write_with_metadata as write_with_metadata,
+    write_with_options as write_with_options,
+)
+
+plotting: Any
+"""Rust plotly plotting module, or ``None`` when built without the plotting feature."""
+
 from . import generation as generation
 from . import io as io
 from . import utils as utils
 from . import audio_math as audio_math
 from . import mpl as mpl
 from . import types as types
+from . import spectrograms as spectrograms
+from . import exceptions as exceptions
+
+__version__: str
 
 # Expose generation functions at the top level for convenience
 from .generation import (
@@ -88,6 +152,31 @@ from .generation import (
 __all__ = [
     "mpl",
     "types",
+    "spectrograms",
+    "exceptions",
+    "StftParams",
+    "SpectrogramParams",
+    "MelParams",
+    "MfccParams",
+    "LogParams",
+    "ChromaParams",
+    "CqtParams",
+    "ErbParams",
+    "MelNorm",
+    "StftResult",
+    "WindowType",
+    "AudioError",
+    "AudioParameterError",
+    "AudioLayoutError",
+    "AudioConversionError",
+    "AudioRuntimeError",
+    "AudioProcessingError",
+    "AudioFeatureError",
+    "AudioSpectrogramError",
+    "AudioIOError",
+    "AudioFileNotFoundError",
+    "AudioFormatError",
+    "AudioDecodeError",
     "sine_wave",
     "cosine_wave",
     "sawtooth_wave",
@@ -511,7 +600,9 @@ class AudioSamples:
 
         Args:
             target_sample_rate: Desired output sample rate in hertz
-            quality: Quality preset controlling the resampler
+            quality: Quality preset controlling the resampler. Defaults to
+                ``ResamplingQuality.fast``; pass ``ResamplingQuality.high`` for
+                the highest-fidelity resampler.
 
         Returns:
             New buffer rendered at the requested sample rate
@@ -555,8 +646,8 @@ class AudioSamples:
 
     def detect_pitch_autocorr(
         self,
-        min_frequency: float = 50.0,
-        max_frequency: float = 2000.0,
+        min_frequency: float,
+        max_frequency: float,
     ) -> Optional[float]:
         """Detect pitch using autocorrelation. Returns frequency in Hz or None."""
         ...
@@ -593,16 +684,17 @@ class AudioSamples:
         self,
         fundamental_freq: float,
         num_harmonics: int,
-        n_fft: Optional[int] = None,
-        window_type: Optional[str] = None,
+        n_fft: Optional[int],
+        window_type: Optional[WindowType],
     ) -> float:
         """Estimate the harmonic-to-noise ratio around a fundamental frequency.
 
         Args:
             fundamental_freq: Fundamental frequency in Hz
             num_harmonics: Number of harmonics to evaluate
-            n_fft: Optional FFT size in samples
-            window_type: Optional window type applied before the FFT
+            n_fft: FFT size in samples, or ``None`` for the default (required argument)
+            window_type: Window applied before the FFT, or ``None`` for the default
+                (required argument)
 
         Returns:
             Harmonic-to-noise ratio value
@@ -614,8 +706,8 @@ class AudioSamples:
         fundamental_freq: float,
         num_harmonics: int,
         tolerance: float,
-        n_fft: Optional[int] = None,
-        window_type: Optional[str] = None,
+        n_fft: Optional[int],
+        window_type: Optional[WindowType],
     ) -> list[float]:
         """Measure harmonic amplitudes relative to a fundamental frequency.
 
@@ -623,8 +715,9 @@ class AudioSamples:
             fundamental_freq: Fundamental frequency in Hz
             num_harmonics: Number of harmonics to report
             tolerance: Frequency tolerance as a fraction of the harmonic
-            n_fft: Optional FFT size in samples
-            window_type: Optional window type applied before the FFT
+            n_fft: FFT size in samples, or ``None`` for the default (required argument)
+            window_type: Window applied before the FFT, or ``None`` for the default
+                (required argument)
 
         Returns:
             List of harmonic magnitudes ordered by harmonic index
@@ -1066,11 +1159,23 @@ class AudioSamples:
         ...
 
     def zero_crossings(self) -> int:
-        """Count the number of zero crossings."""
+        """Count the number of zero crossings.
+
+        A crossing is counted between consecutive samples when one is ``> 0``
+        and the other is ``<= 0``. For multi-channel audio the per-channel
+        counts are summed.
+        """
         ...
 
     def zero_crossing_rate(self) -> float:
-        """Calculate the zero crossing rate."""
+        """Zero-crossing rate in crossings per second.
+
+        ``zero_crossings() / duration_seconds`` (crossings summed over channels).
+        A pure sine of frequency ``f`` gives about ``2 * f``. Unlike
+        ``librosa.feature.zero_crossing_rate`` (a per-frame fraction of
+        crossings per sample), this is one global value; divide by
+        ``sample_rate`` for crossings per sample.
+        """
         ...
 
     def autocorrelation(self, max_lag: int) -> Optional[list[float]]:
@@ -2297,8 +2402,10 @@ class AudioSamples:
 
     # Metadata and properties
     @property
-    def dtype(self) -> np.dtype[Any]:
-        """Get the numpy dtype of the audio samples."""
+    def dtype(self) -> str:
+        """Sample type as a short string: ``'u8'``, ``'i16'``, ``'I24'``,
+        ``'i32'``, ``'f32'`` or ``'f64'`` (use ``to_numpy().dtype`` for a
+        ``numpy.dtype``)."""
         ...
     @property
     def sample_rate(self) -> int:
@@ -2326,12 +2433,102 @@ class AudioSamples:
         """Get the number of samples per channel."""
         ...
 
+    @property
     def total_samples(self) -> int:
         """Get the total number of samples across all channels."""
         ...
 
+    @property
     def shape(self) -> list[int]:
-        """Get the shape of the audio data."""
+        """Shape of the audio data as a list: ``[samples]`` for mono,
+        ``[channels, samples]`` for multi-channel."""
+        ...
+
+    @property
+    def channels(self) -> int:
+        """Alias of ``num_channels``."""
+        ...
+
+    @property
+    def len(self) -> int:
+        """Total number of samples across all channels (same as ``len(audio)``)."""
+        ...
+
+    @property
+    def size(self) -> int:
+        """Total number of samples across all channels (alias of ``len``)."""
+        ...
+
+    @property
+    def ndim(self) -> int:
+        """Number of array dimensions: 1 for mono, 2 for multi-channel."""
+        ...
+
+    @property
+    def duration_milliseconds(self) -> float:
+        """Duration in milliseconds."""
+        ...
+
+    def nyquist(self) -> float:
+        """Nyquist frequency in Hz (``sample_rate / 2``)."""
+        ...
+
+    def info(self) -> AudioSamplesInfo:
+        """Summary of sample rate, channels, frames, duration and layout."""
+        ...
+
+    @staticmethod
+    def from_array(arr: npt.ArrayLike, sample_rate: int) -> AudioSamples:
+        """Create an AudioSamples from a 1-D (mono) or 2-D ``(channels, samples)``
+        NumPy array without copying it."""
+        ...
+
+    def add_numpy_array(self, numpy_array: NDArray[Any]) -> AudioSamples:
+        """Element-wise ``self + numpy_array`` (helper behind ``__add__``)."""
+        ...
+
+    def sub_numpy_array(self, numpy_array: NDArray[Any]) -> AudioSamples:
+        """Element-wise ``self - numpy_array`` (helper behind ``__sub__``)."""
+        ...
+
+    def mul_numpy_array(self, numpy_array: NDArray[Any]) -> AudioSamples:
+        """Element-wise ``self * numpy_array`` (helper behind ``__mul__``)."""
+        ...
+
+    def div_numpy_array(self, numpy_array: NDArray[Any]) -> AudioSamples:
+        """Element-wise ``self / numpy_array`` (helper behind ``__truediv__``)."""
+        ...
+
+    def from_numpy_array_with_metadata(self, numpy_array: NDArray[Any]) -> AudioSamples:
+        """Wrap ``numpy_array`` (same shape as this buffer) with this buffer's
+        sample rate."""
+        ...
+
+    def time_axis(self) -> NDArray[np.float64]:
+        """Time of each sample in seconds: ``arange(samples_per_channel()) / sample_rate``."""
+        ...
+
+    def _repr_html_(self) -> Optional[str]:
+        """Jupyter HTML view: summary table and an inline audio player
+        (mono/stereo clips up to 30 s)."""
+        ...
+
+    def __array__(self, dtype: Any = None, copy: Optional[bool] = None) -> NDArray[Any]:
+        """NumPy array protocol (``np.asarray(audio)``)."""
+        ...
+
+    def __array_ufunc__(
+        self, ufunc: Any, method: str, *inputs: Any, **kwargs: Any
+    ) -> Any:
+        """NumPy ufunc protocol: ``np.sin(audio)`` equals ``np.sin(audio.to_numpy())``.
+        ``add``/``subtract``/``multiply``/``divide`` results with this buffer's
+        shape are returned as AudioSamples."""
+        ...
+
+    def __array_function__(
+        self, func: Any, types: Any, args: tuple[Any, ...], kwargs: dict[str, Any]
+    ) -> Any:
+        """NumPy function protocol: ``np.mean(audio)`` equals ``np.mean(audio.to_numpy())``."""
         ...
 
     def is_mono(self) -> bool:
@@ -2359,7 +2556,13 @@ class AudioSamples:
 
     # Arithmetic operators
     def __add__(self, other: AudioSamples | NDArray[Any] | float) -> AudioSamples:
-        """Add AudioSamples with another AudioSamples, numpy array, or scalar."""
+        """Add AudioSamples with another AudioSamples, numpy array, or scalar.
+
+        Raises:
+            AudioParameterError: (a ``ValueError``) if two AudioSamples have
+                different sample rates.
+            ValueError: If the two AudioSamples have different lengths.
+        """
         ...
 
     def __sub__(self, other: AudioSamples | NDArray[Any] | float) -> AudioSamples:
@@ -2370,8 +2573,9 @@ class AudioSamples:
         """Multiply AudioSamples by a numpy array or scalar."""
         ...
 
-    def __truediv__(self, other: NDArray[Any] | float) -> AudioSamples:
-        """Divide AudioSamples by a numpy array or scalar."""
+    def __truediv__(self, other: AudioSamples | NDArray[Any] | float) -> AudioSamples:
+        """Divide AudioSamples element-wise by another AudioSamples (same sample
+        rate and length), a numpy array, or a scalar."""
         ...
 
     def __pow__(self, exponent: float, modulo: Optional[float] = None) -> AudioSamples:
@@ -2739,6 +2943,15 @@ class VadChannelPolicy:
         """Run VAD on a specific channel index."""
         ...
 
+class AudioSamplesInfo:
+    """Summary returned by ``AudioSamples.info()``."""
+
+    sample_rate: int
+    channels: int
+    frames: int
+    duration_seconds: float
+    layout: str
+
 class VadConfig:
     """Configuration for Voice Activity Detection (VAD).
 
@@ -2752,10 +2965,11 @@ class VadConfig:
     def __init__(
         self,
         method: VadMethod,
+        channel_policy: VadChannelPolicy,
+        /,
         frame_size: int,
         hop_size: int,
         pad_end: bool,
-        channel_policy: VadChannelPolicy,
         energy_threshold_db: float,
         zcr_min: float,
         zcr_max: float,
@@ -2794,10 +3008,25 @@ class VadConfig:
         """Create default VAD configuration (Energy method, 1024 frame size, 512 hop)."""
         ...
 
-    @classmethod
-    def energy_only(cls) -> VadConfig:
-        """Create a VAD configuration using only energy-based detection."""
-        ...
+    energy_only: ClassVar[VadConfig]
+    """Preset using only energy-based detection (a class attribute, not a method)."""
+
+    # Read-only fields
+    method: VadMethod
+    channel_policy: VadChannelPolicy
+    frame_size: int
+    hop_size: int
+    pad_end: bool
+    energy_threshold_db: float
+    zcr_min: float
+    zcr_max: float
+    min_speech_frames: int
+    min_silence_frames: int
+    hangover_frames: int
+    smooth_frames: int
+    speech_band_low_hz: float
+    speech_band_high_hz: float
+    spectral_ratio_threshold: float
 
     def validate(self) -> VadConfig:
         """Validate configuration parameters.

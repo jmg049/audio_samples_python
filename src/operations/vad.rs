@@ -15,7 +15,7 @@ impl PyAudioSamples {
     ///
     /// Raises:
     ///     AudioError: If mask computation fails.
-    #[pyo3(signature = (config: "VadConfig"), text_signature = "($self, config: VadConfig) -> list[bool]")]
+    #[pyo3(signature = (config: "VadConfig"))]
     fn voice_activity_mask(&self, py: Python<'_>, config: PyVadConfig) -> PyResult<Vec<bool>> {
         dispatch_with_view!(self, py, |audio| {
             let result = audio
@@ -35,7 +35,7 @@ impl PyAudioSamples {
     ///
     /// Raises:
     ///     AudioError: If region extraction fails.
-    #[pyo3(signature = (config: "VadConfig"), text_signature = "($self, config: VadConfig) -> list[tuple[int, int]]")]
+    #[pyo3(signature = (config: "VadConfig"))]
     fn speech_regions(&self, py: Python<'_>, config: PyVadConfig) -> PyResult<Vec<(usize, usize)>> {
         dispatch_with_view!(self, py, |audio| {
             let result = audio

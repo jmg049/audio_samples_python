@@ -75,7 +75,7 @@ pub fn utils(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
 
 // TODO: Implement concatenate and stack as class methods on PyAudioSamples first
 // #[pyfunction]
-// #[pyo3(signature = (signals), text_signature = "(signals: list[AudioSamples] -> AudioSamples)")]
+// #[pyo3(signature = (signals))]
 // /// Convenience function for concatenating AudioSamples.
 // ///
 // /// Uses the class method AudioSamples::concatentate to create the output.
@@ -84,7 +84,7 @@ pub fn utils(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
 // }
 
 // #[pyfunction]
-// #[pyo3(signature = (signals), text_signature = "(signals: list[AudioSamples] -> AudioSamples)")]
+// #[pyo3(signature = (signals))]
 // /// Convenience function for stacking AudioSamples.
 // ///
 // /// Uses the class method AudioSamples::stack to create the output.

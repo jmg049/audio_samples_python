@@ -74,7 +74,7 @@ impl PyAudioSamples {
     ///
     /// Raises:
     ///     AudioError: If compression fails.
-    #[pyo3(signature = (compressor_config: "CompressorConfig"), text_signature = "($self, compressor_config: CompressorConfig) -> None")]
+    #[pyo3(signature = (compressor_config: "CompressorConfig"))]
     fn apply_compressor(
         &mut self,
         py: Python<'_>,
@@ -97,7 +97,7 @@ impl PyAudioSamples {
     ///
     /// Raises:
     ///     AudioError: If limiting fails.
-    #[pyo3(signature = (config: "LimiterConfig"), text_signature = "($self, config: LimiterConfig) -> None")]
+    #[pyo3(signature = (config: "LimiterConfig"))]
     fn apply_limiter(&mut self, py: Python<'_>, config: PyLimiterConfig) -> PyResult<()> {
         dispatch_with_view_mut!(self, py, |mut audio| {
             audio
@@ -134,7 +134,7 @@ impl PyAudioSamples {
     ///     ValueError: If sidechain is not enabled, lengths differ, or either
     ///         signal is multi-channel.
     ///     AudioError: If compression fails.
-    #[pyo3(signature = (config: "CompressorConfig", sidechain: "AudioSamples"), text_signature = "($self, config: CompressorConfig, sidechain: AudioSamples) -> AudioSamples")]
+    #[pyo3(signature = (config: "CompressorConfig", sidechain: "AudioSamples"))]
     fn apply_compressor_sidechain(
         &self,
         py: Python<'_>,
@@ -172,7 +172,7 @@ impl PyAudioSamples {
     ///     ValueError: If sidechain is not enabled, lengths differ, or either
     ///         signal is multi-channel.
     ///     AudioError: If limiting fails.
-    #[pyo3(signature = (config: "LimiterConfig", sidechain: "AudioSamples"), text_signature = "($self, config: LimiterConfig, sidechain: AudioSamples) -> AudioSamples")]
+    #[pyo3(signature = (config: "LimiterConfig", sidechain: "AudioSamples"))]
     fn apply_limiter_sidechain(
         &self,
         py: Python<'_>,
@@ -205,7 +205,7 @@ impl PyAudioSamples {
     /// Raises:
     ///     ValueError: If ``input_levels_db`` is empty or the configuration is invalid.
     ///     AudioError: If the computation fails.
-    #[pyo3(signature = (config: "CompressorConfig", input_levels_db: "np.typing.NDArray[np.float64]"), text_signature = "($self, config: CompressorConfig, input_levels_db: np.typing.NDArray[np.float64]) -> np.typing.NDArray[np.float64]")]
+    #[pyo3(signature = (config: "CompressorConfig", input_levels_db: "np.typing.NDArray[np.float64]"))]
     fn get_compression_curve<'py>(
         &self,
         py: Python<'py>,
@@ -239,7 +239,7 @@ impl PyAudioSamples {
     ///
     /// Raises:
     ///     AudioError: If the configuration is invalid or processing fails.
-    #[pyo3(signature = (config: "CompressorConfig"), text_signature = "($self, config: CompressorConfig) -> np.typing.NDArray[np.float64]")]
+    #[pyo3(signature = (config: "CompressorConfig"))]
     fn get_gain_reduction<'py>(
         &self,
         py: Python<'py>,
@@ -263,7 +263,7 @@ impl PyAudioSamples {
     ///
     /// Raises:
     ///     AudioError: If gating fails.
-    #[pyo3(signature = (config: "GateConfig"), text_signature = "($self, config: GateConfig) -> None")]
+    #[pyo3(signature = (config: "GateConfig"))]
     fn apply_gate(&mut self, py: Python<'_>, config: PyGateConfig) -> PyResult<()> {
         dispatch_with_view_mut!(self, py, |mut audio| {
             audio
@@ -283,7 +283,7 @@ impl PyAudioSamples {
     ///
     /// Raises:
     ///     AudioError: If expansion fails.
-    #[pyo3(signature = (config: "ExpanderConfig"), text_signature = "($self, config: ExpanderConfig) -> None")]
+    #[pyo3(signature = (config: "ExpanderConfig"))]
     fn apply_expander(&mut self, py: Python<'_>, config: PyExpanderConfig) -> PyResult<()> {
         dispatch_with_view_mut!(self, py, |mut audio| {
             audio

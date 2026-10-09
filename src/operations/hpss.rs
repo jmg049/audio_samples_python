@@ -22,7 +22,7 @@ impl PyAudioSamples {
     ///
     /// Examples:
     ///     >>> harmonic, percussive = audio.hpss(win_size=2048, hop_size=512)
-    #[pyo3(signature = (stft_params: "StftParams", median_filter_harmonic: "int" = 17, median_filter_percussive: "int" = 17, mask_softness: "float" = 0.5), text_signature = "($self, win_size: int = 2048, hop_size: int = 512, median_filter_harmonic: int = 17, median_filter_percussive: int = 17, mask_softness: float = 0.5) -> tuple[AudioSamples, AudioSamples]")]
+    #[pyo3(signature = (stft_params: "StftParams", median_filter_harmonic: "int" = 17, median_filter_percussive: "int" = 17, mask_softness: "float" = 0.5))]
     fn hpss(
         &self,
         py: Python<'_>,

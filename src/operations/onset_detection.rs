@@ -22,7 +22,7 @@ impl PyAudioSamples {
     ///
     /// Raises:
     ///     AudioError: If onset detection fails.
-    #[pyo3(signature = (config: "OnsetDetectionConfig"), text_signature = "($self, config: OnsetDetectionConfig) -> list[float]")]
+    #[pyo3(signature = (config: "OnsetDetectionConfig"))]
     fn detect_onsets(&self, py: Python<'_>, config: PyOnsetDetectionConfig) -> PyResult<Vec<f64>> {
         dispatch_with_view!(self, py, |audio| {
             audio.detect_onsets(&config.inner).map_err(audio_err_to_py)
@@ -39,7 +39,7 @@ impl PyAudioSamples {
     ///
     /// Raises:
     ///     AudioError: If the detection function computation fails.
-    #[pyo3(signature = (config: "OnsetDetectionConfig"), text_signature = "($self, config: OnsetDetectionConfig) -> tuple[list[float], list[float]]")]
+    #[pyo3(signature = (config: "OnsetDetectionConfig"))]
     fn onset_detection_function(
         &self,
         py: Python<'_>,
@@ -63,7 +63,7 @@ impl PyAudioSamples {
     ///
     /// Raises:
     ///     AudioError: If onset detection fails.
-    #[pyo3(signature = (config: "SpectralFluxConfig"), text_signature = "($self, config: SpectralFluxConfig) -> list[float]")]
+    #[pyo3(signature = (config: "SpectralFluxConfig"))]
     fn detect_onsets_spectral_flux(
         &self,
         py: Python<'_>,
@@ -90,7 +90,7 @@ impl PyAudioSamples {
     /// Raises:
     ///     ValueError: If window_size or hop_size is zero.
     ///     AudioError: If flux computation fails.
-    #[pyo3(signature = (cqt_params: "CqtParams", window_size: "int", hop_size: "int", method: "SpectralFluxMethod"), text_signature = "($self, cqt_params: CqtParams, window_size: int, hop_size: int, method: SpectralFluxMethod) -> tuple[list[float], list[float]]")]
+    #[pyo3(signature = (cqt_params: "CqtParams", window_size: "int", hop_size: "int", method: "SpectralFluxMethod"))]
     fn spectral_flux(
         &self,
         py: Python<'_>,
@@ -124,7 +124,7 @@ impl PyAudioSamples {
     ///
     /// Raises:
     ///     AudioError: If onset detection fails.
-    #[pyo3(signature = (config: "ComplexOnsetConfig"), text_signature = "($self, config: ComplexOnsetConfig) -> list[float]")]
+    #[pyo3(signature = (config: "ComplexOnsetConfig"))]
     fn complex_onset_detection(
         &self,
         py: Python<'_>,
@@ -147,7 +147,7 @@ impl PyAudioSamples {
     ///
     /// Raises:
     ///     AudioError: If detection function computation fails.
-    #[pyo3(signature = (config: "ComplexOnsetConfig"), text_signature = "($self, config: ComplexOnsetConfig) -> list[float]")]
+    #[pyo3(signature = (config: "ComplexOnsetConfig"))]
     fn onset_detection_function_complex(
         &self,
         py: Python<'_>,
@@ -170,7 +170,7 @@ impl PyAudioSamples {
     ///
     /// Raises:
     ///     AudioError: If matrix computation fails.
-    #[pyo3(signature = (config: "ComplexOnsetConfig"), text_signature = "($self, config: ComplexOnsetConfig) -> numpy.ndarray")]
+    #[pyo3(signature = (config: "ComplexOnsetConfig"))]
     fn magnitude_difference_matrix<'py>(
         &self,
         py: Python<'py>,
@@ -194,7 +194,7 @@ impl PyAudioSamples {
     ///
     /// Raises:
     ///     AudioError: If matrix computation fails.
-    #[pyo3(signature = (config: "ComplexOnsetConfig"), text_signature = "($self, config: ComplexOnsetConfig) -> numpy.ndarray")]
+    #[pyo3(signature = (config: "ComplexOnsetConfig"))]
     fn phase_deviation_matrix<'py>(
         &self,
         py: Python<'py>,

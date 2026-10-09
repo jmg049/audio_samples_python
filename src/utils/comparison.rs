@@ -10,7 +10,7 @@ use pyo3::prelude::*;
 use crate::{PyAudioSamples, audio_err_to_py};
 
 #[pyfunction]
-#[pyo3(signature = (a, b), text_signature = "(a: AudioSamples, b: AudioSamples) -> float")]
+#[pyo3(signature = (a, b))]
 /// Computes the Pearson correlation coefficient between two audio signals.
 ///
 /// This function measures linear similarity between two signals on a per-sample basis.
@@ -97,7 +97,7 @@ pub fn correlation(py: Python, a: &PyAudioSamples, b: &PyAudioSamples) -> PyResu
 }
 
 #[pyfunction]
-#[pyo3(signature = (a, b), text_signature = "(a: AudioSamples, b: AudioSamples) -> float")]
+#[pyo3(signature = (a, b))]
 /// Computes the mean squared error (MSE) between two audio signals.
 ///
 /// This function measures the average squared per-sample difference between two signals.
@@ -179,7 +179,7 @@ pub fn mse(py: Python, a: &PyAudioSamples, b: &PyAudioSamples) -> PyResult<f64> 
 }
 
 #[pyfunction]
-#[pyo3(signature = (signal, noise), text_signature = "(signal: AudioSamples, noise: AudioSamples) -> float")]
+#[pyo3(signature = (signal, noise))]
 /// Computes the signal-to-noise ratio (SNR) in decibels between a signal and noise.
 ///
 /// This function measures the ratio between the average power of a signal and the
@@ -263,7 +263,7 @@ pub fn snr(py: Python, signal: &PyAudioSamples, noise: &PyAudioSamples) -> PyRes
 }
 
 #[pyfunction]
-#[pyo3(signature = (reference, signal), text_signature = "(reference: AudioSamples, signal: AudioSamples) -> tuple[AudioSamples, int]")]
+#[pyo3(signature = (reference, signal))]
 /// Aligns two audio signals by estimating a time offset that maximizes correlation.
 ///
 /// This function temporally aligns `signal` to `reference` by searching for a
@@ -421,7 +421,7 @@ macro_rules! dispatch_pair {
 }
 
 #[pyfunction]
-#[pyo3(signature = (reference, test), text_signature = "(reference: AudioSamples, test: AudioSamples) -> float")]
+#[pyo3(signature = (reference, test))]
 /// Computes the peak signal-to-noise ratio (PSNR) in decibels between two signals.
 ///
 /// PSNR relates the peak amplitude of the reference signal to the mean squared error
@@ -443,7 +443,7 @@ pub fn psnr(py: Python, reference: &PyAudioSamples, test: &PyAudioSamples) -> Py
 }
 
 #[pyfunction]
-#[pyo3(signature = (signal, noise, segment_len=256), text_signature = "(signal: AudioSamples, noise: AudioSamples, segment_len: int = 256) -> float")]
+#[pyo3(signature = (signal, noise, segment_len=256))]
 /// Computes the segmental signal-to-noise ratio (segmental SNR) in decibels.
 ///
 /// The signals are divided into fixed-length segments; the SNR of each segment is computed,
@@ -478,7 +478,7 @@ pub fn segmental_snr(
 }
 
 #[pyfunction]
-#[pyo3(signature = (a, b), text_signature = "(a: AudioSamples, b: AudioSamples) -> float")]
+#[pyo3(signature = (a, b))]
 /// Computes the log-spectral distance (LSD) between two audio signals.
 ///
 /// LSD measures the average difference between the log-power spectra of the two signals.
@@ -503,7 +503,7 @@ pub fn log_spectral_distance(
 }
 
 #[pyfunction]
-#[pyo3(signature = (a, b), text_signature = "(a: AudioSamples, b: AudioSamples) -> numpy.ndarray")]
+#[pyo3(signature = (a, b))]
 /// Computes the Pearson correlation coefficient for each channel independently.
 ///
 /// Mirrors :func:`correlation` but returns one value per channel instead of an average.
@@ -529,7 +529,7 @@ pub fn correlation_per_channel<'py>(
 }
 
 #[pyfunction]
-#[pyo3(signature = (a, b), text_signature = "(a: AudioSamples, b: AudioSamples) -> numpy.ndarray")]
+#[pyo3(signature = (a, b))]
 /// Computes the mean squared error (MSE) for each channel independently.
 ///
 /// Mirrors :func:`mse` but returns one value per channel instead of an average.
@@ -555,7 +555,7 @@ pub fn mse_per_channel<'py>(
 }
 
 #[pyfunction]
-#[pyo3(signature = (signal, noise), text_signature = "(signal: AudioSamples, noise: AudioSamples) -> numpy.ndarray")]
+#[pyo3(signature = (signal, noise))]
 /// Computes the signal-to-noise ratio (SNR) in decibels for each channel independently.
 ///
 /// Mirrors :func:`snr` but returns one value per channel instead of aggregating across all
