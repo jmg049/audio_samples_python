@@ -20,9 +20,12 @@
 #![warn(clippy::undocumented_unsafe_blocks)]
 #![warn(clippy::multiple_unsafe_ops_per_block)]
 
+pub mod args;
 pub mod io;
 pub mod io_streaming;
 pub mod operations;
+pub mod sequence;
+pub mod spectral;
 pub mod types;
 pub mod utils;
 use audio_samples::NdResult;
@@ -299,6 +302,10 @@ fn audio_samples_python(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()>
     spectrograms::python::register_module(py, &spectrograms_mod)?;
     m.add_submodule(&spectrograms_mod)?;
 
+    // librosa-compatible array helpers
+    spectral::register(py, m)?;
+    sequence::register(py, m)?;
+
     // Re-exports
     let utils_mod = m.getattr("utils")?;
 
@@ -326,7 +333,9 @@ fn audio_samples_python(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()>
         "exponential_bursts",
         "stereo_sine_wave",
         "stereo_chirp",
-        "stereo_silence"
+        "stereo_silence",
+        "mu_law_encode",
+        "mu_law_decode"
     );
 
     let io_mod = m.getattr("io")?;

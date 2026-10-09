@@ -8,7 +8,7 @@ properties.
 
 from __future__ import annotations
 from pathlib import Path
-from typing import Optional, Any
+from typing import Optional, Any, Literal, Callable, Union
 import numpy as np
 from numpy.typing import NDArray, DTypeLike
 import numpy.typing as npt
@@ -58,6 +58,17 @@ from . import utils as utils
 from . import audio_math as audio_math
 from . import mpl as mpl
 from . import types as types
+from . import spectral as spectral
+from . import sequence as sequence
+from .utils import mu_law_encode as mu_law_encode, mu_law_decode as mu_law_decode
+
+#: A window specification accepted by the librosa-compatible functions:
+#: a SciPy window name, ``(name, parameter)``, a number (Kaiser beta) or an array.
+WindowSpec = Union[str, tuple[str, float], float, npt.ArrayLike]
+#: Mel filter normalisation: ``"slaney"``, None, or a p-norm exponent.
+MelNorm = Union[Literal["slaney"], float, None]
+#: dB reference: a number, ``"max"`` or ``numpy.max``.
+DbRef = Union[float, Literal["max"], Callable[..., Any]]
 
 # Expose generation functions at the top level for convenience
 from .generation import (
@@ -88,6 +99,10 @@ from .generation import (
 __all__ = [
     "mpl",
     "types",
+    "spectral",
+    "sequence",
+    "mu_law_encode",
+    "mu_law_decode",
     "sine_wave",
     "cosine_wave",
     "sawtooth_wave",
@@ -2145,6 +2160,192 @@ class AudioSamples:
             :param stft_params (StftParams): STFT parameters
             :param chroma_params (ChromaParams): Chroma feature parameters
             :return numpy.ndarray: Chroma feature array (12 x n_frames for 12 pitch classes)
+        """
+        ...
+
+    # ------------------------------------------------------------------
+    # librosa-compatible spectral analysis (AudioSpectrum)
+    #
+    # All methods return float64 / complex128 arrays shaped
+    # (channels, n_features, n_frames). Mono audio gives a leading axis of
+    # length 1; librosa returns (n_features, n_frames) for 1-D input, so use
+    # ``result[0]`` to compare with it. Defaults are librosa 1.0's.
+    # ------------------------------------------------------------------
+
+    def stft_matrix(
+        self,
+        *,
+        n_fft: int = 2048,
+        hop_length: Optional[int] = None,
+        win_length: Optional[int] = None,
+        window: WindowSpec = "hann",
+        center: bool = True,
+        pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
+    ) -> NDArray[np.complex128]:
+        """Complex STFT of every channel, equivalent to ``librosa.stft``.
+
+        Args:
+            n_fft: FFT length in samples.
+            hop_length: Samples between frames; None means ``win_length // 4``.
+            win_length: Window length (<= n_fft); None means ``n_fft``.
+            window: ``"hann"``, ``"hamming"``, ``"blackman"``, ``"blackmanharris"``,
+                ``"boxcar"``/``"rectangular"``, ``"bartlett"``, ``"triang"``,
+                ``("kaiser", beta)``, ``("gaussian", std)``, a number (Kaiser beta)
+                or an array of ``win_length`` coefficients. Named windows are
+                periodic, as in librosa.
+            center: Pad ``n_fft // 2`` samples on both sides so frame ``t`` is
+                centred on sample ``t * hop_length``.
+            pad_mode: Padding used when ``center`` is True.
+
+        Returns:
+            numpy.ndarray[complex128], shape ``(channels, 1 + n_fft // 2, n_frames)``
+            with ``n_frames = 1 + len // hop_length`` when centred.
+
+        Raises:
+            ValueError: Invalid parameters, or ``center=False`` with a signal
+                shorter than ``n_fft``.
+        """
+        ...
+
+    @staticmethod
+    def istft_matrix(
+        stft_matrix: npt.ArrayLike,
+        *,
+        sample_rate: int,
+        hop_length: Optional[int] = None,
+        win_length: Optional[int] = None,
+        n_fft: Optional[int] = None,
+        window: WindowSpec = "hann",
+        center: bool = True,
+        length: Optional[int] = None,
+    ) -> AudioSamples:
+        """Inverse STFT to audio, equivalent to ``librosa.istft``.
+
+        Args:
+            stft_matrix: Complex array, shape ``(channels, 1 + n_fft // 2, n_frames)``
+                or ``(1 + n_fft // 2, n_frames)``.
+            sample_rate: Sample rate of the returned audio.
+            hop_length: None means ``win_length // 4``.
+            win_length: None means ``n_fft``.
+            n_fft: None infers ``2 * (n_bins - 1)``.
+            window: Analysis window (see ``stft_matrix``).
+            center: Whether the analysis frames were centred.
+            length: Exact output length per channel (pass the original length to
+                undo the centre padding exactly).
+
+        Returns:
+            AudioSamples: float64 audio (mono for one channel).
+
+        Raises:
+            ValueError: Wrong dimensionality, bin count inconsistent with ``n_fft``,
+                or invalid parameters.
+        """
+        ...
+
+    def spectrogram_matrix(
+        self,
+        *,
+        n_fft: int = 2048,
+        hop_length: Optional[int] = None,
+        win_length: Optional[int] = None,
+        window: WindowSpec = "hann",
+        center: bool = True,
+        pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
+        power: float = 1.0,
+    ) -> NDArray[np.float64]:
+        """``numpy.abs(librosa.stft(y, ...)) ** power`` for every channel.
+
+        Returns:
+            numpy.ndarray[float64], shape ``(channels, 1 + n_fft // 2, n_frames)``.
+
+        Raises:
+            ValueError: Invalid parameters or ``power <= 0``.
+        """
+        ...
+
+    def melspectrogram(
+        self,
+        *,
+        n_fft: int = 2048,
+        hop_length: int = 512,
+        win_length: Optional[int] = None,
+        window: WindowSpec = "hann",
+        center: bool = True,
+        pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
+        power: float = 2.0,
+        n_mels: int = 128,
+        fmin: float = 0.0,
+        fmax: Optional[float] = None,
+        htk: bool = False,
+        norm: MelNorm = "slaney",
+    ) -> NDArray[np.float64]:
+        """Mel spectrogram of every channel, equivalent to
+        ``librosa.feature.melspectrogram(y=..., sr=self.sample_rate, ...)``.
+
+        Args:
+            n_fft, hop_length, win_length, window, center, pad_mode: STFT
+                parameters (``hop_length`` defaults to 512, as in librosa's
+                melspectrogram).
+            power: Exponent of the STFT magnitude (2 = power, 1 = magnitude).
+            n_mels: Number of mel bands.
+            fmin: Lowest band edge in Hz.
+            fmax: Highest band edge in Hz; None means ``sample_rate / 2``.
+            htk: HTK mel scale instead of Slaney.
+            norm: ``"slaney"`` (area normalisation), None, or a p-norm.
+
+        Returns:
+            numpy.ndarray[float64], shape ``(channels, n_mels, n_frames)``.
+
+        Raises:
+            ValueError: Invalid parameters.
+        """
+        ...
+
+    def mfcc_frames(
+        self,
+        *,
+        n_mfcc: int = 20,
+        dct_type: Literal[1, 2, 3] = 2,
+        norm: Optional[Literal["ortho"]] = "ortho",
+        lifter: float = 0.0,
+        mel_norm: MelNorm = "slaney",
+        n_fft: int = 2048,
+        hop_length: int = 512,
+        win_length: Optional[int] = None,
+        window: WindowSpec = "hann",
+        center: bool = True,
+        pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
+        power: float = 2.0,
+        n_mels: int = 128,
+        fmin: float = 0.0,
+        fmax: Optional[float] = None,
+        htk: bool = False,
+        ref: DbRef = 1.0,
+        amin: float = 1e-10,
+        top_db: Optional[float] = 80.0,
+    ) -> NDArray[np.float64]:
+        """MFCCs of every channel, equivalent to
+        ``librosa.feature.mfcc(y=..., sr=self.sample_rate, ...)``.
+
+        Pipeline: ``melspectrogram`` -> ``power_to_db(ref, amin, top_db)`` (per
+        channel) -> DCT along the mel axis -> first ``n_mfcc`` rows -> liftering.
+
+        Args:
+            n_mfcc: Number of coefficients (must not exceed ``n_mels``).
+            dct_type: DCT type 1, 2 or 3.
+            norm: ``"ortho"`` or None (unnormalised DCT).
+            lifter: Liftering coefficient; 0 disables.
+            mel_norm: Mel filter normalisation (librosa's ``mel_norm``).
+            ref, amin, top_db: dB conversion parameters (librosa's
+                ``power_to_db`` defaults).
+            Remaining arguments: as ``melspectrogram``.
+
+        Returns:
+            numpy.ndarray[float64], shape ``(channels, n_mfcc, n_frames)``.
+
+        Raises:
+            ValueError: Invalid parameters (librosa silently truncates when
+                ``n_mfcc > n_mels``; this raises).
         """
         ...
 

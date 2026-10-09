@@ -35,6 +35,17 @@ pub fn utils(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
         &utils_mod
     )?)?;
     utils_mod.add_function(wrap_pyfunction!(audio_math::ms_to_samples, &utils_mod)?)?;
+    utils_mod.add_function(wrap_pyfunction!(audio_math::time_to_samples, &utils_mod)?)?;
+    utils_mod.add_function(wrap_pyfunction!(audio_math::samples_to_frames, &utils_mod)?)?;
+    utils_mod.add_function(wrap_pyfunction!(audio_math::frames_to_samples, &utils_mod)?)?;
+    utils_mod.add_function(wrap_pyfunction!(
+        audio_math::time_to_frames_floor,
+        &utils_mod
+    )?)?;
+    utils_mod.add_function(wrap_pyfunction!(audio_math::times_like, &utils_mod)?)?;
+    utils_mod.add_function(wrap_pyfunction!(audio_math::samples_like, &utils_mod)?)?;
+    utils_mod.add_function(wrap_pyfunction!(audio_math::mu_law_encode, &utils_mod)?)?;
+    utils_mod.add_function(wrap_pyfunction!(audio_math::mu_law_decode, &utils_mod)?)?;
 
     // Audio math functions - musical theory
     utils_mod.add_function(wrap_pyfunction!(audio_math::note_to_midi, &utils_mod)?)?;

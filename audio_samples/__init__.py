@@ -59,6 +59,22 @@ if _so_files:
     generation = _ext.utils.generation
     io = _ext.io
     utils = _ext.utils
+    spectral = _ext.spectral
+    sequence = _ext.sequence
+    mu_law_encode = _ext.mu_law_encode
+    mu_law_decode = _ext.mu_law_decode
+
+    # Make the native submodules importable with ``from audio_samples.X import y``
+    # (extension submodules are not registered in sys.modules automatically).
+    for _sub_name, _sub in (
+        ("io", io),
+        ("types", _ext.types),
+        ("utils", utils),
+        ("utils.generation", generation),
+        ("spectral", spectral),
+        ("sequence", sequence),
+    ):
+        sys.modules.setdefault(f"audio_samples.{_sub_name}", _sub)
 
     # Plotting module (if available - currently not registered in Rust)
     try:
@@ -111,7 +127,12 @@ __all__ = [
     "generation",
     "io",
     "utils",
+    "spectral",
+    "sequence",
     "mpl",
+    # librosa-compatible mu-law codes
+    "mu_law_encode",
+    "mu_law_decode",
     # Generation functions (also available at top level)
     "sine_wave",
     "cosine_wave",

@@ -11,6 +11,7 @@ pub mod parametric_eq;
 pub mod pitch_analysis;
 pub mod plotting;
 pub mod processing;
+pub mod spectrum;
 pub mod statistics;
 pub mod transforms;
 pub mod vad;
