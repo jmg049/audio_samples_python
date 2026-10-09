@@ -14,9 +14,11 @@ against SciPy and librosa.
 - **The same core as the Rust crate.** The Python package is a thin binding
   over the Rust `audio_samples` crate, so a notebook and a Rust lab compute the
   same numbers with the same code.
-- **Errors that teach.** Invalid parameters raise `audio_samples.exceptions`
+- **Errors that teach.** Most invalid parameters raise `audio_samples.exceptions`
   classes (for example `AudioParameterError`, which is also a `ValueError`)
-  that carry `.code` and `.help`; the help text appears in the traceback.
+  that carry `.code` and `.help`; the help text appears in the traceback. A few
+  constructors (for example `StftParams(n_fft=0)`) still raise a plain
+  `ValueError` without them.
 - **A library that explains itself.** A configuration can describe what it will
   do before it runs: the formula the code evaluates, every symbol with its unit,
   derived resolution and latency numbers, and warnings about suspicious
@@ -42,15 +44,34 @@ pattern:
    librosa where the conventions match), checked with `assert`.
 4. **Ask the library to explain**.
 5. **Exercises**, each followed by a solution cell that computes and asserts
-   the answer. Remove the cells tagged `solution` to make a student version.
+   the answer.
+6. **Common pitfalls**, **See also** and **References**.
 
 The same course exists in Rust (the crate's `guide` module and its
-`examples/tutorial_NN_*.rs` labs), with the same numbers.
+`examples/tutorial_NN_*.rs` labs), with the same numbers wherever the two APIs
+cover the same function. Where the Python bindings lack a function (LPC, Bark,
+ERB, threshold of hearing, codecs, cepstrum, FIR design), the notebook computes
+it with NumPy from the same published formula instead of calling the library.
+
+### Making a student version
+
+Every solution cell is tagged `solution`. Strip them with nbconvert to make
+student copies:
+
+```bash
+jupyter nbconvert --TagRemovePreprocessor.enabled=True \
+    --TagRemovePreprocessor.remove_cell_tags solution \
+    --to notebook --output-dir student/ docs/source/tutorials/*.ipynb
+```
+
+The student copies still run from top to bottom, but nothing checks the
+students' `answer = None  # TODO` cells; keep the original notebooks (or their
+solution cells) as the marking key.
 
 ### Everything is checked
 
-Every number stated in a notebook is computed and asserted in a code cell, and
-the notebooks are executed headlessly in the test suite:
+Every number stated in a notebook's text is meant to be computed and asserted
+in a code cell, and the notebooks are executed headlessly in the test suite:
 
 ```bash
 pytest --nbmake docs/source/tutorials
@@ -61,18 +82,29 @@ the test tells you whether the text is now wrong.
 
 ## Suggested labs
 
+Each notebook is sized for a two-hour lab session, like the Rust labs. Executed
+headlessly, each runs in well under a minute, so students spend the time on the
+exercises rather than waiting for code. The notebooks build on each other in
+order; 01–04 form a self-contained block on sampling and spectral analysis.
+
+**Prerequisites.** Python and NumPy (array slicing, broadcasting); complex
+numbers and complex exponentials; logarithms and decibels. The DFT is defined
+in notebook 03, but students who have met it before move faster. Notebooks 05,
+06 and 08 use the z-transform (poles, zeros and transfer functions); notebook 14
+assumes notebook 02. No Rust is needed.
+
 | Lab | Topic | Students should leave able to |
 |---|---|---|
 | 01 | Sampling and aliasing | predict where a tone above Nyquist lands; explain why decimation needs a low-pass filter |
 | 02 | Quantisation and dither | derive and measure SQNR ≈ 6.02 b + 1.76 dB; show what TPDF dither does to quiet signals |
 | 03 | DFT, windows and leakage | map bins to hertz; choose a window from its main-lobe width and side-lobe level |
-| 04 | STFT and spectrograms | trade time resolution against frequency resolution; compute frame counts; read a mel spectrogram |
+| 04 | STFT and spectrograms | trade time resolution against frequency resolution; compute frame counts; invert an STFT |
 | 05 | Convolution and FIR filters | relate full and valid convolution lengths; design a windowed-sinc low-pass; measure group delay |
-| 06 | IIR filters | design a Butterworth filter, find its poles and zeros, judge stability, measure −3 dB at the cutoff |
+| 06 | IIR filters | design a Butterworth filter, find its poles and zeros, judge stability, measure −3 dB at the cutoff; design a hum notch |
 | 07 | Resampling | resample without aliasing; measure the alias rejection of each quality tier |
 | 08 | LPC and formants | fit an all-pole model with Levinson–Durbin and read formants from its roots |
 | 09 | Pitch | estimate f0 with autocorrelation and YIN; explain octave errors |
-| 10 | Cepstrum, mel and MFCC | compute a cepstrum and an MFCC pipeline step by step |
+| 10 | Cepstrum, mel and MFCC | compute a cepstrum, read a mel spectrogram and build an MFCC pipeline step by step |
 | 11 | Energy and VAD | build an energy and zero-crossing voice activity detector with hangover |
 | 12 | Dynamics | draw a compressor's static curve and measure attack and release time constants |
 | 13 | Onsets and tempo | compute spectral flux, pick peaks and estimate tempo |
@@ -93,14 +125,51 @@ suite. For other topics, compare with these conventions in mind:
 | MFCC | unnormalised DCT-II, lifter 22 | librosa: DCT-II `norm="ortho"`, lifter 0 | rescale by the DCT normalisation; set the lifter |
 | Zero-crossing rate | crossings per second over the whole signal | librosa: fraction of samples per frame | divide by the sample rate; frame the signal |
 | Integer to float | asymmetric: −1.0 ↔ −32768, +1.0 ↔ 32767 | soundfile: divide by 32768 | differs by at most one least significant bit |
-| YIN | de Cheveigné and Kawahara with parabolic interpolation; `detect_pitch_yin` is clip-wide | `librosa.yin`: framewise | compare with `track_pitch` |
+| YIN | de Cheveigné and Kawahara's difference function and CMND, with parabolic interpolation of the CMND (as in librosa; the paper takes the period from the raw difference function and adds a "best local estimate" step); no voiced estimate when no lag is below the threshold; `detect_pitch_yin` is clip-wide | `librosa.yin`: framewise, falls back to the global minimum | compare with `track_pitch` |
 
-Known limitations worth telling students about: in this release `mu_compress`
-deviates from the standard μ-law curve, and the gammatone filterbank's default
-centre spacing is linear in Hz rather than on the ERB-number scale.
+## Known limitations
+
+Worth telling students about (the notebooks point them out where they matter):
+
+- `mu_compress` deviates from the standard μ-law curve (it maps 0 to about
+  0.31); notebook 14 implements the curve itself. `mu_expand` is correct.
+- The Kaiser window of the upstream `spectrograms` crate is inaccurate for
+  β > 3.75 (notebook 03 measures it).
+- The gammatone filterbank's default centre spacing is linear in Hz rather than
+  on the ERB-number scale.
+- `mel_spectrogram` without `LogParams` returns the square root of the mel
+  power, not the power (notebook 10).
+- The default `OnsetDetectionConfig`, and the `musical` and `speech` presets,
+  find no onsets on a clean click track: their peak-picking lengths count
+  onset-function frames but were sized as if they counted samples (the
+  `percussive` preset finds one of four clicks). Notebook 13 builds a working
+  configuration and checks it with `.explain()`.
+- `estimate_tempo` makes octave errors (and third-of-tempo errors) on simple
+  click tracks; `BeatTrackingConfig.tempo_bpm` is not used by it.
+- `LimiterConfig.isp_limiting` is not implemented.
+- The Python bindings have no LPC, Bark, ERB, threshold-of-hearing, codec,
+  cepstrum or FIR-design functions (the Rust crate has most of them), so
+  notebooks 05, 08, 10 and 14 compute these with NumPy.
+- All signals in the notebooks are synthetic (tones, chirps, noise, click
+  tracks and synthetic vowels) and nothing is played back; add a recording of
+  your own (and `IPython.display.Audio`) if you want real speech.
 
 ## Setting up a course environment
 
+The course needs a build of `audio_samples` that includes the explain API
+(`audio_samples.explain`), which is in the release after 0.2.4. Until that
+release is on PyPI, build the package from source: clone the repository,
+create a virtual environment, `pip install maturin`, and run
+`maturin develop --release` in the clone. Then install the notebook
+dependencies (Python ≥ 3.10; the notebooks need librosa ≥ 0.10):
+
 ```bash
-pip install audio_samples matplotlib scipy librosa jupyter
+pip install "audio_samples" matplotlib scipy librosa jupyter pytest nbmake
+```
+
+(Once the release is out, this one command installs everything.) Check the
+installation by running every notebook headlessly:
+
+```bash
+pytest --nbmake docs/source/tutorials
 ```
