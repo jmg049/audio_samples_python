@@ -123,21 +123,43 @@ class TestMetadata:
 
 class TestFastIntegerRatio:
     def test_downsample_2x_matches_stride(self):
-        """Fast 2x downsample must equal src[::2] (linear interp, frac=0)."""
+        """Fast 2x downsample of an in-band tone equals src[::2] away from the edges.
+
+        Fast downsampling is no longer plain decimation: since the delay-free
+        resampler fix in audio_samples it applies a short anti-aliasing
+        (windowed-sinc, 70 dB) filter, so it is no longer bit-identical to
+        ``src[::2]``. For a 440 Hz tone (far inside the passband) the interior
+        agrees to ~3e-6 (measured); the first/last few samples differ because
+        the filter sees zeros outside the signal.
+        """
         n = 44100
-        data = np.sin(2 * np.pi * 440.0 * np.arange(n) / 44100).astype(np.float32)
-        audio = aus.AudioSamples.new_mono(data.astype(np.float64), sample_rate=44100)
+        data = np.sin(2 * np.pi * 440.0 * np.arange(n) / 44100)
+        audio = aus.AudioSamples.new_mono(data, sample_rate=44100)
         result = audio.resample(
             target_sample_rate=22050, quality=ResamplingQuality.fast
         )
-        out = result.to_numpy().ravel().astype(np.float32)
+        out = result.to_numpy().ravel()
         ref = data[::2]
+        assert len(out) == len(ref)
         np.testing.assert_allclose(
-            out,
-            ref[: len(out)],
-            atol=1e-6,
-            err_msg="Fast 2x downsample should equal stride-2 slice",
+            out[64:-64],
+            ref[64:-64],
+            atol=2e-5,
+            err_msg="Fast 2x downsample should match the stride-2 slice in the interior",
         )
+
+    def test_downsample_2x_is_anti_aliased(self):
+        """A 13 kHz tone (above the 11.025 kHz output Nyquist) is suppressed."""
+        n = 44100
+        data = np.sin(2 * np.pi * 13000.0 * np.arange(n) / 44100)
+        audio = aus.AudioSamples.new_mono(data, sample_rate=44100)
+        out = (
+            audio.resample(target_sample_rate=22050, quality=ResamplingQuality.fast)
+            .to_numpy()
+            .ravel()
+        )
+        # Plain decimation would alias it at full level; measured ~1.2e-4 (-78 dB).
+        assert np.abs(out[64:-64]).max() < 1e-3
 
     def test_upsample_2x_linear_interp(self):
         """Fast 2x upsample should be linear interpolation between samples."""
