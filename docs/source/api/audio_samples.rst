@@ -39,6 +39,9 @@ Key Features
    - Magnitude and phase spectrograms with multiple scaling options
    - Mel-frequency spectrograms and MFCC features
    - Chroma features for harmonic analysis
+   - librosa-compatible ``stft_matrix``, ``istft_matrix``, ``spectrogram_matrix``,
+     ``melspectrogram`` and ``mfcc_frames`` returning ``(channels, F, T)`` arrays
+     (see :doc:`spectral`)
 
 **Audio Processing**
    - High-quality resampling with configurable quality levels
