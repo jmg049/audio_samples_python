@@ -82,6 +82,8 @@ Table of Contents
    :maxdepth: 2
    :caption: Documentation
 
+   tutorials/index
+   for_instructors
    examples/index
    api/index
 

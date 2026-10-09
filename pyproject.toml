@@ -77,6 +77,7 @@ dependencies = [
     "sphinx>=7.0.0",
     "sphinx-autodoc-typehints>=1.24.0",
     "myst-parser>=2.0.0",
+    "myst-nb>=1.1",
     "sphinx-copybutton>=0.5.2",
     "sphinx-rtd-theme>=3.0.2",
 ]
@@ -109,6 +110,9 @@ dev = [
 ]
 test = [
     "pytest>=7.4.0",
+    "nbmake>=1.5",
+    "ipykernel>=6.29.5",
+    "matplotlib>=3.7.5",
     "pytest-timeout>=2.1.0",
     "scipy>=1.10",
     "soundfile>=0.13.1",
