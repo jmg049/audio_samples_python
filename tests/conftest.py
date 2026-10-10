@@ -332,7 +332,15 @@ def assert_metadata_equal(aus_audio, expected_sr, expected_channels, expected_sa
 # ``tests/reference/librosa/generate_librosa_fixtures.py`` in that repo). The
 # Python tests read the same files. Location: ``$AUDIO_SAMPLES_FIXTURES`` or the
 # sibling checkout ``../audio_samples`` (the path the Cargo ``[patch]`` uses).
-# Tests skip when the fixtures are not available.
+#
+# When the fixtures are not available the tests that need them are skipped
+# locally, but FAIL when fixtures are required, so that a CI run cannot pass
+# with the golden-fixture suite silently turned into a no-op:
+#
+# * ``AUDIO_SAMPLES_REQUIRE_FIXTURES=1`` (or true/yes): required.
+# * ``AUDIO_SAMPLES_REQUIRE_FIXTURES=0`` (or false/no): never required.
+# * unset: required when the ``CI`` environment variable is set (as on GitHub
+#   Actions, GitLab CI, ...) to anything but ``0``/``false``.
 
 import json as _json
 from functools import lru_cache as _lru_cache
@@ -354,11 +362,27 @@ def _load_fixture_cached(name: str):
         return _json.load(fh)
 
 
+def fixtures_required() -> bool:
+    """Whether a missing librosa fixture fails the test instead of skipping it."""
+    falsy = ("", "0", "false", "no")
+    explicit = os.environ.get("AUDIO_SAMPLES_REQUIRE_FIXTURES")
+    if explicit is not None:
+        return explicit.strip().lower() not in falsy
+    return os.environ.get("CI", "").strip().lower() not in falsy
+
+
 def load_librosa_fixture(name: str) -> dict:
-    """Load ``<fixtures>/<name>.json`` or skip the test if it is missing."""
+    """Load ``<fixtures>/<name>.json``; skip the test if it is missing, or fail
+    it when fixtures are required (see :func:`fixtures_required`)."""
     data = _load_fixture_cached(name)
     if data is None:
-        pytest.skip(f"librosa fixture {name}.json not found in {librosa_fixture_dir()}")
+        msg = (
+            f"librosa fixture {name}.json not found in {librosa_fixture_dir()} "
+            "(set AUDIO_SAMPLES_FIXTURES to the audio_samples crate's tests/fixtures/librosa)"
+        )
+        if fixtures_required():
+            pytest.fail(msg + "; fixtures are required (CI or AUDIO_SAMPLES_REQUIRE_FIXTURES)")
+        pytest.skip(msg)
     return data
 
 
