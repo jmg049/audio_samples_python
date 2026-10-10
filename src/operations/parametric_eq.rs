@@ -26,7 +26,9 @@ impl PyAudioSamples {
     #[pyo3(signature = (eq: "ParametricEq"))]
     fn apply_parametric_eq(&mut self, py: Python<'_>, eq: PyParametricEq) -> PyResult<()> {
         dispatch_with_view_mut!(self, py, |mut audio| {
-            audio.apply_parametric_eq_in_place(&(*eq)).map_err(audio_err_to_py)
+            audio
+                .apply_parametric_eq_in_place(&(*eq))
+                .map_err(audio_err_to_py)
         })
     }
 
@@ -70,7 +72,9 @@ impl PyAudioSamples {
     #[pyo3(signature = (band: "EqBand"))]
     fn apply_eq_band(&mut self, py: Python<'_>, band: &PyEqBand) -> PyResult<()> {
         dispatch_with_view_mut!(self, py, |mut audio| {
-            audio.apply_eq_band_in_place(&(*band)).map_err(audio_err_to_py)
+            audio
+                .apply_eq_band_in_place(&(*band))
+                .map_err(audio_err_to_py)
         })
     }
 
@@ -206,11 +210,7 @@ impl PyAudioSamples {
     /// Raises:
     ///     AudioError: If filter application fails.
     #[pyo3(signature = (config: "ThreeBandEqConfig"))]
-    fn apply_three_band_eq(
-        &mut self,
-        py: Python<'_>,
-        config: PyThreeBandEqConfig,
-    ) -> PyResult<()> {
+    fn apply_three_band_eq(&mut self, py: Python<'_>, config: PyThreeBandEqConfig) -> PyResult<()> {
         dispatch_with_view_mut!(self, py, |mut audio| {
             audio
                 .apply_three_band_eq_in_place(&config.inner)

@@ -139,10 +139,7 @@ pub fn py_detect_dynamic_range(
 /// Returns:
 ///     The estimated noise floor in dBFS (always below 0), or ``None`` if it cannot be
 ///     estimated (e.g. the signal is too short or entirely silent).
-pub fn py_estimate_noise_floor(
-    py: Python<'_>,
-    audio: &PyAudioSamples,
-) -> PyResult<Option<f64>> {
+pub fn py_estimate_noise_floor(py: Python<'_>, audio: &PyAudioSamples) -> PyResult<Option<f64>> {
     dispatch_with_view!(audio, py, |audio| {
         estimate_noise_floor::<_, ()>(&audio).map_err(audio_err_to_py)
     })

@@ -208,7 +208,9 @@ impl PyAudioSamples {
     ///         not all have the same sample count.
     fn interleave_channels(py: Python<'_>, channels: &Bound<'_, PyList>) -> PyResult<Self> {
         if channels.is_empty() {
-            return Err(PyValueError::new_err("Cannot interleave empty channel list"));
+            return Err(PyValueError::new_err(
+                "Cannot interleave empty channel list",
+            ));
         }
 
         let channels_vec: Vec<PyRef<PyAudioSamples>> = channels

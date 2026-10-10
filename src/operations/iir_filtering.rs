@@ -942,7 +942,9 @@ impl PySosFilter {
         samples: &Bound<'py, PyArray1<f64>>,
     ) -> PyResult<Bound<'py, PyArray1<f64>>> {
         let mut buf = samples.readonly().as_array().to_vec();
-        self.inner.filtfilt_in_place(&mut buf).map_err(audio_err_to_py)?;
+        self.inner
+            .filtfilt_in_place(&mut buf)
+            .map_err(audio_err_to_py)?;
         Ok(buf.into_pyarray(py))
     }
 

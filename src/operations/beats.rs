@@ -54,9 +54,7 @@ impl PyAudioSamples {
     #[pyo3(signature = (config: "BeatTrackingConfig"))]
     fn estimate_tempo(&self, py: Python<'_>, config: PyBeatTrackingConfig) -> PyResult<f64> {
         dispatch_with_view!(self, py, |audio| {
-            audio
-                .estimate_tempo(&config.inner)
-                .map_err(audio_err_to_py)
+            audio.estimate_tempo(&config.inner).map_err(audio_err_to_py)
         })
     }
 }

@@ -91,7 +91,9 @@ where
         let arr = buffer
             .into_array2()
             .ok_or_else(|| PyRuntimeError::new_err("expected multi-channel buffer"))?;
-        let arr = arr.slice_move(numpy::ndarray::s![.., ..frames_read]).to_owned();
+        let arr = arr
+            .slice_move(numpy::ndarray::s![.., ..frames_read])
+            .to_owned();
         PyAudioSamples::new_multi(arr, sample_rate)
     };
     Ok(Some(py_samples))
@@ -113,9 +115,7 @@ macro_rules! reader_dispatch {
             Some(ReaderInner::Wav($r)) => $body,
             Some(ReaderInner::Flac($r)) => $body,
             None => {
-                return Err(PyRuntimeError::new_err(
-                    "streaming reader is closed",
-                ));
+                return Err(PyRuntimeError::new_err("streaming reader is closed"));
             }
         }
     };
@@ -415,7 +415,11 @@ fn nzu32_sr(sr: u32) -> PyResult<NonZeroU32> {
 /// Created by :meth:`StreamedAudioReader.frames`, :meth:`StreamedAudioReader.windows`, and
 /// :meth:`StreamedAudioReader.samples`. Yields :class:`AudioSamples`; for ``hop != window``
 /// the iterator seeks the underlying reader between steps.
-#[pyclass(name = "StreamedFrameIterator", module = "audio_samples.io", unsendable)]
+#[pyclass(
+    name = "StreamedFrameIterator",
+    module = "audio_samples.io",
+    unsendable
+)]
 pub struct PyStreamedFrameIterator {
     reader: Py<PyStreamedAudioReader>,
     window: usize,
@@ -532,8 +536,7 @@ impl PyStreamedAudioWriter {
                 WriterInner::Wav(make_wav_writer(writer, channels, sample_rate, dtype)?)
             }
             audio_samples_io::types::FileType::FLAC => {
-                let w =
-                    create_streamed_flac_for(writer, channels, sample_rate, dtype)?;
+                let w = create_streamed_flac_for(writer, channels, sample_rate, dtype)?;
                 WriterInner::Flac(w)
             }
             other => {
@@ -583,10 +586,8 @@ impl PyStreamedAudioWriter {
         let file = File::create(path).map_err(|e| audio_io_err_to_py(e.into()))?;
         let writer = BufWriter::with_capacity(256 * 1024, file);
         let sample_type = flac_validated_type(dtype)?;
-        let level = compression.map_or_else(
-            audio_samples_io::CompressionLevel::default,
-            |c| c.inner,
-        );
+        let level =
+            compression.map_or_else(audio_samples_io::CompressionLevel::default, |c| c.inner);
         let w = StreamedFlacWriter::new(writer, channels, sample_rate, sample_type, level)
             .map_err(audio_io_err_to_py)?;
         Ok(Self {
@@ -717,9 +718,7 @@ impl PyStreamedAudioWriter {
 }
 
 /// Map a `PySampleType` to a FLAC-compatible `ValidatedSampleType`.
-fn flac_validated_type(
-    dtype: PySampleType,
-) -> PyResult<audio_samples_io::ValidatedSampleType> {
+fn flac_validated_type(dtype: PySampleType) -> PyResult<audio_samples_io::ValidatedSampleType> {
     use audio_samples_io::ValidatedSampleType as V;
     match dtype {
         PySampleType::I16 | PySampleType::U8 => Ok(V::I16),
@@ -797,7 +796,8 @@ impl PyWavSink {
             .truncate(true)
             .open(Path::new(fp))
             .map_err(|e| audio_io_err_to_py(e.into()))?;
-        let sink = create_streamed_sink_typed(file, channels, sample_rate, sample_type, total_frames)?;
+        let sink =
+            create_streamed_sink_typed(file, channels, sample_rate, sample_type, total_frames)?;
         Ok(Self { inner: Some(sink) })
     }
 

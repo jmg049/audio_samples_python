@@ -385,42 +385,48 @@ macro_rules! dispatch_pair {
         let a_inner = $a.inner();
         let b_inner = $b.inner();
         match (a_inner, b_inner) {
-            (PyAudioDataInner::U8(a_data), PyAudioDataInner::U8(b_data)) => a_data
-                .with_view($py, |a_view| {
+            (PyAudioDataInner::U8(a_data), PyAudioDataInner::U8(b_data)) => {
+                a_data.with_view($py, |a_view| {
                     b_data.with_view($py, |b_view| {
                         $call(&a_view, &b_view).map_err(audio_err_to_py)
                     })
-                }),
-            (PyAudioDataInner::I16(a_data), PyAudioDataInner::I16(b_data)) => a_data
-                .with_view($py, |a_view| {
+                })
+            }
+            (PyAudioDataInner::I16(a_data), PyAudioDataInner::I16(b_data)) => {
+                a_data.with_view($py, |a_view| {
                     b_data.with_view($py, |b_view| {
                         $call(&a_view, &b_view).map_err(audio_err_to_py)
                     })
-                }),
-            (PyAudioDataInner::I24(a_data), PyAudioDataInner::I24(b_data)) => a_data
-                .with_view($py, |a_view| {
+                })
+            }
+            (PyAudioDataInner::I24(a_data), PyAudioDataInner::I24(b_data)) => {
+                a_data.with_view($py, |a_view| {
                     b_data.with_view($py, |b_view| {
                         $call(&a_view, &b_view).map_err(audio_err_to_py)
                     })
-                }),
-            (PyAudioDataInner::I32(a_data), PyAudioDataInner::I32(b_data)) => a_data
-                .with_view($py, |a_view| {
+                })
+            }
+            (PyAudioDataInner::I32(a_data), PyAudioDataInner::I32(b_data)) => {
+                a_data.with_view($py, |a_view| {
                     b_data.with_view($py, |b_view| {
                         $call(&a_view, &b_view).map_err(audio_err_to_py)
                     })
-                }),
-            (PyAudioDataInner::F32(a_data), PyAudioDataInner::F32(b_data)) => a_data
-                .with_view($py, |a_view| {
+                })
+            }
+            (PyAudioDataInner::F32(a_data), PyAudioDataInner::F32(b_data)) => {
+                a_data.with_view($py, |a_view| {
                     b_data.with_view($py, |b_view| {
                         $call(&a_view, &b_view).map_err(audio_err_to_py)
                     })
-                }),
-            (PyAudioDataInner::F64(a_data), PyAudioDataInner::F64(b_data)) => a_data
-                .with_view($py, |a_view| {
+                })
+            }
+            (PyAudioDataInner::F64(a_data), PyAudioDataInner::F64(b_data)) => {
+                a_data.with_view($py, |a_view| {
                     b_data.with_view($py, |b_view| {
                         $call(&a_view, &b_view).map_err(audio_err_to_py)
                     })
-                }),
+                })
+            }
             _ => Err(pyo3::exceptions::PyTypeError::new_err(
                 "Audio samples must have the same data type for comparison",
             )),
@@ -502,11 +508,7 @@ pub fn segmental_snr(
 /// Raises:
 ///     ValueError: If the signals have different dimensions or channel configurations.
 #[inline]
-pub fn log_spectral_distance(
-    py: Python,
-    a: &PyAudioSamples,
-    b: &PyAudioSamples,
-) -> PyResult<f64> {
+pub fn log_spectral_distance(py: Python, a: &PyAudioSamples, b: &PyAudioSamples) -> PyResult<f64> {
     dispatch_pair!(a, b, py, comparison::log_spectral_distance)
 }
 

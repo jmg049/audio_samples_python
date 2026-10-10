@@ -372,7 +372,10 @@ pub fn read_and_resample(
 }
 
 /// Convert an owned `AudioSamples` into a `PyAudioSamples` (mono → 1-D, multi → 2-D).
-fn resampled_to_py<T>(_py: Python<'_>, audio: audio_samples::AudioSamples<'static, T>) -> PyAudioSamples
+fn resampled_to_py<T>(
+    _py: Python<'_>,
+    audio: audio_samples::AudioSamples<'static, T>,
+) -> PyAudioSamples
 where
     T: StandardSample + Element + 'static,
 {
@@ -546,7 +549,10 @@ impl PyInfoMetadata {
     }
 
     fn __repr__(&self) -> String {
-        format!("InfoMetadata(title={:?}, artist={:?})", self.inner.title, self.inner.artist)
+        format!(
+            "InfoMetadata(title={:?}, artist={:?})",
+            self.inner.title, self.inner.artist
+        )
     }
 }
 
@@ -609,7 +615,10 @@ impl PyWavMetadata {
     /// The INFO tags, or ``None`` if unset.
     #[getter]
     fn info(&self) -> Option<PyInfoMetadata> {
-        self.inner.info.clone().map(|inner| PyInfoMetadata { inner })
+        self.inner
+            .info
+            .clone()
+            .map(|inner| PyInfoMetadata { inner })
     }
 
     #[setter]
@@ -816,8 +825,9 @@ pub fn write_with_options(
 
     dispatch_with_view!(samples, py, |audio| {
         match as_type {
-            None => audio_samples_io::write_with_options(&fp, &audio, opts)
-                .map_err(audio_io_err_to_py),
+            None => {
+                audio_samples_io::write_with_options(&fp, &audio, opts).map_err(audio_io_err_to_py)
+            }
             Some(PySampleType::U8) => write_as!(audio, u8),
             Some(PySampleType::I16) => write_as!(audio, i16),
             Some(PySampleType::I24) => write_as!(audio, I24),
@@ -876,7 +886,9 @@ pub fn read_wav_info_tags(fp: &str) -> PyResult<Option<PyInfoMetadata>> {
     use audio_samples_io::wav::wav_file::WavFile;
     let path = std::path::Path::new(fp);
     if FileType::detect(path) != FileType::WAV {
-        return Err(PyValueError::new_err("read_wav_info_tags requires a WAV file"));
+        return Err(PyValueError::new_err(
+            "read_wav_info_tags requires a WAV file",
+        ));
     }
     let wav = WavFile::open_metadata(path).map_err(audio_io_err_to_py)?;
     let list = wav.list().map_err(audio_io_err_to_py)?;
@@ -908,7 +920,9 @@ pub fn read_wav_cue_points(fp: &str) -> PyResult<Vec<PyCuePoint>> {
     use audio_samples_io::wav::wav_file::WavFile;
     let path = std::path::Path::new(fp);
     if FileType::detect(path) != FileType::WAV {
-        return Err(PyValueError::new_err("read_wav_cue_points requires a WAV file"));
+        return Err(PyValueError::new_err(
+            "read_wav_cue_points requires a WAV file",
+        ));
     }
     let wav = WavFile::open_metadata(path).map_err(audio_io_err_to_py)?;
     let cue = wav.cue().map_err(audio_io_err_to_py)?;
@@ -917,7 +931,10 @@ pub fn read_wav_cue_points(fp: &str) -> PyResult<Vec<PyCuePoint>> {
             let points = chunk
                 .cue_points()
                 .map_err(|e| PyValueError::new_err(format!("Invalid cue chunk: {e}")))?;
-            Ok(points.into_iter().map(|inner| PyCuePoint { inner }).collect())
+            Ok(points
+                .into_iter()
+                .map(|inner| PyCuePoint { inner })
+                .collect())
         }
         None => Ok(Vec::new()),
     }
@@ -941,7 +958,9 @@ pub fn read_flac_stream_info(fp: &str) -> PyResult<PyStreamInfo> {
     use audio_samples_io::traits::AudioFileMetadata;
     let path = std::path::Path::new(fp);
     if FileType::detect(path) != FileType::FLAC {
-        return Err(PyValueError::new_err("read_flac_stream_info requires a FLAC file"));
+        return Err(PyValueError::new_err(
+            "read_flac_stream_info requires a FLAC file",
+        ));
     }
     let flac = FlacFile::open_metadata(path).map_err(audio_io_err_to_py)?;
     Ok(PyStreamInfo {

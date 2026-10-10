@@ -5,8 +5,7 @@ use pyo3::{IntoPyObjectExt, prelude::*};
 
 use crate::{
     PyAudioBacking, PyAudioDataInner, PyAudioSamples, TypedAudioSamples, audio_err_to_py,
-    dispatch_with_view, nzu_or_err,
-    types::PyChannelReduction,
+    dispatch_with_view, nzu_or_err, types::PyChannelReduction,
 };
 
 #[pymethods]
@@ -222,18 +221,30 @@ channels, got {self_ch} and {other_ch}; use to_mono() or extract_channel() first
                     let view_a = arr_a.view();
                     let view_b = arr_b.view();
                     // safety: we know view_a is not empty
-                    let audio_a = AudioSamples::new(unsafe { AudioData::from_borrowed_array1_unchecked(view_a) }, sr);
+                    let audio_a = AudioSamples::new(
+                        unsafe { AudioData::from_borrowed_array1_unchecked(view_a) },
+                        sr,
+                    );
                     // safety: we know view_b is not empty
-                    let audio_b = AudioSamples::new(unsafe { AudioData::from_borrowed_array1_unchecked(view_b) }, sr);
+                    let audio_b = AudioSamples::new(
+                        unsafe { AudioData::from_borrowed_array1_unchecked(view_b) },
+                        sr,
+                    );
                     audio_a.cross_correlation(&audio_b, max_lag)
                 }
                 (OwnedMulti(arr_a), OwnedMulti(arr_b)) => {
                     let view_a = arr_a.view();
                     let view_b = arr_b.view();
                     // safety: we know view_a is not empty
-                    let audio_a = AudioSamples::new(unsafe { AudioData::from_borrowed_array2_unchecked(view_a) }, sr);
+                    let audio_a = AudioSamples::new(
+                        unsafe { AudioData::from_borrowed_array2_unchecked(view_a) },
+                        sr,
+                    );
                     // safety: we know view_b is not empty
-                    let audio_b = AudioSamples::new(unsafe { AudioData::from_borrowed_array2_unchecked(view_b) }, sr);
+                    let audio_b = AudioSamples::new(
+                        unsafe { AudioData::from_borrowed_array2_unchecked(view_b) },
+                        sr,
+                    );
                     audio_a.cross_correlation(&audio_b, max_lag)
                 }
                 (NumpyMono(handle_a), NumpyMono(handle_b)) => {
@@ -242,9 +253,15 @@ channels, got {self_ch} and {other_ch}; use to_mono() or extract_channel() first
                     let view_a = unsafe { bound_a.as_array() };
                     let view_b = unsafe { bound_b.as_array() };
                     // safety: We know view_a is not empty
-                    let audio_a = AudioSamples::new(unsafe { AudioData::from_borrowed_array1_unchecked(view_a) }, sr);
+                    let audio_a = AudioSamples::new(
+                        unsafe { AudioData::from_borrowed_array1_unchecked(view_a) },
+                        sr,
+                    );
                     // safety: We know view_b is not empty
-                    let audio_b = AudioSamples::new(unsafe { AudioData::from_borrowed_array1_unchecked(view_b) }, sr);
+                    let audio_b = AudioSamples::new(
+                        unsafe { AudioData::from_borrowed_array1_unchecked(view_b) },
+                        sr,
+                    );
                     audio_a.cross_correlation(&audio_b, max_lag)
                 }
                 (NumpyMulti(handle_a), NumpyMulti(handle_b)) => {
@@ -253,9 +270,15 @@ channels, got {self_ch} and {other_ch}; use to_mono() or extract_channel() first
                     let view_a = unsafe { bound_a.as_array() };
                     let view_b = unsafe { bound_b.as_array() };
                     // safety: We know view_a is not empty
-                    let audio_a = AudioSamples::new(unsafe { AudioData::from_borrowed_array2_unchecked(view_a) }, sr);
+                    let audio_a = AudioSamples::new(
+                        unsafe { AudioData::from_borrowed_array2_unchecked(view_a) },
+                        sr,
+                    );
                     // safety: We know view_b is not empty
-                    let audio_b = AudioSamples::new(unsafe { AudioData::from_borrowed_array2_unchecked(view_b) }, sr);
+                    let audio_b = AudioSamples::new(
+                        unsafe { AudioData::from_borrowed_array2_unchecked(view_b) },
+                        sr,
+                    );
                     audio_a.cross_correlation(&audio_b, max_lag)
                 }
                 _ => {
@@ -307,11 +330,7 @@ channels, got {self_ch} and {other_ch}; use to_mono() or extract_channel() first
     /// Raises:
     ///     AudioError: If the FFT computation fails or the reduction is invalid
     ///         for the channel layout.
-    fn spectral_centroid(
-        &self,
-        py: Python<'_>,
-        reduction: PyChannelReduction,
-    ) -> PyResult<f64> {
+    fn spectral_centroid(&self, py: Python<'_>, reduction: PyChannelReduction) -> PyResult<f64> {
         let reduction = ChannelReduction::from(reduction);
         dispatch_with_view!(self, py, |audio| audio
             .spectral_centroid(reduction)
@@ -360,11 +379,7 @@ channels, got {self_ch} and {other_ch}; use to_mono() or extract_channel() first
     /// Raises:
     ///     AudioError: If the FFT computation fails or the reduction is invalid
     ///         for the channel layout.
-    fn spectral_bandwidth(
-        &self,
-        py: Python<'_>,
-        reduction: PyChannelReduction,
-    ) -> PyResult<f64> {
+    fn spectral_bandwidth(&self, py: Python<'_>, reduction: PyChannelReduction) -> PyResult<f64> {
         let reduction = ChannelReduction::from(reduction);
         dispatch_with_view!(self, py, |audio| audio
             .spectral_bandwidth(reduction)
@@ -388,11 +403,7 @@ channels, got {self_ch} and {other_ch}; use to_mono() or extract_channel() first
     /// Raises:
     ///     AudioError: If the FFT computation fails or the reduction is invalid
     ///         for the channel layout.
-    fn spectral_flatness(
-        &self,
-        py: Python<'_>,
-        reduction: PyChannelReduction,
-    ) -> PyResult<f64> {
+    fn spectral_flatness(&self, py: Python<'_>, reduction: PyChannelReduction) -> PyResult<f64> {
         let reduction = ChannelReduction::from(reduction);
         dispatch_with_view!(self, py, |audio| audio
             .spectral_flatness(reduction)
@@ -417,11 +428,7 @@ channels, got {self_ch} and {other_ch}; use to_mono() or extract_channel() first
     /// Raises:
     ///     AudioError: If the FFT computation fails or the reduction is invalid
     ///         for the channel layout.
-    fn spectral_crest(
-        &self,
-        py: Python<'_>,
-        reduction: PyChannelReduction,
-    ) -> PyResult<f64> {
+    fn spectral_crest(&self, py: Python<'_>, reduction: PyChannelReduction) -> PyResult<f64> {
         let reduction = ChannelReduction::from(reduction);
         dispatch_with_view!(self, py, |audio| audio
             .spectral_crest(reduction)
@@ -446,11 +453,7 @@ channels, got {self_ch} and {other_ch}; use to_mono() or extract_channel() first
     /// Raises:
     ///     AudioError: If the FFT computation fails or the reduction is invalid
     ///         for the channel layout.
-    fn spectral_slope(
-        &self,
-        py: Python<'_>,
-        reduction: PyChannelReduction,
-    ) -> PyResult<f64> {
+    fn spectral_slope(&self, py: Python<'_>, reduction: PyChannelReduction) -> PyResult<f64> {
         let reduction = ChannelReduction::from(reduction);
         dispatch_with_view!(self, py, |audio| audio
             .spectral_slope(reduction)
