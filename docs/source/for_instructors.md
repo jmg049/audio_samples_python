@@ -125,25 +125,25 @@ suite. For other topics, compare with these conventions in mind:
 | MFCC | unnormalised DCT-II, lifter 22 | librosa: DCT-II `norm="ortho"`, lifter 0 | rescale by the DCT normalisation; set the lifter |
 | Zero-crossing rate | crossings per second over the whole signal | librosa: fraction of samples per frame | divide by the sample rate; frame the signal |
 | Integer to float | asymmetric: −1.0 ↔ −32768, +1.0 ↔ 32767 | soundfile: divide by 32768 | differs by at most one least significant bit |
-| YIN | de Cheveigné and Kawahara's difference function and CMND, with parabolic interpolation of the CMND (as in librosa; the paper takes the period from the raw difference function and adds a "best local estimate" step); no voiced estimate when no lag is below the threshold; `detect_pitch_yin` is clip-wide | `librosa.yin`: framewise, falls back to the global minimum | compare with `track_pitch` |
+| YIN | de Cheveigné and Kawahara's difference function (summed over all N − τ overlapping pairs) and CMND, with parabolic interpolation of the CMND (as in librosa; the paper takes the period from the raw difference function and adds a "best local estimate" step); no voiced estimate when no lag is below the threshold; `detect_pitch_yin` is clip-wide | `librosa.yin`: framewise, sums the difference function over a fixed window of half the frame, falls back to the global minimum | compare with `track_pitch` |
 
 ## Known limitations
 
 Worth telling students about (the notebooks point them out where they matter):
 
-- `mu_compress` deviates from the standard μ-law curve (it maps 0 to about
-  0.31); notebook 14 implements the curve itself. `mu_expand` is correct.
 - The Kaiser window of the upstream `spectrograms` crate is inaccurate for
   β > 3.75 (notebook 03 measures it).
 - The gammatone filterbank's default centre spacing is linear in Hz rather than
   on the ERB-number scale.
 - `mel_spectrogram` without `LogParams` returns the square root of the mel
   power, not the power (notebook 10).
-- The default `OnsetDetectionConfig`, and the `musical` and `speech` presets,
-  find no onsets on a clean click track: their peak-picking lengths count
-  onset-function frames but were sized as if they counted samples (the
-  `percussive` preset finds one of four clicks). Notebook 13 builds a working
-  configuration and checks it with `.explain()`.
+- The default `OnsetDetectionConfig` finds every click of a clean click
+  track, but its threshold floor (0.1 of the strongest onset) drops much
+  weaker onsets: on notebook 13's eight-click track it finds 5. The `musical`
+  and `speech` presets find none of the four clicks of notebook 13's first
+  track, and `percussive` finds one, because their peak-picking lengths count
+  onset-function frames but were sized as if they counted samples. Notebook 13
+  shows both and checks the configuration with `.explain()`.
 - `estimate_tempo` makes octave errors (and third-of-tempo errors) on simple
   click tracks; `BeatTrackingConfig.tempo_bpm` is not used by it.
 - `LimiterConfig.isp_limiting` is not implemented.
