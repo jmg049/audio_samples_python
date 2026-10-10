@@ -1748,10 +1748,18 @@ class AdaptiveThresholdConfig:
         window_size: int,
     ) -> AdaptiveThresholdConfig: ...
 
-    # --- Mutators ------------------------------------------------
+    # --- Properties ----------------------------------------------
 
-    def set_min_threshold(self, value: float) -> None: ...
-    def set_max_threshold(self, value: float) -> None: ...
+    @property
+    def min_threshold(self) -> float:
+        """Minimum allowable threshold."""
+    @min_threshold.setter
+    def min_threshold(self, value: float) -> None: ...
+    @property
+    def max_threshold(self) -> float:
+        """Maximum allowable threshold."""
+    @max_threshold.setter
+    def max_threshold(self, value: float) -> None: ...
 
     # --- Validation ----------------------------------------------
 

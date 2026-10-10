@@ -3815,6 +3815,18 @@ impl PyAdaptiveThresholdConfig {
         }
     }
 
+    /// Minimum allowable threshold.
+    #[getter]
+    fn min_threshold(&self) -> f64 {
+        self.inner.min_threshold
+    }
+
+    /// Maximum allowable threshold.
+    #[getter]
+    fn max_threshold(&self) -> f64 {
+        self.inner.max_threshold
+    }
+
     /// Set the minimum allowable threshold.
     #[setter]
     fn set_min_threshold(&mut self, value: f64) {

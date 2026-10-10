@@ -438,3 +438,11 @@ def test_in_place_filter_returns_none():
 def test_yin_threshold_wording():
     doc = AudioSamples.detect_pitch_yin.__doc__
     assert "stricter" in doc and "more permissive." not in doc.split("stricter")[0]
+
+
+def test_adaptive_threshold_bounds_are_readable_properties():
+    cfg = aus.AdaptiveThresholdConfig.combined(0.05, 0.9, 16)
+    cfg.min_threshold = 0.2
+    cfg.max_threshold = 0.8
+    assert cfg.min_threshold == 0.2
+    assert cfg.max_threshold == 0.8

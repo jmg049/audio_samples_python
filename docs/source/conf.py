@@ -11,7 +11,16 @@ sys.path.insert(0, os.path.abspath("../.."))
 project = "AudioSamples Python"
 copyright = "2025, Jack Geraghty"
 author = "Jack Geraghty"
-release = "0.1.1"
+
+def _crate_version() -> str:
+    """Package version, read from Cargo.toml (the single source of truth)."""
+    import tomllib
+
+    with open(os.path.join(os.path.dirname(__file__), "../../Cargo.toml"), "rb") as f:
+        return tomllib.load(f)["package"]["version"]
+
+
+release = _crate_version()
 
 # -- General configuration ---------------------------------------------------
 extensions = [

@@ -173,6 +173,11 @@ has the full detail.
 
 ### Fixed
 
+- `AdaptiveThresholdConfig.min_threshold` / `max_threshold` are readable
+  properties (they were write-only, and the stub declared nonexistent
+  `set_min_threshold()` / `set_max_threshold()` methods).
+- The docs site reports the package version from `Cargo.toml` instead of a
+  stale `0.1.1`.
 - `np.asarray` on 24-bit audio read freed memory, which corrupted the data in
   about half of the calls.
 - Integer arguments that are out of range raise `ValueError` instead of
