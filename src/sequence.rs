@@ -14,53 +14,37 @@ use audio_samples::operations::sequence::{
     self as seq, Bandwidth, CrossSimilarityConfig, DistanceMetric, DtwConfig, RecurrenceConfig,
     RecurrenceMode, RqaConfig, SyncAggregate, TransitionWindow,
 };
-use ndarray::{Array1, Array2, Axis, Ix1, Ix2, Ix3};
-use numpy::{IntoPyArray, PyArray2, PyUntypedArrayMethods};
+use ndarray::{Array1, Array2, Axis, Ix2, Ix3};
+use numpy::{IntoPyArray, PyArray2, PyArrayDescrMethods, PyArrayMethods, PyUntypedArrayMethods};
 use pyo3::IntoPyObjectExt;
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyString, PyTuple};
 
 use crate::args::{
-    FloatElement, PyFloat, f64_array, float_array_as, i64_vec, positive, precision_of, value_err,
-    with_precision,
+    FloatElement, Precision, PyFloat, f64_array, float_array_as, i64_vec, positive, precision_of,
+    value_err, with_precision,
 };
 use crate::audio_err_to_py;
+use crate::features::args::{ChannelView, channel_view};
 
-/// A 1-D or 2-D float array as an owned `(rows, cols)` matrix (1-D -> `(1, n)`).
-fn matrix<F: FloatElement>(obj: &Bound<'_, PyAny>, name: &str) -> PyResult<Array2<F>> {
-    let a = float_array_as::<F>(obj, name)?;
-    let a = a.as_array();
-    match a.ndim() {
-        1 => Ok(a
-            .into_dimensionality::<Ix1>()
-            .expect("1-D")
-            .insert_axis(Axis(0))
-            .to_owned()),
-        2 => Ok(a.into_dimensionality::<Ix2>().expect("2-D").to_owned()),
-        n => Err(value_err(
-            name,
-            format!("expected a 1-D or 2-D array (n_features, n_frames), got {n} dimensions"),
-        )),
-    }
+/// A 1-D or 2-D float array as a `(rows, cols)` view (1-D -> `(1, n)`), no copy.
+fn matrix<'py, F: FloatElement>(
+    obj: &Bound<'py, PyAny>,
+    name: &str,
+) -> PyResult<ChannelView<'py, F, Ix2>> {
+    channel_view(obj, name, "a 1-D or 2-D array (n_features, n_frames)", true).map(|(v, _)| v)
 }
 
-/// A strictly 2-D float array.
-fn matrix2<F: FloatElement>(obj: &Bound<'_, PyAny>, name: &str) -> PyResult<Array2<F>> {
-    let a = float_array_as::<F>(obj, name)?;
-    if a.ndim() != 2 {
-        return Err(value_err(
-            name,
-            format!("expected a 2-D array, got {} dimensions", a.ndim()),
-        ));
-    }
-    Ok(a.as_array()
-        .into_dimensionality::<Ix2>()
-        .expect("2-D")
-        .to_owned())
+/// A strictly 2-D float array as a view, no copy.
+fn matrix2<'py, F: FloatElement>(
+    obj: &Bound<'py, PyAny>,
+    name: &str,
+) -> PyResult<ChannelView<'py, F, Ix2>> {
+    channel_view(obj, name, "a 2-D array", false).map(|(v, _)| v)
 }
 
-/// An optional 1-D float vector.
+/// An optional 1-D float vector (any shape is flattened).
 fn opt_vec<F: FloatElement>(
     obj: Option<&Bound<'_, PyAny>>,
     name: &str,
@@ -250,23 +234,26 @@ pub fn dtw_backtracking<'py>(
     subseq: bool,
     start: Option<Int>,
 ) -> PyResult<Bound<'py, PyArray2<i64>>> {
-    let a = f64_array(steps, "steps")?;
-    if a.ndim() != 2 {
-        return Err(value_err("steps", "expected a 2-D step matrix"));
-    }
-    let shape = (a.shape()[0], a.shape()[1]);
-    let v = i64_vec(steps, "steps")?;
-    let v: Vec<usize> = v
-        .into_iter()
-        .map(|s| usize::try_from(s).map_err(|_| value_err("steps", "step indices must be >= 0")))
-        .collect::<PyResult<_>>()?;
-    let steps = Array2::from_shape_vec(shape, v).map_err(|e| value_err("steps", e))?;
     let custom = parse_steps(step_sizes_sigma)?;
     let start = start
         .map(|s| usize::try_from(s.0).map_err(|_| value_err("start", "must be >= 0")))
         .transpose()?;
-    let path = seq::dtw_backtracking(steps.view(), custom.as_deref(), subseq, start)
-        .map_err(audio_err_to_py)?;
+    let not_2d = || value_err("steps", "expected a 2-D step matrix");
+    // librosa's int32 (or an int64) step matrix is read in place: backtracking
+    // only visits the cells on the path.
+    let path = if let Ok(a) = steps.cast::<numpy::PyArray2<i32>>() {
+        let r = a.readonly();
+        seq::dtw_backtracking(r.as_array(), custom.as_deref(), subseq, start)
+    } else if let Ok(a) = steps.cast::<numpy::PyArray2<i64>>() {
+        let r = a.readonly();
+        seq::dtw_backtracking(r.as_array(), custom.as_deref(), subseq, start)
+    } else {
+        crate::args::with_i64_view(steps, "steps", |v| {
+            let v = v.into_dimensionality::<Ix2>().map_err(|_| not_2d())?;
+            Ok(seq::dtw_backtracking(v, custom.as_deref(), subseq, start))
+        })?
+    }
+    .map_err(audio_err_to_py)?;
     Ok(path_array(py, &path))
 }
 
@@ -427,7 +414,7 @@ fn viterbi_binary_typed<'py, F: PyFloat>(
 ) -> PyResult<Bound<'py, PyAny>> {
     let one_d = f64_array(prob, "prob")?.ndim() == 1;
     let prob = matrix::<F>(prob, "prob")?;
-    let n_states = prob.nrows();
+    let n_states = prob.view().nrows();
     let t = float_array_as::<F>(transition, "transition")?;
     let t = t.as_array();
     let t3 = match t.ndim() {
@@ -852,21 +839,24 @@ pub fn recurrence_to_lag<'py>(
 ) -> PyResult<Bound<'py, PyAny>> {
     let rows_are_time = lag_axis_is_rows(axis)?;
     let is_bool = is_bool_array(rec)?;
-    with_precision!(precision_of(rec), |F| {
+    // Boolean input holds only 0 and 1, exact in float32, and gives boolean
+    // output: compute it in float32 (half the memory traffic of float64).
+    let prec = if is_bool {
+        Precision::F32
+    } else {
+        precision_of(rec)
+    };
+    with_precision!(prec, |F| {
         let m = matrix2::<F>(rec, "rec")?;
         // axis=0 is the axis=-1 transform of the transpose, transposed back.
         let lag = if rows_are_time {
-            seq::recurrence_to_lag(m.t(), pad)
+            seq::recurrence_to_lag(m.view().t(), pad)
                 .map_err(audio_err_to_py)?
                 .reversed_axes()
         } else {
             seq::recurrence_to_lag(m.view(), pad).map_err(audio_err_to_py)?
         };
-        Ok(bool_or_float(
-            py,
-            lag.as_standard_layout().into_owned(),
-            is_bool,
-        ))
+        Ok(bool_or_float(py, lag, is_bool))
     })
 }
 
@@ -889,20 +879,22 @@ pub fn lag_to_recurrence<'py>(
 ) -> PyResult<Bound<'py, PyAny>> {
     let rows_are_time = lag_axis_is_rows(axis)?;
     let is_bool = is_bool_array(lag)?;
-    with_precision!(precision_of(lag), |F| {
+    // As in `recurrence_to_lag`: boolean input is computed in float32.
+    let prec = if is_bool {
+        Precision::F32
+    } else {
+        precision_of(lag)
+    };
+    with_precision!(prec, |F| {
         let m = matrix2::<F>(lag, "lag")?;
         let rec = if rows_are_time {
-            seq::lag_to_recurrence(m.t())
+            seq::lag_to_recurrence(m.view().t())
                 .map_err(audio_err_to_py)?
                 .reversed_axes()
         } else {
             seq::lag_to_recurrence(m.view()).map_err(audio_err_to_py)?
         };
-        Ok(bool_or_float(
-            py,
-            rec.as_standard_layout().into_owned(),
-            is_bool,
-        ))
+        Ok(bool_or_float(py, rec, is_bool))
     })
 }
 
@@ -920,16 +912,26 @@ fn lag_axis_is_rows(axis: Int) -> PyResult<bool> {
 }
 
 fn is_bool_array(obj: &Bound<'_, PyAny>) -> PyResult<bool> {
+    if let Ok(a) = obj.cast::<numpy::PyUntypedArray>() {
+        return Ok(a.dtype().kind() == b'b');
+    }
     let np = obj.py().import("numpy")?;
     let dt = np.call_method1("asarray", (obj,))?.getattr("dtype")?;
     dt.eq(np.getattr("bool_")?)
 }
 
+/// The result in C order (copied only when it is not already), as `bool`
+/// for boolean input and as `F` otherwise.
 fn bool_or_float<'py, F: PyFloat>(
     py: Python<'py>,
     m: Array2<F>,
     is_bool: bool,
 ) -> Bound<'py, PyAny> {
+    let m = if m.is_standard_layout() {
+        m
+    } else {
+        m.as_standard_layout().into_owned()
+    };
     if is_bool {
         m.mapv(|v| v != F::of(0.0)).into_pyarray(py).into_any()
     } else {
