@@ -180,16 +180,25 @@ pub(crate) trait FloatElement: numpy::Element + Copy {
     const REAL_NAME: &'static str;
     /// The numpy name of the matching complex dtype.
     const COMPLEX_NAME: &'static str;
+    /// `v` rounded to this type (as `numpy.asarray(v, dtype=...)` does).
+    fn from_f64(v: f64) -> Self;
 }
 
 impl FloatElement for f32 {
     const REAL_NAME: &'static str = "float32";
     const COMPLEX_NAME: &'static str = "complex64";
+    #[allow(clippy::cast_possible_truncation)]
+    fn from_f64(v: f64) -> Self {
+        v as f32
+    }
 }
 
 impl FloatElement for f64 {
     const REAL_NAME: &'static str = "float64";
     const COMPLEX_NAME: &'static str = "complex128";
+    fn from_f64(v: f64) -> Self {
+        v
+    }
 }
 
 /// The float types the bindings compute in (`f32`, `f64`): the Rust crate's
@@ -220,8 +229,52 @@ macro_rules! with_precision {
 }
 pub(crate) use with_precision;
 
+/// `numpy.asarray(arr, dtype=descr)` for an ndarray `arr` through the NumPy
+/// C API (`PyArray_CheckFromAny` with `NPY_ARRAY_FORCECAST`, as `numpy.asarray`
+/// does): no copy when the dtype already matches, otherwise a cast that keeps
+/// the memory order.
+fn asarray_cast<'py>(
+    arr: &Bound<'py, numpy::PyUntypedArray>,
+    descr: Bound<'py, numpy::PyArrayDescr>,
+) -> PyResult<Bound<'py, PyAny>> {
+    use numpy::PyArrayDescrMethods as _;
+    use numpy::npyffi::{NPY_ARRAY_FORCECAST, PY_ARRAY_API};
+    let py = arr.py();
+    // SAFETY: `PyArray_CheckFromAny` steals the descriptor reference handed
+    // over by `into_dtype_ptr` and returns a new reference (or NULL with an
+    // exception set).
+    unsafe {
+        let ptr = PY_ARRAY_API.PyArray_CheckFromAny(
+            py,
+            arr.as_ptr(),
+            descr.into_dtype_ptr(),
+            0,
+            0,
+            NPY_ARRAY_FORCECAST,
+            std::ptr::null_mut(),
+        );
+        Bound::from_owned_ptr_or_err(py, ptr)
+    }
+}
+
+/// The value of a Python `float` or `int` (including `bool`) as `f64`, or
+/// `None` for anything else (and for ints too large for `f64`, which take the
+/// `numpy.asarray` path and its error).
+fn python_real(obj: &Bound<'_, PyAny>) -> Option<f64> {
+    use pyo3::types::{PyFloat, PyInt};
+    if obj.is_instance_of::<PyFloat>() || obj.is_instance_of::<PyInt>() {
+        obj.extract::<f64>().ok()
+    } else {
+        None
+    }
+}
+
 /// Converts an array-like to a read-only real array of element type `F`
 /// (`numpy.asarray(obj, dtype=F)`), of any dimension.
+///
+/// A NumPy array that already has dtype `F` is used as is (no Python-level
+/// calls, no copy); other NumPy arrays are cast through the C API; anything
+/// else goes through `numpy.asarray`.
 ///
 /// Complex input raises `TypeError` rather than silently dropping the
 /// imaginary part.
@@ -229,30 +282,48 @@ pub(crate) fn float_array_as<'py, F: FloatElement>(
     obj: &Bound<'py, PyAny>,
     name: &str,
 ) -> PyResult<PyReadonlyArrayDyn<'py, F>> {
-    let py = obj.py();
-    let np = numpy(py)?;
-    if np.call_method1("iscomplexobj", (obj,))?.extract::<bool>()? {
-        return Err(PyTypeError::new_err(format!(
-            "{name}: expected a real-valued array, got complex values (take numpy.abs first)"
-        )));
+    if let Ok(arr) = obj.cast::<PyArrayDyn<F>>() {
+        return Ok(arr.readonly());
     }
-    let kwargs = PyDict::new(py);
-    kwargs.set_item("dtype", np.getattr(F::REAL_NAME)?)?;
+    let py = obj.py();
+    let complex_err = || {
+        PyTypeError::new_err(format!(
+            "{name}: expected a real-valued array, got complex values (take numpy.abs first)"
+        ))
+    };
     let conv_err = |e: &dyn std::fmt::Display| {
         PyTypeError::new_err(format!(
             "{name}: cannot convert to a {} array ({e})",
             F::REAL_NAME
         ))
     };
-    let arr = np
-        .call_method("asarray", (obj,), Some(&kwargs))
-        .map_err(|e| conv_err(&e))?;
+    let arr = if let Ok(a) = obj.cast::<numpy::PyUntypedArray>() {
+        if a.dtype().kind() == b'c' {
+            return Err(complex_err());
+        }
+        asarray_cast(a, numpy::dtype::<F>(py)).map_err(|e| conv_err(&e))?
+    } else if let Some(v) = python_real(obj) {
+        // A Python float or int: a 0-d array built directly.
+        numpy::PyArray::from_owned_array(py, ndarray::arr0(F::from_f64(v)).into_dyn()).into_any()
+    } else {
+        let np = numpy(py)?;
+        if np.call_method1("iscomplexobj", (obj,))?.extract::<bool>()? {
+            return Err(complex_err());
+        }
+        let kwargs = PyDict::new(py);
+        kwargs.set_item("dtype", np.getattr(F::REAL_NAME)?)?;
+        np.call_method("asarray", (obj,), Some(&kwargs))
+            .map_err(|e| conv_err(&e))?
+    };
     let arr = arr.cast_into::<PyArrayDyn<F>>().map_err(|e| conv_err(&e))?;
     Ok(arr.readonly())
 }
 
 /// Converts an array-like to a read-only complex array of element type
 /// `Complex<F>` (`numpy.asarray(obj, dtype=complex64/complex128)`).
+///
+/// A NumPy array that already has that dtype is used as is; other NumPy arrays
+/// are cast through the C API; anything else goes through `numpy.asarray`.
 pub(crate) fn complex_array_as<'py, F: FloatElement>(
     obj: &Bound<'py, PyAny>,
     name: &str,
@@ -260,19 +331,25 @@ pub(crate) fn complex_array_as<'py, F: FloatElement>(
 where
     Complex<F>: numpy::Element,
 {
+    if let Ok(arr) = obj.cast::<PyArrayDyn<Complex<F>>>() {
+        return Ok(arr.readonly());
+    }
     let py = obj.py();
-    let np = numpy(py)?;
-    let kwargs = PyDict::new(py);
-    kwargs.set_item("dtype", np.getattr(F::COMPLEX_NAME)?)?;
     let conv_err = |e: &dyn std::fmt::Display| {
         PyTypeError::new_err(format!(
             "{name}: cannot convert to a {} array ({e})",
             F::COMPLEX_NAME
         ))
     };
-    let arr = np
-        .call_method("asarray", (obj,), Some(&kwargs))
-        .map_err(|e| conv_err(&e))?;
+    let arr = if let Ok(a) = obj.cast::<numpy::PyUntypedArray>() {
+        asarray_cast(a, numpy::dtype::<Complex<F>>(py)).map_err(|e| conv_err(&e))?
+    } else {
+        let np = numpy(py)?;
+        let kwargs = PyDict::new(py);
+        kwargs.set_item("dtype", np.getattr(F::COMPLEX_NAME)?)?;
+        np.call_method("asarray", (obj,), Some(&kwargs))
+            .map_err(|e| conv_err(&e))?
+    };
     let arr = arr
         .cast_into::<PyArrayDyn<Complex<F>>>()
         .map_err(|e| conv_err(&e))?;
@@ -365,24 +442,75 @@ pub(crate) fn output_sample_type(
     })
 }
 
-/// Converts an array-like of integers to a `Vec<i64>` (flattened), rejecting
-/// non-integral values.
-pub(crate) fn i64_vec(obj: &Bound<'_, PyAny>, name: &str) -> PyResult<Vec<i64>> {
+/// Largest magnitude accepted from a non-integer array-like of integers: 2**53,
+/// the range in which `float64` holds every integer exactly.
+const MAX_EXACT_INT: f64 = 9.007_199_254_740_992e15;
+
+/// Runs `f` on an array-like of integers as an `int64` view of any shape.
+///
+/// Integer (and bool) NumPy arrays are read directly (`int64`) or cast through
+/// the C API, without a range check (the Rust conversions saturate). Anything
+/// else is converted to `float64` and must hold integers below 2**53 in
+/// magnitude (the range in which `float64` holds every integer exactly).
+pub(crate) fn with_i64_view<R>(
+    obj: &Bound<'_, PyAny>,
+    name: &str,
+    f: impl FnOnce(ndarray::ArrayViewD<'_, i64>) -> PyResult<R>,
+) -> PyResult<R> {
+    if let Ok(arr) = obj.cast::<PyArrayDyn<i64>>() {
+        let r = arr.readonly();
+        return f(r.as_array());
+    }
+    if let Ok(a) = obj.cast::<numpy::PyUntypedArray>() {
+        let dt = a.dtype();
+        // Signed ints of any size, unsigned below 64 bits and bool convert to
+        // int64 exactly; uint64 takes the float64 path (range check).
+        if matches!(dt.kind(), b'i' | b'b') || (dt.kind() == b'u' && dt.itemsize() < 8) {
+            let c = asarray_cast(a, numpy::dtype::<i64>(obj.py()))?;
+            let c = c
+                .cast_into::<PyArrayDyn<i64>>()
+                .map_err(|e| value_err(name, e))?;
+            let r = c.readonly();
+            return f(r.as_array());
+        }
+    }
     let arr = f64_array(obj, name)?;
-    arr.as_array()
-        .iter()
-        .map(|&v| {
-            if v.is_finite() && v.fract() == 0.0 && v.abs() < 9.007_199_254_740_992e15 {
-                Ok(v as i64)
-            } else {
-                Err(value_err(name, format!("expected integer values, got {v}")))
-            }
-        })
-        .collect()
+    let mut bad = None;
+    let ints = arr.as_array().mapv(|v| {
+        if v.is_finite() && v.fract() == 0.0 && v.abs() < MAX_EXACT_INT {
+            v as i64
+        } else {
+            bad.get_or_insert(v);
+            0
+        }
+    });
+    if let Some(v) = bad {
+        return Err(value_err(name, format!("expected integer values, got {v}")));
+    }
+    f(ints.view())
+}
+
+/// Converts an array-like of integers to a `Vec<i64>` (flattened, logical
+/// order), rejecting non-integral values.
+pub(crate) fn i64_vec(obj: &Bound<'_, PyAny>, name: &str) -> PyResult<Vec<i64>> {
+    with_i64_view(obj, name, |v| Ok(v.iter().copied().collect()))
 }
 
 /// `True` if `obj` is a scalar for NumPy (`numpy.ndim(obj) == 0`).
+///
+/// NumPy arrays, Python numbers, lists and tuples are answered without
+/// calling into NumPy.
 pub(crate) fn is_scalar(obj: &Bound<'_, PyAny>) -> PyResult<bool> {
+    use pyo3::types::{PyFloat, PyInt, PyList};
+    if let Ok(a) = obj.cast::<numpy::PyUntypedArray>() {
+        return Ok(a.ndim() == 0);
+    }
+    if obj.is_instance_of::<PyFloat>() || obj.is_instance_of::<PyInt>() {
+        return Ok(true);
+    }
+    if obj.is_instance_of::<PyList>() || obj.is_instance_of::<PyTuple>() {
+        return Ok(false);
+    }
     Ok(numpy(obj.py())?
         .call_method1("ndim", (obj,))?
         .extract::<usize>()?
@@ -398,6 +526,9 @@ pub(crate) fn map_f64<'py>(
 ) -> PyResult<Bound<'py, PyAny>> {
     use numpy::IntoPyArray;
     let py = obj.py();
+    if let Some(v) = python_real(obj) {
+        return f(v).into_bound_py_any(py);
+    }
     let arr = f64_array(obj, name)?;
     if is_scalar(obj)? {
         let v = *arr
@@ -441,16 +572,14 @@ where
 {
     use numpy::IntoPyArray;
     let py = obj.py();
-    let values = i64_vec(obj, name)?;
-    if is_scalar(obj)? {
-        return f(values[0]).into_bound_py_any(py);
-    }
-    let arr = f64_array(obj, name)?;
-    let shape = arr.shape().to_vec();
-    let out: Vec<R> = values.into_iter().map(f).collect();
-    let out = ndarray::ArrayD::from_shape_vec(ndarray::IxDyn(&shape), out)
-        .map_err(|e| value_err(name, e))?;
-    Ok(out.into_pyarray(py).into_any())
+    let scalar = is_scalar(obj)?;
+    with_i64_view(obj, name, |v| {
+        if scalar {
+            let x = *v.iter().next().expect("0-d array has one element");
+            return f(x).into_bound_py_any(py);
+        }
+        Ok(v.mapv(&f).into_pyarray(py).into_any())
+    })
 }
 
 // =============================================================================
