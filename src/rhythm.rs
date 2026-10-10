@@ -70,6 +70,7 @@ fn record_callback_err(e: PyErr) {
 fn py_aggregate(values: &[f64]) -> f64 {
     Python::attach(|py| {
         let Some(f) = AGGREGATE_CB.with(|c| c.borrow().as_ref().map(|f| f.clone_ref(py))) else {
+            record_callback_err(missing_callback("aggregate"));
             return f64::NAN;
         };
         let result = (|| -> PyResult<f64> {
@@ -95,6 +96,7 @@ fn py_aggregate(values: &[f64]) -> f64 {
 fn py_prior(bpm: f64) -> f64 {
     Python::attach(|py| {
         let Some(f) = PRIOR_CB.with(|c| c.borrow().as_ref().map(|f| f.clone_ref(py))) else {
+            record_callback_err(missing_callback("prior"));
             return f64::NAN;
         };
         let result = f.bind(py).call1((bpm,)).and_then(|r| {
@@ -109,8 +111,17 @@ fn py_prior(bpm: f64) -> f64 {
     })
 }
 
-/// Installs the Python callbacks for one call; cleared on drop.
-pub(crate) struct CallbackScope(());
+/// Installs the Python callbacks for one call and restores the previous ones
+/// on drop.
+///
+/// The slots behave as a stack: a callback may itself call another
+/// callback-taking binding (directly or through library code), and the inner
+/// call must not clobber the outer call's callbacks or its pending error.
+pub(crate) struct CallbackScope {
+    prev_aggregate: Option<Py<PyAny>>,
+    prev_prior: Option<Py<PyAny>>,
+    prev_err: Option<PyErr>,
+}
 
 impl CallbackScope {
     pub(crate) fn install(
@@ -118,10 +129,14 @@ impl CallbackScope {
         prior: Option<&Py<PyAny>>,
         py: Python<'_>,
     ) -> Self {
-        AGGREGATE_CB.with(|c| *c.borrow_mut() = aggregate.map(|f| f.clone_ref(py)));
-        PRIOR_CB.with(|c| *c.borrow_mut() = prior.map(|f| f.clone_ref(py)));
-        CALLBACK_ERR.with(|c| *c.borrow_mut() = None);
-        Self(())
+        let prev_aggregate = AGGREGATE_CB.with(|c| c.replace(aggregate.map(|f| f.clone_ref(py))));
+        let prev_prior = PRIOR_CB.with(|c| c.replace(prior.map(|f| f.clone_ref(py))));
+        let prev_err = CALLBACK_ERR.with(|c| c.replace(None));
+        Self {
+            prev_aggregate,
+            prev_prior,
+            prev_err,
+        }
     }
 
     /// Converts the Rust result, giving precedence to an exception raised by a
@@ -136,10 +151,19 @@ impl CallbackScope {
 
 impl Drop for CallbackScope {
     fn drop(&mut self) {
-        AGGREGATE_CB.with(|c| *c.borrow_mut() = None);
-        PRIOR_CB.with(|c| *c.borrow_mut() = None);
-        CALLBACK_ERR.with(|c| *c.borrow_mut() = None);
+        AGGREGATE_CB.with(|c| *c.borrow_mut() = self.prev_aggregate.take());
+        PRIOR_CB.with(|c| *c.borrow_mut() = self.prev_prior.take());
+        CALLBACK_ERR.with(|c| *c.borrow_mut() = self.prev_err.take());
     }
+}
+
+/// The error recorded when a trampoline runs with no callback installed. This
+/// is a binding bug (the Rust call outlived its [`CallbackScope`]); it is
+/// raised rather than silently producing NaN.
+fn missing_callback(name: &str) -> PyErr {
+    pyo3::exceptions::PyRuntimeError::new_err(format!(
+        "{name}: internal error: the Python callback is no longer installed"
+    ))
 }
 
 /// A parsed `aggregate` argument.

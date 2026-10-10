@@ -135,6 +135,74 @@ def test_custom_aggregate_callable(sr):
         a.onset_strength(aggregate=lambda x, axis=-1: 1 / 0)
 
 
+def _click_envelope():
+    """A deterministic onset envelope (clicks every 0.5 s) that needs no fixtures."""
+    sr = 22050
+    rng = np.random.default_rng(0)
+    y = np.zeros(sr * 6)
+    for k in range(0, len(y), sr // 2):
+        y[k : k + 200] += rng.standard_normal(200)
+    return aus.AudioSamples.new_mono(y, sample_rate=sr).onset_strength()[0], sr
+
+
+def test_nested_callable_aggregate_does_not_clobber_outer():
+    # Regression: the callback slots were single thread-locals; an inner call
+    # made from inside a callback cleared the outer callback, and the outer
+    # trampoline then returned NaN silently (a wrong tempo, no error).
+    env, sr = _click_envelope()
+    ref = R.tempo(onset_envelope=env, sr=sr, aggregate=np.mean)
+    calls = [0]
+
+    def outer(x, axis=-1):
+        calls[0] += 1
+        if calls[0] == 1:
+            inner = R.tempo(onset_envelope=env, sr=sr, aggregate=lambda v, axis=-1: float(np.mean(v)))
+            np.testing.assert_allclose(inner, ref)
+        return float(np.mean(x, axis=axis))
+
+    np.testing.assert_allclose(R.tempo(onset_envelope=env, sr=sr, aggregate=outer), ref)
+    assert calls[0] > 1
+
+    # A nested prior inside an aggregate callback, and vice versa.
+    class Prior:
+        def logpdf(self, bpm):
+            R.tempo(onset_envelope=env, sr=sr, aggregate=lambda v, axis=-1: float(np.mean(v)))
+            return 0.0
+
+    flat = R.tempo(onset_envelope=env, sr=sr, aggregate=np.mean, prior=lambda bpm: 0.0)
+    nested = R.tempo(onset_envelope=env, sr=sr, aggregate=lambda v, axis=-1: float(np.mean(v)), prior=Prior())
+    np.testing.assert_allclose(nested, flat)
+
+
+def test_nested_callable_that_raises_does_not_corrupt_outer():
+    env, sr = _click_envelope()
+    ref = R.tempo(onset_envelope=env, sr=sr, aggregate=np.mean)
+
+    def bad(x, axis=-1):
+        raise KeyError("boom")
+
+    def outer(x, axis=-1):
+        with pytest.raises(KeyError):
+            R.tempo(onset_envelope=env, sr=sr, aggregate=bad)
+        return float(np.mean(x, axis=axis))
+
+    # The inner error is raised by the inner call only; the outer result is intact.
+    np.testing.assert_allclose(R.tempo(onset_envelope=env, sr=sr, aggregate=outer), ref)
+
+    # An outer error raised before a nested call survives the nested call.
+    seen = [0]
+
+    def outer_raises_then_nests(x, axis=-1):
+        seen[0] += 1
+        if seen[0] == 1:
+            raise ValueError("outer boom")
+        R.tempo(onset_envelope=env, sr=sr, aggregate=lambda v, axis=-1: float(np.mean(v)))
+        return float(np.mean(x, axis=axis))
+
+    with pytest.raises(ValueError, match="outer boom"):
+        R.tempo(onset_envelope=env, sr=sr, aggregate=outer_raises_then_nests)
+
+
 # ---------------------------------------------------------------------------
 # Peak picking, onset detection, backtracking
 # ---------------------------------------------------------------------------
