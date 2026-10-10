@@ -11,8 +11,8 @@ use crate::args::{map_f64, non_negative, positive};
 use crate::audio_err_to_py;
 
 /// Converts frequencies (Hz) to fractional octave numbers, equivalent to
-/// ``librosa.hz_to_octs``. Octave 0 starts at A0 / 2 (13.75 Hz for A440 tuning),
-/// so A4 is octave 4.75.
+/// ``librosa.hz_to_octs``. Octave 0 is A0 (27.5 Hz for A440 tuning), so A4
+/// is octave 4.0.
 ///
 /// Args:
 ///     frequencies (float | array_like): Frequencies in Hz.

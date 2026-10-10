@@ -378,7 +378,7 @@ def mu_law_decode(codes: npt.ArrayLike, *, mu: float = 255.0) -> Any:
 # =============================================================================
 
 def hz_to_octs(frequencies: npt.ArrayLike, *, tuning: float = 0.0, bins_per_octave: int = 12) -> Any:
-    """Frequencies (Hz) to fractional octaves, like ``librosa.hz_to_octs`` (A4 = 4.75).
+    """Frequencies (Hz) to fractional octaves, like ``librosa.hz_to_octs`` (A0 = 27.5 Hz is 0, A4 = 4.0).
 
     Returns:
         float for scalar input, otherwise numpy.ndarray[float64] of the same shape.
