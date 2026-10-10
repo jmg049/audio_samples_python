@@ -557,7 +557,7 @@ where librosa defaults it to 512. The note-name functions are scalar.
    * - ``samples_to_time``
      - ``utils.samples_to_time``
      - with differences
-     - Scalar only; ``(samples, sample_rate)``
+     - Positional ``(samples, sample_rate)``; scalar or array of non-negative indices
    * - ``time_to_frames``
      - ``utils.time_to_frames_floor``
      - equivalent
@@ -618,20 +618,22 @@ where librosa defaults it to 512. The note-name functions are scalar.
    * - ``hz_to_note``
      - ``utils.frequency_to_note``
      - with differences
-     - Scalar; returns ``(name, cents)``; ASCII ``#``; MIDI 0..127 only
+     - Returns ``(name, cents)`` (a list of names and a cents array for array
+       input); ASCII ``#``; MIDI 0..127 only
    * - ``midi_to_note``
      - ``utils.midi_to_note``
      - with differences
-     - Scalar integer MIDI 0..127; ASCII ``#``; no cents, no ``octave=False``
+     - Integer MIDI 0..127 (an array gives a list of names); ASCII ``#``; no
+       cents, no ``octave=False``
    * - ``note_to_hz``
      - ``utils.note_to_frequency``
      - with differences
-     - Scalar; grammar and limits as ``note_to_midi``
+     - Name or sequence of names; grammar and limits as ``note_to_midi``
    * - ``note_to_midi``
      - ``utils.note_to_midi``
      - with differences
-     - Scalar; librosa's grammar (accidentals, cents suffix); the octave is
-       required and the result is in 0..127
+     - Name or sequence of names; librosa's grammar (accidentals, cents
+       suffix); the octave is required and the result is in 0..127
    * - ``hz_to_octs``
      - ``utils.hz_to_octs``
      - equivalent

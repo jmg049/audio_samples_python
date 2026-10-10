@@ -4,7 +4,7 @@ This module provides frequency conversions, amplitude/power conversions,
 time/frame conversions, musical theory functions, and spectral utilities.
 """
 
-from typing import Any, Optional, Union
+from typing import Any, Optional, Sequence, Union, overload
 
 import numpy as np
 import numpy.typing as npt
@@ -142,15 +142,22 @@ def time_to_frames(time_seconds: npt.ArrayLike, sample_rate: float, hop_size: in
     """
     ...
 
-def samples_to_time(samples: int, sample_rate: float) -> float:
-    """Convert sample index to time offset in seconds.
+@overload
+def samples_to_time(samples: int, sample_rate: float) -> float: ...
+@overload
+def samples_to_time(samples: npt.ArrayLike, sample_rate: float) -> NDArray[np.float64]: ...
+def samples_to_time(samples: Any, sample_rate: float) -> Any:
+    """Convert sample indices to time offsets in seconds.
 
     Args:
-        samples: The sample index to convert.
+        samples: A sample index, or an array-like of non-negative integer indices.
         sample_rate: The sampling rate in Hertz.
 
     Returns:
-        The corresponding time offset in seconds.
+        float for a scalar index, otherwise a float64 array of the input's shape.
+
+    Raises:
+        ValueError: For negative or non-integral indices in an array.
     """
     ...
 
@@ -177,8 +184,12 @@ def ms_to_samples(ms: float, sample_rate: float) -> int:
 # MUSICAL THEORY FUNCTIONS
 # =============================================================================
 
-def note_to_midi(note_name: str) -> int:
-    """Parse scientific pitch notation string to MIDI note number.
+@overload
+def note_to_midi(note_name: str) -> int: ...
+@overload
+def note_to_midi(note_name: Sequence[str]) -> NDArray[np.int64]: ...
+def note_to_midi(note_name: Any) -> Any:
+    """Parse scientific pitch notation to MIDI note numbers.
 
     Follows librosa's grammar: upper- or lowercase note letters, any run of
     the accidentals ``#`` ``♯`` ``b`` ``!`` ``♭`` ``𝄪`` ``𝄫`` ``♮``, a signed octave
@@ -186,50 +197,69 @@ def note_to_midi(note_name: str) -> int:
     even). The octave is required.
 
     Args:
-        note_name: A note name in scientific pitch notation (e.g., "A4", "C#3", "Bb2").
+        note_name: A note name in scientific pitch notation (e.g., "A4", "C#3",
+            "Bb2"), or a sequence of names.
 
     Returns:
-        The corresponding MIDI note number (0-127).
+        The corresponding MIDI note number (0-127); an int64 array for a sequence.
 
     Raises:
-        ValueError: If the note name is invalid or out of MIDI range.
+        ValueError: If a note name is invalid or out of MIDI range.
     """
     ...
 
-def midi_to_note(midi_note: int) -> str:
-    """MIDI number (0-127) to a note name with sharps, e.g. ``"A4"``, ``"C#3"``.
+@overload
+def midi_to_note(midi_note: int) -> str: ...
+@overload
+def midi_to_note(midi_note: npt.ArrayLike) -> list[str]: ...
+def midi_to_note(midi_note: Any) -> Any:
+    """MIDI numbers (0-127) to note names with sharps, e.g. ``"A4"``, ``"C#3"``.
+
+    A scalar gives a str; an array-like gives a list of names (flattened).
 
     Raises:
-        ValueError: If ``midi_note`` is outside 0-127 (including negative values).
+        ValueError: If a ``midi_note`` is outside 0-127 (including negative values).
     """
     ...
 
-def note_to_frequency(note_name: str) -> float:
-    """Convert scientific pitch notation string to frequency in Hertz.
+@overload
+def note_to_frequency(note_name: str) -> float: ...
+@overload
+def note_to_frequency(note_name: Sequence[str]) -> NDArray[np.float64]: ...
+def note_to_frequency(note_name: Any) -> Any:
+    """Convert scientific pitch notation to frequencies in Hertz.
 
     Args:
-        note_name: A note name in scientific pitch notation (e.g., "A4", "C#3").
+        note_name: A note name in scientific pitch notation (e.g., "A4", "C#3"),
+            or a sequence of names.
 
     Returns:
-        The corresponding frequency in Hertz.
+        The corresponding frequency in Hertz; a float64 array for a sequence.
 
     Raises:
-        ValueError: If the note name is invalid or out of MIDI range.
+        ValueError: If a note name is invalid or out of MIDI range.
     """
     ...
 
-def frequency_to_note(freq_hz: float) -> tuple[str, float]:
-    """Convert frequency in Hertz to nearest musical note and cents offset.
+@overload
+def frequency_to_note(freq_hz: float) -> tuple[str, float]: ...
+@overload
+def frequency_to_note(freq_hz: npt.ArrayLike) -> tuple[list[str], NDArray[np.float64]]: ...
+def frequency_to_note(freq_hz: Any) -> Any:
+    """Convert frequencies in Hertz to the nearest notes and cents offsets.
 
     Args:
-        freq_hz: The input frequency in Hertz. Must be positive.
+        freq_hz: The input frequency in Hertz (positive), or an array-like of
+            frequencies.
 
     Returns:
         A tuple (note_name, cents) where note_name is the nearest pitch and
-        cents is the signed deviation from that pitch.
+        cents is the signed deviation from that pitch. For an array-like: a
+        list of names (flattened) and a float64 array of cents of the input's
+        shape.
 
     Raises:
-        ValueError: If the frequency is non-positive.
+        ValueError: If a frequency is non-positive.
     """
     ...
 

@@ -84,6 +84,26 @@ def test_midi_to_note_out_of_range_is_value_error():
             U.midi_to_note(bad)
 
 
+def test_conversions_accept_arrays():
+    # The array forms give the scalar results element by element.
+    hz = np.geomspace(30.0, 4000.0, 50)
+    names, cents = U.frequency_to_note(hz)
+    assert names == [U.frequency_to_note(f)[0] for f in hz.tolist()]
+    assert np.array_equal(cents, [U.frequency_to_note(f)[1] for f in hz.tolist()])
+    midi = np.arange(128)
+    assert U.midi_to_note(midi) == [U.midi_to_note(int(m)) for m in midi]
+    notes = U.midi_to_note(midi)
+    assert np.array_equal(U.note_to_midi(notes), midi)
+    assert np.array_equal(U.note_to_frequency(notes), [U.note_to_frequency(n) for n in notes])
+    s = np.arange(0, 10**6, 997)
+    assert np.array_equal(U.samples_to_time(s, 22050), [U.samples_to_time(int(x), 22050) for x in s])
+    assert isinstance(U.samples_to_time(np.int64(5), 22050), float)
+    with pytest.raises(ValueError, match="samples"):
+        U.samples_to_time([3, -1], 22050)
+    with pytest.raises(ValueError, match="midi_note"):
+        U.midi_to_note([60, 128])
+
+
 def test_generator_dtype_accepts_scalar_types():
     for spec in (np.float64, np.dtype("float64"), "float64"):
         assert aus.sine_wave(440.0, 0.01, dtype=spec).dtype == "f64"

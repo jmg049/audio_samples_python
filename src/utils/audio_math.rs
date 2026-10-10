@@ -284,21 +284,78 @@ pub fn time_to_frames<'py>(
 
 #[pyfunction]
 #[pyo3(signature = (samples, sample_rate))]
-/// Converts a sample index into a time offset expressed in seconds.
+/// Converts sample indices into time offsets expressed in seconds.
 ///
 /// Args:
-///     samples: The sample index to convert.
+///     samples: A sample index, or an array-like of non-negative integer indices.
 ///     sample_rate: The sampling rate in Hertz.
 ///
 /// Returns:
-///     The corresponding time offset in seconds.
+///     float for a scalar index, otherwise a float64 array of the input's shape.
+///
+/// Raises:
+///     ValueError: For negative or non-integral indices in an array.
 ///
 /// Example:
 ///     >>> from audio_samples.utils import samples_to_time
 ///     >>> t = samples_to_time(44100, 44100.0)  # Returns 1.0
-#[inline]
-pub fn samples_to_time(samples: usize, sample_rate: f64) -> f64 {
-    audio_math::samples_to_time(samples, sample_rate)
+///     >>> ts = samples_to_time([0, 22050], 44100.0)  # array([0. , 0.5])
+pub fn samples_to_time<'py>(
+    samples: &Bound<'py, PyAny>,
+    sample_rate: f64,
+) -> PyResult<Bound<'py, PyAny>> {
+    use pyo3::IntoPyObjectExt;
+    let py = samples.py();
+    if !is_sequence_like(samples) {
+        let n: usize = samples.extract()?;
+        return audio_math::samples_to_time(n, sample_rate).into_bound_py_any(py);
+    }
+    crate::args::with_i64_view(samples, "samples", |v| {
+        // One pass: `s as f64 / sample_rate` is `audio_math::samples_to_time`
+        // for s >= 0; negative indices are reported after the pass.
+        let mut negative = false;
+        let t = v.mapv(|s| {
+            negative |= s < 0;
+            s as f64 / sample_rate
+        });
+        if negative {
+            return Err(value_err("samples", "sample indices must be >= 0"));
+        }
+        Ok(t.into_pyarray(py).into_any())
+    })
+}
+
+/// `True` for inputs handled element-wise by the scalar-or-array conversions:
+/// NumPy arrays with at least one dimension, lists and tuples. Everything else
+/// (Python and NumPy scalars, 0-d arrays) takes the scalar path.
+fn is_sequence_like(obj: &Bound<'_, PyAny>) -> bool {
+    use numpy::PyUntypedArrayMethods;
+    match obj.cast::<numpy::PyUntypedArray>() {
+        Ok(a) => a.ndim() > 0,
+        Err(_) => {
+            obj.is_instance_of::<pyo3::types::PyList>()
+                || obj.is_instance_of::<pyo3::types::PyTuple>()
+        }
+    }
+}
+
+/// Collects `f` over the elements of a 1-D sequence of strings (list, tuple,
+/// NumPy string array or any iterable).
+fn map_strings<T>(
+    obj: &Bound<'_, PyAny>,
+    name: &str,
+    mut f: impl FnMut(&str) -> PyResult<T>,
+) -> PyResult<Vec<T>> {
+    let mut out = Vec::with_capacity(obj.len().unwrap_or(0));
+    for item in obj.try_iter()? {
+        let item = item?;
+        let s = item
+            .cast::<pyo3::types::PyString>()
+            .map_err(|_| value_err(name, "expected a note name or a sequence of note names"))?
+            .to_cow()?;
+        out.push(f(&s)?);
+    }
+    Ok(out)
 }
 
 #[pyfunction]
@@ -349,17 +406,18 @@ pub fn ms_to_samples(ms: f64, sample_rate: f64) -> usize {
 
 #[pyfunction]
 #[pyo3(signature = (note_name))]
-/// Parses a scientific pitch notation string and converts it into a MIDI note number.
+/// Parses scientific pitch notation and converts it into MIDI note numbers.
 ///
 /// Follows librosa's grammar: upper- or lowercase note letters, any run of the accidentals
 /// `#` `♯` `b` `!` `♭` `𝄪` `𝄫` `♮`, a signed octave (`C-1` = 0) and an optional cents suffix
 /// (`A4+50`, rounded half to even). The octave is required.
 ///
 /// Args:
-///     note_name: A note name in scientific pitch notation (e.g., "A4", "C#3", "Bb2").
+///     note_name: A note name in scientific pitch notation (e.g., "A4", "C#3",
+///         "Bb2"), or a sequence of names.
 ///
 /// Returns:
-///     The corresponding MIDI note number (0-127).
+///     The corresponding MIDI note number (0-127); an int64 array for a sequence.
 ///
 /// Raises:
 ///     ValueError: If the note name is invalid or out of MIDI range.
@@ -368,9 +426,20 @@ pub fn ms_to_samples(ms: f64, sample_rate: f64) -> usize {
 ///     >>> from audio_samples.utils import note_to_midi
 ///     >>> midi = note_to_midi("A4")  # Returns 69
 ///     >>> midi = note_to_midi("C#4")  # Returns 61
-#[inline]
-pub fn note_to_midi(note_name: &str) -> PyResult<u8> {
-    audio_math::note_to_midi(note_name).map_err(audio_err_to_py)
+pub fn note_to_midi<'py>(note_name: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+    use pyo3::IntoPyObjectExt;
+    let py = note_name.py();
+    if let Ok(s) = note_name.cast::<pyo3::types::PyString>() {
+        return audio_math::note_to_midi(&s.to_cow()?)
+            .map_err(audio_err_to_py)?
+            .into_bound_py_any(py);
+    }
+    let v = map_strings(note_name, "note_name", |s| {
+        audio_math::note_to_midi(s)
+            .map(i64::from)
+            .map_err(audio_err_to_py)
+    })?;
+    Ok(v.into_pyarray(py).into_any())
 }
 
 /// Converts a MIDI note number into a scientific pitch notation string.
@@ -378,10 +447,12 @@ pub fn note_to_midi(note_name: &str) -> PyResult<u8> {
 /// Always uses sharp notation for accidentals.
 ///
 /// Args:
-///     midi_note (int): A MIDI note number (0-127).
+///     midi_note (int | array_like[int]): A MIDI note number (0-127), or an
+///         array-like of them.
 ///
 /// Returns:
-///     str: A note name in scientific pitch notation (e.g., "A4", "C#3").
+///     str: A note name in scientific pitch notation (e.g., "A4", "C#3"); a
+///     list of names (flattened) for an array-like.
 ///
 /// Raises:
 ///     ValueError: If the MIDI note is outside the valid range 0-127.
@@ -392,23 +463,36 @@ pub fn note_to_midi(note_name: &str) -> PyResult<u8> {
 ///     >>> midi_to_note(61)  # "C#4"
 #[pyfunction]
 #[pyo3(signature = (midi_note), text_signature = "(midi_note)")]
-pub fn midi_to_note(midi_note: Int) -> PyResult<String> {
-    let m = u8::try_from(midi_note.0)
-        .ok()
-        .filter(|&m| m <= 127)
-        .ok_or_else(|| value_err("midi_note", format!("must be in 0..=127, got {midi_note}")))?;
-    audio_math::midi_to_note(m).map_err(audio_err_to_py)
+pub fn midi_to_note<'py>(midi_note: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+    use pyo3::IntoPyObjectExt;
+    let py = midi_note.py();
+    let one = |m: i64| -> PyResult<String> {
+        let m = u8::try_from(m)
+            .ok()
+            .filter(|&m| m <= 127)
+            .ok_or_else(|| value_err("midi_note", format!("must be in 0..=127, got {}", Int(m))))?;
+        audio_math::midi_to_note(m).map_err(audio_err_to_py)
+    };
+    if !is_sequence_like(midi_note) {
+        let m: Int = midi_note.extract()?;
+        return one(m.0)?.into_bound_py_any(py);
+    }
+    let names = crate::args::with_i64_view(midi_note, "midi_note", |v| {
+        v.iter().map(|&m| one(m)).collect::<PyResult<Vec<String>>>()
+    })?;
+    names.into_bound_py_any(py)
 }
 
 #[pyfunction]
 #[pyo3(signature = (note_name))]
-/// Converts a scientific pitch notation string into a frequency expressed in Hertz.
+/// Converts scientific pitch notation into frequencies expressed in Hertz.
 ///
 /// Args:
-///     note_name: A note name in scientific pitch notation (e.g., "A4", "C#3").
+///     note_name: A note name in scientific pitch notation (e.g., "A4", "C#3"),
+///         or a sequence of names.
 ///
 /// Returns:
-///     The corresponding frequency in Hertz.
+///     The corresponding frequency in Hertz; a float64 array for a sequence.
 ///
 /// Raises:
 ///     ValueError: If the note name is invalid or out of MIDI range.
@@ -416,9 +500,18 @@ pub fn midi_to_note(midi_note: Int) -> PyResult<String> {
 /// Example:
 ///     >>> from audio_samples.utils import note_to_frequency
 ///     >>> freq = note_to_frequency("A4")  # Returns 440.0
-#[inline]
-pub fn note_to_frequency(note_name: &str) -> PyResult<f64> {
-    audio_math::note_to_frequency(note_name).map_err(audio_err_to_py)
+pub fn note_to_frequency<'py>(note_name: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+    use pyo3::IntoPyObjectExt;
+    let py = note_name.py();
+    if let Ok(s) = note_name.cast::<pyo3::types::PyString>() {
+        return audio_math::note_to_frequency(&s.to_cow()?)
+            .map_err(audio_err_to_py)?
+            .into_bound_py_any(py);
+    }
+    let v = map_strings(note_name, "note_name", |s| {
+        audio_math::note_to_frequency(s).map_err(audio_err_to_py)
+    })?;
+    Ok(v.into_pyarray(py).into_any())
 }
 
 #[pyfunction]
@@ -426,11 +519,13 @@ pub fn note_to_frequency(note_name: &str) -> PyResult<f64> {
 /// Converts a frequency expressed in Hertz into the nearest musical note and cents offset.
 ///
 /// Args:
-///     freq_hz: The input frequency in Hertz. Must be positive.
+///     freq_hz: The input frequency in Hertz (positive), or an array-like of
+///         frequencies.
 ///
 /// Returns:
 ///     A tuple (note_name, cents) where note_name is the nearest pitch and cents is
-///     the signed deviation from that pitch.
+///     the signed deviation from that pitch. For an array-like: a list of names
+///     (flattened) and a float64 array of cents of the input's shape.
 ///
 /// Raises:
 ///     ValueError: If the frequency is non-positive.
@@ -439,9 +534,27 @@ pub fn note_to_frequency(note_name: &str) -> PyResult<f64> {
 ///     >>> from audio_samples.utils import frequency_to_note
 ///     >>> note, cents = frequency_to_note(440.0)  # Returns ("A4", 0.0)
 ///     >>> note, cents = frequency_to_note(445.0)  # Returns ("A4", ~19.56)
-#[inline]
-pub fn frequency_to_note(freq_hz: f64) -> PyResult<(String, f64)> {
-    audio_math::frequency_to_note(freq_hz).map_err(audio_err_to_py)
+pub fn frequency_to_note<'py>(freq_hz: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+    use pyo3::IntoPyObjectExt;
+    let py = freq_hz.py();
+    if !is_sequence_like(freq_hz) {
+        let f: f64 = freq_hz.extract()?;
+        return audio_math::frequency_to_note(f)
+            .map_err(audio_err_to_py)?
+            .into_bound_py_any(py);
+    }
+    let a = crate::args::f64_array(freq_hz, "freq_hz")?;
+    let v = a.as_array();
+    let mut names = Vec::with_capacity(v.len());
+    let mut cents = Vec::with_capacity(v.len());
+    for &f in &v {
+        let (n, c) = audio_math::frequency_to_note(f).map_err(audio_err_to_py)?;
+        names.push(n);
+        cents.push(c);
+    }
+    let cents =
+        ndarray::ArrayD::from_shape_vec(v.raw_dim(), cents).map_err(|e| value_err("freq_hz", e))?;
+    (names, cents.into_pyarray(py)).into_bound_py_any(py)
 }
 
 #[pyfunction]
