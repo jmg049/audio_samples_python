@@ -3,6 +3,7 @@
 //! `filters.wavelet` / `wavelet_lengths`, and the chroma-input forms of
 //! `feature.chroma_cens` / `feature.tonnetz`.
 
+use crate::args::Int;
 use audio_samples::operations::constant_q::{self as cq, WaveletConfig};
 use audio_samples::operations::filterbanks::Window;
 use num_complex::Complex;
@@ -31,14 +32,14 @@ use crate::audio_err_to_py;
 ///     ValueError: For invalid parameters or a non-None ``window``.
 #[pyfunction]
 #[pyo3(
-    signature = (n_input, *, bins_per_octave = 12, n_chroma = 12, fmin = None, window = None, base_c = true),
+    signature = (n_input, *, bins_per_octave = Int(12), n_chroma = Int(12), fmin = None, window = None, base_c = true),
     text_signature = "(n_input, *, bins_per_octave=12, n_chroma=12, fmin=None, window=None, base_c=True)"
 )]
 pub fn cq_to_chroma<'py>(
     py: Python<'py>,
-    n_input: i64,
-    bins_per_octave: i64,
-    n_chroma: i64,
+    n_input: Int,
+    bins_per_octave: Int,
+    n_chroma: Int,
     fmin: Option<f64>,
     window: Option<&Bound<'py, PyAny>>,
     base_c: bool,
@@ -174,14 +175,14 @@ pub fn wavelet<'py>(
 ///     ValueError: For invalid parameters; RuntimeError for non-finite input.
 #[pyfunction]
 #[pyo3(
-    signature = (chroma, *, norm = Some(2.0), win_len_smooth = Some(41), smoothing_window = WindowArg(Window::Hann)),
+    signature = (chroma, *, norm = Some(2.0), win_len_smooth = Some(Int(41)), smoothing_window = WindowArg(Window::Hann)),
     text_signature = "(chroma, *, norm=2.0, win_len_smooth=41, smoothing_window='hann')"
 )]
 pub fn chroma_cens_from_chroma<'py>(
     py: Python<'py>,
     chroma: &Bound<'py, PyAny>,
     norm: Option<f64>,
-    win_len_smooth: Option<i64>,
+    win_len_smooth: Option<Int>,
     smoothing_window: WindowArg,
 ) -> PyResult<Bound<'py, PyAny>> {
     let (c, nd) = spec3(chroma, "chroma")?;

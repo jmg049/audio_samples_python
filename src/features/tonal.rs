@@ -3,6 +3,7 @@
 //! `librosa.util.normalize`, `librosa.pitch_tuning` and the `S=` / `y=` array
 //! forms of `chroma_stft`, `piptrack` and `estimate_tuning`.
 
+use crate::args::Int;
 use audio_samples::operations::filterbanks::Window;
 use audio_samples::operations::spectrum::StftConfig;
 use audio_samples::operations::tonal::{
@@ -18,8 +19,8 @@ use crate::args::{WindowArg, f64_array, positive, stft_config, value_err};
 use crate::audio_err_to_py;
 
 /// Infers `n_fft = 2 * (bins - 1)` when not given (librosa's convention).
-fn infer_n_fft(n_fft: Option<i64>, n_bins: usize) -> PyResult<std::num::NonZeroUsize> {
-    positive("n_fft", n_fft.unwrap_or(2 * (n_bins as i64 - 1)))
+fn infer_n_fft(n_fft: Option<Int>, n_bins: usize) -> PyResult<std::num::NonZeroUsize> {
+    positive("n_fft", n_fft.unwrap_or(Int(2 * (n_bins as i64 - 1))))
 }
 
 /// The chroma filterbank, equivalent to
@@ -46,15 +47,15 @@ fn infer_n_fft(n_fft: Option<i64>, n_bins: usize) -> PyResult<std::num::NonZeroU
 ///     ValueError: For invalid parameters.
 #[pyfunction]
 #[pyo3(
-    signature = (*, sr, n_fft, n_chroma = 12, tuning = 0.0, ctroct = 5.0, octwidth = Some(2.0), norm = Some(2.0), base_c = true),
+    signature = (*, sr, n_fft, n_chroma = Int(12), tuning = 0.0, ctroct = 5.0, octwidth = Some(2.0), norm = Some(2.0), base_c = true),
     text_signature = "(*, sr, n_fft, n_chroma=12, tuning=0.0, ctroct=5.0, octwidth=2.0, norm=2.0, base_c=True)"
 )]
 #[allow(clippy::too_many_arguments)]
 pub fn chroma_filterbank<'py>(
     py: Python<'py>,
     sr: f64,
-    n_fft: i64,
-    n_chroma: i64,
+    n_fft: Int,
+    n_chroma: Int,
     tuning: f64,
     ctroct: f64,
     octwidth: Option<f64>,
@@ -96,7 +97,7 @@ pub fn chroma_filterbank<'py>(
 ///         ``norm=0``, or non-finite input.
 #[pyfunction]
 #[pyo3(
-    signature = (S, *, norm = Some(f64::INFINITY), axis = Some(0), threshold = None, fill = None),
+    signature = (S, *, norm = Some(f64::INFINITY), axis = Some(Int(0)), threshold = None, fill = None),
     text_signature = "(S, *, norm=math.inf, axis=0, threshold=None, fill=None)"
 )]
 #[allow(non_snake_case)]
@@ -104,14 +105,14 @@ pub fn normalize<'py>(
     py: Python<'py>,
     S: &Bound<'py, PyAny>,
     norm: Option<f64>,
-    axis: Option<isize>,
+    axis: Option<Int>,
     threshold: Option<f64>,
     fill: Option<bool>,
 ) -> PyResult<Bound<'py, PyAny>> {
     let s = f64_array(S, "S")?;
     let cfg = NormalizeConfig {
         norm,
-        axis,
+        axis: axis.map(|a| crate::args::signed("axis", a)).transpose()?,
         threshold,
         fill,
     };
@@ -135,13 +136,13 @@ pub fn normalize<'py>(
 ///     ValueError: If ``resolution`` is not in ``(0, 1)``.
 #[pyfunction]
 #[pyo3(
-    signature = (frequencies, *, resolution = 0.01, bins_per_octave = 12),
+    signature = (frequencies, *, resolution = 0.01, bins_per_octave = Int(12)),
     text_signature = "(frequencies, *, resolution=0.01, bins_per_octave=12)"
 )]
 pub fn pitch_tuning(
     frequencies: &Bound<'_, PyAny>,
     resolution: f64,
-    bins_per_octave: i64,
+    bins_per_octave: Int,
 ) -> PyResult<f64> {
     let f = super::args::f64_vec(frequencies, "frequencies")?;
     tonal::pitch_tuning(
@@ -174,7 +175,7 @@ pub fn pitch_tuning(
 ///     ValueError: For invalid parameters or a bin count that does not match ``n_fft``.
 #[pyfunction]
 #[pyo3(
-    signature = (S, *, sr = 22050.0, norm = Some(f64::INFINITY), n_fft = None, tuning = None, n_chroma = 12, ctroct = 5.0, octwidth = Some(2.0), base_c = true),
+    signature = (S, *, sr = 22050.0, norm = Some(f64::INFINITY), n_fft = None, tuning = None, n_chroma = Int(12), ctroct = 5.0, octwidth = Some(2.0), base_c = true),
     text_signature = "(S, *, sr=22050, norm=math.inf, n_fft=None, tuning=None, n_chroma=12, ctroct=5.0, octwidth=2.0, base_c=True)"
 )]
 #[allow(non_snake_case, clippy::too_many_arguments)]
@@ -183,9 +184,9 @@ pub fn chroma_stft_from_spectrogram<'py>(
     S: &Bound<'py, PyAny>,
     sr: f64,
     norm: Option<f64>,
-    n_fft: Option<i64>,
+    n_fft: Option<Int>,
     tuning: Option<f64>,
-    n_chroma: i64,
+    n_chroma: Int,
     ctroct: f64,
     octwidth: Option<f64>,
     base_c: bool,
@@ -254,7 +255,7 @@ pub fn piptrack_from_spectrogram<'py>(
     py: Python<'py>,
     S: &Bound<'py, PyAny>,
     sr: f64,
-    n_fft: Option<i64>,
+    n_fft: Option<Int>,
     fmin: f64,
     fmax: f64,
     threshold: f64,
@@ -290,16 +291,16 @@ pub fn piptrack_from_spectrogram<'py>(
 ///     ValueError: For invalid parameters.
 #[pyfunction]
 #[pyo3(
-    signature = (S, *, sr = 22050.0, n_fft = None, resolution = 0.01, bins_per_octave = 12, fmin = 150.0, fmax = 4000.0, threshold = 0.1, r#ref = None),
+    signature = (S, *, sr = 22050.0, n_fft = None, resolution = 0.01, bins_per_octave = Int(12), fmin = 150.0, fmax = 4000.0, threshold = 0.1, r#ref = None),
     text_signature = "(S, *, sr=22050, n_fft=None, resolution=0.01, bins_per_octave=12, fmin=150.0, fmax=4000.0, threshold=0.1, ref=None)"
 )]
 #[allow(non_snake_case, clippy::too_many_arguments)]
 pub fn estimate_tuning_from_spectrogram(
     S: &Bound<'_, PyAny>,
     sr: f64,
-    n_fft: Option<i64>,
+    n_fft: Option<Int>,
     resolution: f64,
-    bins_per_octave: i64,
+    bins_per_octave: Int,
     fmin: f64,
     fmax: f64,
     threshold: f64,
@@ -334,18 +335,18 @@ pub fn estimate_tuning_from_spectrogram(
 ///     ValueError: For invalid parameters or a signal too short for an uncentred STFT.
 #[pyfunction]
 #[pyo3(
-    signature = (y, *, sr = 22050.0, n_fft = 2048, resolution = 0.01, bins_per_octave = 12, hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", fmin = 150.0, fmax = 4000.0, threshold = 0.1, r#ref = None),
+    signature = (y, *, sr = 22050.0, n_fft = Int(2048), resolution = 0.01, bins_per_octave = Int(12), hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", fmin = 150.0, fmax = 4000.0, threshold = 0.1, r#ref = None),
     text_signature = "(y, *, sr=22050, n_fft=2048, resolution=0.01, bins_per_octave=12, hop_length=None, win_length=None, window='hann', center=True, pad_mode='constant', fmin=150.0, fmax=4000.0, threshold=0.1, ref=None)"
 )]
 #[allow(clippy::too_many_arguments)]
 pub fn estimate_tuning_from_signal(
     y: &Bound<'_, PyAny>,
     sr: f64,
-    n_fft: i64,
+    n_fft: Int,
     resolution: f64,
-    bins_per_octave: i64,
-    hop_length: Option<i64>,
-    win_length: Option<i64>,
+    bins_per_octave: Int,
+    hop_length: Option<Int>,
+    win_length: Option<Int>,
     window: WindowArg,
     center: bool,
     pad_mode: &str,

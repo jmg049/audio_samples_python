@@ -10,6 +10,7 @@
 //! arguments with librosa 1.0's defaults (note `hop_length=512` for the
 //! spectral descriptors, as librosa, regardless of `n_fft`).
 
+use crate::args::Int;
 use audio_samples::operations::features::{
     AudioFeatures, PolyFeaturesConfig, ReassignedSpectrogramConfig, RmsConfig,
     SpectralBandwidthConfig, SpectralCentroidConfig, SpectralContrastConfig,
@@ -47,15 +48,15 @@ impl PyAudioSamples {
     /// Raises:
     ///     ValueError: For invalid parameters or a too-short uncentred signal.
     #[pyo3(
-        signature = (*, n_fft = 2048, hop_length = 512, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant"),
+        signature = (*, n_fft = Int(2048), hop_length = Int(512), win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant"),
         text_signature = "($self, *, n_fft=2048, hop_length=512, win_length=None, window='hann', center=True, pad_mode='constant')"
     )]
     fn spectral_centroid_frames<'py>(
         &self,
         py: Python<'py>,
-        n_fft: i64,
-        hop_length: i64,
-        win_length: Option<i64>,
+        n_fft: Int,
+        hop_length: Int,
+        win_length: Option<Int>,
         window: WindowArg,
         center: bool,
         pad_mode: &str,
@@ -90,16 +91,16 @@ impl PyAudioSamples {
     /// Raises:
     ///     ValueError: For invalid parameters.
     #[pyo3(
-        signature = (*, n_fft = 2048, hop_length = 512, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", norm = true, p = 2.0),
+        signature = (*, n_fft = Int(2048), hop_length = Int(512), win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", norm = true, p = 2.0),
         text_signature = "($self, *, n_fft=2048, hop_length=512, win_length=None, window='hann', center=True, pad_mode='constant', norm=True, p=2.0)"
     )]
     #[allow(clippy::too_many_arguments)]
     fn spectral_bandwidth_frames<'py>(
         &self,
         py: Python<'py>,
-        n_fft: i64,
-        hop_length: i64,
-        win_length: Option<i64>,
+        n_fft: Int,
+        hop_length: Int,
+        win_length: Option<Int>,
         window: WindowArg,
         center: bool,
         pad_mode: &str,
@@ -137,16 +138,16 @@ impl PyAudioSamples {
     /// Raises:
     ///     ValueError: For invalid parameters.
     #[pyo3(
-        signature = (*, n_fft = 2048, hop_length = 512, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", roll_percent = 0.85),
+        signature = (*, n_fft = Int(2048), hop_length = Int(512), win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", roll_percent = 0.85),
         text_signature = "($self, *, n_fft=2048, hop_length=512, win_length=None, window='hann', center=True, pad_mode='constant', roll_percent=0.85)"
     )]
     #[allow(clippy::too_many_arguments)]
     fn spectral_rolloff_frames<'py>(
         &self,
         py: Python<'py>,
-        n_fft: i64,
-        hop_length: i64,
-        win_length: Option<i64>,
+        n_fft: Int,
+        hop_length: Int,
+        win_length: Option<Int>,
         window: WindowArg,
         center: bool,
         pad_mode: &str,
@@ -183,16 +184,16 @@ impl PyAudioSamples {
     /// Raises:
     ///     ValueError: For invalid parameters.
     #[pyo3(
-        signature = (*, n_fft = 2048, hop_length = 512, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", amin = 1e-10, power = 2.0),
+        signature = (*, n_fft = Int(2048), hop_length = Int(512), win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", amin = 1e-10, power = 2.0),
         text_signature = "($self, *, n_fft=2048, hop_length=512, win_length=None, window='hann', center=True, pad_mode='constant', amin=1e-10, power=2.0)"
     )]
     #[allow(clippy::too_many_arguments)]
     fn spectral_flatness_frames<'py>(
         &self,
         py: Python<'py>,
-        n_fft: i64,
-        hop_length: i64,
-        win_length: Option<i64>,
+        n_fft: Int,
+        hop_length: Int,
+        win_length: Option<Int>,
         window: WindowArg,
         center: bool,
         pad_mode: &str,
@@ -233,21 +234,21 @@ impl PyAudioSamples {
     /// Raises:
     ///     ValueError: For invalid parameters (e.g. the top band above Nyquist).
     #[pyo3(
-        signature = (*, n_fft = 2048, hop_length = 512, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", fmin = 200.0, n_bands = 6, quantile = 0.02, linear = false),
+        signature = (*, n_fft = Int(2048), hop_length = Int(512), win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", fmin = 200.0, n_bands = Int(6), quantile = 0.02, linear = false),
         text_signature = "($self, *, n_fft=2048, hop_length=512, win_length=None, window='hann', center=True, pad_mode='constant', fmin=200.0, n_bands=6, quantile=0.02, linear=False)"
     )]
     #[allow(clippy::too_many_arguments)]
     fn spectral_contrast_frames<'py>(
         &self,
         py: Python<'py>,
-        n_fft: i64,
-        hop_length: i64,
-        win_length: Option<i64>,
+        n_fft: Int,
+        hop_length: Int,
+        win_length: Option<Int>,
         window: WindowArg,
         center: bool,
         pad_mode: &str,
         fmin: f64,
-        n_bands: i64,
+        n_bands: Int,
         quantile: f64,
         linear: bool,
     ) -> PyResult<Bound<'py, PyArray3<f64>>> {
@@ -285,20 +286,20 @@ impl PyAudioSamples {
     /// Raises:
     ///     ValueError: For invalid parameters.
     #[pyo3(
-        signature = (*, n_fft = 2048, hop_length = 512, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", order = 1),
+        signature = (*, n_fft = Int(2048), hop_length = Int(512), win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", order = Int(1)),
         text_signature = "($self, *, n_fft=2048, hop_length=512, win_length=None, window='hann', center=True, pad_mode='constant', order=1)"
     )]
     #[allow(clippy::too_many_arguments)]
     fn poly_features<'py>(
         &self,
         py: Python<'py>,
-        n_fft: i64,
-        hop_length: i64,
-        win_length: Option<i64>,
+        n_fft: Int,
+        hop_length: Int,
+        win_length: Option<Int>,
         window: WindowArg,
         center: bool,
         pad_mode: &str,
-        order: i64,
+        order: Int,
     ) -> PyResult<Bound<'py, PyArray3<f64>>> {
         let cfg = PolyFeaturesConfig {
             stft: stft_config(
@@ -334,14 +335,14 @@ impl PyAudioSamples {
     /// Raises:
     ///     ValueError: For invalid parameters or a too-short uncentred signal.
     #[pyo3(
-        signature = (*, frame_length = 2048, hop_length = 512, center = true, pad_mode = "constant"),
+        signature = (*, frame_length = Int(2048), hop_length = Int(512), center = true, pad_mode = "constant"),
         text_signature = "($self, *, frame_length=2048, hop_length=512, center=True, pad_mode='constant')"
     )]
     fn rms_frames<'py>(
         &self,
         py: Python<'py>,
-        frame_length: i64,
-        hop_length: i64,
+        frame_length: Int,
+        hop_length: Int,
         center: bool,
         pad_mode: &str,
     ) -> PyResult<Bound<'py, PyArray3<f64>>> {
@@ -377,15 +378,15 @@ impl PyAudioSamples {
     /// Raises:
     ///     ValueError: For invalid parameters.
     #[pyo3(
-        signature = (*, frame_length = 2048, hop_length = 512, center = true, threshold = 1e-10, ref_magnitude = None, pad = false, zero_pos = true),
+        signature = (*, frame_length = Int(2048), hop_length = Int(512), center = true, threshold = 1e-10, ref_magnitude = None, pad = false, zero_pos = true),
         text_signature = "($self, *, frame_length=2048, hop_length=512, center=True, threshold=1e-10, ref_magnitude=None, pad=False, zero_pos=True)"
     )]
     #[allow(clippy::too_many_arguments)]
     fn zero_crossing_rate_frames<'py>(
         &self,
         py: Python<'py>,
-        frame_length: i64,
-        hop_length: i64,
+        frame_length: Int,
+        hop_length: Int,
         center: bool,
         threshold: f64,
         ref_magnitude: Option<&Bound<'py, PyAny>>,
@@ -434,16 +435,16 @@ impl PyAudioSamples {
     /// Raises:
     ///     ValueError: For invalid parameters.
     #[pyo3(
-        signature = (*, n_fft = 2048, hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, reassign_frequencies = true, reassign_times = true, ref_power = ReassignRefArg(audio_samples::operations::features::ReassignRefPower::Value(1e-6)), fill_nan = false, clip = true, pad_mode = "constant"),
+        signature = (*, n_fft = Int(2048), hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, reassign_frequencies = true, reassign_times = true, ref_power = ReassignRefArg(audio_samples::operations::features::ReassignRefPower::Value(1e-6)), fill_nan = false, clip = true, pad_mode = "constant"),
         text_signature = "($self, *, n_fft=2048, hop_length=None, win_length=None, window='hann', center=True, reassign_frequencies=True, reassign_times=True, ref_power=1e-06, fill_nan=False, clip=True, pad_mode='constant')"
     )]
     #[allow(clippy::too_many_arguments)]
     fn reassigned_spectrogram<'py>(
         &self,
         py: Python<'py>,
-        n_fft: i64,
-        hop_length: Option<i64>,
-        win_length: Option<i64>,
+        n_fft: Int,
+        hop_length: Option<Int>,
+        win_length: Option<Int>,
         window: WindowArg,
         center: bool,
         reassign_frequencies: bool,

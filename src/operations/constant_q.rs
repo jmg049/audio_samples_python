@@ -8,6 +8,7 @@
 //! (`res_type` selects its quality), so octaves below the top one differ from
 //! librosa by about 1e-4 of the peak.
 
+use crate::args::Int;
 use audio_samples::AudioSamples;
 use audio_samples::operations::constant_q::{
     AudioConstantQ, ChromaCensConfig, ChromaCqtConfig, ChromaVqtConfig, CqtConfig, TonnetzConfig,
@@ -29,10 +30,10 @@ use crate::{PyAudioSamples, audio_err_to_py, dispatch_with_view, nzu32_or_err};
 /// Builds a [`CqtConfig`] from librosa's `cqt` keyword arguments.
 #[allow(clippy::too_many_arguments)]
 fn cqt_config(
-    hop_length: i64,
+    hop_length: Int,
     fmin: Option<f64>,
-    n_bins: Option<i64>,
-    bins_per_octave: i64,
+    n_bins: Option<Int>,
+    bins_per_octave: Int,
     tuning: Option<f64>,
     filter_scale: f64,
     norm: Option<f64>,
@@ -92,14 +93,14 @@ fn check_window_none(window: Option<&Bound<'_, PyAny>>) -> PyResult<()> {
 /// Builds a [`ChromaCqtConfig`] from librosa's `chroma_cqt` keyword arguments.
 #[allow(clippy::too_many_arguments)]
 fn chroma_cqt_config(
-    hop_length: i64,
+    hop_length: Int,
     fmin: Option<f64>,
     norm: Option<f64>,
     threshold: Option<f64>,
     tuning: Option<f64>,
-    n_chroma: i64,
-    n_octaves: i64,
-    bins_per_octave: Option<i64>,
+    n_chroma: Int,
+    n_octaves: Int,
+    bins_per_octave: Option<Int>,
     cqt_mode: &str,
 ) -> PyResult<ChromaCqtConfig> {
     Ok(ChromaCqtConfig {
@@ -150,17 +151,17 @@ impl PyAudioSamples {
     /// Raises:
     ///     ValueError: For invalid parameters (e.g. bins above Nyquist).
     #[pyo3(
-        signature = (*, hop_length = 512, fmin = None, n_bins = Some(84), bins_per_octave = 12, tuning = Some(0.0), filter_scale = 1.0, norm = Some(1.0), sparsity = 0.01, window = WindowArg(Window::Hann), scale = true, pad_mode = "constant", res_type = "soxr_hq"),
+        signature = (*, hop_length = Int(512), fmin = None, n_bins = Some(Int(84)), bins_per_octave = Int(12), tuning = Some(0.0), filter_scale = 1.0, norm = Some(1.0), sparsity = 0.01, window = WindowArg(Window::Hann), scale = true, pad_mode = "constant", res_type = "soxr_hq"),
         text_signature = "($self, *, hop_length=512, fmin=None, n_bins=84, bins_per_octave=12, tuning=0.0, filter_scale=1, norm=1, sparsity=0.01, window='hann', scale=True, pad_mode='constant', res_type='soxr_hq')"
     )]
     #[allow(clippy::too_many_arguments)]
     fn cqt<'py>(
         &self,
         py: Python<'py>,
-        hop_length: i64,
+        hop_length: Int,
         fmin: Option<f64>,
-        n_bins: Option<i64>,
-        bins_per_octave: i64,
+        n_bins: Option<Int>,
+        bins_per_octave: Int,
         tuning: Option<f64>,
         filter_scale: f64,
         norm: Option<f64>,
@@ -203,19 +204,19 @@ impl PyAudioSamples {
     /// Raises:
     ///     ValueError: For invalid parameters or ``intervals`` other than ``"equal"``.
     #[pyo3(
-        signature = (*, hop_length = 512, fmin = None, n_bins = Some(84), intervals = None, gamma = None, bins_per_octave = 12, tuning = Some(0.0), filter_scale = 1.0, norm = Some(1.0), sparsity = 0.01, window = WindowArg(Window::Hann), scale = true, pad_mode = "constant", res_type = "soxr_hq"),
+        signature = (*, hop_length = Int(512), fmin = None, n_bins = Some(Int(84)), intervals = None, gamma = None, bins_per_octave = Int(12), tuning = Some(0.0), filter_scale = 1.0, norm = Some(1.0), sparsity = 0.01, window = WindowArg(Window::Hann), scale = true, pad_mode = "constant", res_type = "soxr_hq"),
         text_signature = "($self, *, hop_length=512, fmin=None, n_bins=84, intervals='equal', gamma=None, bins_per_octave=12, tuning=0.0, filter_scale=1, norm=1, sparsity=0.01, window='hann', scale=True, pad_mode='constant', res_type='soxr_hq')"
     )]
     #[allow(clippy::too_many_arguments)]
     fn vqt<'py>(
         &self,
         py: Python<'py>,
-        hop_length: i64,
+        hop_length: Int,
         fmin: Option<f64>,
-        n_bins: Option<i64>,
+        n_bins: Option<Int>,
         intervals: Option<&Bound<'py, PyAny>>,
         gamma: Option<f64>,
-        bins_per_octave: i64,
+        bins_per_octave: Int,
         tuning: Option<f64>,
         filter_scale: f64,
         norm: Option<f64>,
@@ -261,17 +262,17 @@ impl PyAudioSamples {
     /// Raises:
     ///     ValueError: For invalid parameters.
     #[pyo3(
-        signature = (*, hop_length = 512, fmin = None, n_bins = Some(84), bins_per_octave = 12, tuning = Some(0.0), filter_scale = 1.0, norm = Some(1.0), sparsity = 0.01, window = WindowArg(Window::Hann), scale = true, pad_mode = "constant"),
+        signature = (*, hop_length = Int(512), fmin = None, n_bins = Some(Int(84)), bins_per_octave = Int(12), tuning = Some(0.0), filter_scale = 1.0, norm = Some(1.0), sparsity = 0.01, window = WindowArg(Window::Hann), scale = true, pad_mode = "constant"),
         text_signature = "($self, *, hop_length=512, fmin=None, n_bins=84, bins_per_octave=12, tuning=0.0, filter_scale=1, norm=1, sparsity=0.01, window='hann', scale=True, pad_mode='constant')"
     )]
     #[allow(clippy::too_many_arguments)]
     fn pseudo_cqt<'py>(
         &self,
         py: Python<'py>,
-        hop_length: i64,
+        hop_length: Int,
         fmin: Option<f64>,
-        n_bins: Option<i64>,
-        bins_per_octave: i64,
+        n_bins: Option<Int>,
+        bins_per_octave: Int,
         tuning: Option<f64>,
         filter_scale: f64,
         norm: Option<f64>,
@@ -311,17 +312,17 @@ impl PyAudioSamples {
     /// Raises:
     ///     ValueError: For invalid parameters.
     #[pyo3(
-        signature = (*, hop_length = 512, fmin = None, n_bins = Some(84), bins_per_octave = 12, tuning = Some(0.0), filter_scale = 1.0, norm = Some(1.0), sparsity = 0.01, window = WindowArg(Window::Hann), scale = true, pad_mode = "constant", res_type = "soxr_hq"),
+        signature = (*, hop_length = Int(512), fmin = None, n_bins = Some(Int(84)), bins_per_octave = Int(12), tuning = Some(0.0), filter_scale = 1.0, norm = Some(1.0), sparsity = 0.01, window = WindowArg(Window::Hann), scale = true, pad_mode = "constant", res_type = "soxr_hq"),
         text_signature = "($self, *, hop_length=512, fmin=None, n_bins=84, bins_per_octave=12, tuning=0.0, filter_scale=1, norm=1, sparsity=0.01, window='hann', scale=True, pad_mode='constant', res_type='soxr_hq')"
     )]
     #[allow(clippy::too_many_arguments)]
     fn hybrid_cqt<'py>(
         &self,
         py: Python<'py>,
-        hop_length: i64,
+        hop_length: Int,
         fmin: Option<f64>,
-        n_bins: Option<i64>,
-        bins_per_octave: i64,
+        n_bins: Option<Int>,
+        bins_per_octave: Int,
         tuning: Option<f64>,
         filter_scale: f64,
         norm: Option<f64>,
@@ -368,23 +369,23 @@ impl PyAudioSamples {
     ///     ValueError: For invalid parameters or an empty ``C``.
     #[staticmethod]
     #[pyo3(
-        signature = (C, *, sample_rate, hop_length = 512, fmin = None, bins_per_octave = 12, tuning = 0.0, filter_scale = 1.0, norm = Some(1.0), sparsity = 0.01, window = WindowArg(Window::Hann), scale = true, length = None, res_type = "soxr_hq"),
+        signature = (C, *, sample_rate, hop_length = Int(512), fmin = None, bins_per_octave = Int(12), tuning = 0.0, filter_scale = 1.0, norm = Some(1.0), sparsity = 0.01, window = WindowArg(Window::Hann), scale = true, length = None, res_type = "soxr_hq"),
         text_signature = "(C, *, sample_rate, hop_length=512, fmin=None, bins_per_octave=12, tuning=0.0, filter_scale=1, norm=1, sparsity=0.01, window='hann', scale=True, length=None, res_type='soxr_hq')"
     )]
     #[allow(non_snake_case, clippy::too_many_arguments)]
     fn icqt(
         C: &Bound<'_, PyAny>,
-        sample_rate: u32,
-        hop_length: i64,
+        sample_rate: Int,
+        hop_length: Int,
         fmin: Option<f64>,
-        bins_per_octave: i64,
+        bins_per_octave: Int,
         tuning: f64,
         filter_scale: f64,
         norm: Option<f64>,
         sparsity: f64,
         window: WindowArg,
         scale: bool,
-        length: Option<i64>,
+        length: Option<Int>,
         res_type: &str,
     ) -> PyResult<Self> {
         let c = c128_array(C, "C")?;
@@ -403,7 +404,7 @@ impl PyAudioSamples {
             "constant",
             res_type,
         )?;
-        let sr = nzu32_or_err(sample_rate)?;
+        let sr = nzu32_or_err(crate::args::sample_rate_u32(sample_rate)?)?;
         let length = opt_positive("length", length)?;
         let y = <AudioSamples<'static, f64> as AudioConstantQ>::icqt(&c3, &cfg, sr, length)
             .map_err(audio_err_to_py)?;
@@ -434,17 +435,17 @@ impl PyAudioSamples {
     ///     ValueError: For invalid parameters or ``init`` other than None.
     #[staticmethod]
     #[pyo3(
-        signature = (C, *, sample_rate, n_iter = 32, hop_length = 512, fmin = None, bins_per_octave = 12, tuning = 0.0, filter_scale = 1.0, norm = Some(1.0), sparsity = 0.01, window = WindowArg(Window::Hann), scale = true, pad_mode = "constant", res_type = "soxr_hq", length = None, momentum = 0.99, init = None),
+        signature = (C, *, sample_rate, n_iter = Int(32), hop_length = Int(512), fmin = None, bins_per_octave = Int(12), tuning = 0.0, filter_scale = 1.0, norm = Some(1.0), sparsity = 0.01, window = WindowArg(Window::Hann), scale = true, pad_mode = "constant", res_type = "soxr_hq", length = None, momentum = 0.99, init = None),
         text_signature = "(C, *, sample_rate, n_iter=32, hop_length=512, fmin=None, bins_per_octave=12, tuning=0.0, filter_scale=1, norm=1, sparsity=0.01, window='hann', scale=True, pad_mode='constant', res_type='soxr_hq', length=None, momentum=0.99, init=None)"
     )]
     #[allow(non_snake_case, clippy::too_many_arguments)]
     fn griffinlim_cqt(
         C: &Bound<'_, PyAny>,
-        sample_rate: u32,
-        n_iter: i64,
-        hop_length: i64,
+        sample_rate: Int,
+        n_iter: Int,
+        hop_length: Int,
         fmin: Option<f64>,
-        bins_per_octave: i64,
+        bins_per_octave: Int,
         tuning: f64,
         filter_scale: f64,
         norm: Option<f64>,
@@ -453,7 +454,7 @@ impl PyAudioSamples {
         scale: bool,
         pad_mode: &str,
         res_type: &str,
-        length: Option<i64>,
+        length: Option<Int>,
         momentum: f64,
         init: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<Self> {
@@ -480,7 +481,7 @@ impl PyAudioSamples {
             pad_mode,
             res_type,
         )?;
-        let sr = nzu32_or_err(sample_rate)?;
+        let sr = nzu32_or_err(crate::args::sample_rate_u32(sample_rate)?)?;
         let length = opt_positive("length", length)?;
         let y = <AudioSamples<'static, f64> as AudioConstantQ>::griffinlim_cqt(
             &m3,
@@ -517,22 +518,22 @@ impl PyAudioSamples {
     /// Raises:
     ///     ValueError: For invalid parameters.
     #[pyo3(
-        signature = (*, hop_length = 512, fmin = None, norm = Some(f64::INFINITY), threshold = Some(0.0), tuning = None, n_chroma = 12, n_octaves = 7, window = None, bins_per_octave = Some(36), cqt_mode = "full"),
+        signature = (*, hop_length = Int(512), fmin = None, norm = Some(f64::INFINITY), threshold = Some(0.0), tuning = None, n_chroma = Int(12), n_octaves = Int(7), window = None, bins_per_octave = Some(Int(36)), cqt_mode = "full"),
         text_signature = "($self, *, hop_length=512, fmin=None, norm=math.inf, threshold=0.0, tuning=None, n_chroma=12, n_octaves=7, window=None, bins_per_octave=36, cqt_mode='full')"
     )]
     #[allow(clippy::too_many_arguments)]
     fn chroma_cqt<'py>(
         &self,
         py: Python<'py>,
-        hop_length: i64,
+        hop_length: Int,
         fmin: Option<f64>,
         norm: Option<f64>,
         threshold: Option<f64>,
         tuning: Option<f64>,
-        n_chroma: i64,
-        n_octaves: i64,
+        n_chroma: Int,
+        n_octaves: Int,
         window: Option<&Bound<'py, PyAny>>,
-        bins_per_octave: Option<i64>,
+        bins_per_octave: Option<Int>,
         cqt_mode: &str,
     ) -> PyResult<Bound<'py, PyArray3<f64>>> {
         check_window_none(window)?;
@@ -568,23 +569,23 @@ impl PyAudioSamples {
     /// Raises:
     ///     ValueError: For invalid parameters.
     #[pyo3(
-        signature = (*, hop_length = 512, fmin = None, tuning = None, n_chroma = 12, n_octaves = 7, bins_per_octave = 36, cqt_mode = "full", window = None, norm = Some(2.0), win_len_smooth = Some(41), smoothing_window = WindowArg(Window::Hann)),
+        signature = (*, hop_length = Int(512), fmin = None, tuning = None, n_chroma = Int(12), n_octaves = Int(7), bins_per_octave = Int(36), cqt_mode = "full", window = None, norm = Some(2.0), win_len_smooth = Some(Int(41)), smoothing_window = WindowArg(Window::Hann)),
         text_signature = "($self, *, hop_length=512, fmin=None, tuning=None, n_chroma=12, n_octaves=7, bins_per_octave=36, cqt_mode='full', window=None, norm=2, win_len_smooth=41, smoothing_window='hann')"
     )]
     #[allow(clippy::too_many_arguments)]
     fn chroma_cens<'py>(
         &self,
         py: Python<'py>,
-        hop_length: i64,
+        hop_length: Int,
         fmin: Option<f64>,
         tuning: Option<f64>,
-        n_chroma: i64,
-        n_octaves: i64,
-        bins_per_octave: i64,
+        n_chroma: Int,
+        n_octaves: Int,
+        bins_per_octave: Int,
         cqt_mode: &str,
         window: Option<&Bound<'py, PyAny>>,
         norm: Option<f64>,
-        win_len_smooth: Option<i64>,
+        win_len_smooth: Option<Int>,
         smoothing_window: WindowArg,
     ) -> PyResult<Bound<'py, PyArray3<f64>>> {
         check_window_none(window)?;
@@ -629,20 +630,20 @@ impl PyAudioSamples {
     /// Raises:
     ///     ValueError: For invalid parameters or ``intervals`` other than ``"equal"``.
     #[pyo3(
-        signature = (*, hop_length = 512, fmin = None, intervals = None, norm = Some(f64::INFINITY), threshold = Some(0.0), n_octaves = 7, bins_per_octave = 12, gamma = Some(0.0)),
+        signature = (*, hop_length = Int(512), fmin = None, intervals = None, norm = Some(f64::INFINITY), threshold = Some(0.0), n_octaves = Int(7), bins_per_octave = Int(12), gamma = Some(0.0)),
         text_signature = "($self, *, hop_length=512, fmin=None, intervals='equal', norm=math.inf, threshold=0.0, n_octaves=7, bins_per_octave=12, gamma=0)"
     )]
     #[allow(clippy::too_many_arguments)]
     fn chroma_vqt<'py>(
         &self,
         py: Python<'py>,
-        hop_length: i64,
+        hop_length: Int,
         fmin: Option<f64>,
         intervals: Option<&Bound<'py, PyAny>>,
         norm: Option<f64>,
         threshold: Option<f64>,
-        n_octaves: i64,
-        bins_per_octave: i64,
+        n_octaves: Int,
+        bins_per_octave: Int,
         gamma: Option<f64>,
     ) -> PyResult<Bound<'py, PyArray3<f64>>> {
         if let Some(i) = intervals {
@@ -675,21 +676,21 @@ impl PyAudioSamples {
     /// Raises:
     ///     ValueError: For invalid parameters.
     #[pyo3(
-        signature = (*, hop_length = 512, fmin = None, norm = Some(f64::INFINITY), threshold = Some(0.0), tuning = None, n_chroma = 12, n_octaves = 7, bins_per_octave = Some(36), cqt_mode = "full"),
+        signature = (*, hop_length = Int(512), fmin = None, norm = Some(f64::INFINITY), threshold = Some(0.0), tuning = None, n_chroma = Int(12), n_octaves = Int(7), bins_per_octave = Some(Int(36)), cqt_mode = "full"),
         text_signature = "($self, *, hop_length=512, fmin=None, norm=math.inf, threshold=0.0, tuning=None, n_chroma=12, n_octaves=7, bins_per_octave=36, cqt_mode='full')"
     )]
     #[allow(clippy::too_many_arguments)]
     fn tonnetz<'py>(
         &self,
         py: Python<'py>,
-        hop_length: i64,
+        hop_length: Int,
         fmin: Option<f64>,
         norm: Option<f64>,
         threshold: Option<f64>,
         tuning: Option<f64>,
-        n_chroma: i64,
-        n_octaves: i64,
-        bins_per_octave: Option<i64>,
+        n_chroma: Int,
+        n_octaves: Int,
+        bins_per_octave: Option<Int>,
         cqt_mode: &str,
     ) -> PyResult<Bound<'py, PyArray3<f64>>> {
         let cfg = TonnetzConfig {

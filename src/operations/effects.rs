@@ -8,6 +8,7 @@
 //! audio (its length may change) and returns `None` (`trim_db_in_place`
 //! returns the kept `[start, end]`).
 
+use crate::args::Int;
 use audio_samples::operations::effects::{
     HarmonicPercussiveConfig, PitchShiftConfig, SilenceConfig,
 };
@@ -55,8 +56,8 @@ fn silence_config(
     py: Python<'_>,
     top_db: f64,
     r#ref: DbRefArg,
-    frame_length: i64,
-    hop_length: i64,
+    frame_length: Int,
+    hop_length: Int,
     aggregate: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<SilenceConfig> {
     let reference = r#ref.0;
@@ -118,9 +119,9 @@ fn hp_config(
     power: f64,
     mask: bool,
     margin: Option<&Bound<'_, PyAny>>,
-    n_fft: i64,
-    hop_length: Option<i64>,
-    win_length: Option<i64>,
+    n_fft: Int,
+    hop_length: Option<Int>,
+    win_length: Option<Int>,
     window: WindowArg,
     center: bool,
     pad_mode: &str,
@@ -172,7 +173,7 @@ impl PyAudioSamples {
     ///     ValueError: If ``rate`` is not positive, the result would be empty,
     ///         or STFT parameters are invalid.
     #[pyo3(
-        signature = (rate, *, n_fft = 2048, hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant"),
+        signature = (rate, *, n_fft = Int(2048), hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant"),
         text_signature = "($self, rate, *, n_fft=2048, hop_length=None, win_length=None, window='hann', center=True, pad_mode='constant')"
     )]
     #[allow(clippy::too_many_arguments)]
@@ -180,9 +181,9 @@ impl PyAudioSamples {
         &self,
         py: Python<'_>,
         rate: f64,
-        n_fft: i64,
-        hop_length: Option<i64>,
-        win_length: Option<i64>,
+        n_fft: Int,
+        hop_length: Option<Int>,
+        win_length: Option<Int>,
         window: WindowArg,
         center: bool,
         pad_mode: &str,
@@ -196,7 +197,7 @@ impl PyAudioSamples {
 
     /// In-place ``time_stretch`` (the length changes); arguments as ``time_stretch``.
     #[pyo3(
-        signature = (rate, *, n_fft = 2048, hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant"),
+        signature = (rate, *, n_fft = Int(2048), hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant"),
         text_signature = "($self, rate, *, n_fft=2048, hop_length=None, win_length=None, window='hann', center=True, pad_mode='constant')"
     )]
     #[allow(clippy::too_many_arguments)]
@@ -204,9 +205,9 @@ impl PyAudioSamples {
         &mut self,
         py: Python<'_>,
         rate: f64,
-        n_fft: i64,
-        hop_length: Option<i64>,
-        win_length: Option<i64>,
+        n_fft: Int,
+        hop_length: Option<Int>,
+        win_length: Option<Int>,
         window: WindowArg,
         center: bool,
         pad_mode: &str,
@@ -244,7 +245,7 @@ impl PyAudioSamples {
     ///     ValueError: For a non-finite ``n_steps``, ``scale=True`` or invalid
     ///         parameters.
     #[pyo3(
-        signature = (n_steps, *, bins_per_octave = 12, res_type = None, scale = false, n_fft = 2048, hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant"),
+        signature = (n_steps, *, bins_per_octave = Int(12), res_type = None, scale = false, n_fft = Int(2048), hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant"),
         text_signature = "($self, n_steps, *, bins_per_octave=12, res_type='soxr_hq', scale=False, n_fft=2048, hop_length=None, win_length=None, window='hann', center=True, pad_mode='constant')"
     )]
     #[allow(clippy::too_many_arguments)]
@@ -252,12 +253,12 @@ impl PyAudioSamples {
         &self,
         py: Python<'_>,
         n_steps: f64,
-        bins_per_octave: i64,
+        bins_per_octave: Int,
         res_type: Option<&Bound<'_, PyAny>>,
         scale: bool,
-        n_fft: i64,
-        hop_length: Option<i64>,
-        win_length: Option<i64>,
+        n_fft: Int,
+        hop_length: Option<Int>,
+        win_length: Option<Int>,
         window: WindowArg,
         center: bool,
         pad_mode: &str,
@@ -283,7 +284,7 @@ impl PyAudioSamples {
 
     /// In-place ``pitch_shift``; arguments as ``pitch_shift``.
     #[pyo3(
-        signature = (n_steps, *, bins_per_octave = 12, res_type = None, scale = false, n_fft = 2048, hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant"),
+        signature = (n_steps, *, bins_per_octave = Int(12), res_type = None, scale = false, n_fft = Int(2048), hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant"),
         text_signature = "($self, n_steps, *, bins_per_octave=12, res_type='soxr_hq', scale=False, n_fft=2048, hop_length=None, win_length=None, window='hann', center=True, pad_mode='constant')"
     )]
     #[allow(clippy::too_many_arguments)]
@@ -291,12 +292,12 @@ impl PyAudioSamples {
         &mut self,
         py: Python<'_>,
         n_steps: f64,
-        bins_per_octave: i64,
+        bins_per_octave: Int,
         res_type: Option<&Bound<'_, PyAny>>,
         scale: bool,
-        n_fft: i64,
-        hop_length: Option<i64>,
-        win_length: Option<i64>,
+        n_fft: Int,
+        hop_length: Option<Int>,
+        win_length: Option<Int>,
         window: WindowArg,
         center: bool,
         pad_mode: &str,
@@ -398,7 +399,7 @@ impl PyAudioSamples {
     ///         (librosa returns an empty array and ``[0, 0]``; an
     ///         ``AudioSamples`` cannot be empty, use ``split_db`` to test).
     #[pyo3(
-        signature = (*, top_db = 60.0, r#ref = DbRefArg(DbReference::Max), frame_length = 2048, hop_length = 512, aggregate = None),
+        signature = (*, top_db = 60.0, r#ref = DbRefArg(DbReference::Max), frame_length = Int(2048), hop_length = Int(512), aggregate = None),
         text_signature = "($self, *, top_db=60, ref='max', frame_length=2048, hop_length=512, aggregate=None)"
     )]
     fn trim_db<'py>(
@@ -406,8 +407,8 @@ impl PyAudioSamples {
         py: Python<'py>,
         top_db: f64,
         r#ref: DbRefArg,
-        frame_length: i64,
-        hop_length: i64,
+        frame_length: Int,
+        hop_length: Int,
         aggregate: Option<&Bound<'py, PyAny>>,
     ) -> PyResult<(Self, Bound<'py, PyArray1<i64>>)> {
         let cfg = silence_config(py, top_db, r#ref, frame_length, hop_length, aggregate)?;
@@ -426,7 +427,7 @@ impl PyAudioSamples {
 
     /// In-place ``trim_db``; returns the kept ``[start, end]`` (int64 array).
     #[pyo3(
-        signature = (*, top_db = 60.0, r#ref = DbRefArg(DbReference::Max), frame_length = 2048, hop_length = 512, aggregate = None),
+        signature = (*, top_db = 60.0, r#ref = DbRefArg(DbReference::Max), frame_length = Int(2048), hop_length = Int(512), aggregate = None),
         text_signature = "($self, *, top_db=60, ref='max', frame_length=2048, hop_length=512, aggregate=None)"
     )]
     fn trim_db_in_place<'py>(
@@ -434,8 +435,8 @@ impl PyAudioSamples {
         py: Python<'py>,
         top_db: f64,
         r#ref: DbRefArg,
-        frame_length: i64,
-        hop_length: i64,
+        frame_length: Int,
+        hop_length: Int,
         aggregate: Option<&Bound<'py, PyAny>>,
     ) -> PyResult<Bound<'py, PyArray1<i64>>> {
         let (audio, bounds) =
@@ -453,7 +454,7 @@ impl PyAudioSamples {
     ///     numpy.ndarray[int64]: shape ``(n_intervals, 2)`` of ``[start, end)``
     ///     sample ranges (``(0, 2)`` if everything is silent).
     #[pyo3(
-        signature = (*, top_db = 60.0, r#ref = DbRefArg(DbReference::Max), frame_length = 2048, hop_length = 512, aggregate = None),
+        signature = (*, top_db = 60.0, r#ref = DbRefArg(DbReference::Max), frame_length = Int(2048), hop_length = Int(512), aggregate = None),
         text_signature = "($self, *, top_db=60, ref='max', frame_length=2048, hop_length=512, aggregate=None)"
     )]
     fn split_db<'py>(
@@ -461,8 +462,8 @@ impl PyAudioSamples {
         py: Python<'py>,
         top_db: f64,
         r#ref: DbRefArg,
-        frame_length: i64,
-        hop_length: i64,
+        frame_length: Int,
+        hop_length: Int,
         aggregate: Option<&Bound<'py, PyAny>>,
     ) -> PyResult<Bound<'py, PyArray2<i64>>> {
         let cfg = silence_config(py, top_db, r#ref, frame_length, hop_length, aggregate)?;
@@ -544,7 +545,7 @@ impl PyAudioSamples {
     /// Returns:
     ///     AudioSamples: the harmonic component, same length.
     #[pyo3(
-        signature = (*, kernel_size = None, power = 2.0, mask = false, margin = None, n_fft = 2048, hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant"),
+        signature = (*, kernel_size = None, power = 2.0, mask = false, margin = None, n_fft = Int(2048), hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant"),
         text_signature = "($self, *, kernel_size=31, power=2.0, mask=False, margin=1.0, n_fft=2048, hop_length=None, win_length=None, window='hann', center=True, pad_mode='constant')"
     )]
     #[allow(clippy::too_many_arguments)]
@@ -555,9 +556,9 @@ impl PyAudioSamples {
         power: f64,
         mask: bool,
         margin: Option<&Bound<'_, PyAny>>,
-        n_fft: i64,
-        hop_length: Option<i64>,
-        win_length: Option<i64>,
+        n_fft: Int,
+        hop_length: Option<Int>,
+        win_length: Option<Int>,
         window: WindowArg,
         center: bool,
         pad_mode: &str,
@@ -583,7 +584,7 @@ impl PyAudioSamples {
 
     /// In-place ``harmonic``; arguments as ``harmonic``.
     #[pyo3(
-        signature = (*, kernel_size = None, power = 2.0, mask = false, margin = None, n_fft = 2048, hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant"),
+        signature = (*, kernel_size = None, power = 2.0, mask = false, margin = None, n_fft = Int(2048), hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant"),
         text_signature = "($self, *, kernel_size=31, power=2.0, mask=False, margin=1.0, n_fft=2048, hop_length=None, win_length=None, window='hann', center=True, pad_mode='constant')"
     )]
     #[allow(clippy::too_many_arguments)]
@@ -594,9 +595,9 @@ impl PyAudioSamples {
         power: f64,
         mask: bool,
         margin: Option<&Bound<'_, PyAny>>,
-        n_fft: i64,
-        hop_length: Option<i64>,
-        win_length: Option<i64>,
+        n_fft: Int,
+        hop_length: Option<Int>,
+        win_length: Option<Int>,
         window: WindowArg,
         center: bool,
         pad_mode: &str,
@@ -625,7 +626,7 @@ impl PyAudioSamples {
     /// Returns:
     ///     AudioSamples: the percussive component, same length.
     #[pyo3(
-        signature = (*, kernel_size = None, power = 2.0, mask = false, margin = None, n_fft = 2048, hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant"),
+        signature = (*, kernel_size = None, power = 2.0, mask = false, margin = None, n_fft = Int(2048), hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant"),
         text_signature = "($self, *, kernel_size=31, power=2.0, mask=False, margin=1.0, n_fft=2048, hop_length=None, win_length=None, window='hann', center=True, pad_mode='constant')"
     )]
     #[allow(clippy::too_many_arguments)]
@@ -636,9 +637,9 @@ impl PyAudioSamples {
         power: f64,
         mask: bool,
         margin: Option<&Bound<'_, PyAny>>,
-        n_fft: i64,
-        hop_length: Option<i64>,
-        win_length: Option<i64>,
+        n_fft: Int,
+        hop_length: Option<Int>,
+        win_length: Option<Int>,
         window: WindowArg,
         center: bool,
         pad_mode: &str,
@@ -664,7 +665,7 @@ impl PyAudioSamples {
 
     /// In-place ``percussive``; arguments as ``harmonic``.
     #[pyo3(
-        signature = (*, kernel_size = None, power = 2.0, mask = false, margin = None, n_fft = 2048, hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant"),
+        signature = (*, kernel_size = None, power = 2.0, mask = false, margin = None, n_fft = Int(2048), hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant"),
         text_signature = "($self, *, kernel_size=31, power=2.0, mask=False, margin=1.0, n_fft=2048, hop_length=None, win_length=None, window='hann', center=True, pad_mode='constant')"
     )]
     #[allow(clippy::too_many_arguments)]
@@ -675,9 +676,9 @@ impl PyAudioSamples {
         power: f64,
         mask: bool,
         margin: Option<&Bound<'_, PyAny>>,
-        n_fft: i64,
-        hop_length: Option<i64>,
-        win_length: Option<i64>,
+        n_fft: Int,
+        hop_length: Option<Int>,
+        win_length: Option<Int>,
         window: WindowArg,
         center: bool,
         pad_mode: &str,
@@ -709,7 +710,7 @@ impl PyAudioSamples {
     ///     tuple[AudioSamples, AudioSamples]: ``(harmonic, percussive)``; with
     ///     margins of 1 they sum to the input up to round-off.
     #[pyo3(
-        signature = (*, kernel_size = None, power = 2.0, mask = false, margin = None, n_fft = 2048, hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant"),
+        signature = (*, kernel_size = None, power = 2.0, mask = false, margin = None, n_fft = Int(2048), hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant"),
         text_signature = "($self, *, kernel_size=31, power=2.0, mask=False, margin=1.0, n_fft=2048, hop_length=None, win_length=None, window='hann', center=True, pad_mode='constant')"
     )]
     #[allow(clippy::too_many_arguments)]
@@ -720,9 +721,9 @@ impl PyAudioSamples {
         power: f64,
         mask: bool,
         margin: Option<&Bound<'_, PyAny>>,
-        n_fft: i64,
-        hop_length: Option<i64>,
-        win_length: Option<i64>,
+        n_fft: Int,
+        hop_length: Option<Int>,
+        win_length: Option<Int>,
         window: WindowArg,
         center: bool,
         pad_mode: &str,
@@ -761,7 +762,7 @@ impl PyAudioSamples {
     /// Raises:
     ///     ValueError: For a too-short or non-finite channel.
     #[pyo3(signature = (*, order), text_signature = "($self, *, order)")]
-    fn lpc<'py>(&self, py: Python<'py>, order: i64) -> PyResult<Bound<'py, PyArray2<f64>>> {
+    fn lpc<'py>(&self, py: Python<'py>, order: Int) -> PyResult<Bound<'py, PyArray2<f64>>> {
         let order = positive("order", order)?;
         let a = dispatch_with_view!(self, py, |audio| AudioEffects::lpc(&audio, order))
             .map_err(audio_err_to_py)?;
@@ -786,20 +787,20 @@ impl PyAudioSamples {
     ///     AudioSamples: float64 audio (mono for one channel).
     #[staticmethod]
     #[pyo3(
-        signature = (S, *, sample_rate, n_iter = 32, hop_length = None, win_length = None, n_fft = None, window = WindowArg(Window::Hann), center = true, length = None, pad_mode = "constant", momentum = 0.99, init = Some("random"), rng = None),
+        signature = (S, *, sample_rate, n_iter = Int(32), hop_length = None, win_length = None, n_fft = None, window = WindowArg(Window::Hann), center = true, length = None, pad_mode = "constant", momentum = 0.99, init = Some("random"), rng = None),
         text_signature = "(S, *, sample_rate, n_iter=32, hop_length=None, win_length=None, n_fft=None, window='hann', center=True, length=None, pad_mode='constant', momentum=0.99, init='random', rng=None)"
     )]
     #[allow(non_snake_case, clippy::too_many_arguments)]
     fn griffinlim_audio(
         S: &Bound<'_, PyAny>,
-        sample_rate: u32,
-        n_iter: i64,
-        hop_length: Option<i64>,
-        win_length: Option<i64>,
-        n_fft: Option<i64>,
+        sample_rate: Int,
+        n_iter: Int,
+        hop_length: Option<Int>,
+        win_length: Option<Int>,
+        n_fft: Option<Int>,
         window: WindowArg,
         center: bool,
-        length: Option<i64>,
+        length: Option<Int>,
         pad_mode: &str,
         momentum: f64,
         init: Option<&str>,
@@ -820,7 +821,7 @@ impl PyAudioSamples {
             init,
             rng,
         )?;
-        let sr = nzu32_or_err(sample_rate)?;
+        let sr = nzu32_or_err(crate::args::sample_rate_u32(sample_rate)?)?;
         let y = <AudioSamples<'static, f64> as AudioEffects>::griffinlim_audio(&s, &cfg, sr)
             .map_err(audio_err_to_py)?;
         Ok(Self::from_audio_samples(y))

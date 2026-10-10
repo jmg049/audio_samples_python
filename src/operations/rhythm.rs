@@ -11,6 +11,7 @@
 //! from `y` (default mel onset strength with the given `hop_length`; median
 //! aggregation for `beat_track` and `plp`).
 
+use crate::args::Int;
 use audio_samples::operations::filterbanks::Window;
 use audio_samples::operations::rhythm::{self as rh, Aggregate, OnsetStrengthConfig};
 use audio_samples::operations::spectrum::MelSpectrogramConfig;
@@ -70,18 +71,18 @@ impl PyAudioSamples {
 /// Builds the onset-strength config of the `onset_strength*` methods.
 #[allow(clippy::too_many_arguments)]
 fn onset_strength_config(
-    lag: i64,
-    max_size: i64,
+    lag: Int,
+    max_size: Int,
     detrend: bool,
     center: bool,
     aggregate: Option<Aggregate>,
-    n_fft: i64,
-    hop_length: i64,
-    win_length: Option<i64>,
+    n_fft: Int,
+    hop_length: Int,
+    win_length: Option<Int>,
     window: WindowArg,
     pad_mode: &str,
     power: f64,
-    n_mels: i64,
+    n_mels: Int,
     fmin: f64,
     fmax: Option<f64>,
     htk: bool,
@@ -132,25 +133,25 @@ impl PyAudioSamples {
     /// Raises:
     ///     ValueError: For invalid parameters.
     #[pyo3(
-        signature = (*, lag = 1, max_size = 1, detrend = false, center = true, aggregate = None, n_fft = 2048, hop_length = 512, win_length = None, window = WindowArg(Window::Hann), pad_mode = "constant", power = 2.0, n_mels = 128, fmin = 0.0, fmax = None, htk = false, norm = MelNormArg(MelFilterNorm::Slaney)),
+        signature = (*, lag = Int(1), max_size = Int(1), detrend = false, center = true, aggregate = None, n_fft = Int(2048), hop_length = Int(512), win_length = None, window = WindowArg(Window::Hann), pad_mode = "constant", power = 2.0, n_mels = Int(128), fmin = 0.0, fmax = None, htk = false, norm = MelNormArg(MelFilterNorm::Slaney)),
         text_signature = "($self, *, lag=1, max_size=1, detrend=False, center=True, aggregate=None, n_fft=2048, hop_length=512, win_length=None, window='hann', pad_mode='constant', power=2.0, n_mels=128, fmin=0.0, fmax=None, htk=False, norm='slaney')"
     )]
     #[allow(clippy::too_many_arguments)]
     fn onset_strength<'py>(
         &self,
         py: Python<'py>,
-        lag: i64,
-        max_size: i64,
+        lag: Int,
+        max_size: Int,
         detrend: bool,
         center: bool,
         aggregate: Option<&Bound<'py, PyAny>>,
-        n_fft: i64,
-        hop_length: i64,
-        win_length: Option<i64>,
+        n_fft: Int,
+        hop_length: Int,
+        win_length: Option<Int>,
         window: WindowArg,
         pad_mode: &str,
         power: f64,
-        n_mels: i64,
+        n_mels: Int,
         fmin: f64,
         fmax: Option<f64>,
         htk: bool,
@@ -201,7 +202,7 @@ impl PyAudioSamples {
     /// Raises:
     ///     ValueError: For invalid parameters or boundaries.
     #[pyo3(
-        signature = (*, channels = None, lag = 1, max_size = 1, detrend = false, center = true, aggregate = None, n_fft = 2048, hop_length = 512, win_length = None, window = WindowArg(Window::Hann), pad_mode = "constant", power = 2.0, n_mels = 128, fmin = 0.0, fmax = None, htk = false, norm = MelNormArg(MelFilterNorm::Slaney)),
+        signature = (*, channels = None, lag = Int(1), max_size = Int(1), detrend = false, center = true, aggregate = None, n_fft = Int(2048), hop_length = Int(512), win_length = None, window = WindowArg(Window::Hann), pad_mode = "constant", power = 2.0, n_mels = Int(128), fmin = 0.0, fmax = None, htk = false, norm = MelNormArg(MelFilterNorm::Slaney)),
         text_signature = "($self, *, channels=None, lag=1, max_size=1, detrend=False, center=True, aggregate=None, n_fft=2048, hop_length=512, win_length=None, window='hann', pad_mode='constant', power=2.0, n_mels=128, fmin=0.0, fmax=None, htk=False, norm='slaney')"
     )]
     #[allow(clippy::too_many_arguments)]
@@ -209,18 +210,18 @@ impl PyAudioSamples {
         &self,
         py: Python<'py>,
         channels: Option<&Bound<'py, PyAny>>,
-        lag: i64,
-        max_size: i64,
+        lag: Int,
+        max_size: Int,
         detrend: bool,
         center: bool,
         aggregate: Option<&Bound<'py, PyAny>>,
-        n_fft: i64,
-        hop_length: i64,
-        win_length: Option<i64>,
+        n_fft: Int,
+        hop_length: Int,
+        win_length: Option<Int>,
         window: WindowArg,
         pad_mode: &str,
         power: f64,
-        n_mels: i64,
+        n_mels: Int,
         fmin: f64,
         fmax: Option<f64>,
         htk: bool,
@@ -279,29 +280,29 @@ impl PyAudioSamples {
     ///     ValueError: For multi-channel audio, invalid parameters or
     ///         ``sparse=False``.
     #[pyo3(
-        signature = (*, hop_length = 512, backtrack = false, energy = None, units = "frames", normalize = true, sparse = true, pre_max = None, post_max = None, pre_avg = None, post_avg = None, delta = None, wait = None, method = "greedy"),
+        signature = (*, hop_length = Int(512), backtrack = false, energy = None, units = "frames", normalize = true, sparse = true, pre_max = None, post_max = None, pre_avg = None, post_avg = None, delta = None, wait = None, method = "greedy"),
         text_signature = "($self, *, hop_length=512, backtrack=False, energy=None, units='frames', normalize=True, sparse=True, pre_max=None, post_max=None, pre_avg=None, post_avg=None, delta=None, wait=None, method='greedy')"
     )]
     #[allow(clippy::too_many_arguments)]
     fn onset_detect<'py>(
         &self,
         py: Python<'py>,
-        hop_length: i64,
+        hop_length: Int,
         backtrack: bool,
         energy: Option<&Bound<'py, PyAny>>,
         units: &str,
         normalize: bool,
         sparse: bool,
-        pre_max: Option<i64>,
-        post_max: Option<i64>,
-        pre_avg: Option<i64>,
-        post_avg: Option<i64>,
+        pre_max: Option<Int>,
+        post_max: Option<Int>,
+        pre_avg: Option<Int>,
+        post_avg: Option<Int>,
         delta: Option<f64>,
-        wait: Option<i64>,
+        wait: Option<Int>,
         method: &str,
     ) -> PyResult<Bound<'py, PyAny>> {
         require_sparse(sparse)?;
-        let cfg = envelope_config(hop_length, Aggregate::Mean)?;
+        let cfg = envelope_config(hop_length.0, Aggregate::Mean)?;
         let hop = positive("hop_length", hop_length)?;
         let sr = self.sample_rate_f64(py);
         let peak = onset_peak_pick(
@@ -329,20 +330,20 @@ impl PyAudioSamples {
     /// Raises:
     ///     ValueError: For invalid parameters.
     #[pyo3(
-        signature = (*, hop_length = 512, win_length = 384, center = true, window = WindowArg(Window::Hann), norm = Some(f64::INFINITY)),
+        signature = (*, hop_length = Int(512), win_length = Int(384), center = true, window = WindowArg(Window::Hann), norm = Some(f64::INFINITY)),
         text_signature = "($self, *, hop_length=512, win_length=384, center=True, window='hann', norm=math.inf)"
     )]
     fn tempogram<'py>(
         &self,
         py: Python<'py>,
-        hop_length: i64,
-        win_length: i64,
+        hop_length: Int,
+        win_length: Int,
         center: bool,
         window: WindowArg,
         norm: Option<f64>,
     ) -> PyResult<Bound<'py, PyArray3<f64>>> {
         let tcfg = tempogram_config(win_length, center, window, norm)?;
-        let env = self.envelope(py, &envelope_config(hop_length, Aggregate::Mean)?)?;
+        let env = self.envelope(py, &envelope_config(hop_length.0, Aggregate::Mean)?)?;
         let tg = rh::tempogram_from_envelope(env.view(), &tcfg).map_err(audio_err_to_py)?;
         Ok(tg.into_pyarray(py))
     }
@@ -361,19 +362,19 @@ impl PyAudioSamples {
     ///     ``(channels, win_length // 2 + 1, n_frames + 1)`` (centred). librosa
     ///     returns the 2-D array for 1-D input; index ``[0]``.
     #[pyo3(
-        signature = (*, hop_length = 512, win_length = 384, center = true, window = WindowArg(Window::Hann)),
+        signature = (*, hop_length = Int(512), win_length = Int(384), center = true, window = WindowArg(Window::Hann)),
         text_signature = "($self, *, hop_length=512, win_length=384, center=True, window='hann')"
     )]
     fn fourier_tempogram<'py>(
         &self,
         py: Python<'py>,
-        hop_length: i64,
-        win_length: i64,
+        hop_length: Int,
+        win_length: Int,
         center: bool,
         window: WindowArg,
     ) -> PyResult<Bound<'py, PyArray3<Complex<f64>>>> {
         let fcfg = fourier_tempogram_config(win_length, center, window)?;
-        let env = self.envelope(py, &envelope_config(hop_length, Aggregate::Mean)?)?;
+        let env = self.envelope(py, &envelope_config(hop_length.0, Aggregate::Mean)?)?;
         let tg = rh::fourier_tempogram_from_envelope(env.view(), &fcfg).map_err(audio_err_to_py)?;
         Ok(tg.into_pyarray(py))
     }
@@ -400,14 +401,14 @@ impl PyAudioSamples {
     /// Raises:
     ///     ValueError: For invalid parameters.
     #[pyo3(
-        signature = (*, hop_length = 512, start_bpm = 120.0, std_bpm = 1.0, ac_size = 8.0, max_tempo = Some(320.0), aggregate = AggregateArg::mean(), prior = None),
+        signature = (*, hop_length = Int(512), start_bpm = 120.0, std_bpm = 1.0, ac_size = 8.0, max_tempo = Some(320.0), aggregate = AggregateArg::mean(), prior = None),
         text_signature = "($self, *, hop_length=512, start_bpm=120, std_bpm=1.0, ac_size=8.0, max_tempo=320.0, aggregate='mean', prior=None)"
     )]
     #[allow(clippy::too_many_arguments)]
     fn tempo<'py>(
         &self,
         py: Python<'py>,
-        hop_length: i64,
+        hop_length: Int,
         start_bpm: f64,
         std_bpm: f64,
         ac_size: f64,
@@ -426,7 +427,7 @@ impl PyAudioSamples {
             prior.as_ref(),
         );
         let hop = positive("hop_length", hop_length)?;
-        let env = self.envelope(py, &envelope_config(hop_length, Aggregate::Mean)?)?;
+        let env = self.envelope(py, &envelope_config(hop_length.0, Aggregate::Mean)?)?;
         let sr = self.sample_rate_f64(py);
         let scope = CallbackScope::install(agg.callable(), prior.as_ref(), py);
         let t = scope.finish(rh::tempo_from_envelope(env.view(), sr, hop, &cfg))?;
@@ -460,14 +461,14 @@ impl PyAudioSamples {
     ///     ValueError: For multi-channel audio, invalid parameters or
     ///         ``sparse=False``.
     #[pyo3(
-        signature = (*, hop_length = 512, start_bpm = 120.0, tightness = 100.0, trim = true, bpm = None, prior = None, units = "frames", sparse = true),
+        signature = (*, hop_length = Int(512), start_bpm = 120.0, tightness = 100.0, trim = true, bpm = None, prior = None, units = "frames", sparse = true),
         text_signature = "($self, *, hop_length=512, start_bpm=120.0, tightness=100, trim=True, bpm=None, prior=None, units='frames', sparse=True)"
     )]
     #[allow(clippy::too_many_arguments)]
     fn beat_track<'py>(
         &self,
         py: Python<'py>,
-        hop_length: i64,
+        hop_length: Int,
         start_bpm: f64,
         tightness: f64,
         trim: bool,
@@ -480,7 +481,7 @@ impl PyAudioSamples {
         let hop = positive("hop_length", hop_length)?;
         let env = self.mono_envelope(
             py,
-            &envelope_config(hop_length, Aggregate::Median)?,
+            &envelope_config(hop_length.0, Aggregate::Median)?,
             "beat_track",
         )?;
         let sr = self.sample_rate_f64(py);
@@ -507,14 +508,14 @@ impl PyAudioSamples {
     /// Raises:
     ///     ValueError: If ``tempo_max <= tempo_min`` or parameters are invalid.
     #[pyo3(
-        signature = (*, hop_length = 512, win_length = 384, tempo_min = Some(30.0), tempo_max = Some(300.0), prior = None),
+        signature = (*, hop_length = Int(512), win_length = Int(384), tempo_min = Some(30.0), tempo_max = Some(300.0), prior = None),
         text_signature = "($self, *, hop_length=512, win_length=384, tempo_min=30, tempo_max=300, prior=None)"
     )]
     fn plp<'py>(
         &self,
         py: Python<'py>,
-        hop_length: i64,
-        win_length: i64,
+        hop_length: Int,
+        win_length: Int,
         tempo_min: Option<f64>,
         tempo_max: Option<f64>,
         prior: Option<&Bound<'py, PyAny>>,
@@ -522,7 +523,7 @@ impl PyAudioSamples {
         let prior = parse_prior(prior)?;
         let cfg = plp_config(win_length, tempo_min, tempo_max, prior.as_ref())?;
         let hop = positive("hop_length", hop_length)?;
-        let env = self.envelope(py, &envelope_config(hop_length, Aggregate::Median)?)?;
+        let env = self.envelope(py, &envelope_config(hop_length.0, Aggregate::Median)?)?;
         let sr = self.sample_rate_f64(py);
         let scope = CallbackScope::install(None, prior.as_ref(), py);
         let p = scope.finish(rh::plp_from_envelope(env.view(), sr, hop, &cfg))?;
@@ -548,15 +549,15 @@ impl PyAudioSamples {
     ///     axis instead). For 1-D input librosa returns the array without the
     ///     channel axis; index ``[0]``.
     #[pyo3(
-        signature = (*, hop_length = 512, win_length = 384, start_bpm = 120.0, std_bpm = 1.0, max_tempo = Some(320.0), factors = None, aggregate = None, prior = None, center = true, window = WindowArg(Window::Hann), fill_value = 0.0, norm = Some(f64::INFINITY)),
+        signature = (*, hop_length = Int(512), win_length = Int(384), start_bpm = 120.0, std_bpm = 1.0, max_tempo = Some(320.0), factors = None, aggregate = None, prior = None, center = true, window = WindowArg(Window::Hann), fill_value = 0.0, norm = Some(f64::INFINITY)),
         text_signature = "($self, *, hop_length=512, win_length=384, start_bpm=120, std_bpm=1.0, max_tempo=320.0, factors=None, aggregate=None, prior=None, center=True, window='hann', fill_value=0, norm=math.inf)"
     )]
     #[allow(clippy::too_many_arguments)]
     fn tempogram_ratio<'py>(
         &self,
         py: Python<'py>,
-        hop_length: i64,
-        win_length: i64,
+        hop_length: Int,
+        win_length: Int,
         start_bpm: f64,
         std_bpm: f64,
         max_tempo: Option<f64>,
@@ -584,7 +585,7 @@ impl PyAudioSamples {
             fill_value,
         )?;
         let hop = positive("hop_length", hop_length)?;
-        let env = self.envelope(py, &envelope_config(hop_length, Aggregate::Mean)?)?;
+        let env = self.envelope(py, &envelope_config(hop_length.0, Aggregate::Mean)?)?;
         let tg =
             rh::tempogram_from_envelope(env.view(), &cfg.tempogram).map_err(audio_err_to_py)?;
         let sr = self.sample_rate_f64(py);
@@ -613,20 +614,20 @@ impl PyAudioSamples {
     ///     on the ``fourier_tempo_frequencies`` grid. librosa returns the 2-D
     ///     array for 1-D input; index ``[0]``.
     #[pyo3(
-        signature = (*, hop_length = 512, win_length = 384, center = true, window = WindowArg(Window::Hann)),
+        signature = (*, hop_length = Int(512), win_length = Int(384), center = true, window = WindowArg(Window::Hann)),
         text_signature = "($self, *, hop_length=512, win_length=384, center=True, window='hann')"
     )]
     fn hybrid_tempogram<'py>(
         &self,
         py: Python<'py>,
-        hop_length: i64,
-        win_length: i64,
+        hop_length: Int,
+        win_length: Int,
         center: bool,
         window: WindowArg,
     ) -> PyResult<Bound<'py, PyArray3<f64>>> {
         let hcfg = hybrid_tempogram_config(win_length, center, window)?;
         let hop = positive("hop_length", hop_length)?;
-        let env = self.envelope(py, &envelope_config(hop_length, Aggregate::Mean)?)?;
+        let env = self.envelope(py, &envelope_config(hop_length.0, Aggregate::Mean)?)?;
         let sr = self.sample_rate_f64(py);
         let h = rh::hybrid_tempogram_from_envelope(env.view(), sr, hop, &hcfg)
             .map_err(audio_err_to_py)?;

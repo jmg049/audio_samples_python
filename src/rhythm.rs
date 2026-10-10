@@ -18,6 +18,7 @@
 //! and their names run natively) and `prior` (an object with a `logpdf` method,
 //! e.g. a frozen `scipy.stats` distribution, or a callable of the BPM).
 
+use crate::args::Int;
 use std::cell::RefCell;
 use std::num::NonZeroUsize;
 
@@ -469,7 +470,7 @@ fn usize_vec(obj: &Bound<'_, PyAny>, name: &str) -> PyResult<Vec<usize>> {
 
 /// A tempogram `norm`: `None` or a number (`numpy.inf` for max-normalisation).
 pub(crate) fn tempogram_config(
-    win_length: i64,
+    win_length: Int,
     center: bool,
     window: WindowArg,
     norm: Option<f64>,
@@ -482,7 +483,7 @@ pub(crate) fn tempogram_config(
 }
 
 pub(crate) fn fourier_tempogram_config(
-    win_length: i64,
+    win_length: Int,
     center: bool,
     window: WindowArg,
 ) -> PyResult<FourierTempogramConfig> {
@@ -493,7 +494,7 @@ pub(crate) fn fourier_tempogram_config(
 }
 
 pub(crate) fn hybrid_tempogram_config(
-    win_length: i64,
+    win_length: Int,
     center: bool,
     window: WindowArg,
 ) -> PyResult<HybridTempogramConfig> {
@@ -522,7 +523,7 @@ pub(crate) fn tempo_config(
 }
 
 pub(crate) fn plp_config(
-    win_length: i64,
+    win_length: Int,
     tempo_min: Option<f64>,
     tempo_max: Option<f64>,
     prior: Option<&Py<PyAny>>,
@@ -552,12 +553,12 @@ pub(crate) fn parse_peak_method(method: &str) -> PyResult<PeakPickMethod> {
 pub(crate) fn onset_peak_pick(
     sr: f64,
     hop: NonZeroUsize,
-    pre_max: Option<i64>,
-    post_max: Option<i64>,
-    pre_avg: Option<i64>,
-    post_avg: Option<i64>,
+    pre_max: Option<Int>,
+    post_max: Option<Int>,
+    pre_avg: Option<Int>,
+    post_avg: Option<Int>,
     delta: Option<f64>,
-    wait: Option<i64>,
+    wait: Option<Int>,
     method: &str,
 ) -> PyResult<PeakPickConfig> {
     if !(sr.is_finite() && sr > 0.0) {
@@ -697,13 +698,13 @@ fn check_kind(kind: &str) -> PyResult<()> {
 /// only set the centring shift).
 #[allow(clippy::too_many_arguments)]
 fn onset_cfg_for_s(
-    lag: i64,
-    max_size: i64,
+    lag: Int,
+    max_size: Int,
     detrend: bool,
     center: bool,
     aggregate: Option<Aggregate>,
-    n_fft: i64,
-    hop_length: i64,
+    n_fft: Int,
+    hop_length: Int,
 ) -> PyResult<OnsetStrengthConfig> {
     let mut cfg = OnsetStrengthConfig::new()
         .with_lag(positive("lag", lag)?)
@@ -712,7 +713,7 @@ fn onset_cfg_for_s(
         .with_center(center)
         .with_aggregate(aggregate);
     cfg.mel.stft.n_fft = positive("n_fft", n_fft)?;
-    cfg.mel.stft.hop_length = Some(hop_nz(hop_length)?);
+    cfg.mel.stft.hop_length = Some(hop_nz(hop_length.0)?);
     Ok(cfg)
 }
 
@@ -771,7 +772,7 @@ pub(crate) fn parse_channels(obj: Option<&Bound<'_, PyAny>>) -> PyResult<Option<
 ///     ValueError: For invalid parameters or an empty spectrogram.
 #[pyfunction]
 #[pyo3(
-    signature = (*, S, sr = 22050.0, lag = 1, max_size = 1, r#ref = None, detrend = false, center = true, aggregate = None, n_fft = 2048, hop_length = 512),
+    signature = (*, S, sr = 22050.0, lag = Int(1), max_size = Int(1), r#ref = None, detrend = false, center = true, aggregate = None, n_fft = Int(2048), hop_length = Int(512)),
     text_signature = "(*, S, sr=22050, lag=1, max_size=1, ref=None, detrend=False, center=True, aggregate=None, n_fft=2048, hop_length=512)"
 )]
 #[allow(non_snake_case, clippy::too_many_arguments, unused_variables)]
@@ -779,14 +780,14 @@ pub fn onset_strength<'py>(
     py: Python<'py>,
     S: &Bound<'py, PyAny>,
     sr: f64,
-    lag: i64,
-    max_size: i64,
+    lag: Int,
+    max_size: Int,
     r#ref: Option<&Bound<'py, PyAny>>,
     detrend: bool,
     center: bool,
     aggregate: Option<&Bound<'py, PyAny>>,
-    n_fft: i64,
-    hop_length: i64,
+    n_fft: Int,
+    hop_length: Int,
 ) -> PyResult<Bound<'py, PyAny>> {
     let agg = parse_aggregate(aggregate)?;
     let cfg = onset_cfg_for_s(
@@ -839,7 +840,7 @@ pub fn onset_strength<'py>(
 ///     ValueError: For invalid parameters or boundaries.
 #[pyfunction]
 #[pyo3(
-    signature = (*, S, sr = 22050.0, n_fft = 2048, hop_length = 512, lag = 1, max_size = 1, r#ref = None, detrend = false, center = true, aggregate = None, channels = None),
+    signature = (*, S, sr = 22050.0, n_fft = Int(2048), hop_length = Int(512), lag = Int(1), max_size = Int(1), r#ref = None, detrend = false, center = true, aggregate = None, channels = None),
     text_signature = "(*, S, sr=22050, n_fft=2048, hop_length=512, lag=1, max_size=1, ref=None, detrend=False, center=True, aggregate=None, channels=None)"
 )]
 #[allow(non_snake_case, clippy::too_many_arguments, unused_variables)]
@@ -847,10 +848,10 @@ pub fn onset_strength_multi<'py>(
     py: Python<'py>,
     S: &Bound<'py, PyAny>,
     sr: f64,
-    n_fft: i64,
-    hop_length: i64,
-    lag: i64,
-    max_size: i64,
+    n_fft: Int,
+    hop_length: Int,
+    lag: Int,
+    max_size: Int,
     r#ref: Option<&Bound<'py, PyAny>>,
     detrend: bool,
     center: bool,
@@ -906,25 +907,25 @@ pub fn onset_strength_multi<'py>(
 ///     ValueError: For invalid parameters, non-finite input or ``sparse=False``.
 #[pyfunction]
 #[pyo3(
-    signature = (x, *, pre_max, post_max, pre_avg, post_avg, delta, wait, sparse = true, method = "greedy", axis = -1),
+    signature = (x, *, pre_max, post_max, pre_avg, post_avg, delta, wait, sparse = true, method = "greedy", axis = Int(-1)),
     text_signature = "(x, *, pre_max, post_max, pre_avg, post_avg, delta, wait, sparse=True, method='greedy', axis=-1)"
 )]
 #[allow(clippy::too_many_arguments)]
 pub fn peak_pick<'py>(
     py: Python<'py>,
     x: &Bound<'py, PyAny>,
-    pre_max: i64,
-    post_max: i64,
-    pre_avg: i64,
-    post_avg: i64,
+    pre_max: Int,
+    post_max: Int,
+    pre_avg: Int,
+    post_avg: Int,
     delta: f64,
-    wait: i64,
+    wait: Int,
     sparse: bool,
     method: &str,
-    axis: i64,
+    axis: Int,
 ) -> PyResult<Bound<'py, PyArray1<i64>>> {
     require_sparse(sparse)?;
-    if axis != -1 && axis != 0 {
+    if axis != Int(-1) && axis != Int(0) {
         return Err(value_err("axis", "only 1-D input (axis=-1) is supported"));
     }
     let x = vec1(x, "x")?;
@@ -1002,7 +1003,7 @@ pub fn onset_backtrack<'py>(
 ///     ValueError: For invalid parameters, a 2-D envelope or ``sparse=False``.
 #[pyfunction]
 #[pyo3(
-    signature = (*, onset_envelope, sr = 22050.0, hop_length = 512, backtrack = false, energy = None, units = "frames", normalize = true, sparse = true, pre_max = None, post_max = None, pre_avg = None, post_avg = None, delta = None, wait = None, method = "greedy"),
+    signature = (*, onset_envelope, sr = 22050.0, hop_length = Int(512), backtrack = false, energy = None, units = "frames", normalize = true, sparse = true, pre_max = None, post_max = None, pre_avg = None, post_avg = None, delta = None, wait = None, method = "greedy"),
     text_signature = "(*, onset_envelope, sr=22050, hop_length=512, backtrack=False, energy=None, units='frames', normalize=True, sparse=True, pre_max=None, post_max=None, pre_avg=None, post_avg=None, delta=None, wait=None, method='greedy')"
 )]
 #[allow(clippy::too_many_arguments)]
@@ -1010,22 +1011,22 @@ pub fn onset_detect<'py>(
     py: Python<'py>,
     onset_envelope: &Bound<'py, PyAny>,
     sr: f64,
-    hop_length: i64,
+    hop_length: Int,
     backtrack: bool,
     energy: Option<&Bound<'py, PyAny>>,
     units: &str,
     normalize: bool,
     sparse: bool,
-    pre_max: Option<i64>,
-    post_max: Option<i64>,
-    pre_avg: Option<i64>,
-    post_avg: Option<i64>,
+    pre_max: Option<Int>,
+    post_max: Option<Int>,
+    pre_avg: Option<Int>,
+    post_avg: Option<Int>,
     delta: Option<f64>,
-    wait: Option<i64>,
+    wait: Option<Int>,
     method: &str,
 ) -> PyResult<Bound<'py, PyAny>> {
     require_sparse(sparse)?;
-    let hop = hop_nz(hop_length)?;
+    let hop = hop_nz(hop_length.0)?;
     let env = vec1(onset_envelope, "onset_envelope")?;
     let peak = onset_peak_pick(
         sr, hop, pre_max, post_max, pre_avg, post_avg, delta, wait, method,
@@ -1049,17 +1050,17 @@ pub fn onset_detect<'py>(
 ///     numpy.ndarray[float64]: shape ``(n_bins,)``; bin 0 (zero lag) is ``inf``.
 #[pyfunction]
 #[pyo3(
-    signature = (n_bins, *, hop_length = 512, sr = 22050.0),
+    signature = (n_bins, *, hop_length = Int(512), sr = 22050.0),
     text_signature = "(n_bins, *, hop_length=512, sr=22050)"
 )]
 pub fn tempo_frequencies(
     py: Python<'_>,
-    n_bins: i64,
-    hop_length: i64,
+    n_bins: Int,
+    hop_length: Int,
     sr: f64,
 ) -> PyResult<Bound<'_, PyArray1<f64>>> {
     let n = non_negative("n_bins", n_bins)?;
-    Ok(rh::tempo_frequencies(n, hop_nz(hop_length)?, sr).into_pyarray(py))
+    Ok(rh::tempo_frequencies(n, hop_nz(hop_length.0)?, sr).into_pyarray(py))
 }
 
 /// Tempo (BPM) of each bin of a Fourier tempogram, equivalent to
@@ -1074,19 +1075,21 @@ pub fn tempo_frequencies(
 ///     numpy.ndarray[float64]: shape ``(win_length // 2 + 1,)``.
 #[pyfunction]
 #[pyo3(
-    signature = (*, sr = 22050.0, win_length = 384, hop_length = 512),
+    signature = (*, sr = 22050.0, win_length = Int(384), hop_length = Int(512)),
     text_signature = "(*, sr=22050, win_length=384, hop_length=512)"
 )]
 pub fn fourier_tempo_frequencies(
     py: Python<'_>,
     sr: f64,
-    win_length: i64,
-    hop_length: i64,
+    win_length: Int,
+    hop_length: Int,
 ) -> PyResult<Bound<'_, PyArray1<f64>>> {
-    Ok(
-        rh::fourier_tempo_frequencies(sr, hop_nz(hop_length)?, positive("win_length", win_length)?)
-            .into_pyarray(py),
+    Ok(rh::fourier_tempo_frequencies(
+        sr,
+        hop_nz(hop_length.0)?,
+        positive("win_length", win_length)?,
     )
+    .into_pyarray(py))
 }
 
 /// Autocorrelation tempogram of an onset envelope, equivalent to
@@ -1112,7 +1115,7 @@ pub fn fourier_tempo_frequencies(
 ///     ValueError: For invalid parameters or (uncentred) a too-short envelope.
 #[pyfunction]
 #[pyo3(
-    signature = (*, onset_envelope, sr = 22050.0, hop_length = 512, win_length = 384, center = true, window = WindowArg(Window::Hann), norm = Some(f64::INFINITY)),
+    signature = (*, onset_envelope, sr = 22050.0, hop_length = Int(512), win_length = Int(384), center = true, window = WindowArg(Window::Hann), norm = Some(f64::INFINITY)),
     text_signature = "(*, onset_envelope, sr=22050, hop_length=512, win_length=384, center=True, window='hann', norm=math.inf)"
 )]
 #[allow(clippy::too_many_arguments, unused_variables)]
@@ -1120,8 +1123,8 @@ pub fn tempogram<'py>(
     py: Python<'py>,
     onset_envelope: &Bound<'py, PyAny>,
     sr: f64,
-    hop_length: i64,
-    win_length: i64,
+    hop_length: Int,
+    win_length: Int,
     center: bool,
     window: WindowArg,
     norm: Option<f64>,
@@ -1147,7 +1150,7 @@ pub fn tempogram<'py>(
 ///     (centred) for 1-D input, with a leading channel axis for 2-D.
 #[pyfunction]
 #[pyo3(
-    signature = (*, onset_envelope, sr = 22050.0, hop_length = 512, win_length = 384, center = true, window = WindowArg(Window::Hann)),
+    signature = (*, onset_envelope, sr = 22050.0, hop_length = Int(512), win_length = Int(384), center = true, window = WindowArg(Window::Hann)),
     text_signature = "(*, onset_envelope, sr=22050, hop_length=512, win_length=384, center=True, window='hann')"
 )]
 #[allow(unused_variables)]
@@ -1155,8 +1158,8 @@ pub fn fourier_tempogram<'py>(
     py: Python<'py>,
     onset_envelope: &Bound<'py, PyAny>,
     sr: f64,
-    hop_length: i64,
-    win_length: i64,
+    hop_length: Int,
+    win_length: Int,
     center: bool,
     window: WindowArg,
 ) -> PyResult<Bound<'py, PyAny>> {
@@ -1198,7 +1201,7 @@ pub fn fourier_tempogram<'py>(
 ///     ValueError: For invalid parameters, or neither/both inputs given.
 #[pyfunction]
 #[pyo3(
-    signature = (*, onset_envelope = None, tg = None, sr = 22050.0, hop_length = 512, start_bpm = 120.0, std_bpm = 1.0, ac_size = 8.0, max_tempo = Some(320.0), aggregate = AggregateArg::mean(), prior = None),
+    signature = (*, onset_envelope = None, tg = None, sr = 22050.0, hop_length = Int(512), start_bpm = 120.0, std_bpm = 1.0, ac_size = 8.0, max_tempo = Some(320.0), aggregate = AggregateArg::mean(), prior = None),
     text_signature = "(*, onset_envelope=None, tg=None, sr=22050, hop_length=512, start_bpm=120, std_bpm=1.0, ac_size=8.0, max_tempo=320.0, aggregate='mean', prior=None)"
 )]
 #[allow(clippy::too_many_arguments)]
@@ -1207,7 +1210,7 @@ pub fn tempo<'py>(
     onset_envelope: Option<&Bound<'py, PyAny>>,
     tg: Option<&Bound<'py, PyAny>>,
     sr: f64,
-    hop_length: i64,
+    hop_length: Int,
     start_bpm: f64,
     std_bpm: f64,
     ac_size: f64,
@@ -1215,7 +1218,7 @@ pub fn tempo<'py>(
     aggregate: AggregateArg,
     prior: Option<&Bound<'py, PyAny>>,
 ) -> PyResult<Bound<'py, PyAny>> {
-    let hop = hop_nz(hop_length)?;
+    let hop = hop_nz(hop_length.0)?;
     let prior = parse_prior(prior)?;
     let agg = aggregate.0;
     let cfg = tempo_config(
@@ -1279,7 +1282,7 @@ pub fn tempo<'py>(
 ///     ValueError: For invalid parameters, a 2-D envelope or ``sparse=False``.
 #[pyfunction]
 #[pyo3(
-    signature = (*, onset_envelope, sr = 22050.0, hop_length = 512, start_bpm = 120.0, tightness = 100.0, trim = true, bpm = None, prior = None, units = "frames", sparse = true),
+    signature = (*, onset_envelope, sr = 22050.0, hop_length = Int(512), start_bpm = 120.0, tightness = 100.0, trim = true, bpm = None, prior = None, units = "frames", sparse = true),
     text_signature = "(*, onset_envelope, sr=22050, hop_length=512, start_bpm=120.0, tightness=100, trim=True, bpm=None, prior=None, units='frames', sparse=True)"
 )]
 #[allow(clippy::too_many_arguments)]
@@ -1287,7 +1290,7 @@ pub fn beat_track<'py>(
     py: Python<'py>,
     onset_envelope: &Bound<'py, PyAny>,
     sr: f64,
-    hop_length: i64,
+    hop_length: Int,
     start_bpm: f64,
     tightness: f64,
     trim: bool,
@@ -1302,7 +1305,7 @@ pub fn beat_track<'py>(
         py,
         &env,
         sr,
-        hop_nz(hop_length)?,
+        hop_nz(hop_length.0)?,
         start_bpm,
         tightness,
         trim,
@@ -1333,7 +1336,7 @@ pub fn beat_track<'py>(
 ///         fast that its period is under one frame.
 #[pyfunction]
 #[pyo3(
-    signature = (onset_envelope, bpm, *, sr = 22050.0, hop_length = 512, tightness = 100.0, trim = true),
+    signature = (onset_envelope, bpm, *, sr = 22050.0, hop_length = Int(512), tightness = 100.0, trim = true),
     text_signature = "(onset_envelope, bpm, *, sr=22050, hop_length=512, tightness=100.0, trim=True)"
 )]
 pub fn beat_track_with_bpm<'py>(
@@ -1341,13 +1344,13 @@ pub fn beat_track_with_bpm<'py>(
     onset_envelope: &Bound<'py, PyAny>,
     bpm: &Bound<'py, PyAny>,
     sr: f64,
-    hop_length: i64,
+    hop_length: Int,
     tightness: f64,
     trim: bool,
 ) -> PyResult<Bound<'py, PyArray1<i64>>> {
     let env = vec1(onset_envelope, "onset_envelope")?;
     let bpm: Vec<f64> = f64_array(bpm, "bpm")?.as_array().iter().copied().collect();
-    let hop = hop_nz(hop_length)?;
+    let hop = hop_nz(hop_length.0)?;
     let frames = rh::beat_track_with_bpm(&env, &bpm, sr / hop.get() as f64, tightness, trim)
         .map_err(audio_err_to_py)?;
     Ok(frames
@@ -1378,7 +1381,7 @@ pub fn beat_track_with_bpm<'py>(
 ///     ValueError: If ``tempo_max <= tempo_min`` or the envelope is empty.
 #[pyfunction]
 #[pyo3(
-    signature = (*, onset_envelope, sr = 22050.0, hop_length = 512, win_length = 384, tempo_min = Some(30.0), tempo_max = Some(300.0), prior = None),
+    signature = (*, onset_envelope, sr = 22050.0, hop_length = Int(512), win_length = Int(384), tempo_min = Some(30.0), tempo_max = Some(300.0), prior = None),
     text_signature = "(*, onset_envelope, sr=22050, hop_length=512, win_length=384, tempo_min=30, tempo_max=300, prior=None)"
 )]
 #[allow(clippy::too_many_arguments)]
@@ -1386,8 +1389,8 @@ pub fn plp<'py>(
     py: Python<'py>,
     onset_envelope: &Bound<'py, PyAny>,
     sr: f64,
-    hop_length: i64,
-    win_length: i64,
+    hop_length: Int,
+    win_length: Int,
     tempo_min: Option<f64>,
     tempo_max: Option<f64>,
     prior: Option<&Bound<'py, PyAny>>,
@@ -1399,7 +1402,7 @@ pub fn plp<'py>(
     let p = scope.finish(rh::plp_from_envelope(
         env.view(),
         sr,
-        hop_nz(hop_length)?,
+        hop_nz(hop_length.0)?,
         &cfg,
     ))?;
     Ok(out2(py, p, squeeze))
@@ -1439,7 +1442,7 @@ pub fn plp<'py>(
 ///         or neither input given.
 #[pyfunction]
 #[pyo3(
-    signature = (*, onset_envelope = None, tg = None, bpm = None, sr = 22050.0, hop_length = 512, win_length = 384, start_bpm = 120.0, std_bpm = 1.0, max_tempo = Some(320.0), freqs = None, factors = None, aggregate = None, prior = None, center = true, window = WindowArg(Window::Hann), kind = "linear", fill_value = 0.0, norm = Some(f64::INFINITY)),
+    signature = (*, onset_envelope = None, tg = None, bpm = None, sr = 22050.0, hop_length = Int(512), win_length = Int(384), start_bpm = 120.0, std_bpm = 1.0, max_tempo = Some(320.0), freqs = None, factors = None, aggregate = None, prior = None, center = true, window = WindowArg(Window::Hann), kind = "linear", fill_value = 0.0, norm = Some(f64::INFINITY)),
     text_signature = "(*, onset_envelope=None, tg=None, bpm=None, sr=22050, hop_length=512, win_length=384, start_bpm=120, std_bpm=1.0, max_tempo=320.0, freqs=None, factors=None, aggregate=None, prior=None, center=True, window='hann', kind='linear', fill_value=0, norm=math.inf)"
 )]
 #[allow(clippy::too_many_arguments)]
@@ -1449,8 +1452,8 @@ pub fn tempogram_ratio<'py>(
     tg: Option<&Bound<'py, PyAny>>,
     bpm: Option<&Bound<'py, PyAny>>,
     sr: f64,
-    hop_length: i64,
-    win_length: i64,
+    hop_length: Int,
+    win_length: Int,
     start_bpm: f64,
     std_bpm: f64,
     max_tempo: Option<f64>,
@@ -1471,7 +1474,7 @@ pub fn tempogram_ratio<'py>(
             "custom tempogram frequencies are not supported; the tempo_frequencies grid is used",
         ));
     }
-    let hop = hop_nz(hop_length)?;
+    let hop = hop_nz(hop_length.0)?;
     let prior = parse_prior(prior)?;
     let agg = parse_aggregate(aggregate)?;
     let cfg = ratio_config(
@@ -1537,7 +1540,7 @@ fn ratio_out<'py>(
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn ratio_config(
-    win_length: i64,
+    win_length: Int,
     center: bool,
     window: WindowArg,
     norm: Option<f64>,
@@ -1579,21 +1582,21 @@ pub(crate) fn ratio_config(
 ///     ``fourier_tempo_frequencies`` grid, with a leading channel axis for 2-D input.
 #[pyfunction]
 #[pyo3(
-    signature = (*, onset_envelope, sr = 22050.0, hop_length = 512, win_length = 384, center = true, window = WindowArg(Window::Hann)),
+    signature = (*, onset_envelope, sr = 22050.0, hop_length = Int(512), win_length = Int(384), center = true, window = WindowArg(Window::Hann)),
     text_signature = "(*, onset_envelope, sr=22050, hop_length=512, win_length=384, center=True, window='hann')"
 )]
 pub fn hybrid_tempogram<'py>(
     py: Python<'py>,
     onset_envelope: &Bound<'py, PyAny>,
     sr: f64,
-    hop_length: i64,
-    win_length: i64,
+    hop_length: Int,
+    win_length: Int,
     center: bool,
     window: WindowArg,
 ) -> PyResult<Bound<'py, PyAny>> {
     let cfg = hybrid_tempogram_config(win_length, center, window)?;
     let (env, squeeze) = rows(onset_envelope, "onset_envelope")?;
-    let h = rh::hybrid_tempogram_from_envelope(env.view(), sr, hop_nz(hop_length)?, &cfg)
+    let h = rh::hybrid_tempogram_from_envelope(env.view(), sr, hop_nz(hop_length.0)?, &cfg)
         .map_err(audio_err_to_py)?;
     Ok(out3(py, h, squeeze))
 }

@@ -1,8 +1,10 @@
+use crate::args::{Int, opt_positive};
 use crate::{PyAudioSamples, audio_err_to_py, dispatch_with_view, types::PyHpssConfig};
 use audio_samples::{AudioDecomposition, operations::HpssConfig};
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use spectrograms::python::PyStftParams;
+use std::num::NonZeroUsize;
 
 #[pymethods]
 impl PyAudioSamples {
@@ -39,10 +41,14 @@ impl PyAudioSamples {
         &self,
         py: Python<'_>,
         config: &Bound<'_, PyAny>,
-        median_filter_harmonic: Option<usize>,
-        median_filter_percussive: Option<usize>,
+        median_filter_harmonic: Option<Int>,
+        median_filter_percussive: Option<Int>,
         mask_softness: Option<f64>,
     ) -> PyResult<(Self, Self)> {
+        let median_filter_harmonic =
+            opt_positive("median_filter_harmonic", median_filter_harmonic)?;
+        let median_filter_percussive =
+            opt_positive("median_filter_percussive", median_filter_percussive)?;
         let config = if let Ok(cfg) = config.extract::<PyHpssConfig>() {
             if median_filter_harmonic.is_some()
                 || median_filter_percussive.is_some()
@@ -56,8 +62,8 @@ impl PyAudioSamples {
         } else if let Ok(stft) = config.extract::<PyStftParams>() {
             HpssConfig::new(
                 stft.inner,
-                median_filter_harmonic.unwrap_or(17),
-                median_filter_percussive.unwrap_or(17),
+                median_filter_harmonic.map_or(17, NonZeroUsize::get),
+                median_filter_percussive.map_or(17, NonZeroUsize::get),
                 mask_softness.unwrap_or(0.5),
             )
         } else {

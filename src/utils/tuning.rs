@@ -3,6 +3,7 @@
 //! (`librosa.hz_to_octs`, `octs_to_hz`, `A4_to_tuning`, `tuning_to_A4`,
 //! `cqt_frequencies`, `key_to_notes`, `key_to_degrees`).
 
+use crate::args::Int;
 use audio_samples::utils::audio_math;
 use numpy::{IntoPyArray, PyArray1};
 use pyo3::prelude::*;
@@ -23,13 +24,13 @@ use crate::audio_err_to_py;
 ///     float | numpy.ndarray[float64]: octave numbers, same shape as the input.
 #[pyfunction]
 #[pyo3(
-    signature = (frequencies, *, tuning = 0.0, bins_per_octave = 12),
+    signature = (frequencies, *, tuning = 0.0, bins_per_octave = Int(12)),
     text_signature = "(frequencies, *, tuning=0.0, bins_per_octave=12)"
 )]
 pub fn hz_to_octs<'py>(
     frequencies: &Bound<'py, PyAny>,
     tuning: f64,
-    bins_per_octave: i64,
+    bins_per_octave: Int,
 ) -> PyResult<Bound<'py, PyAny>> {
     let b = positive("bins_per_octave", bins_per_octave)?;
     map_f64(frequencies, "frequencies", |f| {
@@ -49,13 +50,13 @@ pub fn hz_to_octs<'py>(
 ///     float | numpy.ndarray[float64]: frequencies in Hz, same shape as the input.
 #[pyfunction]
 #[pyo3(
-    signature = (octs, *, tuning = 0.0, bins_per_octave = 12),
+    signature = (octs, *, tuning = 0.0, bins_per_octave = Int(12)),
     text_signature = "(octs, *, tuning=0.0, bins_per_octave=12)"
 )]
 pub fn octs_to_hz<'py>(
     octs: &Bound<'py, PyAny>,
     tuning: f64,
-    bins_per_octave: i64,
+    bins_per_octave: Int,
 ) -> PyResult<Bound<'py, PyAny>> {
     let b = positive("bins_per_octave", bins_per_octave)?;
     map_f64(octs, "octs", |o| audio_math::octs_to_hz(o, tuning, b))
@@ -71,11 +72,11 @@ pub fn octs_to_hz<'py>(
 /// Returns:
 ///     float | numpy.ndarray[float64]: tuning, same shape as the input.
 #[pyfunction]
-#[pyo3(signature = (A4, *, bins_per_octave = 12), text_signature = "(A4, *, bins_per_octave=12)")]
+#[pyo3(signature = (A4, *, bins_per_octave = Int(12)), text_signature = "(A4, *, bins_per_octave=12)")]
 #[allow(non_snake_case)]
 pub fn a4_to_tuning<'py>(
     A4: &Bound<'py, PyAny>,
-    bins_per_octave: i64,
+    bins_per_octave: Int,
 ) -> PyResult<Bound<'py, PyAny>> {
     let b = positive("bins_per_octave", bins_per_octave)?;
     map_f64(A4, "A4", |a| audio_math::a4_to_tuning(a, b))
@@ -91,10 +92,10 @@ pub fn a4_to_tuning<'py>(
 /// Returns:
 ///     float | numpy.ndarray[float64]: A4 in Hz, same shape as the input.
 #[pyfunction]
-#[pyo3(signature = (tuning, *, bins_per_octave = 12), text_signature = "(tuning, *, bins_per_octave=12)")]
+#[pyo3(signature = (tuning, *, bins_per_octave = Int(12)), text_signature = "(tuning, *, bins_per_octave=12)")]
 pub fn tuning_to_a4<'py>(
     tuning: &Bound<'py, PyAny>,
-    bins_per_octave: i64,
+    bins_per_octave: Int,
 ) -> PyResult<Bound<'py, PyAny>> {
     let b = positive("bins_per_octave", bins_per_octave)?;
     map_f64(tuning, "tuning", |t| audio_math::tuning_to_a4(t, b))
@@ -113,14 +114,14 @@ pub fn tuning_to_a4<'py>(
 ///     numpy.ndarray[float64]: shape ``(n_bins,)``.
 #[pyfunction]
 #[pyo3(
-    signature = (n_bins, *, fmin, bins_per_octave = 12, tuning = 0.0),
+    signature = (n_bins, *, fmin, bins_per_octave = Int(12), tuning = 0.0),
     text_signature = "(n_bins, *, fmin, bins_per_octave=12, tuning=0.0)"
 )]
 pub fn cqt_frequencies(
     py: Python<'_>,
-    n_bins: i64,
+    n_bins: Int,
     fmin: f64,
-    bins_per_octave: i64,
+    bins_per_octave: Int,
     tuning: f64,
 ) -> PyResult<Bound<'_, PyArray1<f64>>> {
     let f = audio_math::cqt_frequencies(

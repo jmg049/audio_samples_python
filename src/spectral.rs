@@ -7,6 +7,7 @@
 //! filterbanks}`. Array shapes follow librosa: a 1-D signal gives a 2-D STFT,
 //! a `(channels, n)` signal gives `(channels, F, T)`.
 
+use crate::args::Int;
 use audio_samples::operations::filterbanks::{self, Window};
 use audio_samples::operations::spectrum::{self, DbConfig, DeltaConfig, DeltaMode};
 use ndarray::{ArrayD, Axis, Ix1, Ix2, Ix3};
@@ -51,15 +52,15 @@ fn dyn_out<'py>(py: Python<'py>, a: ArrayD<f64>, scalar: bool) -> PyResult<Bound
 ///     ValueError: For invalid parameters or input with more than 2 dimensions.
 #[pyfunction]
 #[pyo3(
-    signature = (y, *, n_fft = 2048, hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant"),
+    signature = (y, *, n_fft = Int(2048), hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant"),
     text_signature = "(y, *, n_fft=2048, hop_length=None, win_length=None, window='hann', center=True, pad_mode='constant')"
 )]
 pub fn stft<'py>(
     py: Python<'py>,
     y: &Bound<'py, PyAny>,
-    n_fft: i64,
-    hop_length: Option<i64>,
-    win_length: Option<i64>,
+    n_fft: Int,
+    hop_length: Option<Int>,
+    win_length: Option<Int>,
     window: WindowArg,
     center: bool,
     pad_mode: &str,
@@ -113,12 +114,12 @@ pub fn stft<'py>(
 pub fn istft<'py>(
     py: Python<'py>,
     stft_matrix: &Bound<'py, PyAny>,
-    hop_length: Option<i64>,
-    win_length: Option<i64>,
-    n_fft: Option<i64>,
+    hop_length: Option<Int>,
+    win_length: Option<Int>,
+    n_fft: Option<Int>,
     window: WindowArg,
     center: bool,
-    length: Option<i64>,
+    length: Option<Int>,
 ) -> PyResult<Bound<'py, PyAny>> {
     let d = c128_array(stft_matrix, "stft_matrix")?;
     let d = d.as_array();
@@ -130,7 +131,7 @@ pub fn istft<'py>(
         ));
     }
     let n_bins = d.shape()[ndim - 2] as i64;
-    let n_fft = n_fft.unwrap_or(2 * (n_bins - 1));
+    let n_fft = n_fft.unwrap_or(Int(2 * (n_bins - 1)));
     let cfg = stft_config(n_fft, hop_length, win_length, window, center, "constant")?;
     let length = opt_positive("length", length)?.map(std::num::NonZeroUsize::get);
     if ndim == 2 {
@@ -301,14 +302,14 @@ pub fn db_to_amplitude<'py>(
 ///     ValueError: For invalid parameters (e.g. ``fmax <= fmin``).
 #[pyfunction]
 #[pyo3(
-    signature = (*, sr, n_fft, n_mels = 128, fmin = 0.0, fmax = None, htk = false, norm = MelNormArg(audio_samples::MelFilterNorm::Slaney)),
+    signature = (*, sr, n_fft, n_mels = Int(128), fmin = 0.0, fmax = None, htk = false, norm = MelNormArg(audio_samples::MelFilterNorm::Slaney)),
     text_signature = "(*, sr, n_fft, n_mels=128, fmin=0.0, fmax=None, htk=False, norm='slaney')"
 )]
 pub fn mel_filterbank<'py>(
     py: Python<'py>,
     sr: f64,
-    n_fft: i64,
-    n_mels: i64,
+    n_fft: Int,
+    n_mels: Int,
     fmin: f64,
     fmax: Option<f64>,
     htk: bool,
@@ -342,7 +343,7 @@ pub fn mel_filterbank<'py>(
 pub fn get_window<'py>(
     py: Python<'py>,
     window: WindowArg,
-    Nx: i64,
+    Nx: Int,
     fftbins: bool,
 ) -> PyResult<Bound<'py, PyArray1<f64>>> {
     let w = filterbanks::get_window(&window.0, non_negative("Nx", Nx)?, fftbins)
@@ -367,16 +368,16 @@ pub fn get_window<'py>(
 ///     ValueError: For invalid parameters.
 #[pyfunction]
 #[pyo3(
-    signature = (*, window, n_frames, hop_length = 512, win_length = None, n_fft = 2048),
+    signature = (*, window, n_frames, hop_length = Int(512), win_length = None, n_fft = Int(2048)),
     text_signature = "(*, window, n_frames, hop_length=512, win_length=None, n_fft=2048)"
 )]
 pub fn window_sumsquare<'py>(
     py: Python<'py>,
     window: WindowArg,
-    n_frames: i64,
-    hop_length: i64,
-    win_length: Option<i64>,
-    n_fft: i64,
+    n_frames: Int,
+    hop_length: Int,
+    win_length: Option<Int>,
+    n_fft: Int,
 ) -> PyResult<Bound<'py, PyArray1<f64>>> {
     let w = filterbanks::window_sumsquare(
         &window.0,
@@ -403,8 +404,8 @@ pub fn window_sumsquare<'py>(
 /// Returns:
 ///     float: Bandwidth in bins (1.0 for boxcar, 1.5 for Hann).
 #[pyfunction]
-#[pyo3(signature = (window, n = 1000), text_signature = "(window, n=1000)")]
-pub fn window_bandwidth(window: WindowArg, n: i64) -> PyResult<f64> {
+#[pyo3(signature = (window, n = Int(1000)), text_signature = "(window, n=1000)")]
+pub fn window_bandwidth(window: WindowArg, n: Int) -> PyResult<f64> {
     filterbanks::window_bandwidth(&window.0, positive("n", n)?).map_err(audio_err_to_py)
 }
 
@@ -427,15 +428,15 @@ pub fn window_bandwidth(window: WindowArg, n: i64) -> PyResult<f64> {
 ///         ``width`` larger than the axis.
 #[pyfunction]
 #[pyo3(
-    signature = (data, *, width = 9, order = 1, axis = -1, mode = "interp"),
+    signature = (data, *, width = Int(9), order = Int(1), axis = Int(-1), mode = "interp"),
     text_signature = "(data, *, width=9, order=1, axis=-1, mode='interp')"
 )]
 pub fn delta<'py>(
     py: Python<'py>,
     data: &Bound<'py, PyAny>,
-    width: i64,
-    order: i64,
-    axis: isize,
+    width: Int,
+    order: Int,
+    axis: Int,
     mode: &str,
 ) -> PyResult<Bound<'py, PyArrayDyn<f64>>> {
     let mode = match mode {
@@ -456,7 +457,7 @@ pub fn delta<'py>(
     let cfg = DeltaConfig {
         width: non_negative("width", width)?,
         order: non_negative("order", order)?,
-        axis,
+        axis: crate::args::signed("axis", axis)?,
         mode,
     };
     let x = f64_array(data, "data")?;
@@ -479,12 +480,12 @@ pub fn delta<'py>(
 /// Raises:
 ///     ValueError: If ``n_steps < 1`` or ``delay == 0``.
 #[pyfunction]
-#[pyo3(signature = (data, *, n_steps = 2, delay = 1), text_signature = "(data, *, n_steps=2, delay=1)")]
+#[pyo3(signature = (data, *, n_steps = Int(2), delay = Int(1)), text_signature = "(data, *, n_steps=2, delay=1)")]
 pub fn stack_memory<'py>(
     py: Python<'py>,
     data: &Bound<'py, PyAny>,
-    n_steps: i64,
-    delay: isize,
+    n_steps: Int,
+    delay: Int,
 ) -> PyResult<Bound<'py, PyArrayDyn<f64>>> {
     let x = f64_array(data, "data")?;
     let x = x.as_array();
@@ -493,8 +494,12 @@ pub fn stack_memory<'py>(
     } else {
         x
     };
-    let out = spectrum::stack_memory(&x, positive("n_steps", n_steps)?, delay)
-        .map_err(audio_err_to_py)?;
+    let out = spectrum::stack_memory(
+        &x,
+        positive("n_steps", n_steps)?,
+        crate::args::signed("delay", delay)?,
+    )
+    .map_err(audio_err_to_py)?;
     Ok(out.into_pyarray(py))
 }
 
@@ -516,8 +521,8 @@ pub fn stack_memory<'py>(
 pub fn frame<'py>(
     py: Python<'py>,
     x: &Bound<'py, PyAny>,
-    frame_length: i64,
-    hop_length: i64,
+    frame_length: Int,
+    hop_length: Int,
 ) -> PyResult<Bound<'py, PyArray2<f64>>> {
     let a = f64_array(x, "x")?;
     if a.ndim() != 1 {
@@ -547,7 +552,7 @@ pub fn frame<'py>(
 ///     numpy.ndarray[float64]: shape ``(n_mels, T)`` or ``(channels, n_mels, T)``.
 #[pyfunction]
 #[pyo3(
-    signature = (S, *, sr, n_fft = None, n_mels = 128, fmin = 0.0, fmax = None, htk = false, norm = MelNormArg(audio_samples::MelFilterNorm::Slaney)),
+    signature = (S, *, sr, n_fft = None, n_mels = Int(128), fmin = 0.0, fmax = None, htk = false, norm = MelNormArg(audio_samples::MelFilterNorm::Slaney)),
     text_signature = "(S, *, sr, n_fft=None, n_mels=128, fmin=0.0, fmax=None, htk=False, norm='slaney')"
 )]
 #[allow(non_snake_case, clippy::too_many_arguments)]
@@ -555,8 +560,8 @@ pub fn melspectrogram_from_spectrogram<'py>(
     py: Python<'py>,
     S: &Bound<'py, PyAny>,
     sr: f64,
-    n_fft: Option<i64>,
-    n_mels: i64,
+    n_fft: Option<Int>,
+    n_mels: Int,
     fmin: f64,
     fmax: Option<f64>,
     htk: bool,
@@ -578,7 +583,7 @@ pub fn melspectrogram_from_spectrogram<'py>(
             ));
         }
     };
-    let n_fft = n_fft.unwrap_or(2 * (s3.dim().1 as i64 - 1));
+    let n_fft = n_fft.unwrap_or(Int(2 * (s3.dim().1 as i64 - 1)));
     let cfg = mel_config(n_mels, fmin, fmax, htk, norm)?;
     let m = spectrum::melspectrogram_from_spectrogram(s3, sr, positive("n_fft", n_fft)?, &cfg)
         .map_err(audio_err_to_py)?;
@@ -603,15 +608,15 @@ pub fn melspectrogram_from_spectrogram<'py>(
 ///     numpy.ndarray[float64]: shape ``(..., n_mfcc, T)``.
 #[pyfunction]
 #[pyo3(
-    signature = (S, *, n_mfcc = 20, dct_type = 2, norm = Some("ortho"), lifter = 0.0),
+    signature = (S, *, n_mfcc = Int(20), dct_type = Int(2), norm = Some("ortho"), lifter = 0.0),
     text_signature = "(S, *, n_mfcc=20, dct_type=2, norm='ortho', lifter=0.0)"
 )]
 #[allow(non_snake_case)]
 pub fn mfcc_from_mel_db<'py>(
     py: Python<'py>,
     S: &Bound<'py, PyAny>,
-    n_mfcc: i64,
-    dct_type: i64,
+    n_mfcc: Int,
+    dct_type: Int,
     norm: Option<&str>,
     lifter: f64,
 ) -> PyResult<Bound<'py, PyArrayDyn<f64>>> {

@@ -1,3 +1,4 @@
+use crate::args::Int;
 use audio_samples::{AudioProcessing, CastInto, ConvertTo, NormalizationConfig};
 use non_empty_slice::NonEmptyVec;
 use numpy::{PyArray1, PyArrayMethods};
@@ -281,10 +282,10 @@ impl PyAudioSamples {
     pub fn resample(
         &self,
         py: Python<'_>,
-        target_sample_rate: i64,
+        target_sample_rate: Int,
         quality: QualityArg,
     ) -> PyResult<Self> {
-        let target_sample_rate = u32::try_from(target_sample_rate)
+        let target_sample_rate = u32::try_from(target_sample_rate.0)
             .ok()
             .and_then(std::num::NonZeroU32::new)
             .ok_or_else(|| {

@@ -1,6 +1,7 @@
 //! librosa-compatible tonal analysis on `AudioSamples` (`chroma_stft`,
 //! `piptrack`, `estimate_tuning`), binding the Rust `AudioTonal` trait.
 
+use crate::args::Int;
 use audio_samples::operations::filterbanks::Window;
 use audio_samples::operations::tonal::{AudioTonal, ChromaStftConfig, TuningConfig};
 use numpy::{IntoPyArray, PyArray3};
@@ -38,7 +39,7 @@ impl PyAudioSamples {
     /// Raises:
     ///     ValueError: For invalid parameters.
     #[pyo3(
-        signature = (*, norm = Some(f64::INFINITY), n_fft = 2048, hop_length = 512, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", tuning = None, n_chroma = 12, ctroct = 5.0, octwidth = Some(2.0), base_c = true),
+        signature = (*, norm = Some(f64::INFINITY), n_fft = Int(2048), hop_length = Int(512), win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", tuning = None, n_chroma = Int(12), ctroct = 5.0, octwidth = Some(2.0), base_c = true),
         text_signature = "($self, *, norm=math.inf, n_fft=2048, hop_length=512, win_length=None, window='hann', center=True, pad_mode='constant', tuning=None, n_chroma=12, ctroct=5.0, octwidth=2.0, base_c=True)"
     )]
     #[allow(clippy::too_many_arguments)]
@@ -46,14 +47,14 @@ impl PyAudioSamples {
         &self,
         py: Python<'py>,
         norm: Option<f64>,
-        n_fft: i64,
-        hop_length: i64,
-        win_length: Option<i64>,
+        n_fft: Int,
+        hop_length: Int,
+        win_length: Option<Int>,
         window: WindowArg,
         center: bool,
         pad_mode: &str,
         tuning: Option<f64>,
-        n_chroma: i64,
+        n_chroma: Int,
         ctroct: f64,
         octwidth: Option<f64>,
         base_c: bool,
@@ -99,19 +100,19 @@ impl PyAudioSamples {
     /// Raises:
     ///     ValueError: For invalid parameters.
     #[pyo3(
-        signature = (*, n_fft = 2048, hop_length = None, fmin = 150.0, fmax = 4000.0, threshold = 0.1, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", r#ref = None),
+        signature = (*, n_fft = Int(2048), hop_length = None, fmin = 150.0, fmax = 4000.0, threshold = 0.1, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", r#ref = None),
         text_signature = "($self, *, n_fft=2048, hop_length=None, fmin=150.0, fmax=4000.0, threshold=0.1, win_length=None, window='hann', center=True, pad_mode='constant', ref=None)"
     )]
     #[allow(clippy::too_many_arguments)]
     fn piptrack<'py>(
         &self,
         py: Python<'py>,
-        n_fft: i64,
-        hop_length: Option<i64>,
+        n_fft: Int,
+        hop_length: Option<Int>,
         fmin: f64,
         fmax: f64,
         threshold: f64,
-        win_length: Option<i64>,
+        win_length: Option<Int>,
         window: WindowArg,
         center: bool,
         pad_mode: &str,
@@ -141,18 +142,18 @@ impl PyAudioSamples {
     /// Raises:
     ///     ValueError: For invalid parameters.
     #[pyo3(
-        signature = (*, n_fft = 2048, resolution = 0.01, bins_per_octave = 12, hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", fmin = 150.0, fmax = 4000.0, threshold = 0.1, r#ref = None),
+        signature = (*, n_fft = Int(2048), resolution = 0.01, bins_per_octave = Int(12), hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", fmin = 150.0, fmax = 4000.0, threshold = 0.1, r#ref = None),
         text_signature = "($self, *, n_fft=2048, resolution=0.01, bins_per_octave=12, hop_length=None, win_length=None, window='hann', center=True, pad_mode='constant', fmin=150.0, fmax=4000.0, threshold=0.1, ref=None)"
     )]
     #[allow(clippy::too_many_arguments)]
     fn estimate_tuning(
         &self,
         py: Python<'_>,
-        n_fft: i64,
+        n_fft: Int,
         resolution: f64,
-        bins_per_octave: i64,
-        hop_length: Option<i64>,
-        win_length: Option<i64>,
+        bins_per_octave: Int,
+        hop_length: Option<Int>,
+        win_length: Option<Int>,
         window: WindowArg,
         center: bool,
         pad_mode: &str,

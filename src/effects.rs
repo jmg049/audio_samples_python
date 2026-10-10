@@ -8,6 +8,7 @@
 //! audio-to-audio effects (`time_stretch`, `pitch_shift`, `trim`, `split`,
 //! `remix`, `harmonic`, `percussive`, ...) are `AudioSamples` methods.
 
+use crate::args::Int;
 use std::num::NonZeroUsize;
 
 use audio_samples::operations::effects::{
@@ -438,7 +439,7 @@ fn parse_nn_aggregate(obj: Option<&Bound<'_, PyAny>>) -> PyResult<NnAggregate> {
 ///     TypeError: For unsupported aggregates or unknown keyword arguments.
 #[pyfunction]
 #[pyo3(
-    signature = (S, *, rec = None, aggregate = None, axis = -1, **kwargs),
+    signature = (S, *, rec = None, aggregate = None, axis = Int(-1), **kwargs),
     text_signature = "(S, *, rec=None, aggregate=None, axis=-1, **kwargs)"
 )]
 #[allow(non_snake_case)]
@@ -447,10 +448,10 @@ pub fn nn_filter<'py>(
     S: &Bound<'py, PyAny>,
     rec: Option<&Bound<'py, PyAny>>,
     aggregate: Option<&Bound<'py, PyAny>>,
-    axis: i64,
+    axis: Int,
     kwargs: Option<&Bound<'py, PyDict>>,
 ) -> PyResult<Bound<'py, PyAny>> {
-    if axis != -1 && axis != 1 {
+    if axis != Int(-1) && axis != Int(1) {
         return Err(value_err("axis", "only axis=-1 (frames last) is supported"));
     }
     let agg = parse_nn_aggregate(aggregate)?;
@@ -496,10 +497,10 @@ fn recurrence_config(kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<RecurrenceC
                 cfg.k = if value.is_none() {
                     None
                 } else {
-                    Some(positive("k", value.extract()?)?.get())
+                    Some(positive("k", value.extract::<Int>()?)?.get())
                 };
             }
-            "width" => cfg.width = positive("width", value.extract()?)?.get(),
+            "width" => cfg.width = positive("width", value.extract::<Int>()?)?.get(),
             "metric" => cfg.metric = crate::sequence::parse_metric(&value.extract::<String>()?)?,
             "sym" => cfg.sym = value.extract()?,
             "mode" => cfg.mode = crate::sequence::parse_mode(&value.extract::<String>()?)?,
@@ -569,19 +570,19 @@ pub(crate) fn griffinlim_init(
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn griffinlim_config(
     n_bins: usize,
-    n_iter: i64,
-    hop_length: Option<i64>,
-    win_length: Option<i64>,
-    n_fft: Option<i64>,
+    n_iter: Int,
+    hop_length: Option<Int>,
+    win_length: Option<Int>,
+    n_fft: Option<Int>,
     window: WindowArg,
     center: bool,
-    length: Option<i64>,
+    length: Option<Int>,
     pad_mode: &str,
     momentum: f64,
     init: Option<&str>,
     rng: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<GriffinLimConfig> {
-    let n_fft = n_fft.unwrap_or(2 * (n_bins as i64 - 1));
+    let n_fft = n_fft.unwrap_or(Int(2 * (n_bins as i64 - 1)));
     Ok(GriffinLimConfig::new()
         .with_n_iter(non_negative("n_iter", n_iter)?)
         .with_momentum(momentum)
@@ -618,21 +619,21 @@ pub(crate) fn griffinlim_config(
 ///     ValueError: For invalid parameters or a bin count that does not match ``n_fft``.
 #[pyfunction]
 #[pyo3(
-    signature = (S, *, n_iter = 32, hop_length = None, win_length = None, n_fft = None, window = WindowArg(Window::Hann), center = true, dtype = None, length = None, pad_mode = "constant", momentum = 0.99, init = Some("random"), rng = None, random_state = None),
+    signature = (S, *, n_iter = Int(32), hop_length = None, win_length = None, n_fft = None, window = WindowArg(Window::Hann), center = true, dtype = None, length = None, pad_mode = "constant", momentum = 0.99, init = Some("random"), rng = None, random_state = None),
     text_signature = "(S, *, n_iter=32, hop_length=None, win_length=None, n_fft=None, window='hann', center=True, dtype=None, length=None, pad_mode='constant', momentum=0.99, init='random', rng=None, random_state=None)"
 )]
 #[allow(non_snake_case, clippy::too_many_arguments, unused_variables)]
 pub fn griffinlim<'py>(
     py: Python<'py>,
     S: &Bound<'py, PyAny>,
-    n_iter: i64,
-    hop_length: Option<i64>,
-    win_length: Option<i64>,
-    n_fft: Option<i64>,
+    n_iter: Int,
+    hop_length: Option<Int>,
+    win_length: Option<Int>,
+    n_fft: Option<Int>,
     window: WindowArg,
     center: bool,
     dtype: Option<&Bound<'py, PyAny>>,
-    length: Option<i64>,
+    length: Option<Int>,
     pad_mode: &str,
     momentum: f64,
     init: Option<&str>,
@@ -674,16 +675,16 @@ pub fn griffinlim<'py>(
 /// Raises:
 ///     ValueError: For a too-short or non-finite signal.
 #[pyfunction]
-#[pyo3(signature = (y, *, order, axis = -1), text_signature = "(y, *, order, axis=-1)")]
+#[pyo3(signature = (y, *, order, axis = Int(-1)), text_signature = "(y, *, order, axis=-1)")]
 pub fn lpc<'py>(
     py: Python<'py>,
     y: &Bound<'py, PyAny>,
-    order: i64,
-    axis: i64,
+    order: Int,
+    axis: Int,
 ) -> PyResult<Bound<'py, PyAny>> {
-    if axis != -1 {
+    if axis != Int(-1) {
         let a = f64_array(y, "y")?;
-        if !(a.ndim() == 1 && axis == 0) {
+        if !(a.ndim() == 1 && axis == Int(0)) {
             return Err(value_err("axis", "only axis=-1 is supported"));
         }
     }
@@ -720,7 +721,7 @@ pub fn lpc<'py>(
 ///         negative, or parameters are invalid.
 #[pyfunction]
 #[pyo3(
-    signature = (*, times = None, frames = None, sr = 22050.0, hop_length = 512, click_freq = 1000.0, click_duration = 0.1, click = None, length = None),
+    signature = (*, times = None, frames = None, sr = 22050.0, hop_length = Int(512), click_freq = 1000.0, click_duration = 0.1, click = None, length = None),
     text_signature = "(*, times=None, frames=None, sr=22050, hop_length=512, click_freq=1000.0, click_duration=0.1, click=None, length=None)"
 )]
 #[allow(clippy::too_many_arguments)]
@@ -729,11 +730,11 @@ pub fn clicks<'py>(
     times: Option<&Bound<'py, PyAny>>,
     frames: Option<&Bound<'py, PyAny>>,
     sr: f64,
-    hop_length: i64,
+    hop_length: Int,
     click_freq: f64,
     click_duration: f64,
     click: Option<&Bound<'py, PyAny>>,
-    length: Option<i64>,
+    length: Option<Int>,
 ) -> PyResult<Bound<'py, PyArray1<f64>>> {
     if !(sr.is_finite() && sr >= 1.0 && sr.fract() == 0.0 && sr <= f64::from(u32::MAX)) {
         return Err(value_err(

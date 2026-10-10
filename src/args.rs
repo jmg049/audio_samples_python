@@ -9,8 +9,12 @@
 //!
 //! Conventions:
 //!
-//! * Integer parameters are taken as `i64` and checked here, so a negative value
-//!   raises `ValueError` naming the parameter (instead of pyo3's `OverflowError`).
+//! * Integer parameters are taken as [`Int`] (an `i64` that saturates instead of
+//!   raising `OverflowError` for Python ints outside the 64-bit range) and checked
+//!   here, so a negative or huge value raises `ValueError` naming the parameter.
+//!   Size-like integers ([`positive`], [`opt_positive`], [`non_negative`]) are
+//!   capped at [`MAX_SIZE_PARAM`] (2**31): larger values would only ever request
+//!   impossible allocations, which abort the interpreter instead of raising.
 //! * Array inputs are taken as `&Bound<PyAny>` and converted with
 //!   `numpy.asarray(x, dtype=float64)` (or `complex128`), so lists, integer
 //!   arrays and float32 arrays are all accepted, as in librosa.
@@ -33,22 +37,103 @@ pub(crate) fn value_err(name: &str, msg: impl std::fmt::Display) -> PyErr {
     PyValueError::new_err(format!("{name}: {msg}"))
 }
 
-/// A strictly positive integer parameter.
-pub(crate) fn positive(name: &str, v: i64) -> PyResult<NonZeroUsize> {
+/// Largest value accepted by the size-like integer helpers ([`positive`],
+/// [`opt_positive`], [`non_negative`]): 2**31, the Rust crate's limit for
+/// signal-sized buffers. An FFT size, a window length, a number of states or a
+/// sample count beyond it can only request an allocation that fails, and Rust
+/// aborts the whole process on allocation failure.
+pub(crate) const MAX_SIZE_PARAM: i64 = 1 << 31;
+
+/// A Python `int` parameter.
+///
+/// Extracted like `i64`, except that ints outside the 64-bit range saturate to
+/// `i64::MIN` / `i64::MAX` instead of raising pyo3's `OverflowError`; the
+/// validation that follows then raises `ValueError` naming the parameter.
+/// Non-integers still raise `TypeError`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Int(pub i64);
+
+impl<'a, 'py> FromPyObject<'a, 'py> for Int {
+    type Error = PyErr;
+
+    fn extract(obj: pyo3::Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
+        match obj.extract::<i64>() {
+            Ok(v) => Ok(Self(v)),
+            Err(e) if e.is_instance_of::<pyo3::exceptions::PyOverflowError>(obj.py()) => {
+                Ok(Self(if obj.lt(0)? { i64::MIN } else { i64::MAX }))
+            }
+            Err(e) => Err(e),
+        }
+    }
+}
+
+impl From<Int> for i64 {
+    fn from(v: Int) -> Self {
+        v.0
+    }
+}
+
+impl std::fmt::Display for Int {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.0 {
+            i64::MAX => f.write_str(">= 2**63"),
+            i64::MIN => f.write_str("<= -2**63"),
+            v => write!(f, "{v}"),
+        }
+    }
+}
+
+/// Rejects a size-like integer above [`MAX_SIZE_PARAM`].
+fn check_size(name: &str, v: i64) -> PyResult<()> {
+    if v > MAX_SIZE_PARAM {
+        Err(value_err(
+            name,
+            format!("must be at most {MAX_SIZE_PARAM} (2**31), got {}", Int(v)),
+        ))
+    } else {
+        Ok(())
+    }
+}
+
+/// A `sample_rate` keyword given as a Python int, as `u32` (out of range ->
+/// `ValueError`; zero is rejected by the caller's `NonZeroU32` conversion).
+pub(crate) fn sample_rate_u32(v: Int) -> PyResult<u32> {
+    u32::try_from(v.0).map_err(|_| {
+        value_err(
+            "sample_rate",
+            format!("must be a positive integer below 2**32, got {v}"),
+        )
+    })
+}
+
+/// An axis or signed offset parameter as `isize`.
+pub(crate) fn signed(name: &str, v: Int) -> PyResult<isize> {
+    isize::try_from(v.0).map_err(|_| value_err(name, format!("out of range, got {v}")))
+}
+
+/// A strictly positive, size-like integer parameter (at most [`MAX_SIZE_PARAM`]).
+pub(crate) fn positive(name: &str, v: impl Into<i64>) -> PyResult<NonZeroUsize> {
+    let v = v.into();
+    check_size(name, v)?;
     usize::try_from(v)
         .ok()
         .and_then(NonZeroUsize::new)
-        .ok_or_else(|| value_err(name, format!("must be a positive integer, got {v}")))
+        .ok_or_else(|| value_err(name, format!("must be a positive integer, got {}", Int(v))))
 }
 
 /// An optional strictly positive integer parameter (`None` stays `None`).
-pub(crate) fn opt_positive(name: &str, v: Option<i64>) -> PyResult<Option<NonZeroUsize>> {
+pub(crate) fn opt_positive<T: Into<i64>>(
+    name: &str,
+    v: Option<T>,
+) -> PyResult<Option<NonZeroUsize>> {
     v.map(|v| positive(name, v)).transpose()
 }
 
-/// A non-negative integer parameter.
-pub(crate) fn non_negative(name: &str, v: i64) -> PyResult<usize> {
-    usize::try_from(v).map_err(|_| value_err(name, format!("must be >= 0, got {v}")))
+/// A non-negative, size-like integer parameter (at most [`MAX_SIZE_PARAM`]).
+pub(crate) fn non_negative(name: &str, v: impl Into<i64>) -> PyResult<usize> {
+    let v = v.into();
+    check_size(name, v)?;
+    usize::try_from(v).map_err(|_| value_err(name, format!("must be >= 0, got {}", Int(v))))
 }
 
 /// `numpy` module handle.
@@ -309,9 +394,9 @@ pub(crate) fn parse_pad_mode(mode: &str) -> PyResult<StftPadMode> {
 
 /// Builds an [`StftConfig`] from librosa's STFT keyword arguments.
 pub(crate) fn stft_config(
-    n_fft: i64,
-    hop_length: Option<i64>,
-    win_length: Option<i64>,
+    n_fft: Int,
+    hop_length: Option<Int>,
+    win_length: Option<Int>,
     window: WindowArg,
     center: bool,
     pad_mode: &str,
@@ -349,7 +434,7 @@ pub(crate) fn parse_mel_norm(obj: &Bound<'_, PyAny>) -> PyResult<MelFilterNorm> 
 
 /// Builds a [`MelFilterbankConfig`] from librosa's mel keyword arguments.
 pub(crate) fn mel_config(
-    n_mels: i64,
+    n_mels: Int,
     fmin: f64,
     fmax: Option<f64>,
     htk: bool,

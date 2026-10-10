@@ -3,6 +3,7 @@
 //! arrays and the harmonic helpers `salience`, `interp_harmonics`,
 //! `f0_harmonics`.
 
+use crate::args::Int;
 use audio_samples::operations::pitch_tracking::{
     self as pt, FrequencyGrid, PyinConfig, SalienceConfig, YinConfig,
 };
@@ -19,8 +20,8 @@ use crate::audio_err_to_py;
 pub(crate) fn yin_config(
     fmin: f64,
     fmax: f64,
-    frame_length: i64,
-    hop_length: Option<i64>,
+    frame_length: Int,
+    hop_length: Option<Int>,
     trough_threshold: f64,
     center: bool,
     pad_mode: &str,
@@ -41,9 +42,9 @@ pub(crate) fn yin_config(
 pub(crate) fn pyin_config(
     fmin: f64,
     fmax: f64,
-    frame_length: i64,
-    hop_length: Option<i64>,
-    n_thresholds: i64,
+    frame_length: Int,
+    hop_length: Option<Int>,
+    n_thresholds: Int,
     beta_parameters: (f64, f64),
     boltzmann_parameter: f64,
     resolution: f64,
@@ -102,7 +103,7 @@ fn rows_out<'py, T: numpy::Element>(
 ///     ValueError: For invalid parameters or a too-short signal.
 #[pyfunction]
 #[pyo3(
-    signature = (y, *, fmin, fmax, sr = 22050.0, frame_length = 2048, hop_length = None, trough_threshold = 0.1, center = true, pad_mode = "constant"),
+    signature = (y, *, fmin, fmax, sr = 22050.0, frame_length = Int(2048), hop_length = None, trough_threshold = 0.1, center = true, pad_mode = "constant"),
     text_signature = "(y, *, fmin, fmax, sr=22050, frame_length=2048, hop_length=None, trough_threshold=0.1, center=True, pad_mode='constant')"
 )]
 #[allow(clippy::too_many_arguments)]
@@ -112,8 +113,8 @@ pub fn yin<'py>(
     fmin: f64,
     fmax: f64,
     sr: f64,
-    frame_length: i64,
-    hop_length: Option<i64>,
+    frame_length: Int,
+    hop_length: Option<Int>,
     trough_threshold: f64,
     center: bool,
     pad_mode: &str,
@@ -162,7 +163,7 @@ pub fn yin<'py>(
 ///     ValueError: For invalid parameters or a too-short signal.
 #[pyfunction]
 #[pyo3(
-    signature = (y, *, fmin, fmax, sr = 22050.0, frame_length = 2048, hop_length = None, n_thresholds = 100, beta_parameters = (2.0, 18.0), boltzmann_parameter = 2.0, resolution = 0.1, max_transition_rate = 35.92, switch_prob = 0.01, no_trough_prob = 0.01, fill_na = FillNaArg(audio_samples::operations::pitch_tracking::UnvoicedFill::Nan), center = true, pad_mode = "constant", transition_min_prob = Some(1e-4)),
+    signature = (y, *, fmin, fmax, sr = 22050.0, frame_length = Int(2048), hop_length = None, n_thresholds = Int(100), beta_parameters = (2.0, 18.0), boltzmann_parameter = 2.0, resolution = 0.1, max_transition_rate = 35.92, switch_prob = 0.01, no_trough_prob = 0.01, fill_na = FillNaArg(audio_samples::operations::pitch_tracking::UnvoicedFill::Nan), center = true, pad_mode = "constant", transition_min_prob = Some(1e-4)),
     text_signature = "(y, *, fmin, fmax, sr=22050, frame_length=2048, hop_length=None, n_thresholds=100, beta_parameters=(2, 18), boltzmann_parameter=2, resolution=0.1, max_transition_rate=35.92, switch_prob=0.01, no_trough_prob=0.01, fill_na=math.nan, center=True, pad_mode='constant', transition_min_prob=0.0001)"
 )]
 #[allow(clippy::too_many_arguments)]
@@ -172,9 +173,9 @@ pub fn pyin<'py>(
     fmin: f64,
     fmax: f64,
     sr: f64,
-    frame_length: i64,
-    hop_length: Option<i64>,
-    n_thresholds: i64,
+    frame_length: Int,
+    hop_length: Option<Int>,
+    n_thresholds: Int,
     beta_parameters: (f64, f64),
     boltzmann_parameter: f64,
     resolution: f64,
@@ -296,7 +297,7 @@ fn check_kind_axis(kind: &str, axis: i64, ndim: usize) -> PyResult<()> {
 ///     ValueError: For shape mismatches or unsupported options.
 #[pyfunction]
 #[pyo3(
-    signature = (S, *, freqs, harmonics, weights = None, aggregate = None, filter_peaks = true, fill_value = f64::NAN, kind = "linear", axis = -2),
+    signature = (S, *, freqs, harmonics, weights = None, aggregate = None, filter_peaks = true, fill_value = f64::NAN, kind = "linear", axis = Int(-2)),
     text_signature = "(S, *, freqs, harmonics, weights=None, aggregate=None, filter_peaks=True, fill_value=math.nan, kind='linear', axis=-2)"
 )]
 #[allow(non_snake_case, clippy::too_many_arguments)]
@@ -310,10 +311,10 @@ pub fn salience<'py>(
     filter_peaks: bool,
     fill_value: f64,
     kind: &str,
-    axis: i64,
+    axis: Int,
 ) -> PyResult<Bound<'py, PyAny>> {
     let (s, nd) = spec3(S, "S")?;
-    check_kind_axis(kind, axis, nd)?;
+    check_kind_axis(kind, axis.0, nd)?;
     let grid = Grid::parse(freqs, nd)?;
     let h = super::args::f64_vec(harmonics, "harmonics")?;
     let (agg, is_mean) = match aggregate {
@@ -353,7 +354,7 @@ pub fn salience<'py>(
 ///     ValueError: For shape mismatches or unsupported options.
 #[pyfunction]
 #[pyo3(
-    signature = (x, *, freqs, harmonics, kind = "linear", fill_value = 0.0, axis = -2),
+    signature = (x, *, freqs, harmonics, kind = "linear", fill_value = 0.0, axis = Int(-2)),
     text_signature = "(x, *, freqs, harmonics, kind='linear', fill_value=0, axis=-2)"
 )]
 pub fn interp_harmonics<'py>(
@@ -363,10 +364,10 @@ pub fn interp_harmonics<'py>(
     harmonics: &Bound<'py, PyAny>,
     kind: &str,
     fill_value: f64,
-    axis: i64,
+    axis: Int,
 ) -> PyResult<Bound<'py, PyAny>> {
     let (s, nd) = spec3(x, "x")?;
-    check_kind_axis(kind, axis, nd)?;
+    check_kind_axis(kind, axis.0, nd)?;
     let grid = Grid::parse(freqs, nd)?;
     let h = super::args::f64_vec(harmonics, "harmonics")?;
     let r = pt::interp_harmonics(s.view(), grid.view(), &h, fill_value).map_err(audio_err_to_py)?;
@@ -393,7 +394,7 @@ pub fn interp_harmonics<'py>(
 ///     ValueError: For shape mismatches or unsupported options.
 #[pyfunction]
 #[pyo3(
-    signature = (x, *, f0, freqs, harmonics, kind = "linear", fill_value = 0.0, axis = -2),
+    signature = (x, *, f0, freqs, harmonics, kind = "linear", fill_value = 0.0, axis = Int(-2)),
     text_signature = "(x, *, f0, freqs, harmonics, kind='linear', fill_value=0, axis=-2)"
 )]
 #[allow(clippy::too_many_arguments)]
@@ -405,10 +406,10 @@ pub fn f0_harmonics<'py>(
     harmonics: &Bound<'py, PyAny>,
     kind: &str,
     fill_value: f64,
-    axis: i64,
+    axis: Int,
 ) -> PyResult<Bound<'py, PyAny>> {
     let (s, nd) = spec3(x, "x")?;
-    check_kind_axis(kind, axis, nd)?;
+    check_kind_axis(kind, axis.0, nd)?;
     let grid = Grid::parse(freqs, nd)?;
     let h = super::args::f64_vec(harmonics, "harmonics")?;
     let (f0, f0_nd) = signal2(f0, "f0")?;

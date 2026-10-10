@@ -4,6 +4,7 @@
 //! Outputs are `(channels, n_frames)` arrays (librosa returns `(n_frames,)` for
 //! 1-D input; index `[0]`).
 
+use crate::args::Int;
 use audio_samples::operations::pitch_tracking::{AudioPitchTracking, UnvoicedFill};
 use numpy::{IntoPyArray, PyArray2};
 use pyo3::IntoPyObjectExt;
@@ -38,7 +39,7 @@ impl PyAudioSamples {
     ///     ValueError: For invalid parameters (e.g. ``fmax > sr / 2``) or a
     ///         too-short uncentred signal.
     #[pyo3(
-        signature = (*, fmin, fmax, frame_length = 2048, hop_length = None, trough_threshold = 0.1, center = true, pad_mode = "constant"),
+        signature = (*, fmin, fmax, frame_length = Int(2048), hop_length = None, trough_threshold = 0.1, center = true, pad_mode = "constant"),
         text_signature = "($self, *, fmin, fmax, frame_length=2048, hop_length=None, trough_threshold=0.1, center=True, pad_mode='constant')"
     )]
     #[allow(clippy::too_many_arguments)]
@@ -47,8 +48,8 @@ impl PyAudioSamples {
         py: Python<'py>,
         fmin: f64,
         fmax: f64,
-        frame_length: i64,
-        hop_length: Option<i64>,
+        frame_length: Int,
+        hop_length: Option<Int>,
         trough_threshold: f64,
         center: bool,
         pad_mode: &str,
@@ -94,7 +95,7 @@ impl PyAudioSamples {
     /// Raises:
     ///     ValueError: For invalid parameters or a too-short uncentred signal.
     #[pyo3(
-        signature = (*, fmin, fmax, frame_length = 2048, hop_length = None, n_thresholds = 100, beta_parameters = (2.0, 18.0), boltzmann_parameter = 2.0, resolution = 0.1, max_transition_rate = 35.92, switch_prob = 0.01, no_trough_prob = 0.01, fill_na = FillNaArg(UnvoicedFill::Nan), center = true, pad_mode = "constant", transition_min_prob = Some(1e-4)),
+        signature = (*, fmin, fmax, frame_length = Int(2048), hop_length = None, n_thresholds = Int(100), beta_parameters = (2.0, 18.0), boltzmann_parameter = 2.0, resolution = 0.1, max_transition_rate = 35.92, switch_prob = 0.01, no_trough_prob = 0.01, fill_na = FillNaArg(UnvoicedFill::Nan), center = true, pad_mode = "constant", transition_min_prob = Some(1e-4)),
         text_signature = "($self, *, fmin, fmax, frame_length=2048, hop_length=None, n_thresholds=100, beta_parameters=(2, 18), boltzmann_parameter=2, resolution=0.1, max_transition_rate=35.92, switch_prob=0.01, no_trough_prob=0.01, fill_na=math.nan, center=True, pad_mode='constant', transition_min_prob=0.0001)"
     )]
     #[allow(clippy::too_many_arguments)]
@@ -103,9 +104,9 @@ impl PyAudioSamples {
         py: Python<'py>,
         fmin: f64,
         fmax: f64,
-        frame_length: i64,
-        hop_length: Option<i64>,
-        n_thresholds: i64,
+        frame_length: Int,
+        hop_length: Option<Int>,
+        n_thresholds: Int,
         beta_parameters: (f64, f64),
         boltzmann_parameter: f64,
         resolution: f64,

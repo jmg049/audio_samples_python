@@ -3,6 +3,7 @@
 //! `feature.spectral_*`, `poly_features` and `rms`, `pcen`, the frequency
 //! weighting curves and `perceptual_weighting`.
 
+use crate::args::Int;
 use audio_samples::operations::features::{
     self as feat, FrequencyWeighting, PcenConfig, PolyFeaturesConfig, SpectralBandwidthConfig,
     SpectralContrastConfig, SpectralFlatnessConfig, SpectralRolloffConfig,
@@ -197,7 +198,7 @@ pub fn spectral_flatness_from_spectrogram<'py>(
 ///     ValueError: For invalid parameters (e.g. the top band above Nyquist).
 #[pyfunction]
 #[pyo3(
-    signature = (S, *, sr = 22050.0, freq = None, fmin = 200.0, n_bands = 6, quantile = 0.02, linear = false),
+    signature = (S, *, sr = 22050.0, freq = None, fmin = 200.0, n_bands = Int(6), quantile = 0.02, linear = false),
     text_signature = "(S, *, sr=22050, freq=None, fmin=200.0, n_bands=6, quantile=0.02, linear=False)"
 )]
 #[allow(non_snake_case, clippy::too_many_arguments)]
@@ -207,7 +208,7 @@ pub fn spectral_contrast_from_spectrogram<'py>(
     sr: f64,
     freq: Option<&Bound<'py, PyAny>>,
     fmin: f64,
-    n_bands: i64,
+    n_bands: Int,
     quantile: f64,
     linear: bool,
 ) -> PyResult<Bound<'py, PyAny>> {
@@ -242,7 +243,7 @@ pub fn spectral_contrast_from_spectrogram<'py>(
 ///     ValueError: If ``order`` is negative or not below the number of bins.
 #[pyfunction]
 #[pyo3(
-    signature = (S, *, sr = 22050.0, freq = None, order = 1),
+    signature = (S, *, sr = 22050.0, freq = None, order = Int(1)),
     text_signature = "(S, *, sr=22050, freq=None, order=1)"
 )]
 #[allow(non_snake_case)]
@@ -251,7 +252,7 @@ pub fn poly_features_from_spectrogram<'py>(
     S: &Bound<'py, PyAny>,
     sr: f64,
     freq: Option<&Bound<'py, PyAny>>,
-    order: i64,
+    order: Int,
 ) -> PyResult<Bound<'py, PyAny>> {
     let (s, nd) = spec3(S, "S")?;
     let f = bin_frequencies(freq, sr, s.dim().1)?;
@@ -278,12 +279,12 @@ pub fn poly_features_from_spectrogram<'py>(
 /// Raises:
 ///     ValueError: If the bin count is not ``1 + frame_length // 2``.
 #[pyfunction]
-#[pyo3(signature = (S, *, frame_length = 2048), text_signature = "(S, *, frame_length=2048)")]
+#[pyo3(signature = (S, *, frame_length = Int(2048)), text_signature = "(S, *, frame_length=2048)")]
 #[allow(non_snake_case)]
 pub fn rms_from_spectrogram<'py>(
     py: Python<'py>,
     S: &Bound<'py, PyAny>,
-    frame_length: i64,
+    frame_length: Int,
 ) -> PyResult<Bound<'py, PyAny>> {
     let (s, nd) = spec3(S, "S")?;
     let r = feat::rms_from_spectrogram(s.view(), positive("frame_length", frame_length)?)
@@ -345,7 +346,7 @@ fn pcen_zi(zi: &Bound<'_, PyAny>, channels: usize, bins: usize) -> PyResult<Arra
 ///         magnitude with a warning; pass ``numpy.abs(S)``).
 #[pyfunction]
 #[pyo3(
-    signature = (S, *, sr = 22050.0, hop_length = 512, gain = 0.98, bias = 2.0, power = 0.5, time_constant = 0.4, eps = 1e-6, b = None, max_size = 1, r#ref = None, axis = -1, max_axis = None, zi = None, return_zf = false),
+    signature = (S, *, sr = 22050.0, hop_length = Int(512), gain = 0.98, bias = 2.0, power = 0.5, time_constant = 0.4, eps = 1e-6, b = None, max_size = Int(1), r#ref = None, axis = Int(-1), max_axis = None, zi = None, return_zf = false),
     text_signature = "(S, *, sr=22050, hop_length=512, gain=0.98, bias=2.0, power=0.5, time_constant=0.4, eps=1e-06, b=None, max_size=1, ref=None, axis=-1, max_axis=None, zi=None, return_zf=False)"
 )]
 #[allow(non_snake_case, clippy::too_many_arguments)]
@@ -353,31 +354,31 @@ pub fn pcen<'py>(
     py: Python<'py>,
     S: &Bound<'py, PyAny>,
     sr: f64,
-    hop_length: i64,
+    hop_length: Int,
     gain: f64,
     bias: f64,
     power: f64,
     time_constant: f64,
     eps: f64,
     b: Option<f64>,
-    max_size: i64,
+    max_size: Int,
     r#ref: Option<&Bound<'py, PyAny>>,
-    axis: i64,
-    max_axis: Option<i64>,
+    axis: Int,
+    max_axis: Option<Int>,
     zi: Option<&Bound<'py, PyAny>>,
     return_zf: bool,
 ) -> PyResult<Bound<'py, PyAny>> {
     let (s, nd) = spec3(S, "S")?;
     let nd_i = nd as i64;
-    if axis != -1 && axis != nd_i - 1 {
+    if axis != Int(-1) && axis != Int(nd_i - 1) {
         return Err(value_err(
             "axis",
             format!("only the last axis (-1) is supported as the time axis, got {axis}"),
         ));
     }
     if let Some(m) = max_axis
-        && m != -2
-        && m != nd_i - 2
+        && m != Int(-2)
+        && m != Int(nd_i - 2)
     {
         return Err(value_err(
             "max_axis",

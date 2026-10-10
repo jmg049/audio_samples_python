@@ -4,6 +4,7 @@
 //! providing frequency conversions, amplitude/power conversions, time/frame conversions,
 //! musical theory functions, and spectral utilities.
 
+use crate::args::Int;
 use audio_samples::utils::audio_math;
 use numpy::{IntoPyArray, PyArray1, PyUntypedArrayMethods};
 use pyo3::prelude::*;
@@ -17,7 +18,7 @@ const fn mel_scale_of(htk: bool) -> audio_math::MelScale {
 }
 
 /// Optional non-negative `n_fft` offset.
-fn opt_non_negative(name: &str, v: Option<i64>) -> PyResult<Option<usize>> {
+fn opt_non_negative(name: &str, v: Option<Int>) -> PyResult<Option<usize>> {
     v.map(|v| non_negative(name, v)).transpose()
 }
 
@@ -240,8 +241,8 @@ pub fn db_to_power(db: f64) -> f64 {
 pub fn frames_to_time<'py>(
     frames: &Bound<'py, PyAny>,
     sample_rate: f64,
-    hop_size: i64,
-    n_fft: Option<i64>,
+    hop_size: Int,
+    n_fft: Option<Int>,
 ) -> PyResult<Bound<'py, PyAny>> {
     let hop = positive("hop_size", hop_size)?;
     let n_fft = opt_non_negative("n_fft", n_fft)?;
@@ -273,7 +274,7 @@ pub fn frames_to_time<'py>(
 pub fn time_to_frames<'py>(
     time_seconds: &Bound<'py, PyAny>,
     sample_rate: f64,
-    hop_size: i64,
+    hop_size: Int,
 ) -> PyResult<Bound<'py, PyAny>> {
     let hop = positive("hop_size", hop_size)?.get();
     map_f64_to_i64(time_seconds, "time_seconds", |t| {
@@ -389,8 +390,8 @@ pub fn note_to_midi(note_name: &str) -> PyResult<u8> {
 ///     >>> midi_to_note(61)  # "C#4"
 #[pyfunction]
 #[pyo3(signature = (midi_note), text_signature = "(midi_note)")]
-pub fn midi_to_note(midi_note: i64) -> PyResult<String> {
-    let m = u8::try_from(midi_note)
+pub fn midi_to_note(midi_note: Int) -> PyResult<String> {
+    let m = u8::try_from(midi_note.0)
         .ok()
         .filter(|&m| m <= 127)
         .ok_or_else(|| value_err("midi_note", format!("must be in 0..=127, got {midi_note}")))?;
@@ -530,7 +531,7 @@ pub fn fft_frequencies<'py>(
 #[pyo3(signature = (n_mels, fmin, fmax, *, htk = true), text_signature = "(n_mels, fmin, fmax, *, htk=True)")]
 pub fn mel_frequencies(
     py: Python<'_>,
-    n_mels: i64,
+    n_mels: Int,
     fmin: f64,
     fmax: f64,
     htk: bool,
@@ -609,11 +610,11 @@ pub fn time_to_samples<'py>(
 /// Returns:
 ///     int | numpy.ndarray[int64]: Frame indices, same shape as the input.
 #[pyfunction]
-#[pyo3(signature = (samples, *, hop_length = 512, n_fft = None), text_signature = "(samples, *, hop_length=512, n_fft=None)")]
+#[pyo3(signature = (samples, *, hop_length = Int(512), n_fft = None), text_signature = "(samples, *, hop_length=512, n_fft=None)")]
 pub fn samples_to_frames<'py>(
     samples: &Bound<'py, PyAny>,
-    hop_length: i64,
-    n_fft: Option<i64>,
+    hop_length: Int,
+    n_fft: Option<Int>,
 ) -> PyResult<Bound<'py, PyAny>> {
     let hop = positive("hop_length", hop_length)?;
     let n_fft = opt_non_negative("n_fft", n_fft)?;
@@ -634,11 +635,11 @@ pub fn samples_to_frames<'py>(
 /// Returns:
 ///     int | numpy.ndarray[int64]: Sample indices, same shape as the input.
 #[pyfunction]
-#[pyo3(signature = (frames, *, hop_length = 512, n_fft = None), text_signature = "(frames, *, hop_length=512, n_fft=None)")]
+#[pyo3(signature = (frames, *, hop_length = Int(512), n_fft = None), text_signature = "(frames, *, hop_length=512, n_fft=None)")]
 pub fn frames_to_samples<'py>(
     frames: &Bound<'py, PyAny>,
-    hop_length: i64,
-    n_fft: Option<i64>,
+    hop_length: Int,
+    n_fft: Option<Int>,
 ) -> PyResult<Bound<'py, PyAny>> {
     let hop = positive("hop_length", hop_length)?;
     let n_fft = opt_non_negative("n_fft", n_fft)?;
@@ -667,12 +668,12 @@ pub fn frames_to_samples<'py>(
 ///     >>> from audio_samples.utils import time_to_frames_floor
 ///     >>> time_to_frames_floor([0.0, 0.1, 0.2])  # [0, 4, 8]
 #[pyfunction]
-#[pyo3(signature = (times, *, sample_rate = 22050.0, hop_length = 512, n_fft = None), text_signature = "(times, *, sample_rate=22050.0, hop_length=512, n_fft=None)")]
+#[pyo3(signature = (times, *, sample_rate = 22050.0, hop_length = Int(512), n_fft = None), text_signature = "(times, *, sample_rate=22050.0, hop_length=512, n_fft=None)")]
 pub fn time_to_frames_floor<'py>(
     times: &Bound<'py, PyAny>,
     sample_rate: f64,
-    hop_length: i64,
-    n_fft: Option<i64>,
+    hop_length: Int,
+    n_fft: Option<Int>,
 ) -> PyResult<Bound<'py, PyAny>> {
     let hop = positive("hop_length", hop_length)?;
     let n_fft = opt_non_negative("n_fft", n_fft)?;
@@ -712,14 +713,14 @@ fn frame_count(x: &Bound<'_, PyAny>) -> PyResult<usize> {
 /// Returns:
 ///     numpy.ndarray[float64]: shape ``(n_frames,)``.
 #[pyfunction]
-#[pyo3(signature = (X, *, sample_rate = 22050.0, hop_length = 512, n_fft = None), text_signature = "(X, *, sample_rate=22050.0, hop_length=512, n_fft=None)")]
+#[pyo3(signature = (X, *, sample_rate = 22050.0, hop_length = Int(512), n_fft = None), text_signature = "(X, *, sample_rate=22050.0, hop_length=512, n_fft=None)")]
 #[allow(non_snake_case)]
 pub fn times_like<'py>(
     py: Python<'py>,
     X: &Bound<'py, PyAny>,
     sample_rate: f64,
-    hop_length: i64,
-    n_fft: Option<i64>,
+    hop_length: Int,
+    n_fft: Option<Int>,
 ) -> PyResult<Bound<'py, PyArray1<f64>>> {
     let hop = positive("hop_length", hop_length)?;
     let n_fft = opt_non_negative("n_fft", n_fft)?;
@@ -736,13 +737,13 @@ pub fn times_like<'py>(
 /// Returns:
 ///     numpy.ndarray[int64]: shape ``(n_frames,)``.
 #[pyfunction]
-#[pyo3(signature = (X, *, hop_length = 512, n_fft = None), text_signature = "(X, *, hop_length=512, n_fft=None)")]
+#[pyo3(signature = (X, *, hop_length = Int(512), n_fft = None), text_signature = "(X, *, hop_length=512, n_fft=None)")]
 #[allow(non_snake_case)]
 pub fn samples_like<'py>(
     py: Python<'py>,
     X: &Bound<'py, PyAny>,
-    hop_length: i64,
-    n_fft: Option<i64>,
+    hop_length: Int,
+    n_fft: Option<Int>,
 ) -> PyResult<Bound<'py, PyArray1<i64>>> {
     let hop = positive("hop_length", hop_length)?;
     let n_fft = opt_non_negative("n_fft", n_fft)?;

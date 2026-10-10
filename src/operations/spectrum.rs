@@ -6,6 +6,7 @@
 //! audio gives a leading axis of length 1), always `float64` / `complex128`, and
 //! takes librosa's keyword arguments with librosa 1.0's defaults.
 
+use crate::args::Int;
 use audio_samples::operations::filterbanks::Window;
 use audio_samples::operations::spectrum::{
     DbConfig, DctNorm, DctType, MelSpectrogramConfig, MfccConfig,
@@ -49,14 +50,14 @@ pub(crate) fn parse_dct_norm(norm: Option<&str>) -> PyResult<DctNorm> {
 /// Builds an [`MfccConfig`] from librosa `mfcc` keyword arguments (shared with
 /// `audio_samples.spectral.mfcc_from_mel_db`).
 pub(crate) fn mfcc_cepstrum_config(
-    n_mfcc: i64,
-    dct_type: i64,
+    n_mfcc: Int,
+    dct_type: Int,
     norm: Option<&str>,
     lifter: f64,
 ) -> PyResult<MfccConfig> {
     Ok(MfccConfig::new()
         .with_n_mfcc(positive("n_mfcc", n_mfcc)?)
-        .with_dct_type(parse_dct_type(dct_type)?)
+        .with_dct_type(parse_dct_type(dct_type.0)?)
         .with_dct_norm(parse_dct_norm(norm)?)
         .with_lifter(lifter))
 }
@@ -92,15 +93,15 @@ impl PyAudioSamples {
     ///     ValueError: For invalid parameters, or ``center=False`` with a signal
     ///         shorter than ``n_fft``.
     #[pyo3(
-        signature = (*, n_fft = 2048, hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant"),
+        signature = (*, n_fft = Int(2048), hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant"),
         text_signature = "($self, *, n_fft=2048, hop_length=None, win_length=None, window='hann', center=True, pad_mode='constant')"
     )]
     fn stft_matrix<'py>(
         &self,
         py: Python<'py>,
-        n_fft: i64,
-        hop_length: Option<i64>,
-        win_length: Option<i64>,
+        n_fft: Int,
+        hop_length: Option<Int>,
+        win_length: Option<Int>,
         window: WindowArg,
         center: bool,
         pad_mode: &str,
@@ -140,13 +141,13 @@ impl PyAudioSamples {
     )]
     fn istft_matrix(
         stft_matrix: &Bound<'_, PyAny>,
-        sample_rate: u32,
-        hop_length: Option<i64>,
-        win_length: Option<i64>,
-        n_fft: Option<i64>,
+        sample_rate: Int,
+        hop_length: Option<Int>,
+        win_length: Option<Int>,
+        n_fft: Option<Int>,
         window: WindowArg,
         center: bool,
-        length: Option<i64>,
+        length: Option<Int>,
     ) -> PyResult<Self> {
         let d = c128_array(stft_matrix, "stft_matrix")?;
         let d3: Array3<Complex<f64>> = match d.ndim() {
@@ -171,10 +172,10 @@ impl PyAudioSamples {
         let n_bins = d3.dim().1;
         let n_fft = match n_fft {
             Some(n) => n,
-            None => 2 * (n_bins as i64 - 1),
+            None => Int(2 * (n_bins as i64 - 1)),
         };
         let cfg = stft_config(n_fft, hop_length, win_length, window, center, "constant")?;
-        let sr = nzu32_or_err(sample_rate)?;
+        let sr = nzu32_or_err(crate::args::sample_rate_u32(sample_rate)?)?;
         let length = crate::args::opt_positive("length", length)?;
         let y = <AudioSamples<'static, f64> as AudioSpectrum>::istft_matrix(&d3, &cfg, sr, length)
             .map_err(audio_err_to_py)?;
@@ -195,16 +196,16 @@ impl PyAudioSamples {
     /// Raises:
     ///     ValueError: For invalid parameters or a non-positive power.
     #[pyo3(
-        signature = (*, n_fft = 2048, hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", power = 1.0),
+        signature = (*, n_fft = Int(2048), hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", power = 1.0),
         text_signature = "($self, *, n_fft=2048, hop_length=None, win_length=None, window='hann', center=True, pad_mode='constant', power=1.0)"
     )]
     #[allow(clippy::too_many_arguments)]
     fn spectrogram_matrix<'py>(
         &self,
         py: Python<'py>,
-        n_fft: i64,
-        hop_length: Option<i64>,
-        win_length: Option<i64>,
+        n_fft: Int,
+        hop_length: Option<Int>,
+        win_length: Option<Int>,
         window: WindowArg,
         center: bool,
         pad_mode: &str,
@@ -237,21 +238,21 @@ impl PyAudioSamples {
     /// Raises:
     ///     ValueError: For invalid parameters.
     #[pyo3(
-        signature = (*, n_fft = 2048, hop_length = 512, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", power = 2.0, n_mels = 128, fmin = 0.0, fmax = None, htk = false, norm = MelNormArg(audio_samples::MelFilterNorm::Slaney)),
+        signature = (*, n_fft = Int(2048), hop_length = Int(512), win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", power = 2.0, n_mels = Int(128), fmin = 0.0, fmax = None, htk = false, norm = MelNormArg(audio_samples::MelFilterNorm::Slaney)),
         text_signature = "($self, *, n_fft=2048, hop_length=512, win_length=None, window='hann', center=True, pad_mode='constant', power=2.0, n_mels=128, fmin=0.0, fmax=None, htk=False, norm='slaney')"
     )]
     #[allow(clippy::too_many_arguments)]
     fn melspectrogram<'py>(
         &self,
         py: Python<'py>,
-        n_fft: i64,
-        hop_length: i64,
-        win_length: Option<i64>,
+        n_fft: Int,
+        hop_length: Int,
+        win_length: Option<Int>,
         window: WindowArg,
         center: bool,
         pad_mode: &str,
         power: f64,
-        n_mels: i64,
+        n_mels: Int,
         fmin: f64,
         fmax: Option<f64>,
         htk: bool,
@@ -302,26 +303,26 @@ impl PyAudioSamples {
     ///     ValueError: For invalid parameters (including ``n_mfcc > n_mels``,
     ///         which librosa silently truncates).
     #[pyo3(
-        signature = (*, n_mfcc = 20, dct_type = 2, norm = Some("ortho"), lifter = 0.0, mel_norm = MelNormArg(audio_samples::MelFilterNorm::Slaney), n_fft = 2048, hop_length = 512, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", power = 2.0, n_mels = 128, fmin = 0.0, fmax = None, htk = false, r#ref = DbRefArg(audio_samples::DbReference::Value(1.0)), amin = 1e-10, top_db = Some(80.0)),
+        signature = (*, n_mfcc = Int(20), dct_type = Int(2), norm = Some("ortho"), lifter = 0.0, mel_norm = MelNormArg(audio_samples::MelFilterNorm::Slaney), n_fft = Int(2048), hop_length = Int(512), win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", power = 2.0, n_mels = Int(128), fmin = 0.0, fmax = None, htk = false, r#ref = DbRefArg(audio_samples::DbReference::Value(1.0)), amin = 1e-10, top_db = Some(80.0)),
         text_signature = "($self, *, n_mfcc=20, dct_type=2, norm='ortho', lifter=0.0, mel_norm='slaney', n_fft=2048, hop_length=512, win_length=None, window='hann', center=True, pad_mode='constant', power=2.0, n_mels=128, fmin=0.0, fmax=None, htk=False, ref=1.0, amin=1e-10, top_db=80.0)"
     )]
     #[allow(clippy::too_many_arguments)]
     fn mfcc_frames<'py>(
         &self,
         py: Python<'py>,
-        n_mfcc: i64,
-        dct_type: i64,
+        n_mfcc: Int,
+        dct_type: Int,
         norm: Option<&str>,
         lifter: f64,
         mel_norm: MelNormArg,
-        n_fft: i64,
-        hop_length: i64,
-        win_length: Option<i64>,
+        n_fft: Int,
+        hop_length: Int,
+        win_length: Option<Int>,
         window: WindowArg,
         center: bool,
         pad_mode: &str,
         power: f64,
-        n_mels: i64,
+        n_mels: Int,
         fmin: f64,
         fmax: Option<f64>,
         htk: bool,

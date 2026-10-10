@@ -8,6 +8,7 @@
 //! Return values follow librosa: tuples only when the corresponding flag asks
 //! for them (`backtrack`, `return_steps`, `return_logp`).
 
+use crate::args::Int;
 use audio_samples::operations::sequence::{
     self as seq, Bandwidth, CrossSimilarityConfig, DistanceMetric, DtwConfig, RecurrenceConfig,
     RecurrenceMode, RqaConfig, SyncAggregate, TransitionWindow,
@@ -233,7 +234,7 @@ pub fn dtw_backtracking<'py>(
     steps: &Bound<'py, PyAny>,
     step_sizes_sigma: Option<&Bound<'py, PyAny>>,
     subseq: bool,
-    start: Option<i64>,
+    start: Option<Int>,
 ) -> PyResult<Bound<'py, PyArray2<i64>>> {
     let a = f64_array(steps, "steps")?;
     if a.ndim() != 2 {
@@ -248,7 +249,7 @@ pub fn dtw_backtracking<'py>(
     let steps = Array2::from_shape_vec(shape, v).map_err(|e| value_err("steps", e))?;
     let custom = parse_steps(step_sizes_sigma)?;
     let start = start
-        .map(|s| usize::try_from(s).map_err(|_| value_err("start", "must be >= 0")))
+        .map(|s| usize::try_from(s.0).map_err(|_| value_err("start", "must be >= 0")))
         .transpose()?;
     let path = seq::dtw_backtracking(steps.view(), custom.as_deref(), subseq, start)
         .map_err(audio_err_to_py)?;
@@ -440,7 +441,7 @@ pub fn viterbi_binary<'py>(
 ///     numpy.ndarray[float64]: ``(n_states, n_states)`` filled with ``1 / n_states``.
 #[pyfunction]
 #[pyo3(signature = (n_states), text_signature = "(n_states)")]
-pub fn transition_uniform(py: Python<'_>, n_states: i64) -> PyResult<Bound<'_, PyArray2<f64>>> {
+pub fn transition_uniform(py: Python<'_>, n_states: Int) -> PyResult<Bound<'_, PyArray2<f64>>> {
     let t =
         seq::transition_uniform(positive("n_states", n_states)?.get()).map_err(audio_err_to_py)?;
     Ok(t.into_pyarray(py))
@@ -463,7 +464,7 @@ fn float_or_vec(obj: &Bound<'_, PyAny>, name: &str) -> PyResult<Vec<f64>> {
 #[pyo3(signature = (n_states, prob), text_signature = "(n_states, prob)")]
 pub fn transition_loop<'py>(
     py: Python<'py>,
-    n_states: i64,
+    n_states: Int,
     prob: &Bound<'py, PyAny>,
 ) -> PyResult<Bound<'py, PyArray2<f64>>> {
     let n = positive("n_states", n_states)?.get();
@@ -483,7 +484,7 @@ pub fn transition_loop<'py>(
 #[pyo3(signature = (n_states, prob), text_signature = "(n_states, prob)")]
 pub fn transition_cycle<'py>(
     py: Python<'py>,
-    n_states: i64,
+    n_states: Int,
     prob: &Bound<'py, PyAny>,
 ) -> PyResult<Bound<'py, PyArray2<f64>>> {
     let n = positive("n_states", n_states)?.get();
@@ -509,7 +510,7 @@ pub fn transition_cycle<'py>(
 )]
 pub fn transition_local<'py>(
     py: Python<'py>,
-    n_states: i64,
+    n_states: Int,
     width: &Bound<'py, PyAny>,
     window: &str,
     wrap: bool,
@@ -671,27 +672,27 @@ fn reject_sparse(sparse: bool) -> PyResult<()> {
 ///     numpy.ndarray: ``(t, t)``; bool for connectivity, float64 otherwise.
 #[pyfunction]
 #[pyo3(
-    signature = (data, *, k = None, width = 1, metric = "euclidean", sym = false, sparse = false, mode = "connectivity", bandwidth = None, self_links = false, axis = -1, full = false, **kwargs),
+    signature = (data, *, k = None, width = Int(1), metric = "euclidean", sym = false, sparse = false, mode = "connectivity", bandwidth = None, self_links = false, axis = Int(-1), full = false, **kwargs),
     text_signature = "(data, *, k=None, width=1, metric='euclidean', sym=False, sparse=False, mode='connectivity', bandwidth=None, self=False, axis=-1, full=False)"
 )]
 #[allow(clippy::too_many_arguments)]
 pub fn recurrence_matrix<'py>(
     py: Python<'py>,
     data: &Bound<'py, PyAny>,
-    k: Option<i64>,
-    width: i64,
+    k: Option<Int>,
+    width: Int,
     metric: &str,
     sym: bool,
     sparse: bool,
     mode: &str,
     bandwidth: Option<&Bound<'py, PyAny>>,
     self_links: bool,
-    axis: i64,
+    axis: Int,
     full: bool,
     kwargs: Option<&Bound<'py, PyDict>>,
 ) -> PyResult<Bound<'py, PyAny>> {
     reject_sparse(sparse)?;
-    if axis != -1 && axis != 1 {
+    if axis != Int(-1) && axis != Int(1) {
         return Err(value_err("axis", "only axis=-1 (frames last) is supported"));
     }
     let mut self_links = self_links;
@@ -750,7 +751,7 @@ pub fn cross_similarity<'py>(
     py: Python<'py>,
     data: &Bound<'py, PyAny>,
     data_ref: &Bound<'py, PyAny>,
-    k: Option<i64>,
+    k: Option<Int>,
     metric: &str,
     sparse: bool,
     mode: &str,
@@ -849,7 +850,7 @@ fn bool_or_float<'py>(py: Python<'py>, m: Array2<f64>, is_bool: bool) -> Bound<'
 ///     ValueError: Negative indices or 0-d data.
 #[pyfunction]
 #[pyo3(
-    signature = (data, idx, *, aggregate = None, pad = true, axis = -1),
+    signature = (data, idx, *, aggregate = None, pad = true, axis = Int(-1)),
     text_signature = "(data, idx, *, aggregate=None, pad=True, axis=-1)"
 )]
 pub fn sync<'py>(
@@ -858,10 +859,10 @@ pub fn sync<'py>(
     idx: &Bound<'py, PyAny>,
     aggregate: Option<&Bound<'py, PyAny>>,
     pad: bool,
-    axis: i64,
+    axis: Int,
 ) -> PyResult<Bound<'py, PyAny>> {
     let x = f64_array(data, "data")?;
-    if axis != -1 && axis != x.ndim() as i64 - 1 {
+    if axis != Int(-1) && axis != Int(x.ndim() as i64 - 1) {
         return Err(value_err(
             "axis",
             "only the last axis (axis=-1) is supported",
