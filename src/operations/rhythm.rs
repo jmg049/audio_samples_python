@@ -189,8 +189,9 @@ impl PyAudioSamples {
     ///         de-duplicated, each consecutive pair is one band. None gives one
     ///         band.
     ///     aggregate: As ``onset_strength``; ``False`` keeps every mel bin.
-    ///     lag, max_size, detrend, center, n_fft, hop_length, win_length, window,
-    ///     pad_mode, power, n_mels, fmin, fmax, htk, norm: As ``onset_strength``.
+    ///     **kwargs: ``lag``, ``max_size``, ``detrend``, ``center``, ``n_fft``,
+    ///         ``hop_length``, ``win_length``, ``window``, ``pad_mode``, ``power``,
+    ///         ``n_mels``, ``fmin``, ``fmax``, ``htk``, ``norm`` as ``onset_strength``.
     ///
     /// Returns:
     ///     numpy.ndarray[float64]: shape ``(channels, n_bands, n_frames)``
@@ -329,7 +330,7 @@ impl PyAudioSamples {
     ///     ValueError: For invalid parameters.
     #[pyo3(
         signature = (*, hop_length = 512, win_length = 384, center = true, window = WindowArg(Window::Hann), norm = Some(f64::INFINITY)),
-        text_signature = "($self, *, hop_length=512, win_length=384, center=True, window='hann', norm=1e309)"
+        text_signature = "($self, *, hop_length=512, win_length=384, center=True, window='hann', norm=math.inf)"
     )]
     fn tempogram<'py>(
         &self,
@@ -548,7 +549,7 @@ impl PyAudioSamples {
     ///     channel axis; index ``[0]``.
     #[pyo3(
         signature = (*, hop_length = 512, win_length = 384, start_bpm = 120.0, std_bpm = 1.0, max_tempo = Some(320.0), factors = None, aggregate = None, prior = None, center = true, window = WindowArg(Window::Hann), fill_value = 0.0, norm = Some(f64::INFINITY)),
-        text_signature = "($self, *, hop_length=512, win_length=384, start_bpm=120, std_bpm=1.0, max_tempo=320.0, factors=None, aggregate=None, prior=None, center=True, window='hann', fill_value=0, norm=1e309)"
+        text_signature = "($self, *, hop_length=512, win_length=384, start_bpm=120, std_bpm=1.0, max_tempo=320.0, factors=None, aggregate=None, prior=None, center=True, window='hann', fill_value=0, norm=math.inf)"
     )]
     #[allow(clippy::too_many_arguments)]
     fn tempogram_ratio<'py>(

@@ -778,8 +778,9 @@ impl PyAudioSamples {
     ///     S (array_like): ``(1 + n_fft // 2, n_frames)`` or
     ///         ``(channels, 1 + n_fft // 2, n_frames)`` non-negative magnitude.
     ///     sample_rate (int): Sample rate of the result (keyword-only).
-    ///     n_iter, hop_length, win_length, n_fft, window, center, length,
-    ///     pad_mode, momentum, init, rng: As ``audio_samples.effects.griffinlim``.
+    ///     **kwargs: ``n_iter``, ``hop_length``, ``win_length``, ``n_fft``,
+    ///         ``window``, ``center``, ``length``, ``pad_mode``, ``momentum``,
+    ///         ``init``, ``rng`` as ``audio_samples.effects.griffinlim``.
     ///
     /// Returns:
     ///     AudioSamples: float64 audio (mono for one channel).

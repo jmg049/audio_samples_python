@@ -1089,8 +1089,7 @@ pub fn fourier_tempo_frequencies(
 #[pyfunction]
 #[pyo3(
     signature = (*, onset_envelope, sr = 22050.0, hop_length = 512, win_length = 384, center = true, window = WindowArg(Window::Hann), norm = Some(f64::INFINITY)),
-    // `1e309` is how `inspect.signature` can show `inf` (a bare name would not resolve).
-    text_signature = "(*, onset_envelope, sr=22050, hop_length=512, win_length=384, center=True, window='hann', norm=1e309)"
+    text_signature = "(*, onset_envelope, sr=22050, hop_length=512, win_length=384, center=True, window='hann', norm=math.inf)"
 )]
 #[allow(clippy::too_many_arguments, unused_variables)]
 pub fn tempogram<'py>(
@@ -1417,7 +1416,7 @@ pub fn plp<'py>(
 #[pyfunction]
 #[pyo3(
     signature = (*, onset_envelope = None, tg = None, bpm = None, sr = 22050.0, hop_length = 512, win_length = 384, start_bpm = 120.0, std_bpm = 1.0, max_tempo = Some(320.0), freqs = None, factors = None, aggregate = None, prior = None, center = true, window = WindowArg(Window::Hann), kind = "linear", fill_value = 0.0, norm = Some(f64::INFINITY)),
-    text_signature = "(*, onset_envelope=None, tg=None, bpm=None, sr=22050, hop_length=512, win_length=384, start_bpm=120, std_bpm=1.0, max_tempo=320.0, freqs=None, factors=None, aggregate=None, prior=None, center=True, window='hann', kind='linear', fill_value=0, norm=1e309)"
+    text_signature = "(*, onset_envelope=None, tg=None, bpm=None, sr=22050, hop_length=512, win_length=384, start_bpm=120, std_bpm=1.0, max_tempo=320.0, freqs=None, factors=None, aggregate=None, prior=None, center=True, window='hann', kind='linear', fill_value=0, norm=math.inf)"
 )]
 #[allow(clippy::too_many_arguments)]
 pub fn tempogram_ratio<'py>(

@@ -61,6 +61,8 @@ from . import mpl as mpl
 from . import types as types
 from . import spectral as spectral
 from . import sequence as sequence
+from . import rhythm as rhythm
+from . import effects as effects
 from . import features as features
 from .utils import mu_law_encode as mu_law_encode, mu_law_decode as mu_law_decode
 
@@ -103,6 +105,8 @@ __all__ = [
     "types",
     "spectral",
     "sequence",
+    "rhythm",
+    "effects",
     "features",
     "mu_law_encode",
     "mu_law_decode",
@@ -2922,6 +2926,487 @@ class AudioSamples:
         Returns:
             ``(f0, voiced_flag, voiced_prob)``, each ``(channels, n_frames)``.
         """
+        ...
+
+    # ------------------------------------------------------------------
+    # librosa-compatible rhythm analysis (AudioRhythm)
+    #
+    # Frame-wise outputs carry a leading channel axis (mono gives length 1);
+    # librosa returns them without it for 1-D input, so use ``result[0]``.
+    # Event detectors (onset_detect, beat_track) need mono audio. ``aggregate``
+    # takes numpy reductions, their names or a callable f(x, axis=-1);
+    # ``prior`` a scipy.stats distribution or a callable of the BPM.
+    # Free-function forms on arrays: ``audio_samples.rhythm``.
+    # ------------------------------------------------------------------
+
+    def onset_strength(
+        self,
+        *,
+        lag: int = 1,
+        max_size: int = 1,
+        detrend: bool = False,
+        center: bool = True,
+        aggregate: Any = None,
+        n_fft: int = 2048,
+        hop_length: int = 512,
+        win_length: Optional[int] = None,
+        window: WindowSpec = "hann",
+        pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
+        power: float = 2.0,
+        n_mels: int = 128,
+        fmin: float = 0.0,
+        fmax: Optional[float] = None,
+        htk: bool = False,
+        norm: MelNorm = "slaney",
+    ) -> NDArray[np.float64]:
+        """Onset strength envelope, ``librosa.onset.onset_strength(y=..., sr=...)``.
+
+        Positive increase of the log-power mel spectrogram (``power_to_db``,
+        ``ref=1``, ``top_db=80``) from frame ``t - lag``, aggregated across bins.
+
+        Returns:
+            numpy.ndarray[float64], shape ``(channels, n_frames)``,
+            ``n_frames = 1 + len // hop_length``.
+        """
+        ...
+
+    def onset_strength_multi(
+        self,
+        *,
+        channels: Optional[list[int]] = None,
+        lag: int = 1,
+        max_size: int = 1,
+        detrend: bool = False,
+        center: bool = True,
+        aggregate: Any = None,
+        n_fft: int = 2048,
+        hop_length: int = 512,
+        win_length: Optional[int] = None,
+        window: WindowSpec = "hann",
+        pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
+        power: float = 2.0,
+        n_mels: int = 128,
+        fmin: float = 0.0,
+        fmax: Optional[float] = None,
+        htk: bool = False,
+        norm: MelNorm = "slaney",
+    ) -> NDArray[np.float64]:
+        """Multi-band onset strength, ``librosa.onset.onset_strength_multi``.
+
+        ``channels`` are sub-band boundaries in mel bins; ``aggregate=False``
+        keeps every mel bin.
+
+        Returns:
+            numpy.ndarray[float64], shape ``(channels, n_bands, n_frames)``.
+        """
+        ...
+
+    def onset_detect(
+        self,
+        *,
+        hop_length: int = 512,
+        backtrack: bool = False,
+        energy: Optional[npt.ArrayLike] = None,
+        units: Literal["frames", "samples", "time"] = "frames",
+        normalize: bool = True,
+        sparse: bool = True,
+        pre_max: Optional[int] = None,
+        post_max: Optional[int] = None,
+        pre_avg: Optional[int] = None,
+        post_avg: Optional[int] = None,
+        delta: Optional[float] = None,
+        wait: Optional[int] = None,
+        method: Literal["greedy", "dp_count", "dp_value"] = "greedy",
+    ) -> NDArray[Any]:
+        """Onset detection, ``librosa.onset.onset_detect(y=..., sr=...)`` (mono only).
+
+        Returns:
+            1-D numpy.ndarray: int64 frames/samples or float64 times.
+
+        Raises:
+            ValueError: Multi-channel audio, invalid parameters or ``sparse=False``.
+        """
+        ...
+
+    def tempogram(
+        self,
+        *,
+        hop_length: int = 512,
+        win_length: int = 384,
+        center: bool = True,
+        window: WindowSpec = "hann",
+        norm: Optional[float] = np.inf,
+    ) -> NDArray[np.float64]:
+        """Autocorrelation tempogram, ``librosa.feature.tempogram(y=..., sr=...)``.
+
+        Returns:
+            numpy.ndarray[float64], shape ``(channels, win_length, n_frames)``.
+        """
+        ...
+
+    def fourier_tempogram(
+        self,
+        *,
+        hop_length: int = 512,
+        win_length: int = 384,
+        center: bool = True,
+        window: WindowSpec = "hann",
+    ) -> NDArray[np.complex128]:
+        """Fourier tempogram, ``librosa.feature.fourier_tempogram(y=..., sr=...)``.
+
+        Returns:
+            numpy.ndarray[complex128], shape
+            ``(channels, win_length // 2 + 1, n_frames + 1)`` (centred).
+        """
+        ...
+
+    def tempo(
+        self,
+        *,
+        hop_length: int = 512,
+        start_bpm: float = 120,
+        std_bpm: float = 1.0,
+        ac_size: float = 8.0,
+        max_tempo: Optional[float] = 320.0,
+        aggregate: Any = "mean",
+        prior: Any = None,
+    ) -> NDArray[np.float64]:
+        """Tempo estimate, ``librosa.feature.tempo(y=..., sr=...)``.
+
+        Returns:
+            numpy.ndarray[float64], shape ``(channels, 1)`` (``(channels, n_frames)``
+            with ``aggregate=None``).
+        """
+        ...
+
+    def beat_track(
+        self,
+        *,
+        hop_length: int = 512,
+        start_bpm: float = 120.0,
+        tightness: float = 100,
+        trim: bool = True,
+        bpm: Optional[Union[float, npt.ArrayLike]] = None,
+        prior: Any = None,
+        units: Literal["frames", "samples", "time"] = "frames",
+        sparse: bool = True,
+    ) -> tuple[Any, NDArray[Any]]:
+        """Dynamic-programming beat tracking, ``librosa.beat.beat_track(y=..., sr=...)``
+        (mono only; median-aggregated onset envelope, as librosa).
+
+        Returns:
+            ``(tempo, beats)`` as librosa: ``tempo`` a float64 array of shape
+            ``(1,)`` (``bpm`` unchanged when given, ``0.0`` for silence);
+            ``beats`` 1-D int64 frames/samples or float64 times.
+        """
+        ...
+
+    def plp(
+        self,
+        *,
+        hop_length: int = 512,
+        win_length: int = 384,
+        tempo_min: Optional[float] = 30,
+        tempo_max: Optional[float] = 300,
+        prior: Any = None,
+    ) -> NDArray[np.float64]:
+        """Predominant local pulse, ``librosa.beat.plp(y=..., sr=...)``.
+
+        Returns:
+            numpy.ndarray[float64], shape ``(channels, n_frames)``, values in ``[0, 1]``.
+        """
+        ...
+
+    def tempogram_ratio(
+        self,
+        *,
+        hop_length: int = 512,
+        win_length: int = 384,
+        start_bpm: float = 120,
+        std_bpm: float = 1.0,
+        max_tempo: Optional[float] = 320.0,
+        factors: Optional[npt.ArrayLike] = None,
+        aggregate: Any = None,
+        prior: Any = None,
+        center: bool = True,
+        window: WindowSpec = "hann",
+        fill_value: float = 0,
+        norm: Optional[float] = np.inf,
+    ) -> NDArray[np.float64]:
+        """Tempogram ratio, ``librosa.feature.tempogram_ratio(y=..., sr=...)``.
+
+        Returns:
+            numpy.ndarray[float64], shape ``(channels, n_factors, n_frames)``
+            (``(channels, n_factors, 1)`` when aggregated; librosa drops the axis).
+        """
+        ...
+
+    def hybrid_tempogram(
+        self,
+        *,
+        hop_length: int = 512,
+        win_length: int = 384,
+        center: bool = True,
+        window: WindowSpec = "hann",
+    ) -> NDArray[np.float64]:
+        """Hybrid tempogram, ``librosa.feature.hybrid_tempogram(y=..., sr=...)``.
+
+        Returns:
+            numpy.ndarray[float64], shape ``(channels, win_length // 2 + 1, n_frames)``.
+        """
+        ...
+
+    # ------------------------------------------------------------------
+    # librosa-compatible effects (AudioEffects)
+    #
+    # Audio-to-audio effects return AudioSamples of the input's sample type
+    # and rate; each has an ``_in_place`` variant (the length may change).
+    # Array forms: ``audio_samples.effects``.
+    # ------------------------------------------------------------------
+
+    def time_stretch(
+        self,
+        rate: float,
+        *,
+        n_fft: int = 2048,
+        hop_length: Optional[int] = None,
+        win_length: Optional[int] = None,
+        window: WindowSpec = "hann",
+        center: bool = True,
+        pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
+    ) -> AudioSamples:
+        """``librosa.effects.time_stretch``: phase vocoder, exactly ``round(n / rate)`` samples."""
+        ...
+
+    def time_stretch_in_place(
+        self,
+        rate: float,
+        *,
+        n_fft: int = 2048,
+        hop_length: Optional[int] = None,
+        win_length: Optional[int] = None,
+        window: WindowSpec = "hann",
+        center: bool = True,
+        pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
+    ) -> None:
+        """In-place ``time_stretch``."""
+        ...
+
+    def pitch_shift(
+        self,
+        n_steps: float,
+        *,
+        bins_per_octave: int = 12,
+        res_type: Union[str, ResamplingQuality] = "soxr_hq",
+        scale: bool = False,
+        n_fft: int = 2048,
+        hop_length: Optional[int] = None,
+        win_length: Optional[int] = None,
+        window: WindowSpec = "hann",
+        center: bool = True,
+        pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
+    ) -> AudioSamples:
+        """``librosa.effects.pitch_shift(y, sr=self.sample_rate, n_steps=...)``.
+
+        The resampling step uses this library's resampler (``"soxr_hq"`` maps to
+        ``ResamplingQuality.high``, ``"soxr_mq"`` to medium, ``"soxr_lq"`` to
+        fast); ~68 dB SNR vs librosa on band-limited audio. ``scale`` must be False.
+        """
+        ...
+
+    def pitch_shift_in_place(
+        self,
+        n_steps: float,
+        *,
+        bins_per_octave: int = 12,
+        res_type: Union[str, ResamplingQuality] = "soxr_hq",
+        scale: bool = False,
+        n_fft: int = 2048,
+        hop_length: Optional[int] = None,
+        win_length: Optional[int] = None,
+        window: WindowSpec = "hann",
+        center: bool = True,
+        pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
+    ) -> None:
+        """In-place ``pitch_shift``."""
+        ...
+
+    def preemphasis(self, *, coef: float = 0.97) -> AudioSamples:
+        """``librosa.effects.preemphasis`` on every channel (default initial state)."""
+        ...
+
+    def preemphasis_in_place(self, *, coef: float = 0.97) -> None:
+        """In-place ``preemphasis``."""
+        ...
+
+    def deemphasis(self, *, coef: float = 0.97) -> AudioSamples:
+        """``librosa.effects.deemphasis`` on every channel (inverse of ``preemphasis``)."""
+        ...
+
+    def deemphasis_in_place(self, *, coef: float = 0.97) -> None:
+        """In-place ``deemphasis``."""
+        ...
+
+    def trim_db(
+        self,
+        *,
+        top_db: float = 60,
+        ref: DbRef = "max",
+        frame_length: int = 2048,
+        hop_length: int = 512,
+        aggregate: Any = None,
+    ) -> tuple[AudioSamples, NDArray[np.int64]]:
+        """``librosa.effects.trim``: returns ``(trimmed, [start, end])``.
+
+        ``aggregate`` is ``numpy.max`` (default), ``numpy.min`` or ``numpy.mean``.
+
+        Raises:
+            ValueError: If everything is silent (librosa returns an empty array).
+        """
+        ...
+
+    def trim_db_in_place(
+        self,
+        *,
+        top_db: float = 60,
+        ref: DbRef = "max",
+        frame_length: int = 2048,
+        hop_length: int = 512,
+        aggregate: Any = None,
+    ) -> NDArray[np.int64]:
+        """In-place ``trim_db``; returns ``[start, end]``."""
+        ...
+
+    def split_db(
+        self,
+        *,
+        top_db: float = 60,
+        ref: DbRef = "max",
+        frame_length: int = 2048,
+        hop_length: int = 512,
+        aggregate: Any = None,
+    ) -> NDArray[np.int64]:
+        """``librosa.effects.split``: int64 intervals of shape ``(n, 2)``."""
+        ...
+
+    def remix(self, intervals: npt.ArrayLike, *, align_zeros: bool = True) -> AudioSamples:
+        """``librosa.effects.remix``: concatenate ``(n, 2)`` sample intervals."""
+        ...
+
+    def remix_in_place(self, intervals: npt.ArrayLike, *, align_zeros: bool = True) -> None:
+        """In-place ``remix``."""
+        ...
+
+    def harmonic(
+        self,
+        *,
+        kernel_size: Union[int, tuple[int, int]] = 31,
+        power: float = 2.0,
+        mask: bool = False,
+        margin: Union[float, tuple[float, float]] = 1.0,
+        n_fft: int = 2048,
+        hop_length: Optional[int] = None,
+        win_length: Optional[int] = None,
+        window: WindowSpec = "hann",
+        center: bool = True,
+        pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
+    ) -> AudioSamples:
+        """``librosa.effects.harmonic`` (``mask`` must be False; ``window`` is used,
+        librosa ignores it)."""
+        ...
+
+    def harmonic_in_place(
+        self,
+        *,
+        kernel_size: Union[int, tuple[int, int]] = 31,
+        power: float = 2.0,
+        mask: bool = False,
+        margin: Union[float, tuple[float, float]] = 1.0,
+        n_fft: int = 2048,
+        hop_length: Optional[int] = None,
+        win_length: Optional[int] = None,
+        window: WindowSpec = "hann",
+        center: bool = True,
+        pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
+    ) -> None:
+        """In-place ``harmonic``."""
+        ...
+
+    def percussive(
+        self,
+        *,
+        kernel_size: Union[int, tuple[int, int]] = 31,
+        power: float = 2.0,
+        mask: bool = False,
+        margin: Union[float, tuple[float, float]] = 1.0,
+        n_fft: int = 2048,
+        hop_length: Optional[int] = None,
+        win_length: Optional[int] = None,
+        window: WindowSpec = "hann",
+        center: bool = True,
+        pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
+    ) -> AudioSamples:
+        """``librosa.effects.percussive``; arguments as ``harmonic``."""
+        ...
+
+    def percussive_in_place(
+        self,
+        *,
+        kernel_size: Union[int, tuple[int, int]] = 31,
+        power: float = 2.0,
+        mask: bool = False,
+        margin: Union[float, tuple[float, float]] = 1.0,
+        n_fft: int = 2048,
+        hop_length: Optional[int] = None,
+        win_length: Optional[int] = None,
+        window: WindowSpec = "hann",
+        center: bool = True,
+        pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
+    ) -> None:
+        """In-place ``percussive``."""
+        ...
+
+    def harmonic_percussive(
+        self,
+        *,
+        kernel_size: Union[int, tuple[int, int]] = 31,
+        power: float = 2.0,
+        mask: bool = False,
+        margin: Union[float, tuple[float, float]] = 1.0,
+        n_fft: int = 2048,
+        hop_length: Optional[int] = None,
+        win_length: Optional[int] = None,
+        window: WindowSpec = "hann",
+        center: bool = True,
+        pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
+    ) -> tuple[AudioSamples, AudioSamples]:
+        """``librosa.effects.hpss``: ``(harmonic, percussive)`` (``hpss`` is the
+        older non-librosa method)."""
+        ...
+
+    def lpc(self, *, order: int) -> NDArray[np.float64]:
+        """``librosa.lpc`` (Burg) per channel: shape ``(channels, order + 1)``."""
+        ...
+
+    @staticmethod
+    def griffinlim_audio(
+        S: npt.ArrayLike,
+        *,
+        sample_rate: int,
+        n_iter: int = 32,
+        hop_length: Optional[int] = None,
+        win_length: Optional[int] = None,
+        n_fft: Optional[int] = None,
+        window: WindowSpec = "hann",
+        center: bool = True,
+        length: Optional[int] = None,
+        pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
+        momentum: float = 0.99,
+        init: Optional[Literal["random"]] = "random",
+        rng: Optional[int] = None,
+    ) -> AudioSamples:
+        """``librosa.griffinlim`` returning float64 ``AudioSamples`` (see
+        ``audio_samples.effects.griffinlim``)."""
         ...
 
     def to_format(self, dtype: SampleType) -> AudioSamples:
