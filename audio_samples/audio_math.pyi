@@ -180,8 +180,10 @@ def ms_to_samples(ms: float, sample_rate: float) -> int:
 def note_to_midi(note_name: str) -> int:
     """Parse scientific pitch notation string to MIDI note number.
 
-    Supports sharps (#) and flats (b). Case-sensitive, requires uppercase
-    note letters.
+    Follows librosa's grammar: upper- or lowercase note letters, any run of
+    the accidentals ``#`` ``♯`` ``b`` ``!`` ``♭`` ``𝄪`` ``𝄫`` ``♮``, a signed octave
+    (``C-1`` = 0) and an optional cents suffix (``A4+50``, rounded half to
+    even). The octave is required.
 
     Args:
         note_name: A note name in scientific pitch notation (e.g., "A4", "C#3", "Bb2").

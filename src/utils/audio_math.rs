@@ -351,7 +351,9 @@ pub fn ms_to_samples(ms: f64, sample_rate: f64) -> usize {
 #[pyo3(signature = (note_name), text_signature = "(note_name: str) -> int")]
 /// Parses a scientific pitch notation string and converts it into a MIDI note number.
 ///
-/// Supports sharps (#) and flats (b). Case-sensitive, requires uppercase note letters.
+/// Follows librosa's grammar: upper- or lowercase note letters, any run of the accidentals
+/// `#` `♯` `b` `!` `♭` `𝄪` `𝄫` `♮`, a signed octave (`C-1` = 0) and an optional cents suffix
+/// (`A4+50`, rounded half to even). The octave is required.
 ///
 /// Args:
 ///     note_name: A note name in scientific pitch notation (e.g., "A4", "C#3", "Bb2").
