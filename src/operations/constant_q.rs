@@ -192,8 +192,7 @@ impl PyAudioSamples {
     /// ``librosa.vqt(y, sr=self.sample_rate, ...)``.
     ///
     /// Args:
-    ///     hop_length, fmin, n_bins, bins_per_octave, tuning, filter_scale, norm,
-    ///     sparsity, window, scale, pad_mode, res_type: As ``cqt``.
+    ///     hop_length, fmin, n_bins, bins_per_octave, tuning, filter_scale, norm, sparsity, window, scale, pad_mode, res_type: As ``cqt``.
     ///     intervals (str): Only ``"equal"`` (equal temperament) is supported.
     ///     gamma (Optional[float]): Bandwidth offset (Hz); None (default) =
     ///         ERB-derived, 0 = constant-Q.
@@ -254,8 +253,7 @@ impl PyAudioSamples {
     /// to ``librosa.pseudo_cqt(y, sr=self.sample_rate, ...)``.
     ///
     /// Args:
-    ///     hop_length, fmin, n_bins, bins_per_octave, tuning, filter_scale, norm,
-    ///     sparsity, window, scale, pad_mode: As ``cqt``.
+    ///     hop_length, fmin, n_bins, bins_per_octave, tuning, filter_scale, norm, sparsity, window, scale, pad_mode: As ``cqt``.
     ///
     /// Returns:
     ///     numpy.ndarray[float64]: magnitudes, shape ``(channels, n_bins, n_frames)``.
@@ -359,8 +357,7 @@ impl PyAudioSamples {
     /// Args:
     ///     C (array_like): complex CQT of shape ``(n_bins, T)`` or ``(channels, n_bins, T)``.
     ///     sample_rate (int): Sample rate of the analysed signal (keyword-only).
-    ///     hop_length, fmin, bins_per_octave, filter_scale, norm, sparsity,
-    ///     window, scale, res_type: The forward parameters (see ``cqt``).
+    ///     hop_length, fmin, bins_per_octave, filter_scale, norm, sparsity, window, scale, res_type: The forward parameters (see ``cqt``).
     ///     tuning (float): Tuning used by the forward transform. Default 0.0.
     ///     length (Optional[int]): Exact output length per channel.
     ///
@@ -425,8 +422,7 @@ impl PyAudioSamples {
     ///         ``(channels, n_bins, T)``.
     ///     sample_rate (int): Sample rate (keyword-only).
     ///     n_iter (int): Iterations. Default 32.
-    ///     hop_length, fmin, bins_per_octave, tuning, filter_scale, norm, sparsity,
-    ///     window, scale, pad_mode, res_type: The forward parameters (see ``cqt``).
+    ///     hop_length, fmin, bins_per_octave, tuning, filter_scale, norm, sparsity, window, scale, pad_mode, res_type: The forward parameters (see ``cqt``).
     ///     length (Optional[int]): Output length per channel.
     ///     momentum (float): Fast Griffin-Lim momentum. Default 0.99.
     ///     init (None): Must be None.
@@ -560,8 +556,7 @@ impl PyAudioSamples {
     /// ``librosa.feature.chroma_cens(y=..., sr=self.sample_rate, ...)``.
     ///
     /// Args:
-    ///     hop_length, fmin, tuning, n_chroma, n_octaves, bins_per_octave,
-    ///     cqt_mode, window: As ``chroma_cqt``.
+    ///     hop_length, fmin, tuning, n_chroma, n_octaves, bins_per_octave, cqt_mode, window: As ``chroma_cqt``.
     ///     norm (Optional[float]): Final per-frame normalisation. Default 2.
     ///     win_len_smooth (Optional[int]): Smoothing length in frames (None
     ///         disables). Default 41.
@@ -671,8 +666,7 @@ impl PyAudioSamples {
     /// to ``librosa.feature.tonnetz(y=..., sr=self.sample_rate, ...)``.
     ///
     /// Args:
-    ///     hop_length, fmin, norm, threshold, tuning, n_chroma, n_octaves,
-    ///     bins_per_octave, cqt_mode: ``chroma_cqt`` parameters (librosa's
+    ///     hop_length, fmin, norm, threshold, tuning, n_chroma, n_octaves, bins_per_octave, cqt_mode: ``chroma_cqt`` parameters (librosa's
     ///     ``**kwargs``).
     ///
     /// Returns:

@@ -9,6 +9,7 @@ comprehensive type stubs that provide full type safety and IDE support.
 
    audio_samples
    spectral
+   features
    sequence
    generation
    io
@@ -19,6 +20,7 @@ Core Classes
 
 - :doc:`audio_samples` - Main AudioSamples class with comprehensive audio processing
 - :doc:`spectral` - librosa-compatible STFT, mel, MFCC, dB and unit conversions
+- :doc:`features` - librosa-compatible features, chroma/tuning, constant-Q and pitch tracking
 - :doc:`sequence` - DTW, Viterbi, recurrence matrices and sync (librosa-compatible)
 - :doc:`generation` - Signal generation functions
 - :doc:`io` - File I/O operations

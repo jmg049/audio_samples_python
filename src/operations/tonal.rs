@@ -133,8 +133,7 @@ impl PyAudioSamples {
     ///     n_fft (int): FFT length. Default 2048.
     ///     resolution (float): Resolution in fractions of a bin. Default 0.01.
     ///     bins_per_octave (int): Bins per octave of the grid. Default 12.
-    ///     hop_length, win_length, window, center, pad_mode, fmin, fmax,
-    ///     threshold, ref: ``piptrack`` parameters (librosa's ``**kwargs``).
+    ///     hop_length, win_length, window, center, pad_mode, fmin, fmax, threshold, ref: ``piptrack`` parameters (librosa's ``**kwargs``).
     ///
     /// Returns:
     ///     float: tuning in ``[-0.5, 0.5)`` fractions of a bin.
