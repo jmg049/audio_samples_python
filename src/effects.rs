@@ -690,6 +690,15 @@ pub fn lpc<'py>(
     }
     let order = positive("order", order)?;
     let (x, squeeze) = rows(y, "y")?;
+    if order.get() >= x.ncols() {
+        return Err(value_err(
+            "order",
+            format!(
+                "order={order} needs more than {order} samples (got {})",
+                x.ncols()
+            ),
+        ));
+    }
     let mut out = Array2::<f64>::zeros((x.nrows(), order.get() + 1));
     for (c, row) in x.outer_iter().enumerate() {
         let a = fx::lpc(&row.to_vec(), order).map_err(audio_err_to_py)?;

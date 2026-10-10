@@ -88,6 +88,31 @@ def test_sample_rate_keyword_out_of_range():
             aus.AudioSamples.istft_matrix(D, sample_rate=bad)
 
 
+def test_transition_matrices_at_the_cap_are_value_errors_not_panics():
+    # 2**31 passes the binding's size cap; the Rust side rejects the
+    # 2**62-element matrix (transition_uniform used to panic, the others abort).
+    for f in (sequence.transition_uniform, lambda n: sequence.transition_loop(n, 0.5)):
+        with pytest.raises(ValueError, match="n_states"):
+            f(2**31)
+
+
+def test_other_rust_side_size_checks():
+    with pytest.raises(ValueError, match="frame_length"):
+        spectral.frame(np.zeros(100_000), frame_length=50_000, hop_length=1)
+    with pytest.raises(ValueError, match="sample_rate"):
+        features.wavelet(freqs=np.array([100.0, 200.0, 400.0]), sr=1e15)
+    with pytest.raises(ValueError, match="frame_rate"):
+        rhythm.beat_track_with_bpm(onset_envelope=ENV, bpm=120.0, sr=1e15)
+    with pytest.raises(ValueError, match="order"):
+        effects.lpc(Y[:10], order=2**31)
+
+
+def test_huge_max_size_is_fast():
+    S = np.abs(RNG.standard_normal((128, 20)))
+    small = rhythm.onset_strength(S=S, max_size=2 * 128)
+    np.testing.assert_allclose(rhythm.onset_strength(S=S, max_size=2**31), small)
+
+
 def test_clicks_far_time_is_value_error():
     for t in (1e10, 1e20):
         with pytest.raises(ValueError, match="times"):
