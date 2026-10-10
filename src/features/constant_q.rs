@@ -190,7 +190,7 @@ pub fn chroma_cens_from_chroma<'py>(
     with_precision!(precision_of(chroma), |F| {
         let (c, nd) = spec3::<F>(chroma, "chroma")?;
         let r = cq::chroma_cens_from_chroma(
-            &c,
+            &c.view(),
             norm,
             opt_positive("win_len_smooth", win_len_smooth)?,
             &smoothing_window.0,
@@ -219,7 +219,7 @@ pub fn tonnetz_from_chroma<'py>(
 ) -> PyResult<Bound<'py, PyAny>> {
     with_precision!(precision_of(chroma), |F| {
         let (c, nd) = spec3::<F>(chroma, "chroma")?;
-        let r = cq::tonnetz_from_chroma(&c).map_err(audio_err_to_py)?;
+        let r = cq::tonnetz_from_chroma(&c.view()).map_err(audio_err_to_py)?;
         Ok(squeeze_out(py, r.into_dyn(), nd == 2))
     })
 }

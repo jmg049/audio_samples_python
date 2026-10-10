@@ -11,7 +11,7 @@ use audio_samples::operations::features::{
 };
 use audio_samples::operations::pitch_tracking::{SalienceAggregate, UnvoicedFill};
 use audio_samples::operations::tonal::PiptrackReference;
-use ndarray::{Array3, ArrayD, Axis, Ix1, Ix2, Ix3};
+use ndarray::{ArrayD, Axis, Ix2, Ix3};
 use numpy::{IntoPyArray, PyUntypedArrayMethods};
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
@@ -261,62 +261,81 @@ impl<'a, 'py> FromPyObject<'a, 'py> for ReassignRefArg {
 // Array shape helpers
 // =============================================================================
 
-/// A spectrogram-like input of shape `(F, T)` or `(channels, F, T)` as an owned
-/// `(channels, F, T)` array plus the input's number of dimensions.
-pub(crate) fn spec3<F: crate::args::FloatElement>(
-    obj: &Bound<'_, PyAny>,
-    name: &str,
-) -> PyResult<(Array3<F>, usize)> {
-    let a = crate::args::float_array_as::<F>(obj, name)?;
-    let v = a.as_array();
-    match v.ndim() {
-        2 => Ok((
-            v.into_dimensionality::<Ix2>()
-                .expect("ndim checked")
-                .insert_axis(Axis(0))
-                .to_owned(),
-            2,
-        )),
-        3 => Ok((
-            v.into_dimensionality::<Ix3>()
-                .expect("ndim checked")
-                .to_owned(),
-            3,
-        )),
-        n => Err(value_err(
-            name,
-            format!("expected a 2-D (F, T) or 3-D (channels, F, T) array, got {n} dimensions"),
-        )),
+/// A NumPy array argument viewed with a leading channel axis added when the
+/// input lacks one (`(F, T)` as `(1, F, T)`, `(n,)` as `(1, n)`), without
+/// copying the data. `D` is the dimension of the view.
+pub(crate) struct ChannelView<'py, F: numpy::Element, D> {
+    arr: numpy::PyReadonlyArrayDyn<'py, F>,
+    _dim: std::marker::PhantomData<D>,
+}
+
+impl<F: numpy::Element, D: ndarray::Dimension> ChannelView<'_, F, D> {
+    /// The data as a `D`-dimensional view (channel axis first).
+    pub(crate) fn view(&self) -> ndarray::ArrayView<'_, F, D> {
+        let v = self.arr.as_array();
+        let v = if v.ndim() + 1 == D::NDIM.expect("fixed dimension") {
+            v.insert_axis(Axis(0))
+        } else {
+            v
+        };
+        v.into_dimensionality::<D>().expect("ndim checked")
+    }
+
+    /// Shape of [`Self::view`].
+    pub(crate) fn dim(&self) -> D::Pattern {
+        self.view().dim()
     }
 }
 
-/// A signal of shape `(n,)` or `(channels, n)` as an owned `(channels, n)`
-/// array plus the input's number of dimensions.
-pub(crate) fn signal2<F: crate::args::FloatElement>(
-    obj: &Bound<'_, PyAny>,
+/// Wraps `obj` as a [`ChannelView`] of dimension `D` if it has `D::NDIM`
+/// dimensions, or `D::NDIM - 1` when `lift` is set; returns the input's number
+/// of dimensions too. Otherwise raises `ValueError("{name}: expected {what},
+/// got {n} dimensions")`.
+pub(crate) fn channel_view<'py, F: crate::args::FloatElement, D: ndarray::Dimension>(
+    obj: &Bound<'py, PyAny>,
     name: &str,
-) -> PyResult<(ndarray::Array2<F>, usize)> {
-    let a = crate::args::float_array_as::<F>(obj, name)?;
-    let v = a.as_array();
-    match v.ndim() {
-        1 => Ok((
-            v.into_dimensionality::<Ix1>()
-                .expect("ndim checked")
-                .insert_axis(Axis(0))
-                .to_owned(),
-            1,
-        )),
-        2 => Ok((
-            v.into_dimensionality::<Ix2>()
-                .expect("ndim checked")
-                .to_owned(),
-            2,
-        )),
-        n => Err(value_err(
+    what: &str,
+    lift: bool,
+) -> PyResult<(ChannelView<'py, F, D>, usize)> {
+    let arr = crate::args::float_array_as::<F>(obj, name)?;
+    let nd = arr.ndim();
+    let full = D::NDIM.expect("fixed dimension");
+    if !(nd == full || (lift && nd + 1 == full)) {
+        return Err(value_err(
             name,
-            format!("expected a 1-D (n,) or 2-D (channels, n) signal, got {n} dimensions"),
-        )),
+            format!("expected {what}, got {nd} dimensions"),
+        ));
     }
+    Ok((
+        ChannelView {
+            arr,
+            _dim: std::marker::PhantomData,
+        },
+        nd,
+    ))
+}
+
+/// A spectrogram-like input of shape `(F, T)` or `(channels, F, T)` as a
+/// `(channels, F, T)` view (no copy) plus the input's number of dimensions.
+pub(crate) fn spec3<'py, F: crate::args::FloatElement>(
+    obj: &Bound<'py, PyAny>,
+    name: &str,
+) -> PyResult<(ChannelView<'py, F, Ix3>, usize)> {
+    channel_view(
+        obj,
+        name,
+        "a 2-D (F, T) or 3-D (channels, F, T) array",
+        true,
+    )
+}
+
+/// A signal of shape `(n,)` or `(channels, n)` as a `(channels, n)` view (no
+/// copy) plus the input's number of dimensions.
+pub(crate) fn signal2<'py, F: crate::args::FloatElement>(
+    obj: &Bound<'py, PyAny>,
+    name: &str,
+) -> PyResult<(ChannelView<'py, F, Ix2>, usize)> {
+    channel_view(obj, name, "a 1-D (n,) or 2-D (channels, n) signal", true)
 }
 
 /// Drops the leading (length-1) channel axis of `a` when `drop_channel` is set,
