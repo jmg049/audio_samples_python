@@ -388,6 +388,10 @@ want to keep the original array unchanged.
 - Python >= 3.10
 - NumPy >= 1.24.4
 
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for the changes in each release.
+
 ## License
 
 MIT License

@@ -99,6 +99,7 @@ Table of Contents
    :maxdepth: 1
    :caption: Development
 
+   changelog
    GitHub Repository <https://github.com/jmg049/audio_samples_python>
 
 Indices and tables
