@@ -24,7 +24,9 @@ pub mod args;
 pub mod features;
 pub mod io;
 pub mod io_streaming;
+pub mod effects;
 pub mod operations;
+pub mod rhythm;
 pub mod sequence;
 pub mod spectral;
 pub mod types;
@@ -312,6 +314,8 @@ fn audio_samples_python(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()>
     spectral::register(py, m)?;
     sequence::register(py, m)?;
     features::register(py, m)?;
+    rhythm::register(py, m)?;
+    effects::register(py, m)?;
 
     // Re-exports
     let utils_mod = m.getattr("utils")?;

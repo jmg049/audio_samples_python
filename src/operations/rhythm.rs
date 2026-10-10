@@ -1,0 +1,634 @@
+//! librosa-compatible rhythm methods on `AudioSamples` (`onset_strength`,
+//! `onset_strength_multi`, `onset_detect`, `tempogram`, `fourier_tempogram`,
+//! `tempo`, `beat_track`, `plp`, `tempogram_ratio`, `hybrid_tempogram`),
+//! binding the Rust `AudioRhythm` trait.
+//!
+//! Frame-wise outputs carry a leading channel axis (mono audio gives length 1)
+//! in front of librosa's shape: the onset envelope is `(channels, n_frames)`,
+//! tempograms `(channels, n_bins, n_frames)`. Event detectors (`onset_detect`,
+//! `beat_track`) need mono audio and return librosa's 1-D event arrays. The
+//! envelope behind the tempo/beat methods is computed exactly as librosa does
+//! from `y` (default mel onset strength with the given `hop_length`; median
+//! aggregation for `beat_track` and `plp`).
+
+use audio_samples::operations::filterbanks::Window;
+use audio_samples::operations::rhythm::{self as rh, Aggregate, OnsetStrengthConfig};
+use audio_samples::operations::spectrum::MelSpectrogramConfig;
+use audio_samples::{AudioRhythm, MelFilterNorm};
+use ndarray::{Array2, Array3};
+use num_complex::Complex;
+use numpy::{IntoPyArray, PyArray2, PyArray3};
+use pyo3::prelude::*;
+
+use crate::args::{MelNormArg, WindowArg, mel_config, positive, stft_config, value_err};
+use crate::rhythm::{
+    AggregateArg, CallbackScope, detect_onsets, fourier_tempogram_config, hybrid_tempogram_config,
+    onset_peak_pick, parse_aggregate, parse_channels, parse_prior, plp_config, ratio_config,
+    require_sparse, tempo_config, tempogram_config, track_beats,
+};
+use crate::{PyAudioSamples, audio_err_to_py, dispatch_with_view};
+
+/// librosa's default onset envelope for a hop length (what `tempo`,
+/// `tempogram`, `beat_track`, ... compute from `y`).
+fn envelope_config(hop_length: i64, aggregate: Aggregate) -> PyResult<OnsetStrengthConfig> {
+    let mut cfg = OnsetStrengthConfig::new().with_aggregate(Some(aggregate));
+    cfg.mel.stft.hop_length = Some(positive("hop_length", hop_length)?);
+    Ok(cfg)
+}
+
+impl PyAudioSamples {
+    fn sample_rate_f64(&self, py: Python<'_>) -> f64 {
+        dispatch_with_view!(self, py, |audio| audio.sample_rate_hz())
+    }
+
+    /// Onset envelope `(channels, n_frames)` for `cfg`.
+    fn envelope(&self, py: Python<'_>, cfg: &OnsetStrengthConfig) -> PyResult<Array2<f64>> {
+        dispatch_with_view!(self, py, |audio| audio.onset_strength(cfg)).map_err(audio_err_to_py)
+    }
+
+    /// The single envelope row of mono audio, for the event detectors.
+    fn mono_envelope(
+        &self,
+        py: Python<'_>,
+        cfg: &OnsetStrengthConfig,
+        operation: &str,
+    ) -> PyResult<Vec<f64>> {
+        let env = self.envelope(py, cfg)?;
+        if env.nrows() != 1 {
+            return Err(value_err(
+                operation,
+                format!(
+                    "requires mono audio, got {} channels (convert with to_mono first)",
+                    env.nrows()
+                ),
+            ));
+        }
+        Ok(env.row(0).to_vec())
+    }
+}
+
+/// Builds the onset-strength config of the `onset_strength*` methods.
+#[allow(clippy::too_many_arguments)]
+fn onset_strength_config(
+    lag: i64,
+    max_size: i64,
+    detrend: bool,
+    center: bool,
+    aggregate: Option<Aggregate>,
+    n_fft: i64,
+    hop_length: i64,
+    win_length: Option<i64>,
+    window: WindowArg,
+    pad_mode: &str,
+    power: f64,
+    n_mels: i64,
+    fmin: f64,
+    fmax: Option<f64>,
+    htk: bool,
+    norm: MelNormArg,
+) -> PyResult<OnsetStrengthConfig> {
+    Ok(OnsetStrengthConfig::new()
+        .with_lag(positive("lag", lag)?)
+        .with_max_size(positive("max_size", max_size)?)
+        .with_detrend(detrend)
+        .with_center(center)
+        .with_aggregate(aggregate)
+        .with_mel(MelSpectrogramConfig {
+            stft: stft_config(n_fft, Some(hop_length), win_length, window, true, pad_mode)?,
+            mel: mel_config(n_mels, fmin, fmax, htk, norm)?,
+            power,
+        }))
+}
+
+#[pymethods]
+impl PyAudioSamples {
+    /// Onset strength envelope of every channel, equivalent to
+    /// ``librosa.onset.onset_strength(y=..., sr=self.sample_rate, ...)``.
+    ///
+    /// The envelope is the aggregated positive increase of the log-power mel
+    /// spectrogram (``power_to_db`` with ``ref=1``, ``top_db=80``) from frame
+    /// ``t - lag`` to ``t``.
+    ///
+    /// Args:
+    ///     lag (int): Time lag of the difference in frames. Default 1.
+    ///     max_size (int): Maximum filter across frequency on the reference
+    ///         (SuperFlux); 1 disables it. Default 1.
+    ///     detrend (bool): High-pass filter the envelope. Default False.
+    ///     center (bool): Compensate the centred-STFT delay. Default True.
+    ///     aggregate: Reduction across mel bins: None (mean), ``numpy.mean``,
+    ///         ``numpy.median``, ``numpy.max``, ``numpy.min``, ``numpy.sum``, a
+    ///         name, or a callable ``f(x, axis=-1)``.
+    ///     n_fft (int): Default 2048.
+    ///     hop_length (int): Default 512.
+    ///     win_length, window, pad_mode, power, n_mels, fmin, fmax, htk, norm:
+    ///         Mel spectrogram parameters (librosa's ``**kwargs``), as
+    ///         ``melspectrogram``.
+    ///
+    /// Returns:
+    ///     numpy.ndarray[float64]: shape ``(channels, n_frames)`` with
+    ///     ``n_frames = 1 + len // hop_length``. librosa returns ``(n_frames,)``
+    ///     for 1-D input; index ``[0]`` to get it.
+    ///
+    /// Raises:
+    ///     ValueError: For invalid parameters.
+    #[pyo3(
+        signature = (*, lag = 1, max_size = 1, detrend = false, center = true, aggregate = None, n_fft = 2048, hop_length = 512, win_length = None, window = WindowArg(Window::Hann), pad_mode = "constant", power = 2.0, n_mels = 128, fmin = 0.0, fmax = None, htk = false, norm = MelNormArg(MelFilterNorm::Slaney)),
+        text_signature = "($self, *, lag=1, max_size=1, detrend=False, center=True, aggregate=None, n_fft=2048, hop_length=512, win_length=None, window='hann', pad_mode='constant', power=2.0, n_mels=128, fmin=0.0, fmax=None, htk=False, norm='slaney')"
+    )]
+    #[allow(clippy::too_many_arguments)]
+    fn onset_strength<'py>(
+        &self,
+        py: Python<'py>,
+        lag: i64,
+        max_size: i64,
+        detrend: bool,
+        center: bool,
+        aggregate: Option<&Bound<'py, PyAny>>,
+        n_fft: i64,
+        hop_length: i64,
+        win_length: Option<i64>,
+        window: WindowArg,
+        pad_mode: &str,
+        power: f64,
+        n_mels: i64,
+        fmin: f64,
+        fmax: Option<f64>,
+        htk: bool,
+        norm: MelNormArg,
+    ) -> PyResult<Bound<'py, PyArray2<f64>>> {
+        let agg = parse_aggregate(aggregate)?;
+        let cfg = onset_strength_config(
+            lag,
+            max_size,
+            detrend,
+            center,
+            agg.resolve(Some(Aggregate::Mean)),
+            n_fft,
+            hop_length,
+            win_length,
+            window,
+            pad_mode,
+            power,
+            n_mels,
+            fmin,
+            fmax,
+            htk,
+            norm,
+        )?;
+        let scope = CallbackScope::install(agg.callable(), None, py);
+        let env = scope.finish(dispatch_with_view!(self, py, |audio| audio.onset_strength(&cfg)))?;
+        Ok(env.into_pyarray(py))
+    }
+
+    /// Multi-band onset strength of every channel, equivalent to
+    /// ``librosa.onset.onset_strength_multi(y=..., sr=self.sample_rate, ...)``.
+    ///
+    /// Args:
+    ///     channels (Optional[Sequence[int]]): Sub-band boundaries in mel bins;
+    ///         values above ``n_mels`` are dropped, the rest sorted and
+    ///         de-duplicated, each consecutive pair is one band. None gives one
+    ///         band.
+    ///     aggregate: As ``onset_strength``; ``False`` keeps every mel bin.
+    ///     lag, max_size, detrend, center, n_fft, hop_length, win_length, window,
+    ///     pad_mode, power, n_mels, fmin, fmax, htk, norm: As ``onset_strength``.
+    ///
+    /// Returns:
+    ///     numpy.ndarray[float64]: shape ``(channels, n_bands, n_frames)``
+    ///     (``n_mels`` rows with ``aggregate=False``). librosa returns
+    ///     ``(n_bands, n_frames)`` for 1-D input; index ``[0]`` to get it.
+    ///
+    /// Raises:
+    ///     ValueError: For invalid parameters or boundaries.
+    #[pyo3(
+        signature = (*, channels = None, lag = 1, max_size = 1, detrend = false, center = true, aggregate = None, n_fft = 2048, hop_length = 512, win_length = None, window = WindowArg(Window::Hann), pad_mode = "constant", power = 2.0, n_mels = 128, fmin = 0.0, fmax = None, htk = false, norm = MelNormArg(MelFilterNorm::Slaney)),
+        text_signature = "($self, *, channels=None, lag=1, max_size=1, detrend=False, center=True, aggregate=None, n_fft=2048, hop_length=512, win_length=None, window='hann', pad_mode='constant', power=2.0, n_mels=128, fmin=0.0, fmax=None, htk=False, norm='slaney')"
+    )]
+    #[allow(clippy::too_many_arguments)]
+    fn onset_strength_multi<'py>(
+        &self,
+        py: Python<'py>,
+        channels: Option<&Bound<'py, PyAny>>,
+        lag: i64,
+        max_size: i64,
+        detrend: bool,
+        center: bool,
+        aggregate: Option<&Bound<'py, PyAny>>,
+        n_fft: i64,
+        hop_length: i64,
+        win_length: Option<i64>,
+        window: WindowArg,
+        pad_mode: &str,
+        power: f64,
+        n_mels: i64,
+        fmin: f64,
+        fmax: Option<f64>,
+        htk: bool,
+        norm: MelNormArg,
+    ) -> PyResult<Bound<'py, PyArray3<f64>>> {
+        let agg = parse_aggregate(aggregate)?;
+        let cfg = onset_strength_config(
+            lag,
+            max_size,
+            detrend,
+            center,
+            agg.resolve(Some(Aggregate::Mean)),
+            n_fft,
+            hop_length,
+            win_length,
+            window,
+            pad_mode,
+            power,
+            n_mels,
+            fmin,
+            fmax,
+            htk,
+            norm,
+        )?;
+        let bounds = parse_channels(channels)?;
+        let scope = CallbackScope::install(agg.callable(), None, py);
+        let env = scope.finish(dispatch_with_view!(self, py, |audio| audio
+            .onset_strength_multi(&cfg, bounds.as_deref())))?;
+        Ok(env.into_pyarray(py))
+    }
+
+    /// Detects onsets, equivalent to
+    /// ``librosa.onset.onset_detect(y=..., sr=self.sample_rate, ...)``.
+    ///
+    /// The default onset envelope (``onset_strength(hop_length=hop_length)``) is
+    /// normalised to ``[0, 1]``, peak-picked and optionally backtracked.
+    ///
+    /// Args:
+    ///     hop_length (int): Hop of the onset envelope. Default 512.
+    ///     backtrack (bool): Move onsets back to the preceding local minimum of
+    ///         ``energy``. Default False.
+    ///     energy (Optional[array_like]): 1-D function to backtrack on (one value
+    ///         per frame); None uses the normalised envelope.
+    ///     units (str): ``"frames"`` (default), ``"samples"`` or ``"time"``.
+    ///     normalize (bool): Scale the envelope to ``[0, 1]``. Default True.
+    ///     sparse (bool): Must be True.
+    ///     pre_max, post_max, pre_avg, post_avg, wait (Optional[int]),
+    ///     delta (Optional[float]), method (str): Peak-picking parameters
+    ///         (librosa's ``**kwargs``); None derives librosa's frame-rate defaults
+    ///         (30 ms / 100 ms windows, ``delta=0.07``).
+    ///
+    /// Returns:
+    ///     numpy.ndarray: 1-D onset frames or samples (int64), or times (float64).
+    ///
+    /// Raises:
+    ///     ValueError: For multi-channel audio, invalid parameters or
+    ///         ``sparse=False``.
+    #[pyo3(
+        signature = (*, hop_length = 512, backtrack = false, energy = None, units = "frames", normalize = true, sparse = true, pre_max = None, post_max = None, pre_avg = None, post_avg = None, delta = None, wait = None, method = "greedy"),
+        text_signature = "($self, *, hop_length=512, backtrack=False, energy=None, units='frames', normalize=True, sparse=True, pre_max=None, post_max=None, pre_avg=None, post_avg=None, delta=None, wait=None, method='greedy')"
+    )]
+    #[allow(clippy::too_many_arguments)]
+    fn onset_detect<'py>(
+        &self,
+        py: Python<'py>,
+        hop_length: i64,
+        backtrack: bool,
+        energy: Option<&Bound<'py, PyAny>>,
+        units: &str,
+        normalize: bool,
+        sparse: bool,
+        pre_max: Option<i64>,
+        post_max: Option<i64>,
+        pre_avg: Option<i64>,
+        post_avg: Option<i64>,
+        delta: Option<f64>,
+        wait: Option<i64>,
+        method: &str,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        require_sparse(sparse)?;
+        let cfg = envelope_config(hop_length, Aggregate::Mean)?;
+        let hop = positive("hop_length", hop_length)?;
+        let sr = self.sample_rate_f64(py);
+        let peak = onset_peak_pick(
+            sr, hop, pre_max, post_max, pre_avg, post_avg, delta, wait, method,
+        )?;
+        let env = self.mono_envelope(py, &cfg, "onset_detect")?;
+        detect_onsets(py, &env, sr, hop, peak, backtrack, energy, units, normalize)
+    }
+
+    /// Autocorrelation tempogram of every channel, equivalent to
+    /// ``librosa.feature.tempogram(y=..., sr=self.sample_rate, ...)``.
+    ///
+    /// Args:
+    ///     hop_length (int): Hop of the onset envelope. Default 512.
+    ///     win_length (int): Autocorrelation window (lag bins). Default 384.
+    ///     center (bool): Centre the windows. Default True.
+    ///     window: Window before the autocorrelation. Default ``"hann"``.
+    ///     norm (Optional[float]): Column normalisation (``numpy.inf`` default,
+    ///         a p-norm, or None).
+    ///
+    /// Returns:
+    ///     numpy.ndarray[float64]: shape ``(channels, win_length, n_frames)``.
+    ///     librosa returns ``(win_length, n_frames)`` for 1-D input; index ``[0]``.
+    ///
+    /// Raises:
+    ///     ValueError: For invalid parameters.
+    #[pyo3(
+        signature = (*, hop_length = 512, win_length = 384, center = true, window = WindowArg(Window::Hann), norm = Some(f64::INFINITY)),
+        text_signature = "($self, *, hop_length=512, win_length=384, center=True, window='hann', norm=1e309)"
+    )]
+    fn tempogram<'py>(
+        &self,
+        py: Python<'py>,
+        hop_length: i64,
+        win_length: i64,
+        center: bool,
+        window: WindowArg,
+        norm: Option<f64>,
+    ) -> PyResult<Bound<'py, PyArray3<f64>>> {
+        let tcfg = tempogram_config(win_length, center, window, norm)?;
+        let env = self.envelope(py, &envelope_config(hop_length, Aggregate::Mean)?)?;
+        let tg = rh::tempogram_from_envelope(env.view(), &tcfg).map_err(audio_err_to_py)?;
+        Ok(tg.into_pyarray(py))
+    }
+
+    /// Fourier tempogram of every channel, equivalent to
+    /// ``librosa.feature.fourier_tempogram(y=..., sr=self.sample_rate, ...)``.
+    ///
+    /// Args:
+    ///     hop_length (int): Hop of the onset envelope. Default 512.
+    ///     win_length (int): STFT length in frames. Default 384.
+    ///     center (bool): Centred frames. Default True.
+    ///     window: Analysis window. Default ``"hann"``.
+    ///
+    /// Returns:
+    ///     numpy.ndarray[complex128]: shape
+    ///     ``(channels, win_length // 2 + 1, n_frames + 1)`` (centred). librosa
+    ///     returns the 2-D array for 1-D input; index ``[0]``.
+    #[pyo3(
+        signature = (*, hop_length = 512, win_length = 384, center = true, window = WindowArg(Window::Hann)),
+        text_signature = "($self, *, hop_length=512, win_length=384, center=True, window='hann')"
+    )]
+    fn fourier_tempogram<'py>(
+        &self,
+        py: Python<'py>,
+        hop_length: i64,
+        win_length: i64,
+        center: bool,
+        window: WindowArg,
+    ) -> PyResult<Bound<'py, PyArray3<Complex<f64>>>> {
+        let fcfg = fourier_tempogram_config(win_length, center, window)?;
+        let env = self.envelope(py, &envelope_config(hop_length, Aggregate::Mean)?)?;
+        let tg = rh::fourier_tempogram_from_envelope(env.view(), &fcfg).map_err(audio_err_to_py)?;
+        Ok(tg.into_pyarray(py))
+    }
+
+    /// Estimates the tempo of every channel, equivalent to
+    /// ``librosa.feature.tempo(y=..., sr=self.sample_rate, ...)``.
+    ///
+    /// Args:
+    ///     hop_length (int): Hop of the onset envelope. Default 512.
+    ///     start_bpm (float): Prior centre. Default 120.
+    ///     std_bpm (float): Prior spread in octaves. Default 1.
+    ///     ac_size (float): Autocorrelation window in seconds. Default 8.
+    ///     max_tempo (Optional[float]): Exclude tempi at or above this. Default 320.
+    ///     aggregate: Reduction over time (default ``numpy.mean``); None gives
+    ///         one tempo per frame.
+    ///     prior: None (log-normal), a ``scipy.stats`` distribution or a callable
+    ///         of the BPM returning a log-density.
+    ///
+    /// Returns:
+    ///     numpy.ndarray[float64]: shape ``(channels, 1)`` (``(channels, n_frames)``
+    ///     with ``aggregate=None``). librosa returns ``(1,)`` for 1-D input;
+    ///     index ``[0]``.
+    ///
+    /// Raises:
+    ///     ValueError: For invalid parameters.
+    #[pyo3(
+        signature = (*, hop_length = 512, start_bpm = 120.0, std_bpm = 1.0, ac_size = 8.0, max_tempo = Some(320.0), aggregate = AggregateArg::mean(), prior = None),
+        text_signature = "($self, *, hop_length=512, start_bpm=120, std_bpm=1.0, ac_size=8.0, max_tempo=320.0, aggregate='mean', prior=None)"
+    )]
+    #[allow(clippy::too_many_arguments)]
+    fn tempo<'py>(
+        &self,
+        py: Python<'py>,
+        hop_length: i64,
+        start_bpm: f64,
+        std_bpm: f64,
+        ac_size: f64,
+        max_tempo: Option<f64>,
+        aggregate: AggregateArg,
+        prior: Option<&Bound<'py, PyAny>>,
+    ) -> PyResult<Bound<'py, PyArray2<f64>>> {
+        let prior = parse_prior(prior)?;
+        let agg = aggregate.0;
+        let cfg = tempo_config(
+            start_bpm,
+            std_bpm,
+            ac_size,
+            max_tempo,
+            agg.resolve(None),
+            prior.as_ref(),
+        );
+        let hop = positive("hop_length", hop_length)?;
+        let env = self.envelope(py, &envelope_config(hop_length, Aggregate::Mean)?)?;
+        let sr = self.sample_rate_f64(py);
+        let scope = CallbackScope::install(agg.callable(), prior.as_ref(), py);
+        let t = scope.finish(rh::tempo_from_envelope(env.view(), sr, hop, &cfg))?;
+        Ok(t.into_pyarray(py))
+    }
+
+    /// Tracks beats, equivalent to
+    /// ``librosa.beat.beat_track(y=..., sr=self.sample_rate, ...)``.
+    ///
+    /// The onset envelope is ``onset_strength(hop_length=hop_length,
+    /// aggregate=numpy.median)``, as in librosa.
+    ///
+    /// Args:
+    ///     hop_length (int): Hop of the onset envelope. Default 512.
+    ///     start_bpm (float): Prior centre of the tempo estimate. Default 120.
+    ///     tightness (float): Tempo-consistency weight. Default 100.
+    ///     trim (bool): Remove weak leading/trailing beats. Default True.
+    ///     bpm (Optional[float | array_like]): Tempo to track at (one value or
+    ///         one per frame); None estimates it.
+    ///     prior: Tempo prior (see ``tempo``).
+    ///     units (str): ``"frames"`` (default), ``"samples"`` or ``"time"``.
+    ///     sparse (bool): Must be True.
+    ///
+    /// Returns:
+    ///     tuple: ``(tempo, beats)`` as librosa: ``tempo`` is the estimate as a
+    ///     float64 array of shape ``(1,)`` (``bpm`` unchanged when given, ``0.0``
+    ///     for silence); ``beats`` is a 1-D int64 (frames/samples) or float64
+    ///     (time) array.
+    ///
+    /// Raises:
+    ///     ValueError: For multi-channel audio, invalid parameters or
+    ///         ``sparse=False``.
+    #[pyo3(
+        signature = (*, hop_length = 512, start_bpm = 120.0, tightness = 100.0, trim = true, bpm = None, prior = None, units = "frames", sparse = true),
+        text_signature = "($self, *, hop_length=512, start_bpm=120.0, tightness=100, trim=True, bpm=None, prior=None, units='frames', sparse=True)"
+    )]
+    #[allow(clippy::too_many_arguments)]
+    fn beat_track<'py>(
+        &self,
+        py: Python<'py>,
+        hop_length: i64,
+        start_bpm: f64,
+        tightness: f64,
+        trim: bool,
+        bpm: Option<&Bound<'py, PyAny>>,
+        prior: Option<&Bound<'py, PyAny>>,
+        units: &str,
+        sparse: bool,
+    ) -> PyResult<(Bound<'py, PyAny>, Bound<'py, PyAny>)> {
+        require_sparse(sparse)?;
+        let hop = positive("hop_length", hop_length)?;
+        let env = self.mono_envelope(
+            py,
+            &envelope_config(hop_length, Aggregate::Median)?,
+            "beat_track",
+        )?;
+        let sr = self.sample_rate_f64(py);
+        track_beats(
+            py, &env, sr, hop, start_bpm, tightness, trim, bpm, prior, units,
+        )
+    }
+
+    /// Predominant local pulse of every channel, equivalent to
+    /// ``librosa.beat.plp(y=..., sr=self.sample_rate, ...)``.
+    ///
+    /// Args:
+    ///     hop_length (int): Hop of the (median-aggregated) onset envelope.
+    ///         Default 512.
+    ///     win_length (int): Fourier tempogram window in frames. Default 384.
+    ///     tempo_min (Optional[float]): Lowest tempo (BPM). Default 30.
+    ///     tempo_max (Optional[float]): Highest tempo (BPM). Default 300.
+    ///     prior: Tempo prior (see ``tempo``).
+    ///
+    /// Returns:
+    ///     numpy.ndarray[float64]: shape ``(channels, n_frames)``, values in
+    ///     ``[0, 1]``. librosa returns ``(n_frames,)`` for 1-D input; index ``[0]``.
+    ///
+    /// Raises:
+    ///     ValueError: If ``tempo_max <= tempo_min`` or parameters are invalid.
+    #[pyo3(
+        signature = (*, hop_length = 512, win_length = 384, tempo_min = Some(30.0), tempo_max = Some(300.0), prior = None),
+        text_signature = "($self, *, hop_length=512, win_length=384, tempo_min=30, tempo_max=300, prior=None)"
+    )]
+    fn plp<'py>(
+        &self,
+        py: Python<'py>,
+        hop_length: i64,
+        win_length: i64,
+        tempo_min: Option<f64>,
+        tempo_max: Option<f64>,
+        prior: Option<&Bound<'py, PyAny>>,
+    ) -> PyResult<Bound<'py, PyArray2<f64>>> {
+        let prior = parse_prior(prior)?;
+        let cfg = plp_config(win_length, tempo_min, tempo_max, prior.as_ref())?;
+        let hop = positive("hop_length", hop_length)?;
+        let env = self.envelope(py, &envelope_config(hop_length, Aggregate::Median)?)?;
+        let sr = self.sample_rate_f64(py);
+        let scope = CallbackScope::install(None, prior.as_ref(), py);
+        let p = scope.finish(rh::plp_from_envelope(env.view(), sr, hop, &cfg))?;
+        Ok(p.into_pyarray(py))
+    }
+
+    /// Tempogram ratio features of every channel, equivalent to
+    /// ``librosa.feature.tempogram_ratio(y=..., sr=self.sample_rate, ...)``.
+    ///
+    /// Args:
+    ///     hop_length (int): Hop of the onset envelope. Default 512.
+    ///     win_length, center, window, norm: Tempogram parameters (as ``tempogram``).
+    ///     start_bpm, std_bpm, max_tempo, prior: Per-frame tempo estimation (as
+    ///         ``tempo``).
+    ///     factors (Optional[array_like]): Tempo multiples; None uses librosa's
+    ///         13 default factors.
+    ///     aggregate: Optional reduction over time (default None).
+    ///     fill_value (float): Value outside the tempogram range. Default 0.
+    ///
+    /// Returns:
+    ///     numpy.ndarray[float64]: shape ``(channels, n_factors, n_frames)``, or
+    ///     ``(channels, n_factors, 1)`` when aggregated (librosa drops the time
+    ///     axis instead). For 1-D input librosa returns the array without the
+    ///     channel axis; index ``[0]``.
+    #[pyo3(
+        signature = (*, hop_length = 512, win_length = 384, start_bpm = 120.0, std_bpm = 1.0, max_tempo = Some(320.0), factors = None, aggregate = None, prior = None, center = true, window = WindowArg(Window::Hann), fill_value = 0.0, norm = Some(f64::INFINITY)),
+        text_signature = "($self, *, hop_length=512, win_length=384, start_bpm=120, std_bpm=1.0, max_tempo=320.0, factors=None, aggregate=None, prior=None, center=True, window='hann', fill_value=0, norm=1e309)"
+    )]
+    #[allow(clippy::too_many_arguments)]
+    fn tempogram_ratio<'py>(
+        &self,
+        py: Python<'py>,
+        hop_length: i64,
+        win_length: i64,
+        start_bpm: f64,
+        std_bpm: f64,
+        max_tempo: Option<f64>,
+        factors: Option<&Bound<'py, PyAny>>,
+        aggregate: Option<&Bound<'py, PyAny>>,
+        prior: Option<&Bound<'py, PyAny>>,
+        center: bool,
+        window: WindowArg,
+        fill_value: f64,
+        norm: Option<f64>,
+    ) -> PyResult<Bound<'py, PyArray3<f64>>> {
+        let prior = parse_prior(prior)?;
+        let agg = parse_aggregate(aggregate)?;
+        let cfg = ratio_config(
+            win_length,
+            center,
+            window,
+            norm,
+            start_bpm,
+            std_bpm,
+            max_tempo,
+            prior.as_ref(),
+            factors,
+            agg.resolve(None),
+            fill_value,
+        )?;
+        let hop = positive("hop_length", hop_length)?;
+        let env = self.envelope(py, &envelope_config(hop_length, Aggregate::Mean)?)?;
+        let tg =
+            rh::tempogram_from_envelope(env.view(), &cfg.tempogram).map_err(audio_err_to_py)?;
+        let sr = self.sample_rate_f64(py);
+        let scope = CallbackScope::install(agg.callable(), prior.as_ref(), py);
+        let r: Array3<f64> = scope.finish(rh::tempogram_ratio_from_tempogram(
+            tg.view(),
+            sr,
+            hop,
+            &cfg,
+            None,
+        ))?;
+        Ok(r.into_pyarray(py))
+    }
+
+    /// Hybrid (Fourier x autocorrelation) tempogram of every channel,
+    /// equivalent to ``librosa.feature.hybrid_tempogram(y=..., sr=self.sample_rate, ...)``.
+    ///
+    /// Args:
+    ///     hop_length (int): Hop of the onset envelope. Default 512.
+    ///     win_length (int): Window of both tempograms (>= 3). Default 384.
+    ///     center (bool): Centred frames. Default True.
+    ///     window: Window of both tempograms. Default ``"hann"``.
+    ///
+    /// Returns:
+    ///     numpy.ndarray[float64]: shape ``(channels, win_length // 2 + 1, n_frames)``
+    ///     on the ``fourier_tempo_frequencies`` grid. librosa returns the 2-D
+    ///     array for 1-D input; index ``[0]``.
+    #[pyo3(
+        signature = (*, hop_length = 512, win_length = 384, center = true, window = WindowArg(Window::Hann)),
+        text_signature = "($self, *, hop_length=512, win_length=384, center=True, window='hann')"
+    )]
+    fn hybrid_tempogram<'py>(
+        &self,
+        py: Python<'py>,
+        hop_length: i64,
+        win_length: i64,
+        center: bool,
+        window: WindowArg,
+    ) -> PyResult<Bound<'py, PyArray3<f64>>> {
+        let hcfg = hybrid_tempogram_config(win_length, center, window)?;
+        let hop = positive("hop_length", hop_length)?;
+        let env = self.envelope(py, &envelope_config(hop_length, Aggregate::Mean)?)?;
+        let sr = self.sample_rate_f64(py);
+        let h = rh::hybrid_tempogram_from_envelope(env.view(), sr, hop, &hcfg)
+            .map_err(audio_err_to_py)?;
+        Ok(h.into_pyarray(py))
+    }
+}

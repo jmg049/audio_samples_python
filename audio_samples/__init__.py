@@ -62,6 +62,8 @@ if _so_files:
     spectral = _ext.spectral
     sequence = _ext.sequence
     features = _ext.features
+    rhythm = _ext.rhythm
+    effects = _ext.effects
     mu_law_encode = _ext.mu_law_encode
     mu_law_decode = _ext.mu_law_decode
 
@@ -75,6 +77,8 @@ if _so_files:
         ("spectral", spectral),
         ("sequence", sequence),
         ("features", features),
+        ("rhythm", rhythm),
+        ("effects", effects),
     ):
         sys.modules.setdefault(f"audio_samples.{_sub_name}", _sub)
 
@@ -132,6 +136,8 @@ __all__ = [
     "spectral",
     "sequence",
     "features",
+    "rhythm",
+    "effects",
     "mpl",
     # librosa-compatible mu-law codes
     "mu_law_encode",

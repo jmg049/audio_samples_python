@@ -66,7 +66,7 @@ fn opt_vec(obj: Option<&Bound<'_, PyAny>>, name: &str) -> PyResult<Option<Array1
 }
 
 /// Parses a `scipy.spatial.distance` metric name.
-fn parse_metric(metric: &str) -> PyResult<DistanceMetric> {
+pub(crate) fn parse_metric(metric: &str) -> PyResult<DistanceMetric> {
     match metric {
         "euclidean" => Ok(DistanceMetric::Euclidean),
         "sqeuclidean" => Ok(DistanceMetric::SqEuclidean),
@@ -581,7 +581,7 @@ pub fn rqa<'py>(
     }
 }
 
-fn parse_mode(mode: &str) -> PyResult<RecurrenceMode> {
+pub(crate) fn parse_mode(mode: &str) -> PyResult<RecurrenceMode> {
     match mode {
         "connectivity" => Ok(RecurrenceMode::Connectivity),
         "distance" => Ok(RecurrenceMode::Distance),
@@ -595,7 +595,7 @@ fn parse_mode(mode: &str) -> PyResult<RecurrenceMode> {
     }
 }
 
-fn parse_bandwidth(obj: Option<&Bound<'_, PyAny>>) -> PyResult<Bandwidth> {
+pub(crate) fn parse_bandwidth(obj: Option<&Bound<'_, PyAny>>) -> PyResult<Bandwidth> {
     let Some(obj) = obj.filter(|o| !o.is_none()) else {
         return Ok(Bandwidth::MedKScalar);
     };

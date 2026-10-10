@@ -1,0 +1,808 @@
+//! `audio_samples.effects`: librosa-compatible effect and decomposition helpers
+//! over NumPy arrays.
+//!
+//! Free functions mirroring `librosa.phase_vocoder`, `librosa.effects.preemphasis`
+//! / `deemphasis` (with `zi` / `return_zf`), `librosa.util.softmask`,
+//! `librosa.decompose.hpss` / `nn_filter`, `librosa.griffinlim`, `librosa.lpc`
+//! and `librosa.clicks`, binding `audio_samples::operations::effects`. The
+//! audio-to-audio effects (`time_stretch`, `pitch_shift`, `trim`, `split`,
+//! `remix`, `harmonic`, `percussive`, ...) are `AudioSamples` methods.
+
+use std::num::NonZeroUsize;
+
+use audio_samples::operations::effects::{
+    self as fx, ClickPositions, ClicksConfig, GriffinLimConfig, GriffinLimInit, HpssMaskConfig,
+    NnAggregate,
+};
+use audio_samples::operations::filterbanks::Window;
+use audio_samples::operations::sequence::RecurrenceConfig;
+use ndarray::{Array2, Array3, Ix2};
+use num_complex::Complex;
+use numpy::{IntoPyArray, PyArray1, PyUntypedArrayMethods};
+use pyo3::IntoPyObjectExt;
+use pyo3::exceptions::PyTypeError;
+use pyo3::prelude::*;
+use pyo3::types::{PyDict, PyString};
+
+use crate::args::{
+    WindowArg, f64_array, i64_vec, is_scalar, non_negative, positive, stft_config, value_err,
+};
+use crate::audio_err_to_py;
+use crate::rhythm::{cplanes, out3, planes, rows};
+
+/// Maps the Rust error, turning "empty result" errors into `ValueError`.
+pub(crate) fn effects_err(e: audio_samples::AudioSampleError) -> PyErr {
+    if matches!(e, audio_samples::AudioSampleError::EmptyData { .. }) {
+        value_err("y", e)
+    } else {
+        audio_err_to_py(e)
+    }
+}
+
+/// librosa's scalar-or-pair `kernel_size`.
+pub(crate) fn parse_kernel_size(obj: &Bound<'_, PyAny>) -> PyResult<(NonZeroUsize, NonZeroUsize)> {
+    let v = i64_vec(obj, "kernel_size")?;
+    match (is_scalar(obj)?, v.as_slice()) {
+        (true, [k]) => {
+            let k = positive("kernel_size", *k)?;
+            Ok((k, k))
+        }
+        (false, [h, p]) => Ok((positive("kernel_size", *h)?, positive("kernel_size", *p)?)),
+        _ => Err(value_err(
+            "kernel_size",
+            "expected an integer or a pair (harmonic, percussive)",
+        )),
+    }
+}
+
+/// librosa's scalar-or-pair `margin`.
+pub(crate) fn parse_margin(obj: &Bound<'_, PyAny>) -> PyResult<(f64, f64)> {
+    let a = f64_array(obj, "margin")?;
+    let v: Vec<f64> = a.as_array().iter().copied().collect();
+    match (is_scalar(obj)?, v.as_slice()) {
+        (true, [m]) => Ok((*m, *m)),
+        (false, [h, p]) => Ok((*h, *p)),
+        _ => Err(value_err(
+            "margin",
+            "expected a number or a pair (harmonic, percussive)",
+        )),
+    }
+}
+
+/// [`HpssMaskConfig`] from librosa's `kernel_size`, `power`, `margin`.
+pub(crate) fn hpss_mask_config(
+    kernel_size: &Bound<'_, PyAny>,
+    power: f64,
+    margin: &Bound<'_, PyAny>,
+) -> PyResult<HpssMaskConfig> {
+    let (kh, kp) = parse_kernel_size(kernel_size)?;
+    let (mh, mp) = parse_margin(margin)?;
+    Ok(HpssMaskConfig::new()
+        .with_kernel_sizes(kh, kp)
+        .with_power(power)
+        .with_margins(mh, mp))
+}
+
+/// A `(n,)` or `(channels, n)` output, matching the input's rank.
+fn rows_out<'py>(py: Python<'py>, a: Array2<f64>, squeeze: bool) -> Bound<'py, PyAny> {
+    crate::rhythm::out2(py, a, squeeze)
+}
+
+// =============================================================================
+// Phase vocoder
+// =============================================================================
+
+/// Time-stretches an STFT matrix, equivalent to ``librosa.phase_vocoder``.
+///
+/// Give exactly one of ``rate`` (output frames at ``0, rate, 2 rate, ...``) or
+/// ``t_out`` (explicit fractional frame positions in ``[0, n_frames)``).
+/// Magnitudes are linearly interpolated; the phase accumulates the raw
+/// frame-to-frame phase differences (librosa 1.0's algorithm).
+///
+/// Args:
+///     D (array_like): complex STFT of shape ``(n_bins, n_frames)`` or
+///         ``(channels, n_bins, n_frames)``.
+///     rate (Optional[float]): Speed-up factor (> 1 is faster / fewer frames).
+///     t_out (Optional[array_like]): Output frame positions.
+///     kind (str): Must be ``"linear"``.
+///
+/// Returns:
+///     numpy.ndarray[complex128]: shape ``(n_bins, ceil(n_frames / rate))`` (or
+///     ``len(t_out)`` frames), with a leading channel axis for 3-D input.
+///
+/// Raises:
+///     ValueError: If neither or both of ``rate`` / ``t_out`` are given, or a
+///         value is out of range.
+#[pyfunction]
+#[pyo3(
+    signature = (D, *, rate = None, t_out = None, kind = "linear"),
+    text_signature = "(D, *, rate=None, t_out=None, kind='linear')"
+)]
+#[allow(non_snake_case)]
+pub fn phase_vocoder<'py>(
+    py: Python<'py>,
+    D: &Bound<'py, PyAny>,
+    rate: Option<f64>,
+    t_out: Option<&Bound<'py, PyAny>>,
+    kind: &str,
+) -> PyResult<Bound<'py, PyAny>> {
+    if kind != "linear" {
+        return Err(value_err("kind", "only kind='linear' is supported"));
+    }
+    let (d, squeeze) = cplanes(D, "D")?;
+    let out = match (rate, t_out.filter(|t| !t.is_none())) {
+        (Some(rate), None) => fx::phase_vocoder(d.view(), rate),
+        (None, Some(t)) => {
+            let t: Vec<f64> = f64_array(t, "t_out")?.as_array().iter().copied().collect();
+            fx::phase_vocoder_at(d.view(), &t)
+        }
+        _ => {
+            return Err(value_err(
+                "rate",
+                "exactly one of rate or t_out must be given",
+            ));
+        }
+    }
+    .map_err(audio_err_to_py)?;
+    Ok(out3(py, out, squeeze))
+}
+
+// =============================================================================
+// Pre-/de-emphasis with filter state
+// =============================================================================
+
+/// Per-row emphasis with librosa's `zi` / `return_zf` handling.
+fn emphasis<'py>(
+    py: Python<'py>,
+    y: &Bound<'py, PyAny>,
+    coef: f64,
+    zi: Option<&Bound<'py, PyAny>>,
+    return_zf: bool,
+    f: fn(&[f64], f64, Option<f64>) -> audio_samples::AudioSampleResult<(Vec<f64>, f64)>,
+) -> PyResult<Bound<'py, PyAny>> {
+    let (x, squeeze) = rows(y, "y")?;
+    let n_ch = x.nrows();
+    let zi: Option<Vec<f64>> = zi
+        .filter(|z| !z.is_none())
+        .map(|z| -> PyResult<Vec<f64>> {
+            let v: Vec<f64> = f64_array(z, "zi")?.as_array().iter().copied().collect();
+            match v.len() {
+                1 => Ok(vec![v[0]; n_ch]),
+                n if n == n_ch => Ok(v),
+                n => Err(value_err(
+                    "zi",
+                    format!("expected 1 or {n_ch} initial states (one per channel), got {n}"),
+                )),
+            }
+        })
+        .transpose()?;
+    let mut out = Array2::<f64>::zeros(x.dim());
+    let mut zf = Vec::with_capacity(n_ch);
+    for (c, row) in x.outer_iter().enumerate() {
+        let row = row.to_vec();
+        let (yc, z) = f(&row, coef, zi.as_ref().map(|z| z[c])).map_err(effects_err)?;
+        out.row_mut(c).assign(&ndarray::Array1::from(yc));
+        zf.push(z);
+    }
+    let y_out = rows_out(py, out, squeeze);
+    if !return_zf {
+        return Ok(y_out);
+    }
+    // librosa's zf has shape (..., 1): (1,) for 1-D input, (channels, 1) for 2-D.
+    let zf_out = if squeeze {
+        zf.into_pyarray(py).into_any()
+    } else {
+        Array2::from_shape_vec((n_ch, 1), zf)
+            .expect("one state per channel")
+            .into_pyarray(py)
+            .into_any()
+    };
+    (y_out, zf_out).into_bound_py_any(py)
+}
+
+/// Pre-emphasis filter ``y[n] = x[n] - coef * x[n - 1]``, equivalent to
+/// ``librosa.effects.preemphasis``.
+///
+/// Args:
+///     y (array_like): Signal ``(n,)`` or ``(channels, n)``.
+///     coef (float): Coefficient. Default 0.97.
+///     zi (Optional[float | array_like]): Initial filter state (one value, or
+///         one per channel). None uses librosa's ``2 * y[0] - y[1]``.
+///     return_zf (bool): Also return the final state. Default False.
+///
+/// Returns:
+///     numpy.ndarray[float64] of the input's shape, or ``(y, zf)`` with
+///     ``return_zf=True`` (``zf`` of shape ``(1,)`` or ``(channels, 1)``).
+///
+/// Raises:
+///     ValueError: For a non-finite ``coef`` / ``zi``, or fewer than two samples
+///         with the default ``zi``.
+#[pyfunction]
+#[pyo3(
+    signature = (y, *, coef = 0.97, zi = None, return_zf = false),
+    text_signature = "(y, *, coef=0.97, zi=None, return_zf=False)"
+)]
+pub fn preemphasis<'py>(
+    py: Python<'py>,
+    y: &Bound<'py, PyAny>,
+    coef: f64,
+    zi: Option<&Bound<'py, PyAny>>,
+    return_zf: bool,
+) -> PyResult<Bound<'py, PyAny>> {
+    emphasis(py, y, coef, zi, return_zf, fx::preemphasis_with_state)
+}
+
+/// De-emphasis filter ``y[n] = x[n] + coef * y[n - 1]`` (inverse of
+/// ``preemphasis``), equivalent to ``librosa.effects.deemphasis``.
+///
+/// Args:
+///     y (array_like): Signal ``(n,)`` or ``(channels, n)``.
+///     coef (float): Coefficient. Default 0.97 (3 only with an explicit ``zi``).
+///     zi (Optional[float | array_like]): Initial filter state. None uses
+///         librosa's default, which exactly inverts ``preemphasis`` with its
+///         default state.
+///     return_zf (bool): Also return the final state. Default False.
+///
+/// Returns:
+///     numpy.ndarray[float64] of the input's shape, or ``(y, zf)``.
+///
+/// Raises:
+///     ValueError: As ``preemphasis``.
+#[pyfunction]
+#[pyo3(
+    signature = (y, *, coef = 0.97, zi = None, return_zf = false),
+    text_signature = "(y, *, coef=0.97, zi=None, return_zf=False)"
+)]
+pub fn deemphasis<'py>(
+    py: Python<'py>,
+    y: &Bound<'py, PyAny>,
+    coef: f64,
+    zi: Option<&Bound<'py, PyAny>>,
+    return_zf: bool,
+) -> PyResult<Bound<'py, PyAny>> {
+    emphasis(py, y, coef, zi, return_zf, fx::deemphasis_with_state)
+}
+
+// =============================================================================
+// Masks and HPSS
+// =============================================================================
+
+/// Soft mask ``X**p / (X**p + X_ref**p)``, equivalent to ``librosa.util.softmask``.
+///
+/// Args:
+///     X (array_like): Non-negative values selected by the mask.
+///     X_ref (array_like): Non-negative reference, same shape.
+///     power (float): Exponent (> 0). ``numpy.inf`` gives a hard (bool) mask
+///         ``X > X_ref``. Default 1.
+///     split_zeros (bool): Mask value where both inputs are zero: 0.5 if True,
+///         else 0. Default False.
+///
+/// Returns:
+///     numpy.ndarray: float64 in ``[0, 1]`` (bool for ``power=inf``), same shape.
+///
+/// Raises:
+///     ValueError: For mismatched shapes, negative input or ``power <= 0``.
+#[pyfunction]
+#[pyo3(
+    signature = (X, X_ref, *, power = 1.0, split_zeros = false),
+    text_signature = "(X, X_ref, *, power=1, split_zeros=False)"
+)]
+#[allow(non_snake_case)]
+pub fn softmask<'py>(
+    py: Python<'py>,
+    X: &Bound<'py, PyAny>,
+    X_ref: &Bound<'py, PyAny>,
+    power: f64,
+    split_zeros: bool,
+) -> PyResult<Bound<'py, PyAny>> {
+    let x = f64_array(X, "X")?;
+    let r = f64_array(X_ref, "X_ref")?;
+    let m =
+        fx::softmask(&x.as_array(), &r.as_array(), power, split_zeros).map_err(audio_err_to_py)?;
+    if power.is_infinite() {
+        Ok(m.mapv(|v| v != 0.0).into_pyarray(py).into_any())
+    } else {
+        Ok(m.into_pyarray(py).into_any())
+    }
+}
+
+/// Median-filtering harmonic/percussive separation of a spectrogram,
+/// equivalent to ``librosa.decompose.hpss``.
+///
+/// ``H`` is ``|S|`` median-filtered along time, ``P`` along frequency (SciPy
+/// ``reflect`` boundary); the masks are ``softmask(H, margin_h * P)`` and
+/// ``softmask(P, margin_p * H)``.
+///
+/// Args:
+///     S (array_like): Magnitude/power spectrogram (real, non-negative) or
+///         complex STFT, shape ``(n_bins, n_frames)`` or
+///         ``(channels, n_bins, n_frames)``.
+///     kernel_size (int | tuple[int, int]): Median filter lengths (harmonic
+///         along time, percussive along frequency). Default 31.
+///     power (float): Mask exponent (``numpy.inf`` for hard masks). Default 2.
+///     mask (bool): Return the masks instead of the components. Default False.
+///     margin (float | tuple[float, float]): Separation margins (>= 1).
+///         Default 1.
+///
+/// Returns:
+///     tuple: ``(harmonic, percussive)`` of the input's shape and dtype
+///     (complex input keeps its phase), or with ``mask=True`` the float64 masks
+///     (bool for ``power=inf``, as librosa).
+///
+/// Raises:
+///     ValueError: For invalid parameters or negative magnitudes.
+#[pyfunction]
+#[pyo3(
+    signature = (S, *, kernel_size = None, power = 2.0, mask = false, margin = None),
+    text_signature = "(S, *, kernel_size=31, power=2.0, mask=False, margin=1.0)"
+)]
+#[allow(non_snake_case)]
+pub fn hpss<'py>(
+    py: Python<'py>,
+    S: &Bound<'py, PyAny>,
+    kernel_size: Option<&Bound<'py, PyAny>>,
+    power: f64,
+    mask: bool,
+    margin: Option<&Bound<'py, PyAny>>,
+) -> PyResult<(Bound<'py, PyAny>, Bound<'py, PyAny>)> {
+    let ks = kernel_size
+        .filter(|k| !k.is_none())
+        .map_or_else(|| 31i64.into_bound_py_any(py), |k| Ok(k.clone()))?;
+    let mg = margin
+        .filter(|m| !m.is_none())
+        .map_or_else(|| 1.0f64.into_bound_py_any(py), |m| Ok(m.clone()))?;
+    let cfg = hpss_mask_config(&ks, power, &mg)?;
+    let np = py.import("numpy")?;
+    let complex = np.call_method1("iscomplexobj", (S,))?.extract::<bool>()?;
+    let as_mask = |m: Array3<f64>, squeeze: bool| -> Bound<'py, PyAny> {
+        if power.is_infinite() {
+            out3(py, m.mapv(|v| v != 0.0), squeeze)
+        } else {
+            out3(py, m, squeeze)
+        }
+    };
+    if complex {
+        let (d, squeeze) = cplanes(S, "S")?;
+        if mask {
+            let mag = d.mapv(Complex::norm);
+            let (mh, mp) = fx::hpss_masks(mag.view(), &cfg).map_err(audio_err_to_py)?;
+            return Ok((as_mask(mh, squeeze), as_mask(mp, squeeze)));
+        }
+        let (h, p) = fx::hpss_spectrogram(d.view(), &cfg).map_err(audio_err_to_py)?;
+        return Ok((out3(py, h, squeeze), out3(py, p, squeeze)));
+    }
+    let (s, squeeze) = planes(S, "S")?;
+    if mask {
+        let (mh, mp) = fx::hpss_masks(s.view(), &cfg).map_err(audio_err_to_py)?;
+        return Ok((as_mask(mh, squeeze), as_mask(mp, squeeze)));
+    }
+    let (h, p) = fx::hpss_magnitude(s.view(), &cfg).map_err(audio_err_to_py)?;
+    Ok((out3(py, h, squeeze), out3(py, p, squeeze)))
+}
+
+/// Parses `nn_filter`'s `aggregate`: None/`numpy.mean`, `numpy.median`,
+/// `numpy.average` (or their names).
+fn parse_nn_aggregate(obj: Option<&Bound<'_, PyAny>>) -> PyResult<NnAggregate> {
+    let Some(obj) = obj.filter(|o| !o.is_none()) else {
+        return Ok(NnAggregate::Mean);
+    };
+    if let Ok(s) = obj.cast::<PyString>() {
+        return match &*s.to_cow()? {
+            "mean" => Ok(NnAggregate::Mean),
+            "median" => Ok(NnAggregate::Median),
+            "average" => Ok(NnAggregate::WeightedAverage),
+            other => Err(value_err(
+                "aggregate",
+                format!("unknown aggregate {other:?}; expected 'mean', 'median' or 'average'"),
+            )),
+        };
+    }
+    let np = obj.py().import("numpy")?;
+    for (name, agg) in [
+        ("mean", NnAggregate::Mean),
+        ("median", NnAggregate::Median),
+        ("average", NnAggregate::WeightedAverage),
+    ] {
+        if obj.is(&np.getattr(name)?) {
+            return Ok(agg);
+        }
+    }
+    Err(PyTypeError::new_err(
+        "aggregate: only numpy.mean, numpy.median and numpy.average are supported",
+    ))
+}
+
+/// Nearest-neighbour filtering, equivalent to ``librosa.decompose.nn_filter``.
+///
+/// Each frame is replaced by an aggregate of its neighbours in a recurrence
+/// matrix (``rec[j, i] != 0`` links frame ``j`` to output frame ``i``); frames
+/// without neighbours are copied.
+///
+/// Args:
+///     S (array_like): Features ``(n_features, n_frames)``.
+///     rec (Optional[array_like]): ``(n_frames, n_frames)`` dense recurrence
+///         matrix (bool or float). None computes
+///         ``audio_samples.sequence.recurrence_matrix(S, **kwargs)``.
+///     aggregate: None / ``numpy.mean`` (default), ``numpy.median``, or
+///         ``numpy.average`` (weighted by ``rec``; use an affinity matrix).
+///     axis (int): Must be -1.
+///     **kwargs: ``recurrence_matrix`` arguments when ``rec`` is None: ``k``,
+///         ``width``, ``metric``, ``sym``, ``mode``, ``bandwidth``, ``self``,
+///         ``full``.
+///
+/// Returns:
+///     numpy.ndarray[float64]: filtered ``(n_features, n_frames)``.
+///
+/// Raises:
+///     ValueError: For a wrong-shaped ``rec`` or invalid arguments.
+///     TypeError: For unsupported aggregates or unknown keyword arguments.
+#[pyfunction]
+#[pyo3(
+    signature = (S, *, rec = None, aggregate = None, axis = -1, **kwargs),
+    text_signature = "(S, *, rec=None, aggregate=None, axis=-1, **kwargs)"
+)]
+#[allow(non_snake_case)]
+pub fn nn_filter<'py>(
+    py: Python<'py>,
+    S: &Bound<'py, PyAny>,
+    rec: Option<&Bound<'py, PyAny>>,
+    aggregate: Option<&Bound<'py, PyAny>>,
+    axis: i64,
+    kwargs: Option<&Bound<'py, PyDict>>,
+) -> PyResult<Bound<'py, PyAny>> {
+    if axis != -1 && axis != 1 {
+        return Err(value_err("axis", "only axis=-1 (frames last) is supported"));
+    }
+    let agg = parse_nn_aggregate(aggregate)?;
+    let (data, squeeze) = rows(S, "S")?;
+    let out = match rec.filter(|r| !r.is_none()) {
+        Some(r) => {
+            if kwargs.is_some_and(|k| !k.is_empty()) {
+                return Err(PyTypeError::new_err(
+                    "nn_filter: recurrence_matrix keyword arguments are only used when rec is None",
+                ));
+            }
+            let r = f64_array(r, "rec")?;
+            if r.ndim() != 2 {
+                return Err(value_err("rec", "expected a 2-D (dense) recurrence matrix"));
+            }
+            let r = r
+                .as_array()
+                .into_dimensionality::<Ix2>()
+                .expect("2-D")
+                .to_owned();
+            fx::nn_filter(data.view(), r.view(), agg)
+        }
+        None => {
+            let cfg = recurrence_config(kwargs)?;
+            fx::nn_filter_recurrence(data.view(), &cfg, agg)
+        }
+    }
+    .map_err(audio_err_to_py)?;
+    Ok(rows_out(py, out, squeeze))
+}
+
+/// [`RecurrenceConfig`] from `recurrence_matrix` keyword arguments.
+fn recurrence_config(kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<RecurrenceConfig> {
+    let mut cfg = RecurrenceConfig::default();
+    let Some(kw) = kwargs else {
+        return Ok(cfg);
+    };
+    let mut bandwidth = None;
+    for (key, value) in kw.iter() {
+        let key: String = key.extract()?;
+        match key.as_str() {
+            "k" => {
+                cfg.k = if value.is_none() {
+                    None
+                } else {
+                    Some(positive("k", value.extract()?)?.get())
+                };
+            }
+            "width" => cfg.width = positive("width", value.extract()?)?.get(),
+            "metric" => cfg.metric = crate::sequence::parse_metric(&value.extract::<String>()?)?,
+            "sym" => cfg.sym = value.extract()?,
+            "mode" => cfg.mode = crate::sequence::parse_mode(&value.extract::<String>()?)?,
+            "bandwidth" => bandwidth = Some(value),
+            "self" | "self_links" => cfg.self_links = value.extract()?,
+            "full" => cfg.full = value.extract()?,
+            "sparse" => {
+                if value.extract::<bool>()? {
+                    return Err(value_err(
+                        "sparse",
+                        "only dense recurrence matrices are supported",
+                    ));
+                }
+            }
+            "axis" => {
+                let a: i64 = value.extract()?;
+                if a != -1 && a != 1 {
+                    return Err(value_err("axis", "only axis=-1 is supported"));
+                }
+            }
+            other => {
+                return Err(PyTypeError::new_err(format!(
+                    "nn_filter() got an unexpected keyword argument '{other}'"
+                )));
+            }
+        }
+    }
+    if let Some(b) = bandwidth {
+        cfg.bandwidth = crate::sequence::parse_bandwidth(Some(&b))?;
+    }
+    Ok(cfg)
+}
+
+// =============================================================================
+// Griffin-Lim, LPC, clicks
+// =============================================================================
+
+/// Parses `init` / `rng` into a [`GriffinLimInit`].
+pub(crate) fn griffinlim_init(
+    init: Option<&str>,
+    rng: Option<&Bound<'_, PyAny>>,
+) -> PyResult<GriffinLimInit> {
+    match init {
+        None => Ok(GriffinLimInit::ZeroPhase),
+        Some("random") => {
+            let seed = match rng.filter(|r| !r.is_none()) {
+                None => None,
+                Some(r) => {
+                    let s: i64 = r.extract().map_err(|_| {
+                        PyTypeError::new_err(
+                            "rng: only an integer seed (or None) is supported; NumPy generators are not",
+                        )
+                    })?;
+                    Some(non_negative("rng", s)? as u64)
+                }
+            };
+            Ok(GriffinLimInit::Random(seed))
+        }
+        Some(other) => Err(value_err(
+            "init",
+            format!("unsupported init {other:?}; expected 'random' or None"),
+        )),
+    }
+}
+
+/// [`GriffinLimConfig`] from librosa's `griffinlim` keyword arguments.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn griffinlim_config(
+    n_bins: usize,
+    n_iter: i64,
+    hop_length: Option<i64>,
+    win_length: Option<i64>,
+    n_fft: Option<i64>,
+    window: WindowArg,
+    center: bool,
+    length: Option<i64>,
+    pad_mode: &str,
+    momentum: f64,
+    init: Option<&str>,
+    rng: Option<&Bound<'_, PyAny>>,
+) -> PyResult<GriffinLimConfig> {
+    let n_fft = n_fft.unwrap_or(2 * (n_bins as i64 - 1));
+    Ok(GriffinLimConfig::new()
+        .with_n_iter(non_negative("n_iter", n_iter)?)
+        .with_momentum(momentum)
+        .with_init(griffinlim_init(init, rng)?)
+        .with_stft(stft_config(
+            n_fft, hop_length, win_length, window, center, pad_mode,
+        )?)
+        .with_length(crate::args::opt_positive("length", length)?.map(NonZeroUsize::get)))
+}
+
+/// Reconstructs a signal from a magnitude spectrogram with fast Griffin-Lim,
+/// equivalent to ``librosa.griffinlim``.
+///
+/// Args:
+///     S (array_like): Non-negative magnitude ``(1 + n_fft // 2, n_frames)`` or
+///         ``(channels, 1 + n_fft // 2, n_frames)``.
+///     n_iter (int): Iterations. Default 32.
+///     hop_length, win_length, window, center, pad_mode: STFT parameters of ``S``.
+///     n_fft (Optional[int]): None infers ``2 * (n_bins - 1)``.
+///     dtype: Ignored (the output is float64).
+///     length (Optional[int]): Exact output length.
+///     momentum (float): Fast Griffin-Lim momentum (0 = original). Default 0.99.
+///     init (Optional[str]): ``"random"`` (default) or None (zero phase,
+///         deterministic).
+///     rng (Optional[int]): Seed for ``init="random"``. The random phases come
+///         from this library's generator, so they differ from librosa's for the
+///         same seed. NumPy generators are not accepted.
+///     random_state: Deprecated alias of ``rng``.
+///
+/// Returns:
+///     numpy.ndarray[float64]: shape ``(n,)`` for 2-D ``S``, ``(channels, n)`` for 3-D.
+///
+/// Raises:
+///     ValueError: For invalid parameters or a bin count that does not match ``n_fft``.
+#[pyfunction]
+#[pyo3(
+    signature = (S, *, n_iter = 32, hop_length = None, win_length = None, n_fft = None, window = WindowArg(Window::Hann), center = true, dtype = None, length = None, pad_mode = "constant", momentum = 0.99, init = Some("random"), rng = None, random_state = None),
+    text_signature = "(S, *, n_iter=32, hop_length=None, win_length=None, n_fft=None, window='hann', center=True, dtype=None, length=None, pad_mode='constant', momentum=0.99, init='random', rng=None, random_state=None)"
+)]
+#[allow(non_snake_case, clippy::too_many_arguments, unused_variables)]
+pub fn griffinlim<'py>(
+    py: Python<'py>,
+    S: &Bound<'py, PyAny>,
+    n_iter: i64,
+    hop_length: Option<i64>,
+    win_length: Option<i64>,
+    n_fft: Option<i64>,
+    window: WindowArg,
+    center: bool,
+    dtype: Option<&Bound<'py, PyAny>>,
+    length: Option<i64>,
+    pad_mode: &str,
+    momentum: f64,
+    init: Option<&str>,
+    rng: Option<&Bound<'py, PyAny>>,
+    random_state: Option<&Bound<'py, PyAny>>,
+) -> PyResult<Bound<'py, PyAny>> {
+    let (s, squeeze) = planes(S, "S")?;
+    let rng = rng.filter(|r| !r.is_none()).or(random_state);
+    let cfg = griffinlim_config(
+        s.dim().1,
+        n_iter,
+        hop_length,
+        win_length,
+        n_fft,
+        window,
+        center,
+        length,
+        pad_mode,
+        momentum,
+        init,
+        rng,
+    )?;
+    let y = fx::griffinlim(s.view(), &cfg).map_err(audio_err_to_py)?;
+    Ok(rows_out(py, y, squeeze))
+}
+
+/// Linear-prediction coefficients by Burg's method, equivalent to ``librosa.lpc``.
+///
+/// Args:
+///     y (array_like): Finite signal ``(n,)`` or ``(channels, n)`` with more
+///         than ``order`` samples.
+///     order (int): Prediction order.
+///     axis (int): Must be -1.
+///
+/// Returns:
+///     numpy.ndarray[float64]: ``(order + 1,)`` coefficients ``[1, a_1, ...]``
+///     (``(channels, order + 1)`` for 2-D input).
+///
+/// Raises:
+///     ValueError: For a too-short or non-finite signal.
+#[pyfunction]
+#[pyo3(signature = (y, *, order, axis = -1), text_signature = "(y, *, order, axis=-1)")]
+pub fn lpc<'py>(
+    py: Python<'py>,
+    y: &Bound<'py, PyAny>,
+    order: i64,
+    axis: i64,
+) -> PyResult<Bound<'py, PyAny>> {
+    if axis != -1 {
+        let a = f64_array(y, "y")?;
+        if !(a.ndim() == 1 && axis == 0) {
+            return Err(value_err("axis", "only axis=-1 is supported"));
+        }
+    }
+    let order = positive("order", order)?;
+    let (x, squeeze) = rows(y, "y")?;
+    let mut out = Array2::<f64>::zeros((x.nrows(), order.get() + 1));
+    for (c, row) in x.outer_iter().enumerate() {
+        let a = fx::lpc(&row.to_vec(), order).map_err(audio_err_to_py)?;
+        out.row_mut(c).assign(&ndarray::Array1::from(a));
+    }
+    Ok(rows_out(py, out, squeeze))
+}
+
+/// Synthesises a click track, equivalent to ``librosa.clicks``.
+///
+/// Args:
+///     times (Optional[array_like]): Click times in seconds.
+///     frames (Optional[array_like]): Click frame indices (used when ``times``
+///         is None).
+///     sr (int): Sampling rate (a positive integer). Default 22050.
+///     hop_length (int): Samples per frame for ``frames``. Default 512.
+///     click_freq (float): Frequency of the default click. Default 1000.
+///     click_duration (float): Duration of the default click (s). Default 0.1.
+///     click (Optional[array_like]): Custom 1-D click waveform.
+///     length (Optional[int]): Output length; clicks starting at or after it
+///         are dropped. None: up to the end of the last click.
+///
+/// Returns:
+///     numpy.ndarray[float64]: 1-D click signal (librosa returns float32; the
+///     values agree to float32 rounding).
+///
+/// Raises:
+///     ValueError: If neither ``times`` nor ``frames`` is given, a time is
+///         negative, or parameters are invalid.
+#[pyfunction]
+#[pyo3(
+    signature = (*, times = None, frames = None, sr = 22050.0, hop_length = 512, click_freq = 1000.0, click_duration = 0.1, click = None, length = None),
+    text_signature = "(*, times=None, frames=None, sr=22050, hop_length=512, click_freq=1000.0, click_duration=0.1, click=None, length=None)"
+)]
+#[allow(clippy::too_many_arguments)]
+pub fn clicks<'py>(
+    py: Python<'py>,
+    times: Option<&Bound<'py, PyAny>>,
+    frames: Option<&Bound<'py, PyAny>>,
+    sr: f64,
+    hop_length: i64,
+    click_freq: f64,
+    click_duration: f64,
+    click: Option<&Bound<'py, PyAny>>,
+    length: Option<i64>,
+) -> PyResult<Bound<'py, PyArray1<f64>>> {
+    if !(sr.is_finite() && sr >= 1.0 && sr.fract() == 0.0 && sr <= f64::from(u32::MAX)) {
+        return Err(value_err(
+            "sr",
+            format!("must be a positive integer, got {sr}"),
+        ));
+    }
+    let rate = crate::nzu32_or_err(sr as u32)?;
+    let hop = positive("hop_length", hop_length)?;
+    let click = click
+        .filter(|c| !c.is_none())
+        .map(|c| crate::rhythm::vec1(c, "click"))
+        .transpose()?;
+    let cfg = ClicksConfig::new()
+        .with_hop_length(hop)
+        .with_click_freq(click_freq)
+        .with_click_duration(click_duration)
+        .with_click(click)
+        .with_length(crate::args::opt_positive("length", length)?.map(NonZeroUsize::get));
+    let times = times.filter(|t| !t.is_none());
+    let frames = frames.filter(|f| !f.is_none());
+    let y = match (times, frames) {
+        (Some(t), _) => {
+            let t: Vec<f64> = f64_array(t, "times")?.as_array().iter().copied().collect();
+            fx::clicks(ClickPositions::Times(&t), rate, &cfg)
+        }
+        (None, Some(f)) => {
+            let f: Vec<usize> = i64_vec(f, "frames")?
+                .into_iter()
+                .map(|v| non_negative("frames", v))
+                .collect::<PyResult<_>>()?;
+            if f.iter().any(|&v| v.checked_mul(hop.get()).is_none()) {
+                return Err(value_err("frames", "frame index too large"));
+            }
+            fx::clicks(ClickPositions::Frames(&f), rate, &cfg)
+        }
+        (None, None) => {
+            return Err(value_err(
+                "times",
+                "either times or frames must be provided",
+            ));
+        }
+    }
+    .map_err(effects_err)?;
+    let data = y
+        .as_mono()
+        .map(|m| m.as_view().to_owned())
+        .ok_or_else(|| value_err("clicks", "unexpected multi-channel output"))?;
+    Ok(data.into_pyarray(py))
+}
+
+/// Registers `audio_samples.effects`.
+pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
+    let m = PyModule::new(py, "effects")?;
+    m.add(
+        "__doc__",
+        "librosa-compatible effect and decomposition helpers over NumPy arrays \
+         (phase vocoder, pre-/de-emphasis with filter state, soft masks, HPSS, \
+         nearest-neighbour filtering, Griffin-Lim, LPC, click tracks).",
+    )?;
+    m.add_function(wrap_pyfunction!(phase_vocoder, &m)?)?;
+    m.add_function(wrap_pyfunction!(preemphasis, &m)?)?;
+    m.add_function(wrap_pyfunction!(deemphasis, &m)?)?;
+    m.add_function(wrap_pyfunction!(softmask, &m)?)?;
+    m.add_function(wrap_pyfunction!(hpss, &m)?)?;
+    m.add_function(wrap_pyfunction!(nn_filter, &m)?)?;
+    m.add_function(wrap_pyfunction!(griffinlim, &m)?)?;
+    m.add_function(wrap_pyfunction!(lpc, &m)?)?;
+    m.add_function(wrap_pyfunction!(clicks, &m)?)?;
+    parent.add_submodule(&m)?;
+    Ok(())
+}
