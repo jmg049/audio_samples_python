@@ -132,16 +132,16 @@ print(repr(audio))
 
 ## Coming from librosa
 
-The `AudioSamples` methods and the `spectral`, `features`, `rhythm`, `effects` and `sequence` submodules reproduce librosa 1.0 with its keyword names and defaults, tested against librosa's own output. The audio carries its sample rate, and methods return `(channels, F, T)` arrays (index `[0]` for librosa's mono shape):
+The `AudioSamples` methods and the `spectral`, `features`, `rhythm`, `effects` and `sequence` submodules reproduce librosa 1.0 with its keyword names, tested against librosa's own output. The audio carries its sample rate, and methods return `(channels, F, T)` arrays (index `[0]` for librosa's mono shape). Outputs are float32 for uint8, int16, int24 and float32 audio and float64 for int32 and float64 audio. A few defaults differ from librosa's where librosa's default changes the data (an 80 dB floor in `power_to_db`, tuning estimation, beat trimming, unseeded Griffin-Lim), and the free functions require `sr`; pass librosa's value to reproduce a librosa call:
 
 ```python
 import numpy as np
 import audio_samples as aus
 
 y = aus.generation.sine_wave(440.0, 1.0, 22050, 0.5, dtype=np.float64)
-S = y.melspectrogram()                          # librosa.feature.melspectrogram(y=y, sr=sr)
-S_db = aus.spectral.power_to_db(S, ref=np.max)  # librosa.power_to_db(S, ref=np.max)
-tempo, beats = y.beat_track(units="time")       # librosa.beat.beat_track(y=y, sr=sr, units="time")
+S = y.melspectrogram()                                       # librosa.feature.melspectrogram(y=y, sr=sr)
+S_db = aus.spectral.power_to_db(S, ref=np.max, top_db=80.0)  # librosa.power_to_db(S, ref=np.max)
+tempo, beats = y.beat_track(units="time", trim=True)         # librosa.beat.beat_track(y=y, sr=sr, units="time")
 ```
 
 The [librosa migration guide](docs/source/librosa_migration.rst) maps every librosa function to its equivalent and lists every difference.

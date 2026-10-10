@@ -14,10 +14,40 @@ has the full detail.
 - **librosa parity.** A librosa 1.0-compatible API alongside the existing one:
   librosa-style methods on `AudioSamples` and the new submodules
   `audio_samples.spectral`, `features`, `sequence`, `rhythm` and `effects`.
-  They take librosa's keyword names and defaults, return `(channels, F, T)`
-  float64 arrays, and are tested against librosa 1.0 golden fixtures. The
+  They take librosa's keyword names, return `(channels, F, T)` arrays, and
+  are tested against librosa 1.0 golden fixtures. The
   docs gain a librosa migration guide that maps every librosa function to its
   equivalent and lists every difference.
+- **Output precision follows the input.** The librosa-compatible
+  `AudioSamples` methods return float32 / complex64 arrays for uint8, int16,
+  int24 and float32 audio, and float64 / complex128 arrays for int32 and
+  float64 audio (the float type that holds every sample value exactly).
+  The free functions in `spectral`, `features`, `rhythm`, `effects` and
+  `sequence` compute in float32 for float32 / complex64 arrays and in float64
+  for any other input. Filterbanks, windows, weightings, tempo and tuning stay
+  float64. Audio-returning methods (`time_stretch`, `pitch_shift`,
+  `preemphasis`, `trim_db`, `harmonic`, ...) return the receiver's sample
+  type. `istft_matrix`, `icqt`, `griffinlim_cqt` and `griffinlim_audio` take a
+  `dtype=` sample type; without it they return float32 audio for a
+  single-precision input matrix and float64 audio otherwise.
+- **Defaults that differ from librosa.** Where librosa's default changes the
+  data without being asked, the bindings use a different default; pass
+  librosa's value to reproduce a librosa call: `top_db=None` in
+  `power_to_db`, `amplitude_to_db`, `mfcc_frames` and `perceptual_weighting`
+  (librosa: 80); `min_db=None` in `frequency_weighting` and
+  `multi_frequency_weighting` (librosa: -80); `tuning=0.0` in `chroma_stft`,
+  `chroma_cqt`, `chroma_cens`, `tonnetz` and `chroma_stft_from_spectrogram`
+  (librosa: None, which estimates it); `trim=False` in `beat_track` and
+  `beat_track_with_bpm` (librosa: True); `rng=0` in `griffinlim` and
+  `griffinlim_audio` (librosa: unseeded); `align_zeros=False` in `remix`
+  (librosa: True).
+- **Required arguments.** `sr` is required in every free function where
+  librosa defaults it to 22050, and the `utils` frame and time conversions
+  require `sample_rate` or `sr` (they used to fall back to 22050).
+  `hop_length` is required in `pcen`, `samples_to_frames`,
+  `frames_to_samples`, `time_to_frames_floor`, `times_like`, `samples_like`,
+  and in `clicks` when `frames=` is given (librosa: 512). `top_db` is required
+  in `trim_db`, `trim_db_in_place` and `split_db` (librosa: 60).
 - **Teaching material.** An explain API (`audio_samples.explain`), 14 tutorial
   notebooks, a page for instructors and a set of usability fixes for students.
 - The bindings now build against the unreleased `audio_samples` core (through
@@ -107,7 +137,19 @@ has the full detail.
 
 ### Changed
 
+- `AudioSamples.apply_window` multiplies by float64 coefficients and rounds
+  integer results to nearest, saturating at the type's range. Integer audio
+  used to quantise the window to the sample type, so fractional windows
+  zeroed the signal (or overflowed). Float audio is unchanged.
+  `apply_filter` / `apply_filter_in_place` likewise filter integer audio with
+  float64 taps on its raw scale, so taps outside `[-1, 1]` work.
 - Behaviour changes from the core crate (see its changelog):
+  - Integer audio: `normalize` with the mean or median method,
+    `remove_dc_offset`, `to_mono` (average), `to_stereo` (pan), `pan` and
+    `balance` round to nearest and saturate (24-bit values no longer wrap;
+    uint8 pans around 128). `to_mono` with the weighted and centre methods no
+    longer returns silence for integer audio. Z-score normalisation of
+    integer audio raises instead of returning near-silence.
   - `zero_crossing_rate` on multichannel audio is the mean of the per-channel
     rates. It used to sum the channels' crossings, so two identical channels
     gave twice the mono rate.

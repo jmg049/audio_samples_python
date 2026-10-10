@@ -64,21 +64,37 @@ index ``[0]`` to get librosa's mono shape:
 Free functions follow librosa's shapes exactly (a 1-D signal gives a 2-D STFT,
 a scalar gives a Python float).
 
-**Keyword names and defaults follow librosa 1.0.** Parameter names, defaults
-and keyword-only markers are librosa's, so ``audio.mfcc_frames(n_mfcc=13,
-lifter=22)`` means what ``librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13,
-lifter=22)`` means. ``inspect.signature`` and ``help()`` work on every
-function. Unsupported librosa options raise ``ValueError`` or ``TypeError``;
-they are never silently ignored.
+**Keyword names follow librosa 1.0.** Parameter names and keyword-only markers
+are librosa's, so ``audio.mfcc_frames(n_mfcc=13, lifter=22, top_db=80.0)``
+means what ``librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13, lifter=22)`` means.
+Defaults equal librosa's except where librosa's default changes the data
+without being asked (an 80 dB dynamic-range floor, tuning estimation, beat
+trimming, unseeded random phases, snapping to zero crossings) and where the
+value has to come from the caller (the ``sr`` of the free functions, the hop
+length of frames computed elsewhere, the ``trim`` threshold); see
+`Defaults that differ from librosa`_. ``inspect.signature`` and ``help()``
+work on every function. Unsupported librosa options raise ``ValueError`` or
+``TypeError``; they are never silently ignored.
 
-**Outputs are float64.** Arrays are ``float64`` or ``complex128`` whatever the
-input type. librosa keeps ``float32`` for ``float32`` input, and several of its
-bases (mel, chroma, CQT wavelets) default to single precision even for
-``float64`` input. Pass ``dtype=np.float64`` to librosa to compare to
-round-off. Integer audio (``int16``, ``int32``) is converted with this
-library's audio-aware scaling: negative values are divided by ``2**(bits-1)``
-and positive ones by ``2**(bits-1) - 1`` (librosa's ``buf_to_float`` divides
-both by ``2**(bits-1)``), so compare with float audio.
+**Output precision follows the input.** ``AudioSamples`` analysis methods
+return ``float32`` / ``complex64`` arrays for ``uint8``, ``int16``, ``int24``
+and ``float32`` audio, and ``float64`` / ``complex128`` arrays for ``int32``
+and ``float64`` audio (the smallest float type that holds every sample value
+exactly). Free functions over NumPy arrays compute in ``float32`` for a
+``float32`` or ``complex64`` array and in ``float64`` for any other input
+(lists, integer arrays, ``float16`` and ``float64`` arrays are converted to
+``float64``). Audio-returning methods (``time_stretch``, ``preemphasis``,
+``trim_db``, ...) return the receiver's sample type; the static
+reconstructions (``istft_matrix``, ``icqt``, ``griffinlim_cqt``,
+``griffinlim_audio``) take ``dtype=`` and otherwise return ``float32`` audio
+for a single-precision matrix and ``float64`` audio for anything else.
+librosa also keeps ``float32`` for ``float32`` input, but several of its bases
+(mel, chroma, CQT wavelets) default to single precision even for ``float64``
+input; pass ``dtype=np.float64`` to librosa to compare ``float64`` output to
+round-off. Integer audio is converted with this library's audio-aware scaling:
+negative values are divided by ``2**(bits-1)`` and positive ones by
+``2**(bits-1) - 1`` (librosa's ``buf_to_float`` divides both by
+``2**(bits-1)``), so compare with float audio.
 
 **Non-finite audio raises.** As librosa's ``valid_audio`` does ("Audio buffer
 is not finite everywhere"), the librosa-compatible methods raise
@@ -143,12 +159,12 @@ Mel spectrogram in dB, MFCC and deltas
    S = y.melspectrogram()
    assert S.shape == (1, 128, 44)
 
-   # S_db = librosa.power_to_db(S, ref=np.max)
-   S_db = spectral.power_to_db(S, ref=np.max)
+   # S_db = librosa.power_to_db(S, ref=np.max)  (librosa's default top_db is 80)
+   S_db = spectral.power_to_db(S, ref=np.max, top_db=80.0)
    assert abs(S_db.max()) < 1e-9 and S_db.min() >= -80.0
 
    # mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13); librosa.feature.delta(mfcc, order=2)
-   mfcc = y.mfcc_frames(n_mfcc=13)
+   mfcc = y.mfcc_frames(n_mfcc=13, top_db=80.0)
    d2 = spectral.delta(mfcc, order=2)
    assert mfcc.shape == d2.shape == (1, 13, 44)
 
@@ -168,7 +184,7 @@ Spectral features and chroma
    assert centroid.shape == rms.shape == zcr.shape == (1, 1, 44)
    assert abs(centroid[0, 0, 20] - 440.0) < 20.0
 
-   chroma = y.chroma_stft()                  # librosa.feature.chroma_stft(y=y, sr=sr)
+   chroma = y.chroma_stft(tuning=None)       # librosa.feature.chroma_stft(y=y, sr=sr)
    assert chroma.shape == (1, 12, 44)
    assert chroma[0, 9, 20] == 1.0            # pitch class A
 
@@ -193,7 +209,8 @@ Onsets, tempo and beats
    onset_times = y.onset_detect(units="time")  # librosa.onset.onset_detect(..., units="time")
    assert len(onset_times) >= 7
 
-   tempo, beats = y.beat_track(units="time")   # librosa.beat.beat_track(y=y, sr=sr, units="time")
+   # librosa.beat.beat_track(y=y, sr=sr, units="time")  (librosa trims by default)
+   tempo, beats = y.beat_track(units="time", trim=True)
    assert abs(float(tempo[0]) - 120.0) < 5.0 and len(beats) > 0
 
 Effects and resampling
@@ -213,7 +230,7 @@ Effects and resampling
    up = y.pitch_shift(2.0)                   # librosa.effects.pitch_shift(y, sr=sr, n_steps=2)
    assert up.samples_per_channel() == n
 
-   trimmed, (start, end) = y.trim_db()       # librosa.effects.trim(y)  (top_db=60)
+   trimmed, (start, end) = y.trim_db(top_db=60.0)  # librosa.effects.trim(y)
    assert trimmed.samples_per_channel() == end - start
 
    y16 = y.resample(16000, "high")           # librosa.resample(y, orig_sr=22050, target_sr=16000)
@@ -375,7 +392,8 @@ Core: spectral representations
      - ``effects.griffinlim``, ``AudioSamples.griffinlim_audio`` (static)
      - with differences
      - ``init=None`` matches; random initial phases come from this library's
-       RNG (integer seeds only)
+       RNG (integer seeds only); ``rng`` defaults to the seed 0 (librosa:
+       unseeded)
    * - ``iirt``
      - --
      - not provided
@@ -387,11 +405,13 @@ Core: spectral representations
    * - ``pcen``
      - ``features.pcen``
      - equivalent
-     - ``zi`` / ``return_zf`` streaming state
+     - ``zi`` / ``return_zf`` streaming state; ``sr`` and ``hop_length`` are
+       required (librosa: 22050 and 512)
    * - ``amplitude_to_db``
      - ``spectral.amplitude_to_db``
      - equivalent
-     - ``ref`` as a number, ``"max"`` or ``numpy.max``; per-channel reference
+     - ``ref`` as a number, ``"max"`` or ``numpy.max``; per-channel reference;
+       ``top_db`` defaults to ``None`` (librosa: 80)
    * - ``power_to_db``
      - ``spectral.power_to_db``
      - equivalent
@@ -407,15 +427,15 @@ Core: spectral representations
    * - ``perceptual_weighting``
      - ``features.perceptual_weighting``
      - equivalent
-     -
+     - ``top_db`` defaults to ``None`` (librosa: 80)
    * - ``frequency_weighting``
      - ``features.frequency_weighting``
      - equivalent
-     -
+     - ``min_db`` defaults to ``None`` (librosa: -80)
    * - ``multi_frequency_weighting``
      - ``features.multi_frequency_weighting``
      - equivalent
-     -
+     - ``min_db`` defaults to ``None`` (librosa: -80)
    * - ``A_weighting`` ... ``Z_weighting``
      - ``features.a_weighting``, ``b_weighting``, ``c_weighting``,
        ``d_weighting``, ``z_weighting``
@@ -509,8 +529,9 @@ Core: unit conversions (``librosa.convert``)
 
 The librosa-compatible conversions in ``audio_samples.utils`` are vectorised
 like librosa's: a scalar gives a Python number, an array-like an array of the
-same shape. They take librosa's ``sr`` keyword or the older ``sample_rate``
-(``sample_rate`` defaults to 22050). The note-name functions are scalar.
+same shape. They take librosa's ``sr`` keyword or the older ``sample_rate``;
+one of them is required (librosa defaults to 22050), and so is ``hop_length``
+where librosa defaults it to 512. The note-name functions are scalar.
 
 .. list-table::
    :header-rows: 1
@@ -669,7 +690,8 @@ same shape. They take librosa's ``sr`` keyword or the older ``sample_rate``
    * - ``mfcc``
      - ``AudioSamples.mfcc_frames``, ``spectral.mfcc_from_mel_db``
      - with differences
-     - float64 mel basis; ``n_mfcc > n_mels`` raises
+     - float64 mel basis; ``n_mfcc > n_mels`` raises; ``top_db`` defaults to
+       ``None`` (librosa: 80)
    * - ``delta``
      - ``spectral.delta``
      - equivalent
@@ -711,7 +733,8 @@ same shape. They take librosa's ``sr`` keyword or the older ``sample_rate``
    * - ``rms``
      - ``AudioSamples.rms_frames``, ``features.rms_from_spectrogram``
      - with differences
-     - float64 (librosa's default ``dtype=float32``)
+     - Output precision follows the sample type (librosa's default
+       ``dtype=float32``)
    * - ``zero_crossing_rate``
      - ``AudioSamples.zero_crossing_rate_frames``
      - equivalent
@@ -719,12 +742,13 @@ same shape. They take librosa's ``sr`` keyword or the older ``sample_rate``
    * - ``chroma_stft``
      - ``AudioSamples.chroma_stft``, ``features.chroma_stft_from_spectrogram``
      - with differences
-     - float64 chroma basis; with odd ``n_fft`` the given ``n_fft`` is used for
-       tuning
+     - float64 chroma basis; ``tuning`` defaults to ``0.0`` (librosa: ``None``,
+       estimated); with odd ``n_fft`` the given ``n_fft`` is used for tuning
    * - ``chroma_cqt``
      - ``AudioSamples.chroma_cqt``
      - with differences
-     - Inherits the CQT resampler difference; ``window`` must be ``None``
+     - Inherits the CQT resampler difference; ``window`` must be ``None``;
+       ``tuning`` defaults to ``0.0`` (librosa: ``None``)
    * - ``chroma_cens``
      - ``AudioSamples.chroma_cens``, ``features.chroma_cens_from_chroma``
      - with differences
@@ -803,15 +827,17 @@ type; each has an ``_in_place`` twin (``time_stretch_in_place``, ...).
      - ``AudioSamples.trim_db``
      - with differences
      - Returns ``(trimmed, array([start, end]))``; raises when everything is
-       silent (librosa returns an empty array); float64 frame RMS
+       silent (librosa returns an empty array); ``top_db`` is required
+       (librosa: 60); frame RMS in the sample type's float (librosa: float32)
    * - ``split``
      - ``AudioSamples.split_db``
      - with differences
-     - int64 ``(n, 2)`` intervals; float64 frame RMS
+     - int64 ``(n, 2)`` intervals; ``top_db`` is required (librosa: 60); frame
+       RMS in the sample type's float (librosa: float32)
    * - ``remix``
      - ``AudioSamples.remix``
      - equivalent
-     -
+     - ``align_zeros`` defaults to ``False`` (librosa: ``True``)
    * - ``hpss``
      - ``AudioSamples.harmonic_percussive``
      - with differences
@@ -856,7 +882,8 @@ type; each has an ``_in_place`` twin (``time_stretch_in_place``, ...).
      - ``AudioSamples.beat_track``, ``rhythm.beat_track``,
        ``rhythm.beat_track_with_bpm``
      - with differences
-     - Mono audio only; ``sparse=True`` only
+     - Mono audio only; ``sparse=True`` only; ``trim`` defaults to ``False``
+       (librosa: ``True``)
    * - ``beat.plp``
      - ``AudioSamples.plp``, ``rhythm.plp``
      - equivalent
@@ -1152,19 +1179,25 @@ Shapes and types
   envelopes and pitch tracks, ``(channels, 1)`` for a static tempo. Index
   ``[0]`` for librosa's mono shape. ``tempogram_ratio`` with ``aggregate`` keeps
   a ``(channels, n_factors, 1)`` shape where librosa drops the last axis.
-- **float64 / complex128 everywhere.** Filterbanks and outputs never fall back
-  to single precision. The resulting differences from librosa's defaults:
+- **Output precision follows the input** (see `Conventions`_). Several
+  librosa bases default to single precision even for ``float64`` input. Here
+  they are computed in ``float64`` and rounded once to the output type, so
+  ``float64`` output differs from librosa's defaults by about 1e-7 relative:
 
   - the mel basis (``filters.mel``, hence ``melspectrogram``, ``mfcc``,
-    ``onset_strength``): about 1e-7 relative;
-  - the chroma basis (``filters.chroma``, ``chroma_stft``): about 1e-7 relative;
+    ``onset_strength``);
+  - the chroma basis (``filters.chroma``, ``chroma_stft``);
   - CQT wavelets (``filters.wavelet``): librosa's ``complex64`` filters move
     its top-octave CQT by up to ~4e-8 of the peak;
   - ``rms`` and the RMS behind ``trim_db`` / ``split_db``: librosa computes the
-    mean square in ``float32``, so a frame within ~1e-6 dB of ``top_db`` can be
-    classified differently;
-  - ``clicks``, ``window_sumsquare``, ``cq_to_chroma`` return float64.
+    mean square in ``float32``, so for ``float64`` audio a frame within ~1e-6
+    dB of ``top_db`` can be classified differently.
 
+  ``clicks``, ``window_sumsquare``, ``cq_to_chroma``, ``wavelet``, the
+  filterbanks and the frequency weightings are tables and return ``float64``;
+  tempo estimates and tuning are always ``float64``. ``yin``, ``pyin``,
+  ``tempogram``, ``tempogram_ratio`` and ``hybrid_tempogram`` return
+  ``float32`` for ``float32`` input (librosa promotes them to ``float64``).
   ``dtype=`` arguments that select a librosa output precision are accepted and
   ignored where documented (``griffinlim``).
 - **Integer outputs are int64** (librosa: ``uint16`` Viterbi states, ``intp``
@@ -1177,6 +1210,56 @@ Shapes and types
 - **Sequence and recurrence functions** take 2-D ``(n_features, n_frames)``
   input with the default ``axis=-1`` layout and return dense arrays
   (``sparse=True`` raises).
+
+Defaults that differ from librosa
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Pass librosa's value explicitly to reproduce a librosa call.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 40 20 40
+
+   * - Argument
+     - librosa
+     - audio_samples
+   * - ``top_db`` of ``power_to_db``, ``amplitude_to_db``, ``mfcc_frames``,
+       ``perceptual_weighting``
+     - 80
+     - ``None``: an 80 dB floor discards dynamic range
+   * - ``min_db`` of ``frequency_weighting``, ``multi_frequency_weighting``
+     - -80
+     - ``None`` (``a_weighting`` ... ``z_weighting`` keep -80)
+   * - ``tuning`` of ``chroma_stft``, ``chroma_cqt``, ``chroma_cens``,
+       ``tonnetz``, ``chroma_stft_from_spectrogram``
+     - ``None`` (estimated)
+     - ``0.0``; ``None`` still estimates
+   * - ``trim`` of ``beat_track``, ``beat_track_with_bpm``
+     - ``True``
+     - ``False``: weak leading and trailing beats are kept
+   * - ``rng`` of ``griffinlim``, ``griffinlim_audio``
+     - unseeded
+     - ``0``: repeated calls give the same output
+   * - ``align_zeros`` of ``remix``
+     - ``True``
+     - ``False``: interval boundaries are used as given
+   * - ``top_db`` of ``trim_db``, ``trim_db_in_place``, ``split_db``
+     - 60
+     - required
+   * - ``sr`` of the free functions in ``spectral``, ``features``, ``rhythm``,
+       ``effects`` (and ``sample_rate`` / ``sr`` of the ``utils`` frame and
+       time conversions)
+     - 22050
+     - required
+   * - ``hop_length`` of ``pcen``, ``utils.samples_to_frames``,
+       ``frames_to_samples``, ``time_to_frames_floor``, ``times_like``,
+       ``samples_like``, and of ``effects.clicks`` with ``frames=``
+     - 512
+     - required
+
+The onset envelope (``onset_strength`` and everything built on it) and
+``spectral_contrast`` keep librosa's 80 dB floor, which is part of those
+features' definitions. All other defaults equal librosa's.
 
 Resampling (no soxr)
 ~~~~~~~~~~~~~~~~~~~~
@@ -1249,10 +1332,12 @@ Randomness
 
 - ``griffinlim`` with ``init="random"`` (librosa's default) draws phases from
   this library's RNG, not NumPy's, so results differ from librosa's for the
-  same seed (both are valid reconstructions). Only integer seeds (or ``None``)
-  are accepted as ``rng`` / ``random_state``; NumPy generators raise
-  ``TypeError``. ``init=None`` is deterministic and matches
-  librosa to round-off.
+  same seed (both are valid reconstructions). ``rng`` defaults to the seed 0,
+  so repeated calls give the same output; ``rng=None`` draws a new seed on
+  every call (librosa's default). Only integer seeds (or ``None``) are
+  accepted as ``rng`` / ``random_state``; NumPy generators raise
+  ``TypeError``. ``init=None`` is deterministic and matches librosa to
+  round-off.
 - ``griffinlim_cqt`` offers only ``init=None``.
 
 Options that are not supported
