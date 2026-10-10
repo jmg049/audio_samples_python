@@ -75,6 +75,13 @@ Audio objects carry properties intrinsically:
    stft_matrix = audio.stft(window_size=2048, hop_size=512)
    # Time/frequency coordinates computed automatically
 
+Coming from librosa?
+--------------------
+
+:doc:`librosa_migration` maps every librosa 1.0 function onto its
+``audio_samples`` equivalent, with runnable examples and every documented
+difference.
+
 Table of Contents
 -----------------
 
@@ -83,6 +90,7 @@ Table of Contents
    :caption: Documentation
 
    examples/index
+   librosa_migration
    api/index
 
 .. toctree::
