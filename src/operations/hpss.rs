@@ -1,7 +1,7 @@
 use crate::args::{Int, opt_positive};
 use crate::{PyAudioSamples, audio_err_to_py, dispatch_with_view, types::PyHpssConfig};
 use audio_samples::{AudioDecomposition, operations::HpssConfig};
-use pyo3::exceptions::PyTypeError;
+use pyo3::exceptions::{PyDeprecationWarning, PyTypeError};
 use pyo3::prelude::*;
 use spectrograms::python::PyStftParams;
 use std::num::NonZeroUsize;
@@ -21,6 +21,9 @@ impl PyAudioSamples {
     ///         ``StftParams`` only.
     ///     mask_softness (Optional[float]): Mask softness in [0, 1] (0 = hard
     ///         mask). Default 0.5. ``StftParams`` only.
+    ///     stft_params (Optional[StftParams]): Deprecated keyword alias of
+    ///         ``config`` (its name in audio_samples 0.2.x); emits a
+    ///         ``DeprecationWarning``.
     ///
     /// Returns:
     ///     tuple[AudioSamples, AudioSamples]: ``(harmonic, percussive)``.
@@ -34,17 +37,40 @@ impl PyAudioSamples {
     ///     >>> harmonic, percussive = audio.hpss(HpssConfig.musical)
     ///     >>> harmonic, percussive = audio.hpss(StftParams(2048, 512, WindowType.hanning, True))
     #[pyo3(
-        signature = (config, median_filter_harmonic = None, median_filter_percussive = None, mask_softness = None),
-        text_signature = "($self, config, median_filter_harmonic=None, median_filter_percussive=None, mask_softness=None)"
+        signature = (config = None, median_filter_harmonic = None, median_filter_percussive = None, mask_softness = None, *, stft_params = None),
+        text_signature = "($self, config=None, median_filter_harmonic=None, median_filter_percussive=None, mask_softness=None, *, stft_params=None)"
     )]
     fn hpss(
         &self,
         py: Python<'_>,
-        config: &Bound<'_, PyAny>,
+        config: Option<&Bound<'_, PyAny>>,
         median_filter_harmonic: Option<Int>,
         median_filter_percussive: Option<Int>,
         mask_softness: Option<f64>,
+        stft_params: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<(Self, Self)> {
+        let config = match (config, stft_params) {
+            (Some(c), None) => c,
+            (None, Some(p)) => {
+                PyErr::warn(
+                    py,
+                    &py.get_type::<PyDeprecationWarning>(),
+                    c"hpss: the 'stft_params' keyword is deprecated; pass the StftParams as 'config' (or positionally)",
+                    1,
+                )?;
+                p
+            }
+            (Some(_), Some(_)) => {
+                return Err(PyTypeError::new_err(
+                    "hpss: pass 'config' or its deprecated alias 'stft_params', not both",
+                ));
+            }
+            (None, None) => {
+                return Err(PyTypeError::new_err(
+                    "hpss: missing required argument 'config' (StftParams or HpssConfig)",
+                ));
+            }
+        };
         let median_filter_harmonic =
             opt_positive("median_filter_harmonic", median_filter_harmonic)?;
         let median_filter_percussive =

@@ -117,3 +117,17 @@ def test_clicks_far_time_is_value_error():
     for t in (1e10, 1e20):
         with pytest.raises(ValueError, match="times"):
             effects.clicks(times=[t], sr=22050)
+
+
+def test_hpss_stft_params_keyword_is_a_deprecated_alias():
+    a = aus.AudioSamples.new_mono(Y, sample_rate=22050)
+    p = aus.spectrograms.StftParams(1024, 256, aus.spectrograms.WindowType.hanning, True)
+    h_new, p_new = a.hpss(p)
+    with pytest.warns(DeprecationWarning, match="stft_params"):
+        h_old, p_old = a.hpss(stft_params=p, median_filter_harmonic=17)
+    np.testing.assert_array_equal(h_old.to_numpy(), h_new.to_numpy())
+    np.testing.assert_array_equal(p_old.to_numpy(), p_new.to_numpy())
+    with pytest.raises(TypeError, match="not both"):
+        a.hpss(p, stft_params=p)
+    with pytest.raises(TypeError, match="missing"):
+        a.hpss()

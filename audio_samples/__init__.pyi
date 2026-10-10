@@ -691,10 +691,12 @@ class AudioSamples:
     # AudioDecomposition methods
     def hpss(
         self,
-        config: StftParams | HpssConfig,
+        config: Optional[StftParams | HpssConfig] = None,
         median_filter_harmonic: Optional[int] = None,
         median_filter_percussive: Optional[int] = None,
         mask_softness: Optional[float] = None,
+        *,
+        stft_params: Optional[StftParams] = None,
     ) -> tuple[AudioSamples, AudioSamples]:
         """Separate harmonic and percussive components using median-filter HPSS.
 
@@ -707,13 +709,16 @@ class AudioSamples:
                 filter length in bins. Default 17. Only with ``StftParams``.
             mask_softness: Mask softness in [0, 1] (0 = hard mask). Default 0.5.
                 Only with ``StftParams``.
+            stft_params: Deprecated keyword alias of ``config`` (its name in
+                audio_samples 0.2.x); emits a ``DeprecationWarning``. Passing both
+                is a ``TypeError``.
 
         Returns:
             tuple: ``(harmonic, percussive)`` AudioSamples.
 
         Raises:
-            TypeError: If ``config`` is neither ``StftParams`` nor ``HpssConfig``,
-                or filter arguments are combined with an ``HpssConfig``.
+            TypeError: If ``config`` is missing or neither ``StftParams`` nor
+                ``HpssConfig``, or filter arguments are combined with an ``HpssConfig``.
             ValueError: If the configuration is invalid.
         """
         ...
