@@ -1,7 +1,7 @@
 """
 audio_samples - A Rust-based Python extension for audio processing.
 
-This module provides high-performance audio processing capabilities with seamless numpy integration.
+Audio processing implemented in Rust, with conversion to and from NumPy arrays.
 Supports multiple audio sample formats (i16, I24, i32, f32, f64) with zero-copy numpy integration.
 
 Example usage:

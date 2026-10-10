@@ -9,7 +9,7 @@ This section contains practical examples demonstrating AudioSamples capabilities
 Example Overview
 ----------------
 
-Examples will be added to demonstrate real-world usage patterns and showcase AudioSamples capabilities.
+Examples of typical usage will be added here.
 
 Running Examples
 ---------------
@@ -24,10 +24,10 @@ All examples are designed to be self-contained and runnable. To execute them:
 
 2. Copy the example code and run it in your Python environment
 
-3. Some examples may require additional dependencies - these will be clearly indicated in each example
+3. Some examples may require additional dependencies - each example states which ones it needs
 
 Contributing Examples
 ---------------------
 
-We welcome additional examples! If you have a interesting use case or application, consider
-contributing it to the documentation. See the project's GitHub repository for contribution guidelines.
+Contributions of further examples are welcome. If you have a use case or application to show,
+consider contributing it to the documentation. See the project's GitHub repository for contribution guidelines.

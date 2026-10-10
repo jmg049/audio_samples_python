@@ -10,17 +10,17 @@ against SciPy and librosa.
 - **One object that carries its own metadata.** An `AudioSamples` holds the
   samples, the sample rate and the channel layout together. Arithmetic between
   signals with different sample rates raises an error instead of silently
-  producing nonsense.
+  producing incorrect results.
 - **The same core as the Rust crate.** The Python package is a thin binding
   over the Rust `audio_samples` crate, so a notebook and a Rust lab compute the
   same numbers with the same code.
-- **Errors that teach.** Most invalid parameters raise `audio_samples.exceptions`
+- **Errors with codes and help text.** Most invalid parameters raise `audio_samples.exceptions`
   classes (for example `AudioParameterError`, which is also a `ValueError`)
   that carry `.code` and `.help`; the help text appears in the traceback. A few
   constructors (for example `StftParams(n_fft=0)`) still raise a plain
   `ValueError` without them.
-- **A library that explains itself.** A configuration can describe what it will
-  do before it runs: the formula the code evaluates, every symbol with its unit,
+- **Configurations that explain themselves.** A configuration can describe what
+  it will do before it runs: the formula the code evaluates, every symbol with its unit,
   derived resolution and latency numbers, and warnings about suspicious
   settings. In Jupyter the explanation renders as Markdown with maths.
 
@@ -40,15 +40,17 @@ pattern:
 
 1. **Concept**: the theory, with every symbol and unit defined.
 2. **With the library**: the API that does it.
-3. **Under the hood**: the same result re-derived with NumPy (and SciPy or
+3. **How it works**: the same result re-derived with NumPy (and SciPy or
    librosa where the conventions match), checked with `assert`.
 4. **Ask the library to explain**.
 5. **Exercises**, each followed by a solution cell that computes and asserts
    the answer.
 6. **Common pitfalls**, **See also** and **References**.
 
-The same course exists in Rust (the crate's `guide` module and its
-`examples/tutorial_NN_*.rs` labs), with the same numbers wherever the two APIs
+The same course exists in Rust (the crate's `guide` module, its
+`examples/tutorial_NN_*.rs` labs and an illustrated
+[book](https://github.com/jmg049/audio_samples/tree/main/book) with figures
+computed by the library), with the same numbers wherever the two APIs
 cover the same function. Where the Python bindings lack a function (LPC, Bark,
 ERB, threshold of hearing, codecs, cepstrum, FIR design), the notebook computes
 it with NumPy from the same published formula instead of calling the library.
@@ -77,8 +79,8 @@ in a code cell, and the notebooks are executed headlessly in the test suite:
 pytest --nbmake docs/source/tutorials
 ```
 
-If you adapt a notebook, keep this property: change the number in the code and
-the test tells you whether the text is now wrong.
+If you adapt a notebook, keep this property: when you change a number in the
+code, the test reports whether the text is still correct.
 
 ## Suggested labs
 
@@ -95,7 +97,7 @@ assumes notebook 02. No Rust is needed.
 
 | Lab | Topic | Students should leave able to |
 |---|---|---|
-| 01 | Sampling and aliasing | predict where a tone above Nyquist lands; explain why decimation needs a low-pass filter |
+| 01 | Sampling and aliasing | predict the alias frequency of a tone above Nyquist; explain why decimation needs a low-pass filter |
 | 02 | Quantisation and dither | derive and measure SQNR ≈ 6.02 b + 1.76 dB; show what TPDF dither does to quiet signals |
 | 03 | DFT, windows and leakage | map bins to hertz; choose a window from its main-lobe width and side-lobe level |
 | 04 | STFT and spectrograms | trade time resolution against frequency resolution; compute frame counts; invert an STFT |
@@ -129,7 +131,7 @@ suite. For other topics, compare with these conventions in mind:
 
 ## Known limitations
 
-Worth telling students about (the notebooks point them out where they matter):
+Students should know about these (the notebooks point them out where they are relevant):
 
 - The Kaiser window of the upstream `spectrograms` crate is inaccurate for
   β > 3.75 (notebook 03 measures it).

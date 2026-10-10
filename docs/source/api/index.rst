@@ -1,8 +1,8 @@
 API Reference
 =============
 
-This section contains the complete API reference for AudioSamples Python, automatically generated from the
-comprehensive type stubs that provide full type safety and IDE support.
+This section is the API reference for AudioSamples Python, generated from the type stubs (which also
+provide type checking and IDE completion).
 
 .. toctree::
    :maxdepth: 2
@@ -20,7 +20,7 @@ comprehensive type stubs that provide full type safety and IDE support.
 Core Classes
 ============
 
-- :doc:`audio_samples` - Main AudioSamples class with comprehensive audio processing
+- :doc:`audio_samples` - Main AudioSamples class and its processing methods
 - :doc:`spectral` - librosa-compatible STFT, mel, MFCC, dB and unit conversions
 - :doc:`features` - librosa-compatible features, chroma/tuning, constant-Q and pitch tracking
 - :doc:`sequence` - DTW, Viterbi, recurrence matrices and sync (librosa-compatible)
@@ -42,7 +42,7 @@ The complete API documentation is organized into three main sections:
    Functions to generate waveforms, noise, and test signals.
 
 **File I/O**
-   High-performance audio file reading and writing with format detection.
+   Audio file reading and writing with format detection.
 
 **Types Module**
    Audio processing configurations and enumerations. Used throughout the library for specifying parameters and options.

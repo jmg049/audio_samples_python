@@ -1,16 +1,14 @@
 AudioSamples Core
 ================
 
-The AudioSamples class is the core of the library, providing a type-safe audio representation with
-intrinsically embedded properties (sample rate, channel layout, format) that eliminates manual
-metadata coordination.
+The AudioSamples class is the core of the library. It stores the samples together with their sample
+rate, channel layout and sample format, so these do not have to be passed alongside the data.
 
 AudioSamples Class
 ------------------
 
-The main audio processing class supporting multiple sample formats and comprehensive audio operations.
-All methods preserve audio properties automatically and support operator overloading for natural
-audio mathematics.
+The main audio processing class. It supports several sample formats. All methods preserve the audio
+properties, and the arithmetic operators are overloaded to work on the samples.
 
 Key Features
 ~~~~~~~~~~~~
@@ -94,7 +92,7 @@ Key Features
    - Type-safe casting between sample formats
 
 **NumPy Integration**
-   - Seamless operator overloading for mathematical operations
+   - Operator overloading for arithmetic
    - Support for numpy universal functions
    - Automatic property preservation through all operations
 
@@ -121,4 +119,4 @@ Filter and EQ Configuration Classes
 
    - Multiple EQ bands with independent configuration
    - Real-time frequency response calculation
-   - Cascaded filter application for natural sound
+   - Bands applied as a cascade of filters
