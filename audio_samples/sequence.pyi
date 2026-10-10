@@ -190,15 +190,16 @@ def recurrence_matrix(
     sparse: bool = False,
     mode: Mode = "connectivity",
     bandwidth: BandwidthSpec = None,
-    self_links: bool = False,
+    self: bool = False,
     axis: int = -1,
     full: bool = False,
-    **kwargs: Any,
+    self_links: bool = False,
 ) -> NDArray[Any]:
     """Recurrence matrix (``librosa.segment.recurrence_matrix``, dense).
 
-    ``self=True`` is accepted as a keyword (``**{"self": True}``) as well as
-    ``self_links=True``.
+    ``self`` is librosa's keyword (whether the diagonal links each frame to
+    itself); ``self_links`` is an equivalent spelling that avoids the Python
+    keyword-like name. Either one set to ``True`` sets the diagonal.
 
     Returns:
         ``(t, t)``: bool for ``mode="connectivity"``, float64 otherwise.

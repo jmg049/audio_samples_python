@@ -79,6 +79,7 @@ if _so_files:
         ("features", features),
         ("rhythm", rhythm),
         ("effects", effects),
+        ("spectrograms", _ext.spectrograms),
     ):
         sys.modules.setdefault(f"audio_samples.{_sub_name}", _sub)
 
@@ -138,6 +139,7 @@ __all__ = [
     "features",
     "rhythm",
     "effects",
+    "spectrograms",
     "mpl",
     # librosa-compatible mu-law codes
     "mu_law_encode",

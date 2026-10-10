@@ -13,7 +13,7 @@ import numpy as np
 from numpy.typing import NDArray, DTypeLike
 import numpy.typing as npt
 
-from spectrograms import (
+from .spectrograms import (
     ChromaParams,
     CqtParams,
     LogParams,
@@ -64,6 +64,7 @@ from . import sequence as sequence
 from . import rhythm as rhythm
 from . import effects as effects
 from . import features as features
+from . import spectrograms as spectrograms
 from .utils import mu_law_encode as mu_law_encode, mu_law_decode as mu_law_decode
 
 #: A window specification accepted by the librosa-compatible functions:
@@ -107,6 +108,7 @@ __all__ = [
     "sequence",
     "rhythm",
     "effects",
+    "spectrograms",
     "features",
     "mu_law_encode",
     "mu_law_decode",

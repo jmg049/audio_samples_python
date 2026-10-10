@@ -673,7 +673,7 @@ fn reject_sparse(sparse: bool) -> PyResult<()> {
 #[pyfunction]
 #[pyo3(
     signature = (data, *, k = None, width = Int(1), metric = "euclidean", sym = false, sparse = false, mode = "connectivity", bandwidth = None, self_links = false, axis = Int(-1), full = false, **kwargs),
-    text_signature = "(data, *, k=None, width=1, metric='euclidean', sym=False, sparse=False, mode='connectivity', bandwidth=None, self=False, axis=-1, full=False)"
+    text_signature = "(data, *, k=None, width=1, metric='euclidean', sym=False, sparse=False, mode='connectivity', bandwidth=None, self=False, axis=-1, full=False, self_links=False)"
 )]
 #[allow(clippy::too_many_arguments)]
 pub fn recurrence_matrix<'py>(

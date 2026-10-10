@@ -131,3 +131,22 @@ def test_hpss_stft_params_keyword_is_a_deprecated_alias():
         a.hpss(p, stft_params=p)
     with pytest.raises(TypeError, match="missing"):
         a.hpss()
+
+
+def test_spectrograms_submodule_importable():
+    from audio_samples.spectrograms import ChromaNorm, StftParams
+
+    assert StftParams is aus.spectrograms.StftParams
+    assert ChromaNorm.l2 is not None
+
+
+def test_recurrence_matrix_signature_lists_self_and_self_links():
+    import inspect
+
+    params = inspect.signature(sequence.recurrence_matrix).parameters
+    assert params["self"].default is False and params["self_links"].default is False
+    X = FEAT
+    np.testing.assert_array_equal(
+        sequence.recurrence_matrix(X, k=5, self_links=True),
+        sequence.recurrence_matrix(X, k=5, **{"self": True}),
+    )
