@@ -372,30 +372,25 @@ class ResamplingQuality:
     """
     Quality level for resampling operations.
 
-    `ResamplingQuality` represents a discrete trade-off between computational
-    cost, latency, and signal fidelity when resampling audio. Instances are
-    immutable and should be treated as enum-like values and accessed via class
-    attributes.
+    Every tier is delay-free (output sample ``k`` is the input reconstructed at
+    time ``k * in_rate / out_rate``) and produces exactly
+    ``ceil(n * out_rate / in_rate)`` samples; the tiers differ in the
+    anti-aliasing / anti-imaging filter (Nyquist of the lower rate). Resampling
+    methods also accept the names ``"fast"``, ``"medium"`` and ``"high"``.
     """
 
     fast: ResamplingQuality
-    """Fast resampling.
-
-    Prioritises throughput and low latency at the cost of reduced spectral
-    fidelity and increased aliasing.
+    """Fast resampling (default of ``AudioSamples.resample``): short windowed
+    sinc (passband 0.80 x Nyquist, 70 dB stopband) when downsampling, linear
+    interpolation (no image suppression) when upsampling.
     """
 
     medium: ResamplingQuality
-    """Medium quality resampling.
-
-    Balanced trade-off between computational cost and signal quality.
-    """
+    """Windowed sinc, passband 0.90 x Nyquist, 100 dB stopband."""
 
     high: ResamplingQuality
-    """High quality resampling.
-
-    Prioritises spectral fidelity and phase stability at the cost of higher
-    computational cost and latency.
+    """Windowed sinc, passband 0.913 x Nyquist, 125 dB stopband; close to
+    ``librosa.resample``'s default ``res_type="soxr_hq"``.
     """
 
     ...

@@ -525,30 +525,48 @@ class AudioSamples:
 
     # AudioProcessing methods
     def resample(
-        self, target_sample_rate: int, quality: "ResamplingQuality" = ...
+        self,
+        target_sample_rate: int,
+        quality: "ResamplingQuality | Literal['fast', 'medium', 'high']" = "fast",
     ) -> AudioSamples:
-        """Resample audio to target sample rate.
+        """Resample to ``target_sample_rate`` (librosa ``resample`` equivalent).
+
+        Delay-free windowed-sinc interpolation: the output is time-aligned with
+        the input, the tail is flushed, and the result has exactly
+        ``ceil(n * target_sample_rate / sample_rate)`` samples per channel.
+        ``"high"`` (passband 0.913 x Nyquist, 125 dB stopband) is close to
+        librosa's default ``soxr_hq``; ``"medium"`` is 0.90 x Nyquist / 100 dB;
+        ``"fast"`` (default) uses a short 0.80 x Nyquist / 70 dB filter when
+        downsampling and linear interpolation when upsampling.
 
         Args:
-            target_sample_rate: Desired output sample rate in hertz
-            quality: Quality preset controlling the resampler
+            target_sample_rate: Output sample rate in Hz (> 0).
+            quality: A ``ResamplingQuality`` or its name. Default ``"fast"``.
 
         Returns:
-            New buffer rendered at the requested sample rate
+            The resampled audio (input sample type kept).
+
+        Raises:
+            ValueError: Non-positive ``target_sample_rate`` or unknown quality name.
         """
         ...
 
     def resample_by_ratio(
-        self, ratio: float, quality: "ResamplingQuality" = ...
+        self,
+        ratio: float,
+        quality: "ResamplingQuality | Literal['fast', 'medium', 'high']" = "fast",
     ) -> AudioSamples:
-        """Resample audio by a multiplicative ratio.
+        """Resample to ``round(sample_rate * ratio)`` Hz; otherwise as ``resample``.
 
         Args:
-            ratio: Factor applied to the original sample rate
-            quality: Quality preset controlling the resampler
+            ratio: Output rate / input rate (> 0).
+            quality: A ``ResamplingQuality`` or its name. Default ``"fast"``.
 
         Returns:
-            New buffer rendered at the scaled sample rate
+            The resampled audio.
+
+        Raises:
+            ValueError: Non-positive ratio or a target rate that rounds to 0.
         """
         ...
 

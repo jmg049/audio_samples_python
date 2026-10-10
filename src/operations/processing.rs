@@ -6,9 +6,37 @@ use pyo3::{exceptions::PyValueError, prelude::*};
 use pyo3::types::PyAnyMethods;
 
 use crate::{
-    PyAudioSamples, audio_err_to_py, dispatch_with_view, nzu32_or_err,
+    PyAudioSamples, audio_err_to_py, dispatch_with_view,
     types::{PyNormalizationMethod, PyResamplingQuality},
 };
+
+/// A resampling quality given as a ``ResamplingQuality`` or by name
+/// (``"fast"``, ``"medium"``, ``"high"``).
+#[derive(Debug, Clone, Copy)]
+pub struct QualityArg(pub PyResamplingQuality);
+
+impl<'a, 'py> FromPyObject<'a, 'py> for QualityArg {
+    type Error = PyErr;
+
+    fn extract(obj: pyo3::Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
+        if let Ok(q) = obj.extract::<PyResamplingQuality>() {
+            return Ok(Self(q));
+        }
+        if let Ok(s) = obj.extract::<String>() {
+            return match s.to_ascii_lowercase().as_str() {
+                "fast" => Ok(Self(PyResamplingQuality::resample_fast())),
+                "medium" => Ok(Self(PyResamplingQuality::resample_mediuem())),
+                "high" => Ok(Self(PyResamplingQuality::resample_high())),
+                other => Err(PyValueError::new_err(format!(
+                    "quality: unknown resampling quality {other:?}; expected 'fast', 'medium' or 'high'"
+                ))),
+            };
+        }
+        Err(pyo3::exceptions::PyTypeError::new_err(
+            "quality must be a ResamplingQuality or one of 'fast', 'medium', 'high'",
+        ))
+    }
+}
 
 #[pymethods]
 impl PyAudioSamples {
@@ -217,24 +245,54 @@ impl PyAudioSamples {
     }
     /// Resample the audio to a new sample rate.
     ///
+    /// A Kaiser-windowed sinc interpolator evaluated at the exact rational
+    /// position of every output sample: the output is time-aligned with the
+    /// input (no filter delay, nothing to trim), the signal is treated as zero
+    /// outside its ends (so the tail is flushed), and the result has exactly
+    /// ``ceil(n * target_sample_rate / sample_rate)`` samples per channel. The
+    /// cut-off sits just below the Nyquist frequency of the lower rate, so
+    /// downsampling is anti-aliased and upsampling anti-imaged. Processing is
+    /// in float64; the result keeps the input's sample type.
+    ///
+    /// Quality tiers (Nyquist of the lower rate):
+    ///
+    /// * ``"fast"`` (default): downsampling with a short windowed sinc
+    ///   (passband 0.80 x Nyquist, 70 dB stopband); upsampling by linear
+    ///   interpolation (images are not suppressed).
+    /// * ``"medium"``: passband 0.90 x Nyquist, 100 dB stopband.
+    /// * ``"high"``: passband 0.913 x Nyquist, 125 dB stopband; close to
+    ///   ``librosa.resample``'s default ``res_type="soxr_hq"`` (agreement
+    ///   above 125 dB SNR on band-limited content, about 50 dB on white noise
+    ///   where the transition bands differ; not bit-identical).
+    ///
     /// Args:
-    ///     target_sample_rate (int): Desired output sample rate in hertz; must be greater than zero.
-    ///     quality (ResamplingQuality): Quality preset controlling the resampler.
+    ///     target_sample_rate (int): Output sample rate in Hz (> 0).
+    ///     quality (ResamplingQuality | str): ``ResamplingQuality.fast`` (default),
+    ///         ``.medium``, ``.high``, or the names ``"fast"``, ``"medium"``,
+    ///         ``"high"``.
     ///
     /// Returns:
-    ///     AudioSamples: New buffer rendered at the requested sample rate.
+    ///     AudioSamples: the resampled audio (a copy when the rates are equal).
     ///
     /// Raises:
-    ///     ValueError: If target_sample_rate is zero.
-    ///     AudioError: If resampling fails.
-    #[pyo3(signature = (target_sample_rate: "int", quality:"ResamplingQuality" = PyResamplingQuality::resample_fast()), text_signature = "($self, target_sample_rate: int, quality: ResamplingQuality) -> AudioSamples")]
+    ///     ValueError: If ``target_sample_rate`` is not a positive integer, or an
+    ///         unknown quality name is given.
+    #[pyo3(signature = (target_sample_rate: "int", quality: "ResamplingQuality | str" = QualityArg(PyResamplingQuality::resample_fast())), text_signature = "($self, target_sample_rate, quality='fast')")]
     pub fn resample(
         &self,
         py: Python<'_>,
-        target_sample_rate: usize,
-        quality: PyResamplingQuality,
+        target_sample_rate: i64,
+        quality: QualityArg,
     ) -> PyResult<Self> {
-        let target_sample_rate = nzu32_or_err(target_sample_rate as u32)?;
+        let target_sample_rate = u32::try_from(target_sample_rate)
+            .ok()
+            .and_then(std::num::NonZeroU32::new)
+            .ok_or_else(|| {
+                PyValueError::new_err(format!(
+                    "target_sample_rate: must be a positive integer, got {target_sample_rate}"
+                ))
+            })?;
+        let quality = quality.0;
         dispatch_with_view!(self, py, |audio| {
             let resampled = audio
                 .resample(target_sample_rate, *quality)
@@ -243,24 +301,30 @@ impl PyAudioSamples {
         })
     }
 
-    /// Resample the audio by a multiplicative ratio.
+    /// Resample the audio by a ratio of sample rates.
+    ///
+    /// The target rate is ``round(sample_rate * ratio)``; the conversion is then
+    /// exactly ``resample(target_rate, quality)`` (delay-free, exactly
+    /// ``ceil(n * target_rate / sample_rate)`` samples; see ``resample`` for the
+    /// quality tiers).
     ///
     /// Args:
-    ///     ratio (float): Factor applied to the original sample rate.
-    ///     quality (ResamplingQuality): Quality preset controlling the resampler.
+    ///     ratio (float): Output rate / input rate (> 0).
+    ///     quality (ResamplingQuality | str): As ``resample``; default ``"fast"``.
     ///
     /// Returns:
-    ///     AudioSamples: New buffer rendered at the scaled sample rate.
+    ///     AudioSamples: the resampled audio at ``round(sample_rate * ratio)`` Hz.
     ///
     /// Raises:
-    ///     AudioError: If resampling fails.
-    #[pyo3(signature = (ratio: "float", quality: "ResamplingQuality" = PyResamplingQuality::resample_fast()), text_signature = "($self, ratio: float, quality: Literal['fast', 'medium', 'high']) -> AudioSamples")]
+    ///     ValueError: If ``ratio`` is not positive or the target rate rounds to 0.
+    #[pyo3(signature = (ratio: "float", quality: "ResamplingQuality | str" = QualityArg(PyResamplingQuality::resample_fast())), text_signature = "($self, ratio, quality='fast')")]
     pub fn resample_by_ratio<'py>(
         &'py self,
         py: Python<'_>,
         ratio: f64,
-        quality: PyResamplingQuality,
+        quality: QualityArg,
     ) -> PyResult<Self> {
+        let quality = quality.0;
         dispatch_with_view!(self, py, |audio| {
             let resampled = audio
                 .resample_by_ratio(ratio, *quality)
@@ -268,7 +332,6 @@ impl PyAudioSamples {
             return Ok(PyAudioSamples::from_audio_samples(resampled));
         })
     }
-
     /// Apply a sample-wise window to the signal.
     ///
     /// Args:

@@ -804,20 +804,22 @@ impl_py_repr!(PyVadConfig);
 
 /// Quality level for resampling operations.
 ///
-/// `ResamplingQuality` represents a discrete trade-off between computational
-/// cost, latency, and signal fidelity when resampling audio. Higher quality
-/// levels provide improved spectral accuracy and reduced aliasing at the cost
-/// of increased computation.
+/// Every tier is delay-free (output sample ``k`` is the input reconstructed
+/// at time ``k * in_rate / out_rate``) and produces exactly
+/// ``ceil(n * out_rate / in_rate)`` samples; the tiers differ in the
+/// anti-aliasing / anti-imaging filter (Nyquist of the lower rate):
 ///
-/// Instances of `ResamplingQuality` are immutable and should be treated as
-/// enum-like values. They are accessed via class attributes rather than being
-/// constructed directly.
+/// - ``ResamplingQuality.fast`` (the default of ``AudioSamples.resample``):
+///   short windowed sinc when downsampling (passband 0.80 x Nyquist, 70 dB
+///   stopband); linear interpolation when upsampling (images not suppressed).
+/// - ``ResamplingQuality.medium``: windowed sinc, passband 0.90 x Nyquist,
+///   100 dB stopband.
+/// - ``ResamplingQuality.high``: windowed sinc, passband 0.913 x Nyquist,
+///   125 dB stopband; close to ``librosa.resample``'s default ``soxr_hq``.
 ///
-/// Available quality levels:
-///
-/// - ``ResamplingQuality.fast``
-/// - ``ResamplingQuality.medium``
-/// - ``ResamplingQuality.high``
+/// Instances are immutable enum-like values accessed via the class
+/// attributes; resampling methods also accept the names ``"fast"``,
+/// ``"medium"`` and ``"high"``.
 #[pyclass(
     name = "ResamplingQuality",
     from_py_object,
@@ -853,10 +855,8 @@ impl PyResamplingQuality {
 
 #[pymethods]
 impl PyResamplingQuality {
-    /// Fast resampling.
-    ///
-    /// Prioritises throughput and low latency at the cost of reduced spectral
-    /// fidelity and increased aliasing.
+    /// Fast resampling: short windowed sinc (passband 0.80 x Nyquist, 70 dB
+    /// stopband) when downsampling, linear interpolation when upsampling.
     #[classattr]
     fn fast() -> Self {
         PyResamplingQuality {
@@ -864,9 +864,8 @@ impl PyResamplingQuality {
         }
     }
 
-    /// Medium quality resampling.
-    ///
-    /// Balanced trade-off between computational cost and signal quality.
+    /// Medium quality resampling: windowed sinc, passband 0.90 x Nyquist,
+    /// 100 dB stopband.
     #[classattr]
     fn medium() -> Self {
         PyResamplingQuality {
@@ -874,10 +873,8 @@ impl PyResamplingQuality {
         }
     }
 
-    /// High quality resampling.
-    ///
-    /// Prioritises spectral fidelity and phase stability at the cost of higher
-    /// computational cost and latency.
+    /// High quality resampling: windowed sinc, passband 0.913 x Nyquist,
+    /// 125 dB stopband (close to librosa's default ``soxr_hq``).
     #[classattr]
     fn high() -> Self {
         PyResamplingQuality {

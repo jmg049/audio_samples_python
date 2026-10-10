@@ -303,6 +303,8 @@ pub fn save(
 /// Read an audio file and resample it to a target sample rate in one call.
 ///
 /// Reads the entire file (auto-detecting WAV/FLAC), then resamples to ``target_sr``.
+/// The resampler is the same as ``AudioSamples.resample``: delay-free, exactly
+/// ``ceil(n * target_sr / file_sr)`` samples per channel.
 ///
 /// Args:
 ///     fp (str | Path): Path to the audio file.
