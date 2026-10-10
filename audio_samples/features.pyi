@@ -43,11 +43,20 @@ are ``AudioSamples`` methods (``spectral_centroid_frames``, ``chroma_stft``,
 ``audio_samples.utils`` (``hz_to_octs``, ``cqt_frequencies``,
 ``key_to_notes``, ...).
 
-Inputs may be any array-like (converted to float64); outputs are new float64
-(complex128 for ``wavelet``) arrays. Shapes follow librosa: a 2-D ``(F, T)``
-spectrogram gives 2-D output and a 3-D ``(channels, F, T)`` spectrogram 3-D
-output (a 1-D / 2-D signal for ``yin`` / ``pyin``). Filterbanks are always
-float64 (librosa defaults to float32 / complex64).
+float32 / complex64 NumPy arrays are processed in float32 and give float32 /
+complex64 output; any other array-like (lists, integer, float16 or float64
+arrays) is converted to float64 and gives float64 / complex128 output.
+Shapes follow librosa: a 2-D ``(F, T)`` spectrogram gives 2-D output and a 3-D
+``(channels, F, T)`` spectrogram 3-D output (a 1-D / 2-D signal for ``yin`` /
+``pyin``). Filterbanks, wavelets and frequency weightings are float64 /
+complex128 tables (librosa defaults to float32 / complex64).
+
+``sr`` is required wherever librosa defaults it to 22050, and ``pcen`` also
+requires ``hop_length`` (librosa: 512). Other defaults are librosa 1.0.0's,
+except ``tuning=0.0`` in ``chroma_stft_from_spectrogram`` (librosa: None,
+estimated), ``top_db=None`` in ``perceptual_weighting`` (librosa: 80) and
+``min_db=None`` in ``frequency_weighting`` / ``multi_frequency_weighting``
+(librosa: -80).
 """
 
 from __future__ import annotations
@@ -73,8 +82,8 @@ WeightingKind = Literal["A", "B", "C", "D", "Z", "a", "b", "c", "d", "z"]
 # ---------------------------------------------------------------------------
 
 def spectral_centroid_from_spectrogram(
-    S: npt.ArrayLike, *, sr: float = 22050, freq: Optional[npt.ArrayLike] = None
-) -> NDArray[np.float64]:
+    S: npt.ArrayLike, *, sr: float, freq: Optional[npt.ArrayLike] = None
+) -> NDArray[np.floating]:
     """Spectral centroid per frame, ``librosa.feature.spectral_centroid(S=S, sr=sr, freq=freq)``.
 
     Args:
@@ -84,7 +93,7 @@ def spectral_centroid_from_spectrogram(
             Time-varying 2-D ``freq`` (accepted by librosa) is not supported.
 
     Returns:
-        numpy.ndarray[float64], shape ``(1, T)`` or ``(channels, 1, T)`` in Hz.
+        numpy.ndarray[float32 | float64], shape ``(1, T)`` or ``(channels, 1, T)`` in Hz.
 
     Raises:
         ValueError: Negative / non-finite ``S`` or a ``freq`` of the wrong length.
@@ -94,12 +103,12 @@ def spectral_centroid_from_spectrogram(
 def spectral_bandwidth_from_spectrogram(
     S: npt.ArrayLike,
     *,
-    sr: float = 22050,
+    sr: float,
     freq: Optional[npt.ArrayLike] = None,
     centroid: Optional[npt.ArrayLike] = None,
     norm: bool = True,
     p: float = 2.0,
-) -> NDArray[np.float64]:
+) -> NDArray[np.floating]:
     """Order-``p`` spectral bandwidth per frame, ``librosa.feature.spectral_bandwidth(S=S, ...)``.
 
     Args:
@@ -111,17 +120,17 @@ def spectral_bandwidth_from_spectrogram(
         p: Order of the deviation (finite, non-zero).
 
     Returns:
-        numpy.ndarray[float64], shape ``(1, T)`` or ``(channels, 1, T)`` in Hz.
+        numpy.ndarray[float32 | float64], shape ``(1, T)`` or ``(channels, 1, T)`` in Hz.
     """
     ...
 
 def spectral_rolloff_from_spectrogram(
-    S: npt.ArrayLike, *, sr: float = 22050, freq: Optional[npt.ArrayLike] = None, roll_percent: float = 0.85
-) -> NDArray[np.float64]:
+    S: npt.ArrayLike, *, sr: float, freq: Optional[npt.ArrayLike] = None, roll_percent: float = 0.85
+) -> NDArray[np.floating]:
     """Roll-off frequency per frame, ``librosa.feature.spectral_rolloff(S=S, ...)``.
 
     Returns:
-        numpy.ndarray[float64], shape ``(1, T)`` or ``(channels, 1, T)`` in Hz.
+        numpy.ndarray[float32 | float64], shape ``(1, T)`` or ``(channels, 1, T)`` in Hz.
 
     Raises:
         ValueError: ``roll_percent`` outside ``(0, 1)`` or invalid ``S``.
@@ -130,7 +139,7 @@ def spectral_rolloff_from_spectrogram(
 
 def spectral_flatness_from_spectrogram(
     S: npt.ArrayLike, *, amin: float = 1e-10, power: float = 2.0
-) -> NDArray[np.float64]:
+) -> NDArray[np.floating]:
     """Spectral flatness per frame, ``librosa.feature.spectral_flatness(S=S, amin=amin, power=power)``.
 
     Args:
@@ -139,24 +148,24 @@ def spectral_flatness_from_spectrogram(
         power: Exponent applied to ``S``.
 
     Returns:
-        numpy.ndarray[float64], shape ``(1, T)`` or ``(channels, 1, T)``, values in ``[0, 1]``.
+        numpy.ndarray[float32 | float64], shape ``(1, T)`` or ``(channels, 1, T)``, values in ``[0, 1]``.
     """
     ...
 
 def spectral_contrast_from_spectrogram(
     S: npt.ArrayLike,
     *,
-    sr: float = 22050,
+    sr: float,
     freq: Optional[npt.ArrayLike] = None,
     fmin: float = 200.0,
     n_bands: int = 6,
     quantile: float = 0.02,
     linear: bool = False,
-) -> NDArray[np.float64]:
+) -> NDArray[np.floating]:
     """Octave-band spectral contrast, ``librosa.feature.spectral_contrast(S=S, ...)``.
 
     Returns:
-        numpy.ndarray[float64], shape ``(n_bands + 1, T)`` or ``(channels, n_bands + 1, T)``
+        numpy.ndarray[float32 | float64], shape ``(n_bands + 1, T)`` or ``(channels, n_bands + 1, T)``
         (dB differences, or linear differences with ``linear=True``).
 
     Raises:
@@ -165,17 +174,17 @@ def spectral_contrast_from_spectrogram(
     ...
 
 def poly_features_from_spectrogram(
-    S: npt.ArrayLike, *, sr: float = 22050, freq: Optional[npt.ArrayLike] = None, order: int = 1
-) -> NDArray[np.float64]:
+    S: npt.ArrayLike, *, sr: float, freq: Optional[npt.ArrayLike] = None, order: int = 1
+) -> NDArray[np.floating]:
     """Polynomial fit per frame, ``librosa.feature.poly_features(S=S, ...)``.
 
     Returns:
-        numpy.ndarray[float64], shape ``(order + 1, T)`` or ``(channels, order + 1, T)``,
+        numpy.ndarray[float32 | float64], shape ``(order + 1, T)`` or ``(channels, order + 1, T)``,
         highest power first (as ``numpy.polyfit``).
     """
     ...
 
-def rms_from_spectrogram(S: npt.ArrayLike, *, frame_length: int = 2048) -> NDArray[np.float64]:
+def rms_from_spectrogram(S: npt.ArrayLike, *, frame_length: int = 2048) -> NDArray[np.floating]:
     """RMS per frame from STFT magnitudes (Parseval), ``librosa.feature.rms(S=S, frame_length=...)``.
 
     Args:
@@ -183,7 +192,7 @@ def rms_from_spectrogram(S: npt.ArrayLike, *, frame_length: int = 2048) -> NDArr
         frame_length: FFT length used for ``S``.
 
     Returns:
-        numpy.ndarray[float64], shape ``(1, T)`` or ``(channels, 1, T)``
+        numpy.ndarray[float32 | float64], shape ``(1, T)`` or ``(channels, 1, T)``
         (librosa's default dtype is float32).
     """
     ...
@@ -191,8 +200,8 @@ def rms_from_spectrogram(S: npt.ArrayLike, *, frame_length: int = 2048) -> NDArr
 def pcen(
     S: npt.ArrayLike,
     *,
-    sr: float = 22050,
-    hop_length: int = 512,
+    sr: float,
+    hop_length: int,
     gain: float = 0.98,
     bias: float = 2.0,
     power: float = 0.5,
@@ -221,7 +230,7 @@ def pcen(
         return_zf: Also return the final state.
 
     Returns:
-        numpy.ndarray[float64] shaped like ``S``; with ``return_zf=True`` a tuple
+        numpy.ndarray[float32 | float64] shaped like ``S``; with ``return_zf=True`` a tuple
         ``(pcen, zf)`` with ``zf`` of shape ``(..., F, 1)``.
     """
     ...
@@ -248,7 +257,7 @@ def z_weighting(frequencies: npt.ArrayLike, *, min_db: Optional[float] = -80.0) 
     ...
 
 def frequency_weighting(
-    frequencies: npt.ArrayLike, *, kind: WeightingKind = "A", min_db: Optional[float] = -80.0
+    frequencies: npt.ArrayLike, *, kind: WeightingKind = "A", min_db: Optional[float] = None
 ) -> Any:
     """Weighting curve by name, ``librosa.frequency_weighting``.
 
@@ -264,7 +273,7 @@ def multi_frequency_weighting(
     frequencies: npt.ArrayLike,
     *,
     kinds: Union[str, Sequence[str]] = "ZAC",
-    min_db: Optional[float] = -80.0,
+    min_db: Optional[float] = None,
 ) -> NDArray[np.float64]:
     """Stacked weighting curves, ``librosa.multi_frequency_weighting``.
 
@@ -280,8 +289,8 @@ def perceptual_weighting(
     kind: WeightingKind = "A",
     ref: DbRef = 1.0,
     amin: float = 1e-10,
-    top_db: Optional[float] = 80.0,
-) -> NDArray[np.float64]:
+    top_db: Optional[float] = None,
+) -> NDArray[np.floating]:
     """``power_to_db(S, ref, amin, top_db) + weighting(frequencies)``, ``librosa.perceptual_weighting``.
 
     Args:
@@ -289,7 +298,7 @@ def perceptual_weighting(
         frequencies: 1-D bin frequencies (length ``F``).
 
     Returns:
-        numpy.ndarray[float64] shaped like ``S`` (dB).
+        numpy.ndarray[float32 | float64] shaped like ``S`` (dB).
     """
     ...
 
@@ -322,7 +331,7 @@ def normalize(
     axis: Optional[int] = 0,
     threshold: Optional[float] = None,
     fill: Optional[bool] = None,
-) -> NDArray[np.float64]:
+) -> NDArray[np.floating]:
     """Unit-norm slices along an axis, ``librosa.util.normalize``.
 
     Args:
@@ -333,7 +342,7 @@ def normalize(
         fill: Small slices: None = unchanged, False = zero, True = unit-norm constant.
 
     Returns:
-        numpy.ndarray[float64] of the same shape.
+        numpy.ndarray[float32 | float64] of the same shape.
 
     Raises:
         ValueError: Invalid norm / threshold / axis, ``fill=True`` with ``norm=0``,
@@ -352,37 +361,38 @@ def pitch_tuning(frequencies: npt.ArrayLike, *, resolution: float = 0.01, bins_p
 def chroma_stft_from_spectrogram(
     S: npt.ArrayLike,
     *,
-    sr: float = 22050,
+    sr: float,
     norm: Optional[float] = np.inf,
     n_fft: Optional[int] = None,
-    tuning: Optional[float] = None,
+    tuning: Optional[float] = 0.0,
     n_chroma: int = 12,
     ctroct: float = 5.0,
     octwidth: Optional[float] = 2.0,
     base_c: bool = True,
-) -> NDArray[np.float64]:
-    """Chromagram of a (power) spectrogram, ``librosa.feature.chroma_stft(S=S, ..., dtype=numpy.float64)``.
+) -> NDArray[np.floating]:
+    """Chromagram of a (power) spectrogram, ``librosa.feature.chroma_stft(S=S, ...)``.
 
     Args:
         S: Power spectrogram ``(1 + n_fft // 2, T)`` or ``(channels, ...)``.
         n_fft: None infers ``2 * (F - 1)``.
-        tuning: None estimates it from ``S`` (as librosa).
+        tuning: Tuning offset in fractions of a chroma bin. Default 0.0; None
+            estimates it from ``S`` (librosa's default).
 
     Returns:
-        numpy.ndarray[float64], shape ``(n_chroma, T)`` or ``(channels, n_chroma, T)``.
+        numpy.ndarray[float32 | float64], shape ``(n_chroma, T)`` or ``(channels, n_chroma, T)``.
     """
     ...
 
 def piptrack_from_spectrogram(
     S: npt.ArrayLike,
     *,
-    sr: float = 22050,
+    sr: float,
     n_fft: Optional[int] = None,
     fmin: float = 150.0,
     fmax: float = 4000.0,
     threshold: float = 0.1,
     ref: Union[None, float, Callable[..., Any], Literal["max", "mean"]] = None,
-) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+) -> tuple[NDArray[np.floating], NDArray[np.floating]]:
     """Spectral peak tracking, ``librosa.piptrack(S=S, ...)``.
 
     Args:
@@ -390,14 +400,15 @@ def piptrack_from_spectrogram(
             number (absolute threshold).
 
     Returns:
-        ``(pitches, magnitudes)``, both float64 and shaped like ``S``.
+        ``(pitches, magnitudes)``, both shaped like ``S``, in ``S``'s precision
+        (float32 for a float32 ``S``, float64 otherwise).
     """
     ...
 
 def estimate_tuning_from_spectrogram(
     S: npt.ArrayLike,
     *,
-    sr: float = 22050,
+    sr: float,
     n_fft: Optional[int] = None,
     resolution: float = 0.01,
     bins_per_octave: int = 12,
@@ -416,7 +427,7 @@ def estimate_tuning_from_spectrogram(
 def estimate_tuning_from_signal(
     y: npt.ArrayLike,
     *,
-    sr: float = 22050,
+    sr: float,
     n_fft: int = 2048,
     resolution: float = 0.01,
     bins_per_octave: int = 12,
@@ -462,7 +473,7 @@ def cq_to_chroma(
 def wavelet_lengths(
     *,
     freqs: npt.ArrayLike,
-    sr: float = 22050,
+    sr: float,
     window: WindowSpec = "hann",
     filter_scale: float = 1.0,
     gamma: Optional[float] = 0.0,
@@ -478,7 +489,7 @@ def wavelet_lengths(
 def wavelet(
     *,
     freqs: npt.ArrayLike,
-    sr: float = 22050,
+    sr: float,
     window: WindowSpec = "hann",
     filter_scale: float = 1.0,
     pad_fft: bool = True,
@@ -500,7 +511,7 @@ def chroma_cens_from_chroma(
     norm: Optional[float] = 2.0,
     win_len_smooth: Optional[int] = 41,
     smoothing_window: WindowSpec = "hann",
-) -> NDArray[np.float64]:
+) -> NDArray[np.floating]:
     """CENS post-processing of a chromagram (the second half of ``librosa.feature.chroma_cens``).
 
     Args:
@@ -508,15 +519,15 @@ def chroma_cens_from_chroma(
             with ``chroma_cqt(norm=None, threshold=0)``.
 
     Returns:
-        numpy.ndarray[float64] shaped like ``chroma``.
+        numpy.ndarray[float32 | float64] shaped like ``chroma``.
     """
     ...
 
-def tonnetz_from_chroma(chroma: npt.ArrayLike) -> NDArray[np.float64]:
+def tonnetz_from_chroma(chroma: npt.ArrayLike) -> NDArray[np.floating]:
     """Tonal centroid features, ``librosa.feature.tonnetz(chroma=chroma)``.
 
     Returns:
-        numpy.ndarray[float64], shape ``(6, T)`` or ``(channels, 6, T)``.
+        numpy.ndarray[float32 | float64], shape ``(6, T)`` or ``(channels, 6, T)``.
     """
     ...
 
@@ -529,17 +540,17 @@ def yin(
     *,
     fmin: float,
     fmax: float,
-    sr: float = 22050,
+    sr: float,
     frame_length: int = 2048,
     hop_length: Optional[int] = None,
     trough_threshold: float = 0.1,
     center: bool = True,
     pad_mode: PadMode = "constant",
-) -> NDArray[np.float64]:
+) -> NDArray[np.floating]:
     """YIN f0 per frame, ``librosa.yin``.
 
     Returns:
-        numpy.ndarray[float64] in Hz, shape ``(n_frames,)`` or ``(channels, n_frames)``.
+        numpy.ndarray[float32 | float64] in Hz, shape ``(n_frames,)`` or ``(channels, n_frames)``.
     """
     ...
 
@@ -548,7 +559,7 @@ def pyin(
     *,
     fmin: float,
     fmax: float,
-    sr: float = 22050,
+    sr: float,
     frame_length: int = 2048,
     hop_length: Optional[int] = None,
     n_thresholds: int = 100,
@@ -562,7 +573,7 @@ def pyin(
     center: bool = True,
     pad_mode: PadMode = "constant",
     transition_min_prob: Optional[float] = 1e-4,
-) -> tuple[NDArray[np.float64], NDArray[np.bool_], NDArray[np.float64]]:
+) -> tuple[NDArray[np.floating], NDArray[np.bool_], NDArray[np.floating]]:
     """Probabilistic YIN, ``librosa.pyin``.
 
     Args:
@@ -584,7 +595,7 @@ def salience(
     fill_value: float = np.nan,
     kind: Literal["linear"] = "linear",
     axis: int = -2,
-) -> NDArray[np.float64]:
+) -> NDArray[np.floating]:
     """Harmonic salience, ``librosa.salience``.
 
     Args:
@@ -594,7 +605,7 @@ def salience(
             ``numpy.sum``, ``numpy.max``, ``numpy.min``, ``numpy.median``.
 
     Returns:
-        numpy.ndarray[float64] shaped like ``S``.
+        numpy.ndarray[float32 | float64] shaped like ``S``.
     """
     ...
 
@@ -606,11 +617,11 @@ def interp_harmonics(
     kind: Literal["linear"] = "linear",
     fill_value: float = 0,
     axis: int = -2,
-) -> NDArray[np.float64]:
+) -> NDArray[np.floating]:
     """Energy interpolated at harmonics of every bin, ``librosa.interp_harmonics``.
 
     Returns:
-        numpy.ndarray[float64], shape ``(len(harmonics), F, T)`` or
+        numpy.ndarray[float32 | float64], shape ``(len(harmonics), F, T)`` or
         ``(channels, len(harmonics), F, T)``.
     """
     ...
@@ -624,14 +635,14 @@ def f0_harmonics(
     kind: Literal["linear"] = "linear",
     fill_value: float = 0,
     axis: int = -2,
-) -> NDArray[np.float64]:
+) -> NDArray[np.floating]:
     """Energy at the harmonics of a time-varying f0, ``librosa.f0_harmonics``.
 
     Args:
         f0: ``(T,)`` or ``(channels, T)``; NaN frames get ``fill_value``.
 
     Returns:
-        numpy.ndarray[float64], shape ``(len(harmonics), T)`` or ``(channels, len(harmonics), T)``.
+        numpy.ndarray[float32 | float64], shape ``(len(harmonics), T)`` or ``(channels, len(harmonics), T)``.
     """
     ...
 

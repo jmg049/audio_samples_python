@@ -304,24 +304,28 @@ def time_to_samples(
 ) -> Any:
     """``int(t * sample_rate)`` truncated toward zero, like ``librosa.time_to_samples``.
 
-    ``sample_rate`` defaults to 22050; ``sr`` is librosa's name for it (give at
-    most one, both is a ``TypeError``).
+    Give ``sample_rate`` or its librosa name ``sr`` (exactly one; librosa
+    defaults to 22050). Neither or both is a ``TypeError``.
 
     Returns:
         int for scalar input, otherwise numpy.ndarray[int64] of the same shape.
     """
     ...
 
-def samples_to_frames(samples: npt.ArrayLike, *, hop_length: int = 512, n_fft: Optional[int] = None) -> Any:
+def samples_to_frames(samples: npt.ArrayLike, *, hop_length: int, n_fft: Optional[int] = None) -> Any:
     """``floor((samples - n_fft // 2) / hop_length)``, like ``librosa.samples_to_frames``.
 
+    ``hop_length`` is required (librosa defaults to 512).
+
     Returns:
         int for scalar input, otherwise numpy.ndarray[int64] of the same shape.
     """
     ...
 
-def frames_to_samples(frames: npt.ArrayLike, *, hop_length: int = 512, n_fft: Optional[int] = None) -> Any:
+def frames_to_samples(frames: npt.ArrayLike, *, hop_length: int, n_fft: Optional[int] = None) -> Any:
     """``frames * hop_length + n_fft // 2``, like ``librosa.frames_to_samples``.
+
+    ``hop_length`` is required (librosa defaults to 512).
 
     Returns:
         int for scalar input, otherwise numpy.ndarray[int64] of the same shape.
@@ -332,14 +336,15 @@ def time_to_frames_floor(
     times: npt.ArrayLike,
     *,
     sample_rate: Optional[float] = None,
-    hop_length: int = 512,
+    hop_length: int,
     n_fft: Optional[int] = None,
     sr: Optional[float] = None,
 ) -> Any:
     """The frame containing each time, exactly ``librosa.time_to_frames``
     (truncate to samples, then floor-divide; negatives kept).
 
-    ``sample_rate`` defaults to 22050; ``sr`` is librosa's name for it.
+    Give ``sample_rate`` or its librosa name ``sr`` (exactly one; librosa
+    defaults to 22050). ``hop_length`` is required (librosa defaults to 512).
 
     Returns:
         int for scalar input, otherwise numpy.ndarray[int64] of the same shape.
@@ -350,7 +355,7 @@ def times_like(
     X: Union[int, npt.ArrayLike],
     *,
     sample_rate: Optional[float] = None,
-    hop_length: int = 512,
+    hop_length: int,
     n_fft: Optional[int] = None,
     axis: int = -1,
     sr: Optional[float] = None,
@@ -358,14 +363,16 @@ def times_like(
     """Frame times in seconds for ``X`` frames (an int, or an array whose
     ``axis`` is time), like ``librosa.times_like``. Shape ``(n_frames,)``.
 
-    ``sample_rate`` defaults to 22050; ``sr`` is librosa's name for it."""
+    Give ``sample_rate`` or its librosa name ``sr`` (exactly one; librosa
+    defaults to 22050). ``hop_length`` is required (librosa defaults to 512)."""
     ...
 
 def samples_like(
-    X: Union[int, npt.ArrayLike], *, hop_length: int = 512, n_fft: Optional[int] = None, axis: int = -1
+    X: Union[int, npt.ArrayLike], *, hop_length: int, n_fft: Optional[int] = None, axis: int = -1
 ) -> NDArray[np.int64]:
     """Frame sample indices, like ``librosa.samples_like`` (``axis`` is the time
-    axis of an array ``X``). Shape ``(n_frames,)``."""
+    axis of an array ``X``). Shape ``(n_frames,)``. ``hop_length`` is required
+    (librosa defaults to 512)."""
     ...
 
 # =============================================================================

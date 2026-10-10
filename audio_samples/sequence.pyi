@@ -5,7 +5,10 @@ Feature matrices use librosa's layout ``(n_features, n_frames)``; 1-D input is
 one feature. Probability matrices are ``(n_states, n_steps)``. Return values
 follow librosa: tuples only when ``backtrack`` / ``return_steps`` /
 ``return_logp`` ask for them. Index outputs are int64 (librosa: uint16 states,
-intp paths). Defaults are librosa 1.0.0's.
+intp paths). Defaults are librosa 1.0.0's. Float outputs keep the input's
+precision: a float32 array gives float32 costs, scores and matrices (librosa
+accumulates in float64), any other input float64. Transition matrices are
+float64.
 
 Differences from librosa: dense output only (``sparse=True`` raises), only
 ``axis=-1``; ``sync`` with an empty index list returns one segment; ``rqa``
@@ -53,7 +56,7 @@ def dtw(
     ``C`` ``(N, M)``.
 
     Returns:
-        ``D`` (numpy.ndarray[float64] ``(N, M)``, unreachable cells ``inf``) when
+        ``D`` (numpy.ndarray[float32 | float64] ``(N, M)``, unreachable cells ``inf``) when
         ``backtrack=False``; otherwise ``(D, wp)`` with ``wp`` an int64
         ``(path_length, 2)`` array ordered from the end of the alignment to the
         start; ``return_steps=True`` appends the int64 step matrix.
@@ -175,7 +178,7 @@ def rqa(
     """Recurrence quantification analysis (``librosa.sequence.rqa``).
 
     Returns:
-        ``score`` (numpy.ndarray[float64], shape of ``sim``) or ``(score, path)``
+        ``score`` (numpy.ndarray[float32 | float64], shape of ``sim``) or ``(score, path)``
         with ``path`` an int64 ``(length, 2)`` array from start to end.
     """
     ...
@@ -248,7 +251,7 @@ def sync(
     aggregate: Union[None, str, Callable[..., Any]] = None,
     pad: bool = True,
     axis: int = -1,
-) -> NDArray[np.float64]:
+) -> NDArray[np.floating]:
     """Aggregate frames between boundaries (``librosa.util.sync``, last axis).
 
     Args:
@@ -257,7 +260,7 @@ def sync(
             callable ``f(x, axis=-1)`` returning a float for a 1-D segment.
 
     Returns:
-        numpy.ndarray[float64]: ``data`` with the last axis replaced by one entry
+        numpy.ndarray[float32 | float64]: ``data`` with the last axis replaced by one entry
         per segment.
     """
     ...

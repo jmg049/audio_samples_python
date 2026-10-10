@@ -4,10 +4,13 @@ Free functions mirroring ``librosa.stft`` / ``istft``, the dB conversions,
 ``librosa.filters.mel`` / ``get_window`` / ``window_sumsquare`` /
 ``window_bandwidth``, ``librosa.feature.delta`` / ``stack_memory`` /
 ``melspectrogram(S=...)`` / ``mfcc(S=...)`` and ``librosa.util.frame``.
-Defaults are librosa 1.0.0's. Inputs may be any array-like (lists, integer or
-float32 arrays are converted to float64); outputs are new float64 /
-complex128 arrays. Array shapes follow librosa: a 1-D signal gives a 2-D STFT
-and a ``(channels, n)`` signal a ``(channels, F, T)`` STFT.
+Defaults are librosa 1.0.0's, except that ``power_to_db`` and
+``amplitude_to_db`` default to ``top_db=None`` (librosa: 80). float32 / complex64 NumPy arrays are processed in float32 and give float32 /
+complex64 output; any other array-like (lists, integer, float16 or float64
+arrays) is converted to float64 and gives float64 / complex128 output.
+The mel filterbank and windows are float64 tables. Array shapes follow
+librosa: a 1-D signal gives a 2-D STFT and a ``(channels, n)`` signal a
+``(channels, F, T)`` STFT.
 
 For the same analysis directly on audio see ``AudioSamples.stft_matrix``,
 ``melspectrogram`` and ``mfcc_frames``, which always return
@@ -43,7 +46,7 @@ def stft(
     window: WindowSpec = "hann",
     center: bool = True,
     pad_mode: PadMode = "constant",
-) -> NDArray[np.complex128]:
+) -> NDArray[np.complexfloating]:
     """Short-time Fourier transform, equivalent to ``librosa.stft``.
 
     Args:
@@ -56,7 +59,7 @@ def stft(
         pad_mode: Padding mode when centred.
 
     Returns:
-        numpy.ndarray[complex128]: shape ``(1 + n_fft // 2, n_frames)`` for 1-D
+        numpy.ndarray[complex64 | complex128]: shape ``(1 + n_fft // 2, n_frames)`` for 1-D
         input or ``(channels, 1 + n_fft // 2, n_frames)`` for 2-D input.
 
     Raises:
@@ -73,7 +76,7 @@ def istft(
     window: WindowSpec = "hann",
     center: bool = True,
     length: Optional[int] = None,
-) -> NDArray[np.float64]:
+) -> NDArray[np.floating]:
     """Inverse STFT, equivalent to ``librosa.istft``.
 
     Args:
@@ -87,7 +90,7 @@ def istft(
         length: Exact output length (pass the original length).
 
     Returns:
-        numpy.ndarray[float64]: shape ``(n,)`` for 2-D input, ``(channels, n)`` for 3-D.
+        numpy.ndarray[float32 | float64]: shape ``(n,)`` for 2-D input, ``(channels, n)`` for 3-D.
 
     Raises:
         ValueError: Invalid parameters or a bin count that does not match ``n_fft``.
@@ -95,7 +98,7 @@ def istft(
     ...
 
 def power_to_db(
-    S: npt.ArrayLike, *, ref: DbRef = 1.0, amin: float = 1e-10, top_db: Optional[float] = 80.0,
+    S: npt.ArrayLike, *, ref: DbRef = 1.0, amin: float = 1e-10, top_db: Optional[float] = None,
     axes: Optional[Literal["auto"]] = "auto",
 ) -> Any:
     """Power to decibels, equivalent to ``librosa.power_to_db``.
@@ -113,7 +116,7 @@ def power_to_db(
             separately; None: the whole array.
 
     Returns:
-        float for scalar input, otherwise numpy.ndarray[float64] of ``S``'s shape.
+        float for scalar input, otherwise numpy.ndarray[float32 | float64] of ``S``'s shape.
 
     Raises:
         ValueError: ``amin <= 0`` or ``top_db < 0``.
@@ -122,7 +125,7 @@ def power_to_db(
     ...
 
 def amplitude_to_db(
-    S: npt.ArrayLike, *, ref: DbRef = 1.0, amin: float = 1e-5, top_db: Optional[float] = 80.0,
+    S: npt.ArrayLike, *, ref: DbRef = 1.0, amin: float = 1e-5, top_db: Optional[float] = None,
     axes: Optional[Literal["auto"]] = "auto",
 ) -> Any:
     """Amplitude to decibels, equivalent to ``librosa.amplitude_to_db``.
@@ -131,7 +134,7 @@ def amplitude_to_db(
     Complex input is replaced by its magnitude.
 
     Returns:
-        float for scalar input, otherwise numpy.ndarray[float64] of ``S``'s shape.
+        float for scalar input, otherwise numpy.ndarray[float32 | float64] of ``S``'s shape.
 
     Raises:
         ValueError: ``amin <= 0`` or ``top_db < 0``.
@@ -140,12 +143,12 @@ def amplitude_to_db(
 
 def db_to_power(S_db: npt.ArrayLike, *, ref: float = 1.0) -> Any:
     """``ref * 10 ** (S_db / 10)`` (``librosa.db_to_power``); float for scalar
-    input, otherwise numpy.ndarray[float64] of the same shape."""
+    input, otherwise numpy.ndarray[float32 | float64] of the same shape."""
     ...
 
 def db_to_amplitude(S_db: npt.ArrayLike, *, ref: float = 1.0) -> Any:
     """``sqrt(ref ** 2 * 10 ** (S_db / 10))`` (``librosa.db_to_amplitude``);
-    float for scalar input, otherwise numpy.ndarray[float64] of the same shape."""
+    float for scalar input, otherwise numpy.ndarray[float32 | float64] of the same shape."""
     ...
 
 def mel_filterbank(
@@ -220,11 +223,11 @@ def delta(
     order: int = 1,
     axis: int = -1,
     mode: Literal["interp", "nearest", "mirror", "constant", "wrap"] = "interp",
-) -> NDArray[np.float64]:
+) -> NDArray[np.floating]:
     """Savitzky-Golay delta features, equivalent to ``librosa.feature.delta``.
 
     Returns:
-        numpy.ndarray[float64] with the shape of ``data``.
+        numpy.ndarray[float32 | float64] with the shape of ``data``.
 
     Raises:
         ValueError: Even/too small ``width``, ``order`` outside ``1..width-1``,
@@ -232,7 +235,7 @@ def delta(
     """
     ...
 
-def stack_memory(data: npt.ArrayLike, *, n_steps: int = 2, delay: int = 1) -> NDArray[np.float64]:
+def stack_memory(data: npt.ArrayLike, *, n_steps: int = 2, delay: int = 1) -> NDArray[np.floating]:
     """Stack delayed copies (zero padded), equivalent to ``librosa.feature.stack_memory``.
 
     Args:
@@ -241,15 +244,15 @@ def stack_memory(data: npt.ArrayLike, *, n_steps: int = 2, delay: int = 1) -> ND
         delay: Frame delay between copies (non-zero; negative looks ahead).
 
     Returns:
-        numpy.ndarray[float64], shape ``(..., d * n_steps, t)``.
+        numpy.ndarray[float32 | float64], shape ``(..., d * n_steps, t)``.
     """
     ...
 
-def frame(x: npt.ArrayLike, *, frame_length: int, hop_length: int) -> NDArray[np.float64]:
+def frame(x: npt.ArrayLike, *, frame_length: int, hop_length: int) -> NDArray[np.floating]:
     """Overlapping frames of a 1-D signal (a copy), equivalent to ``librosa.util.frame``.
 
     Returns:
-        numpy.ndarray[float64], shape
+        numpy.ndarray[float32 | float64], shape
         ``(frame_length, 1 + (len(x) - frame_length) // hop_length)``.
 
     Raises:
@@ -267,7 +270,7 @@ def melspectrogram_from_spectrogram(
     fmax: Optional[float] = None,
     htk: bool = False,
     norm: MelNorm = "slaney",
-) -> NDArray[np.float64]:
+) -> NDArray[np.floating]:
     """Mel projection of a spectrogram, equivalent to
     ``librosa.feature.melspectrogram(S=S, sr=sr, n_fft=n_fft, ...)``.
 
@@ -276,7 +279,7 @@ def melspectrogram_from_spectrogram(
         n_fft: None infers ``2 * (F - 1)``.
 
     Returns:
-        numpy.ndarray[float64], shape ``(n_mels, T)`` or ``(channels, n_mels, T)``.
+        numpy.ndarray[float32 | float64], shape ``(n_mels, T)`` or ``(channels, n_mels, T)``.
     """
     ...
 
@@ -287,14 +290,14 @@ def mfcc_from_mel_db(
     dct_type: Literal[1, 2, 3] = 2,
     norm: Optional[Literal["ortho"]] = "ortho",
     lifter: float = 0.0,
-) -> NDArray[np.float64]:
+) -> NDArray[np.floating]:
     """MFCCs of a dB mel spectrogram, equivalent to ``librosa.feature.mfcc(S=S, ...)``.
 
     Args:
         S: shape ``(..., n_mels, T)`` (at least 2-D).
 
     Returns:
-        numpy.ndarray[float64], shape ``(..., n_mfcc, T)``.
+        numpy.ndarray[float32 | float64], shape ``(..., n_mfcc, T)``.
 
     Raises:
         ValueError: ``n_mfcc > n_mels`` (librosa silently truncates) or invalid DCT
