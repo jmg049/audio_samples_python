@@ -5,8 +5,8 @@ File I/O Operations
 
 .. currentmodule:: audio_samples.io
 
-The io module provides high-performance audio file reading and writing capabilities. All operations
-preserve audio properties automatically and support multiple audio formats with type-safe conversions.
+The io module reads and writes WAV and FLAC files. Reading and writing preserve the audio properties,
+and the sample type can be converted on load or save.
 
 Reading Audio Files
 -------------------
@@ -157,7 +157,7 @@ Process multiple files efficiently:
 Performance Considerations
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-AudioSamples I/O is optimized for performance:
+To measure read speed:
 
 .. code-block:: python
 

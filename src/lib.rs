@@ -1057,7 +1057,7 @@ impl PyAudioSamples {
     /// Create from Fortran-layout (interleaved) PyArray for multichannel audio
     ///
     /// This constructor is used for optimized read operations that create PyArrays
-    /// with Fortran (column-major) layout, which naturally matches WAV interleaved format.
+    /// with Fortran (column-major) layout, which matches WAV interleaved format.
     ///
     /// # Arguments
     ///

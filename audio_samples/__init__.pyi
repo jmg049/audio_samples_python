@@ -1,9 +1,9 @@
 """
-Python bindings for the AudioSamples Rust ecosystem.
-AudioSamples eliminates the manual metadata coordination
-burden that exists in audio processing libraries by treating
-audio as a first-class data type with intrinsically embedded
-properties.
+Python bindings for the AudioSamples Rust crates.
+An ``AudioSamples`` object stores its sample rate, channel
+layout and sample type together with the samples, so these
+properties do not have to be passed separately to each
+function.
 """
 
 from __future__ import annotations
@@ -257,8 +257,8 @@ class AudioSamples:
     """
     Main audio processing class supporting multiple sample formats and numpy integration.
 
-    Provides comprehensive audio processing including statistics, filtering, equalization,
-    dynamic range processing, and frequency analysis.
+    Provides statistics, filtering, equalization, dynamic range processing and
+    frequency analysis.
     """
 
     def __array__(self, dtype: DTypeLike = np.float64) -> npt.NDArray[np.float64]:

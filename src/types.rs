@@ -1274,8 +1274,8 @@ impl PyPitchDetectionMethod {
 impl PyPitchDetectionMethod {
     /// YIN pitch detection algorithm.
     ///
-    /// Provides robust and accurate fundamental frequency estimation for both
-    /// speech and musical signals at moderate computational cost.
+    /// Accurate fundamental frequency estimation for speech and musical
+    /// signals, at moderate computational cost.
     #[classattr]
     fn yin() -> Self {
         PyPitchDetectionMethod {
