@@ -516,7 +516,60 @@ weighting_fn!(a_weighting, a_weighting, "A");
 weighting_fn!(b_weighting, b_weighting, "B");
 weighting_fn!(c_weighting, c_weighting, "C");
 weighting_fn!(d_weighting, d_weighting, "D");
-weighting_fn!(z_weighting, z_weighting, "Z");
+
+/// The Z-weighting of a set of frequencies in dB, equivalent to
+/// ``librosa.Z_weighting(frequencies, min_db=min_db)``.
+///
+/// Args:
+///     frequencies (float | array_like): Frequencies in Hz.
+///     min_db (Optional[float]): Lower clip in dB (default -80); None disables it.
+///
+/// Returns:
+///     float | numpy.ndarray[float64]: dB weights, same shape as ``frequencies``
+///     (a float for scalar input).
+#[pyfunction]
+#[pyo3(signature = (frequencies, *, min_db = Some(-80.0)), text_signature = "(frequencies, *, min_db=-80.0)")]
+pub fn z_weighting<'py>(
+    frequencies: &Bound<'py, PyAny>,
+    min_db: Option<f64>,
+) -> PyResult<Bound<'py, PyAny>> {
+    use numpy::{PyArrayDyn, PyArrayMethods, PyUntypedArray};
+    let py = frequencies.py();
+    // The Z curve is flat: its one value comes from the Rust curve, and the
+    // output is a NumPy zeros array (calloc, as numpy.zeros) filled with it
+    // only when it is not +0.0. Only the input's shape and memory order are
+    // needed; anything but a float64 array is converted as for the other
+    // curves (same accepted inputs and errors).
+    let value = feat::z_weighting(&[0.0], min_db)[0];
+    let (shape, fortran) = match frequencies.cast::<PyArrayDyn<f64>>() {
+        Ok(a) => {
+            if a.ndim() == 0 {
+                return value.into_bound_py_any(py);
+            }
+            let u: &Bound<'_, PyUntypedArray> = a.as_untyped();
+            (
+                u.shape().to_vec(),
+                u.is_fortran_contiguous() && !u.is_c_contiguous(),
+            )
+        }
+        Err(_) => {
+            let a = f64_array(frequencies, "frequencies")?;
+            let v = a.as_array();
+            if is_scalar(frequencies)? {
+                return value.into_bound_py_any(py);
+            }
+            (
+                v.shape().to_vec(),
+                !v.is_standard_layout() && v.t().is_standard_layout(),
+            )
+        }
+    };
+    let out = PyArrayDyn::<f64>::zeros(py, shape, fortran);
+    if value.to_bits() != 0 {
+        out.readwrite().as_array_mut().fill(value);
+    }
+    Ok(out.into_any())
+}
 
 /// A frequency-weighting curve chosen by name, equivalent to
 /// ``librosa.frequency_weighting(frequencies, kind=kind, min_db=min_db)``.
