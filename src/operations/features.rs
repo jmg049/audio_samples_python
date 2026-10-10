@@ -5,10 +5,12 @@
 //! `zero_crossing_rate_frames`, `reassigned_spectrogram`), binding the Rust
 //! `AudioFeatures` trait.
 //!
-//! Every method returns float64 arrays shaped `(channels, n_features, n_frames)`
-//! (mono audio gives a leading axis of length 1) and takes librosa's keyword
-//! arguments with librosa 1.0's defaults (note `hop_length=512` for the
-//! spectral descriptors, as librosa, regardless of `n_fft`).
+//! Every method returns arrays shaped `(channels, n_features, n_frames)` (mono
+//! audio gives a leading axis of length 1): float32 for `uint8`, `int16`,
+//! `int24` and `float32` audio, float64 for `int32` and `float64` audio. The
+//! methods take librosa's keyword arguments with librosa 1.0's defaults (note
+//! `hop_length=512` for the spectral descriptors, as librosa, regardless of
+//! `n_fft`).
 
 use crate::args::Int;
 use audio_samples::operations::features::{
@@ -17,13 +19,13 @@ use audio_samples::operations::features::{
     SpectralFlatnessConfig, SpectralRolloffConfig, ZeroCrossingRateConfig,
 };
 use audio_samples::operations::filterbanks::Window;
-use numpy::{IntoPyArray, PyArray3};
+use numpy::IntoPyArray;
 use pyo3::IntoPyObjectExt;
 use pyo3::prelude::*;
 
 use crate::args::{WindowArg, non_negative, parse_pad_mode, positive, stft_config};
 use crate::features::args::{ReassignRefArg, parse_zcr_ref};
-use crate::{PyAudioSamples, audio_err_to_py, dispatch_with_view_detached};
+use crate::{PyAudioSamples, audio_err_to_py, dispatch_array_detached, dispatch_typed_detached};
 
 #[pymethods]
 impl PyAudioSamples {
@@ -42,7 +44,7 @@ impl PyAudioSamples {
     ///     pad_mode (str): Padding for ``center``. Default ``"constant"``.
     ///
     /// Returns:
-    ///     numpy.ndarray[float64]: shape ``(channels, 1, n_frames)`` in Hz (librosa
+    ///     numpy.ndarray[float32 | float64]: shape ``(channels, 1, n_frames)`` in Hz (librosa
     ///     returns ``(1, n_frames)`` for 1-D input; index ``[0]``).
     ///
     /// Raises:
@@ -60,7 +62,7 @@ impl PyAudioSamples {
         window: WindowArg,
         center: bool,
         pad_mode: &str,
-    ) -> PyResult<Bound<'py, PyArray3<f64>>> {
+    ) -> PyResult<Bound<'py, PyAny>> {
         let cfg = SpectralCentroidConfig {
             stft: stft_config(
                 n_fft,
@@ -71,10 +73,7 @@ impl PyAudioSamples {
                 pad_mode,
             )?,
         };
-        let r = dispatch_with_view_detached!(self, py, |audio| audio
-            .spectral_centroid_frames(&cfg))
-        .map_err(audio_err_to_py)?;
-        Ok(r.into_pyarray(py))
+        dispatch_array_detached!(self, py, |audio| audio.spectral_centroid_frames(&cfg))
     }
 
     /// Order-``p`` spectral bandwidth of every frame, equivalent to
@@ -87,7 +86,7 @@ impl PyAudioSamples {
     ///     p (float): Order of the deviation. Default 2.
     ///
     /// Returns:
-    ///     numpy.ndarray[float64]: shape ``(channels, 1, n_frames)`` in Hz.
+    ///     numpy.ndarray[float32 | float64]: shape ``(channels, 1, n_frames)`` in Hz.
     ///
     /// Raises:
     ///     ValueError: For invalid parameters.
@@ -107,7 +106,7 @@ impl PyAudioSamples {
         pad_mode: &str,
         norm: bool,
         p: f64,
-    ) -> PyResult<Bound<'py, PyArray3<f64>>> {
+    ) -> PyResult<Bound<'py, PyAny>> {
         let cfg = SpectralBandwidthConfig {
             stft: stft_config(
                 n_fft,
@@ -120,10 +119,7 @@ impl PyAudioSamples {
             p,
             norm,
         };
-        let r = dispatch_with_view_detached!(self, py, |audio| audio
-            .spectral_bandwidth_frames(&cfg))
-        .map_err(audio_err_to_py)?;
-        Ok(r.into_pyarray(py))
+        dispatch_array_detached!(self, py, |audio| audio.spectral_bandwidth_frames(&cfg))
     }
 
     /// Roll-off frequency of every frame, equivalent to
@@ -135,7 +131,7 @@ impl PyAudioSamples {
     ///     roll_percent (float): Energy fraction in ``(0, 1)``. Default 0.85.
     ///
     /// Returns:
-    ///     numpy.ndarray[float64]: shape ``(channels, 1, n_frames)`` in Hz.
+    ///     numpy.ndarray[float32 | float64]: shape ``(channels, 1, n_frames)`` in Hz.
     ///
     /// Raises:
     ///     ValueError: For invalid parameters.
@@ -154,7 +150,7 @@ impl PyAudioSamples {
         center: bool,
         pad_mode: &str,
         roll_percent: f64,
-    ) -> PyResult<Bound<'py, PyArray3<f64>>> {
+    ) -> PyResult<Bound<'py, PyAny>> {
         let cfg = SpectralRolloffConfig {
             stft: stft_config(
                 n_fft,
@@ -166,9 +162,7 @@ impl PyAudioSamples {
             )?,
             roll_percent,
         };
-        let r = dispatch_with_view_detached!(self, py, |audio| audio.spectral_rolloff_frames(&cfg))
-            .map_err(audio_err_to_py)?;
-        Ok(r.into_pyarray(py))
+        dispatch_array_detached!(self, py, |audio| audio.spectral_rolloff_frames(&cfg))
     }
 
     /// Spectral flatness of every frame, equivalent to
@@ -181,7 +175,7 @@ impl PyAudioSamples {
     ///     power (float): Exponent of the magnitude. Default 2.0.
     ///
     /// Returns:
-    ///     numpy.ndarray[float64]: shape ``(channels, 1, n_frames)``, in ``[0, 1]``.
+    ///     numpy.ndarray[float32 | float64]: shape ``(channels, 1, n_frames)``, in ``[0, 1]``.
     ///
     /// Raises:
     ///     ValueError: For invalid parameters.
@@ -201,7 +195,7 @@ impl PyAudioSamples {
         pad_mode: &str,
         amin: f64,
         power: f64,
-    ) -> PyResult<Bound<'py, PyArray3<f64>>> {
+    ) -> PyResult<Bound<'py, PyAny>> {
         let cfg = SpectralFlatnessConfig {
             stft: stft_config(
                 n_fft,
@@ -214,10 +208,7 @@ impl PyAudioSamples {
             amin,
             power,
         };
-        let r = dispatch_with_view_detached!(self, py, |audio| audio
-            .spectral_flatness_frames(&cfg))
-        .map_err(audio_err_to_py)?;
-        Ok(r.into_pyarray(py))
+        dispatch_array_detached!(self, py, |audio| audio.spectral_flatness_frames(&cfg))
     }
 
     /// Octave-band spectral contrast of every frame, equivalent to
@@ -232,7 +223,7 @@ impl PyAudioSamples {
     ///     linear (bool): Linear difference instead of dB. Default False.
     ///
     /// Returns:
-    ///     numpy.ndarray[float64]: shape ``(channels, n_bands + 1, n_frames)``.
+    ///     numpy.ndarray[float32 | float64]: shape ``(channels, n_bands + 1, n_frames)``.
     ///
     /// Raises:
     ///     ValueError: For invalid parameters (e.g. the top band above Nyquist).
@@ -254,7 +245,7 @@ impl PyAudioSamples {
         n_bands: Int,
         quantile: f64,
         linear: bool,
-    ) -> PyResult<Bound<'py, PyArray3<f64>>> {
+    ) -> PyResult<Bound<'py, PyAny>> {
         let cfg = SpectralContrastConfig {
             stft: stft_config(
                 n_fft,
@@ -269,10 +260,7 @@ impl PyAudioSamples {
             quantile,
             linear,
         };
-        let r = dispatch_with_view_detached!(self, py, |audio| audio
-            .spectral_contrast_frames(&cfg))
-        .map_err(audio_err_to_py)?;
-        Ok(r.into_pyarray(py))
+        dispatch_array_detached!(self, py, |audio| audio.spectral_contrast_frames(&cfg))
     }
 
     /// Coefficients of a polynomial fit to every magnitude-spectrum frame,
@@ -284,7 +272,7 @@ impl PyAudioSamples {
     ///     order (int): Polynomial order. Default 1.
     ///
     /// Returns:
-    ///     numpy.ndarray[float64]: shape ``(channels, order + 1, n_frames)``,
+    ///     numpy.ndarray[float32 | float64]: shape ``(channels, order + 1, n_frames)``,
     ///     highest power first.
     ///
     /// Raises:
@@ -304,7 +292,7 @@ impl PyAudioSamples {
         center: bool,
         pad_mode: &str,
         order: Int,
-    ) -> PyResult<Bound<'py, PyArray3<f64>>> {
+    ) -> PyResult<Bound<'py, PyAny>> {
         let cfg = PolyFeaturesConfig {
             stft: stft_config(
                 n_fft,
@@ -316,13 +304,11 @@ impl PyAudioSamples {
             )?,
             order: non_negative("order", order)?,
         };
-        let r = dispatch_with_view_detached!(self, py, |audio| audio.poly_features(&cfg))
-            .map_err(audio_err_to_py)?;
-        Ok(r.into_pyarray(py))
+        dispatch_array_detached!(self, py, |audio| audio.poly_features(&cfg))
     }
 
     /// Frame-wise root-mean-square energy, equivalent to
-    /// ``librosa.feature.rms(y=..., dtype=numpy.float64)``.
+    /// ``librosa.feature.rms(y=...)``.
     ///
     /// Unlike the scalar ``rms()``, this returns one value per frame.
     ///
@@ -333,7 +319,7 @@ impl PyAudioSamples {
     ///     pad_mode (str): Padding for ``center``. Default ``"constant"``.
     ///
     /// Returns:
-    ///     numpy.ndarray[float64]: shape ``(channels, 1, n_frames)`` (librosa's
+    ///     numpy.ndarray[float32 | float64]: shape ``(channels, 1, n_frames)`` (librosa's
     ///     default dtype is float32).
     ///
     /// Raises:
@@ -349,16 +335,14 @@ impl PyAudioSamples {
         hop_length: Int,
         center: bool,
         pad_mode: &str,
-    ) -> PyResult<Bound<'py, PyArray3<f64>>> {
+    ) -> PyResult<Bound<'py, PyAny>> {
         let cfg = RmsConfig {
             frame_length: positive("frame_length", frame_length)?,
             hop_length: positive("hop_length", hop_length)?,
             center,
             pad_mode: parse_pad_mode(pad_mode)?,
         };
-        let r = dispatch_with_view_detached!(self, py, |audio| audio.rms_frames(&cfg))
-            .map_err(audio_err_to_py)?;
-        Ok(r.into_pyarray(py))
+        dispatch_array_detached!(self, py, |audio| audio.rms_frames(&cfg))
     }
 
     /// Frame-wise zero-crossing rate (fraction of sign changes per frame),
@@ -377,7 +361,7 @@ impl PyAudioSamples {
     ///     zero_pos (bool): Zero counts as positive. Default True.
     ///
     /// Returns:
-    ///     numpy.ndarray[float64]: shape ``(channels, 1, n_frames)``.
+    ///     numpy.ndarray[float32 | float64]: shape ``(channels, 1, n_frames)``.
     ///
     /// Raises:
     ///     ValueError: For invalid parameters.
@@ -396,7 +380,7 @@ impl PyAudioSamples {
         ref_magnitude: Option<&Bound<'py, PyAny>>,
         pad: bool,
         zero_pos: bool,
-    ) -> PyResult<Bound<'py, PyArray3<f64>>> {
+    ) -> PyResult<Bound<'py, PyAny>> {
         let ref_magnitude = match ref_magnitude {
             Some(r) => parse_zcr_ref(r)?,
             None => audio_samples::operations::features::ZeroCrossingReference::None,
@@ -410,10 +394,7 @@ impl PyAudioSamples {
             pad,
             zero_pos,
         };
-        let r = dispatch_with_view_detached!(self, py, |audio| audio
-            .zero_crossing_rate_frames(&cfg))
-        .map_err(audio_err_to_py)?;
-        Ok(r.into_pyarray(py))
+        dispatch_array_detached!(self, py, |audio| audio.zero_crossing_rate_frames(&cfg))
     }
 
     /// Time-frequency reassigned spectrogram, equivalent to
@@ -434,7 +415,7 @@ impl PyAudioSamples {
     ///     pad_mode (str): Padding for ``center``. Default ``"constant"``.
     ///
     /// Returns:
-    ///     tuple: ``(freqs, times, mags)``, each numpy.ndarray[float64] of shape
+    ///     tuple: ``(freqs, times, mags)``, each numpy.ndarray[float32 | float64] of shape
     ///     ``(channels, 1 + n_fft // 2, n_frames)``.
     ///
     /// Raises:
@@ -467,13 +448,14 @@ impl PyAudioSamples {
             fill_nan,
             clip,
         };
-        let r = dispatch_with_view_detached!(self, py, |audio| audio.reassigned_spectrogram(&cfg))
-            .map_err(audio_err_to_py)?;
-        (
-            r.freqs.into_pyarray(py),
-            r.times.into_pyarray(py),
-            r.mags.into_pyarray(py),
-        )
-            .into_bound_py_any(py)
+        dispatch_typed_detached!(self, py, |audio| audio.reassigned_spectrogram(&cfg), |r| {
+            let r = r.map_err(audio_err_to_py)?;
+            (
+                r.freqs.into_pyarray(py),
+                r.times.into_pyarray(py),
+                r.mags.into_pyarray(py),
+            )
+                .into_bound_py_any(py)
+        })
     }
 }

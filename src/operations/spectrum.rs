@@ -3,24 +3,26 @@
 //! `mfcc_frames`), binding the Rust `AudioSpectrum` trait.
 //!
 //! Every method returns arrays shaped `(channels, n_features, n_frames)` (mono
-//! audio gives a leading axis of length 1), always `float64` / `complex128`, and
-//! takes librosa's keyword arguments with librosa 1.0's defaults.
+//! audio gives a leading axis of length 1) and takes librosa's keyword
+//! arguments. Output arrays are `float32` / `complex64` for `uint8`, `int16`,
+//! `int24` and `float32` audio, and `float64` / `complex128` for `int32` and
+//! `float64` audio. The defaults equal librosa 1.0's except `mfcc_frames`'
+//! `top_db`, which defaults to `None` (librosa: 80).
 
 use crate::args::Int;
 use audio_samples::operations::filterbanks::Window;
 use audio_samples::operations::spectrum::{
     DbConfig, DctNorm, DctType, MelSpectrogramConfig, MfccConfig,
 };
-use audio_samples::{AudioSamples, AudioSpectrum};
-use ndarray::{Array3, Axis, Ix2, Ix3};
-use num_complex::Complex;
-use numpy::{IntoPyArray, PyArray3, PyUntypedArrayMethods};
+use audio_samples::{AudioSample, AudioSamples, AudioSpectrum};
 use pyo3::prelude::*;
 
 use crate::args::{
-    DbRefArg, MelNormArg, WindowArg, c128_array, mel_config, positive, stft_config, value_err,
+    DbRefArg, MelNormArg, WindowArg, complex_array_as, mel_config, output_sample_type, positive,
+    stft_config, to_3d, value_err, with_sample_type,
 };
-use crate::{PyAudioSamples, audio_err_to_py, dispatch_with_view_detached, nzu32_or_err};
+use crate::types::PySampleType;
+use crate::{PyAudioSamples, audio_err_to_py, dispatch_array_detached, nzu32_or_err};
 
 /// Parses `dct_type` (1, 2 or 3).
 pub(crate) fn parse_dct_type(dct_type: i64) -> PyResult<DctType> {
@@ -85,7 +87,9 @@ impl PyAudioSamples {
     ///         ``"edge"`` or ``"symmetric"``.
     ///
     /// Returns:
-    ///     numpy.ndarray[complex128]: shape ``(channels, 1 + n_fft // 2, n_frames)``.
+    ///     numpy.ndarray[complex64 | complex128]: shape ``(channels, 1 + n_fft // 2, n_frames)``;
+    ///     complex64 for uint8, int16, int24 and float32 audio, complex128 for
+    ///     int32 and float64 audio.
     ///     Mono audio gives a leading axis of length 1 (librosa returns
     ///     ``(1 + n_fft // 2, n_frames)`` for 1-D input; index ``[0]`` to get it).
     ///
@@ -105,11 +109,9 @@ impl PyAudioSamples {
         window: WindowArg,
         center: bool,
         pad_mode: &str,
-    ) -> PyResult<Bound<'py, PyArray3<Complex<f64>>>> {
+    ) -> PyResult<Bound<'py, PyAny>> {
         let cfg = stft_config(n_fft, hop_length, win_length, window, center, pad_mode)?;
-        let s = dispatch_with_view_detached!(self, py, |audio| audio.stft_matrix(&cfg))
-            .map_err(audio_err_to_py)?;
-        Ok(s.into_pyarray(py))
+        dispatch_array_detached!(self, py, |audio| audio.stft_matrix(&cfg))
     }
 
     /// Reconstruct audio from an STFT matrix, equivalent to ``librosa.istft``.
@@ -127,18 +129,24 @@ impl PyAudioSamples {
     ///     center (bool): Whether the analysis frames were centred.
     ///     length (Optional[int]): Exact output length per channel; pass the
     ///         original length to undo the centre padding exactly.
+    ///     dtype (Optional[SampleType]): Sample type of the returned audio.
+    ///         ``None`` (default) gives float32 audio for a complex64 matrix and
+    ///         float64 audio for any other input. The inverse transform runs in
+    ///         the float type of ``dtype`` (float32 for U8, I16, I24 and F32;
+    ///         float64 for I32 and F64); integer output is rounded and saturated.
     ///
     /// Returns:
-    ///     AudioSamples: float64 audio, mono for a single channel.
+    ///     AudioSamples: audio of sample type ``dtype``, mono for a single channel.
     ///
     /// Raises:
     ///     ValueError: If the matrix is not 2-D/3-D, the bin count does not match
     ///         ``n_fft``, or parameters are invalid.
     #[staticmethod]
     #[pyo3(
-        signature = (stft_matrix, *, sample_rate, hop_length = None, win_length = None, n_fft = None, window = WindowArg(Window::Hann), center = true, length = None),
-        text_signature = "(stft_matrix, *, sample_rate, hop_length=None, win_length=None, n_fft=None, window='hann', center=True, length=None)"
+        signature = (stft_matrix, *, sample_rate, hop_length = None, win_length = None, n_fft = None, window = WindowArg(Window::Hann), center = true, length = None, dtype = None),
+        text_signature = "(stft_matrix, *, sample_rate, hop_length=None, win_length=None, n_fft=None, window='hann', center=True, length=None, dtype=None)"
     )]
+    #[allow(clippy::too_many_arguments)]
     fn istft_matrix(
         py: Python<'_>,
         stft_matrix: &Bound<'_, PyAny>,
@@ -149,41 +157,27 @@ impl PyAudioSamples {
         window: WindowArg,
         center: bool,
         length: Option<Int>,
+        dtype: Option<PySampleType>,
     ) -> PyResult<Self> {
-        let d = c128_array(stft_matrix, "stft_matrix")?;
-        let d3: Array3<Complex<f64>> = match d.ndim() {
-            2 => d
-                .as_array()
-                .into_dimensionality::<Ix2>()
-                .expect("ndim checked")
-                .insert_axis(Axis(0))
-                .to_owned(),
-            3 => d
-                .as_array()
-                .into_dimensionality::<Ix3>()
-                .expect("ndim checked")
-                .to_owned(),
-            n => {
-                return Err(value_err(
-                    "stft_matrix",
-                    format!("expected a 2-D or 3-D complex array, got {n} dimensions"),
-                ));
-            }
-        };
-        let n_bins = d3.dim().1;
-        let n_fft = match n_fft {
-            Some(n) => n,
-            None => Int(2 * (n_bins as i64 - 1)),
-        };
-        let cfg = stft_config(n_fft, hop_length, win_length, window, center, "constant")?;
         let sr = nzu32_or_err(crate::args::sample_rate_u32(sample_rate)?)?;
         let length = crate::args::opt_positive("length", length)?;
-        let y = py
-            .detach(|| {
-                <AudioSamples<'static, f64> as AudioSpectrum>::istft_matrix(&d3, &cfg, sr, length)
-            })
-            .map_err(audio_err_to_py)?;
-        Ok(Self::from_audio_samples(y))
+        let target = output_sample_type(dtype, stft_matrix);
+        with_sample_type!(target, |T| {
+            let d = complex_array_as::<<T as AudioSample>::Float>(stft_matrix, "stft_matrix")?;
+            let d3 = to_3d(d.as_array(), "stft_matrix")?;
+            let n_bins = d3.dim().1;
+            let n_fft = match n_fft {
+                Some(n) => n,
+                None => Int(2 * (n_bins as i64 - 1)),
+            };
+            let cfg = stft_config(n_fft, hop_length, win_length, window, center, "constant")?;
+            let y = py
+                .detach(|| {
+                    <AudioSamples<'static, T> as AudioSpectrum>::istft_matrix(&d3, &cfg, sr, length)
+                })
+                .map_err(audio_err_to_py)?;
+            Ok(Self::from_audio_samples(y))
+        })
     }
 
     /// Magnitude spectrogram ``|STFT| ** power`` of every channel.
@@ -195,7 +189,9 @@ impl PyAudioSamples {
     ///     power (float): Exponent; 1.0 (default) gives magnitude, 2.0 power.
     ///
     /// Returns:
-    ///     numpy.ndarray[float64]: shape ``(channels, 1 + n_fft // 2, n_frames)``.
+    ///     numpy.ndarray[float32 | float64]: shape ``(channels, 1 + n_fft // 2, n_frames)``;
+    ///     float32 for uint8, int16, int24 and float32 audio, float64 for int32
+    ///     and float64 audio.
     ///
     /// Raises:
     ///     ValueError: For invalid parameters or a non-positive power.
@@ -214,12 +210,9 @@ impl PyAudioSamples {
         center: bool,
         pad_mode: &str,
         power: f64,
-    ) -> PyResult<Bound<'py, PyArray3<f64>>> {
+    ) -> PyResult<Bound<'py, PyAny>> {
         let cfg = stft_config(n_fft, hop_length, win_length, window, center, pad_mode)?;
-        let s = dispatch_with_view_detached!(self, py, |audio| audio
-            .spectrogram_matrix(&cfg, power))
-        .map_err(audio_err_to_py)?;
-        Ok(s.into_pyarray(py))
+        dispatch_array_detached!(self, py, |audio| audio.spectrogram_matrix(&cfg, power))
     }
 
     /// Mel spectrogram of every channel, equivalent to
@@ -238,7 +231,9 @@ impl PyAudioSamples {
     ///     norm (None | "slaney" | float): Filter normalisation. Default "slaney".
     ///
     /// Returns:
-    ///     numpy.ndarray[float64]: shape ``(channels, n_mels, n_frames)``.
+    ///     numpy.ndarray[float32 | float64]: shape ``(channels, n_mels, n_frames)``;
+    ///     float32 for uint8, int16, int24 and float32 audio, float64 for int32
+    ///     and float64 audio.
     ///
     /// Raises:
     ///     ValueError: For invalid parameters.
@@ -262,7 +257,7 @@ impl PyAudioSamples {
         fmax: Option<f64>,
         htk: bool,
         norm: MelNormArg,
-    ) -> PyResult<Bound<'py, PyArray3<f64>>> {
+    ) -> PyResult<Bound<'py, PyAny>> {
         let cfg = MelSpectrogramConfig {
             stft: stft_config(
                 n_fft,
@@ -275,9 +270,7 @@ impl PyAudioSamples {
             mel: mel_config(n_mels, fmin, fmax, htk, norm)?,
             power,
         };
-        let m = dispatch_with_view_detached!(self, py, |audio| audio.melspectrogram(&cfg))
-            .map_err(audio_err_to_py)?;
-        Ok(m.into_pyarray(py))
+        dispatch_array_detached!(self, py, |audio| audio.melspectrogram(&cfg))
     }
 
     /// Mel-frequency cepstral coefficients of every channel, equivalent to
@@ -298,18 +291,20 @@ impl PyAudioSamples {
     ///         ``melspectrogram``.
     ///     ref (float | "max" | numpy.max): dB reference. Default 1.0.
     ///     amin (float): dB floor before the log. Default 1e-10.
-    ///     top_db (Optional[float]): Dynamic range floor in dB (per channel).
-    ///         Default 80; None disables.
+    ///     top_db (Optional[float]): Dynamic range floor in dB below the peak
+    ///         (per channel). Default None (no floor); librosa's default is 80.
     ///
     /// Returns:
-    ///     numpy.ndarray[float64]: shape ``(channels, n_mfcc, n_frames)``.
+    ///     numpy.ndarray[float32 | float64]: shape ``(channels, n_mfcc, n_frames)``;
+    ///     float32 for uint8, int16, int24 and float32 audio, float64 for int32
+    ///     and float64 audio.
     ///
     /// Raises:
     ///     ValueError: For invalid parameters (including ``n_mfcc > n_mels``,
     ///         which librosa silently truncates).
     #[pyo3(
-        signature = (*, n_mfcc = Int(20), dct_type = Int(2), norm = Some("ortho"), lifter = 0.0, mel_norm = MelNormArg(audio_samples::MelFilterNorm::Slaney), n_fft = Int(2048), hop_length = Int(512), win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", power = 2.0, n_mels = Int(128), fmin = 0.0, fmax = None, htk = false, r#ref = DbRefArg(audio_samples::DbReference::Value(1.0)), amin = 1e-10, top_db = Some(80.0)),
-        text_signature = "($self, *, n_mfcc=20, dct_type=2, norm='ortho', lifter=0.0, mel_norm='slaney', n_fft=2048, hop_length=512, win_length=None, window='hann', center=True, pad_mode='constant', power=2.0, n_mels=128, fmin=0.0, fmax=None, htk=False, ref=1.0, amin=1e-10, top_db=80.0)"
+        signature = (*, n_mfcc = Int(20), dct_type = Int(2), norm = Some("ortho"), lifter = 0.0, mel_norm = MelNormArg(audio_samples::MelFilterNorm::Slaney), n_fft = Int(2048), hop_length = Int(512), win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", power = 2.0, n_mels = Int(128), fmin = 0.0, fmax = None, htk = false, r#ref = DbRefArg(audio_samples::DbReference::Value(1.0)), amin = 1e-10, top_db = None),
+        text_signature = "($self, *, n_mfcc=20, dct_type=2, norm='ortho', lifter=0.0, mel_norm='slaney', n_fft=2048, hop_length=512, win_length=None, window='hann', center=True, pad_mode='constant', power=2.0, n_mels=128, fmin=0.0, fmax=None, htk=False, ref=1.0, amin=1e-10, top_db=None)"
     )]
     #[allow(clippy::too_many_arguments)]
     fn mfcc_frames<'py>(
@@ -334,7 +329,7 @@ impl PyAudioSamples {
         r#ref: DbRefArg,
         amin: f64,
         top_db: Option<f64>,
-    ) -> PyResult<Bound<'py, PyArray3<f64>>> {
+    ) -> PyResult<Bound<'py, PyAny>> {
         let mut cfg = mfcc_cepstrum_config(n_mfcc, dct_type, norm, lifter)?;
         cfg.mel_spectrogram = MelSpectrogramConfig {
             stft: stft_config(
@@ -352,8 +347,6 @@ impl PyAudioSamples {
             .with_reference(r#ref.0)
             .with_amin(amin)
             .with_top_db(top_db);
-        let m = dispatch_with_view_detached!(self, py, |audio| audio.mfcc_frames(&cfg))
-            .map_err(audio_err_to_py)?;
-        Ok(m.into_pyarray(py))
+        dispatch_array_detached!(self, py, |audio| audio.mfcc_frames(&cfg))
     }
 }

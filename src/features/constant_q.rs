@@ -11,7 +11,9 @@ use numpy::{IntoPyArray, PyArray1, PyArray2};
 use pyo3::prelude::*;
 
 use super::args::{spec3, squeeze_out};
-use crate::args::{WindowArg, non_negative, opt_positive, positive, value_err};
+use crate::args::{
+    WindowArg, non_negative, opt_positive, positive, precision_of, value_err, with_precision,
+};
 use crate::audio_err_to_py;
 
 /// The CQT-to-chroma folding matrix, equivalent to
@@ -82,7 +84,7 @@ fn wavelet_config(
 ///
 /// Args:
 ///     freqs (array_like): Centre frequencies in Hz (at least two, ascending).
-///     sr (float): Sample rate. Default 22050.
+///     sr (float): Sample rate. Required (librosa defaults to 22050).
 ///     window: Window (named; see ``spectral.get_window``). Default ``"hann"``.
 ///     filter_scale (float): Filter-length scale. Default 1.
 ///     gamma (Optional[float]): Bandwidth offset (Hz); 0 (default) = constant Q,
@@ -97,8 +99,8 @@ fn wavelet_config(
 ///         ``alpha`` (for a single frequency) is not supported.
 #[pyfunction]
 #[pyo3(
-    signature = (*, freqs, sr = 22050.0, window = WindowArg(Window::Hann), filter_scale = 1.0, gamma = Some(0.0)),
-    text_signature = "(*, freqs, sr=22050, window='hann', filter_scale=1.0, gamma=0.0)"
+    signature = (*, freqs, sr, window = WindowArg(Window::Hann), filter_scale = 1.0, gamma = Some(0.0)),
+    text_signature = "(*, freqs, sr, window='hann', filter_scale=1.0, gamma=0.0)"
 )]
 pub fn wavelet_lengths<'py>(
     py: Python<'py>,
@@ -119,7 +121,7 @@ pub fn wavelet_lengths<'py>(
 ///
 /// Args:
 ///     freqs (array_like): Centre frequencies in Hz (at least two, ascending).
-///     sr (float): Sample rate. Default 22050.
+///     sr (float): Sample rate. Required (librosa defaults to 22050).
 ///     window: Named window. Default ``"hann"``.
 ///     filter_scale (float): Filter-length scale. Default 1.
 ///     pad_fft (bool): Centre the filters in a power-of-two buffer. Default True.
@@ -135,8 +137,8 @@ pub fn wavelet_lengths<'py>(
 ///     ValueError: For invalid frequencies or parameters.
 #[pyfunction]
 #[pyo3(
-    signature = (*, freqs, sr = 22050.0, window = WindowArg(Window::Hann), filter_scale = 1.0, pad_fft = true, norm = Some(1.0), gamma = Some(0.0)),
-    text_signature = "(*, freqs, sr=22050, window='hann', filter_scale=1.0, pad_fft=True, norm=1.0, gamma=0.0)"
+    signature = (*, freqs, sr, window = WindowArg(Window::Hann), filter_scale = 1.0, pad_fft = true, norm = Some(1.0), gamma = Some(0.0)),
+    text_signature = "(*, freqs, sr, window='hann', filter_scale=1.0, pad_fft=True, norm=1.0, gamma=0.0)"
 )]
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn wavelet<'py>(
@@ -169,7 +171,7 @@ pub fn wavelet<'py>(
 ///     smoothing_window: Smoothing window. Default ``"hann"``.
 ///
 /// Returns:
-///     numpy.ndarray[float64]: same shape as ``chroma``.
+///     numpy.ndarray[float32 | float64]: same shape as ``chroma``.
 ///
 /// Raises:
 ///     ValueError: For invalid parameters; RuntimeError for non-finite input.
@@ -185,15 +187,17 @@ pub fn chroma_cens_from_chroma<'py>(
     win_len_smooth: Option<Int>,
     smoothing_window: WindowArg,
 ) -> PyResult<Bound<'py, PyAny>> {
-    let (c, nd) = spec3(chroma, "chroma")?;
-    let r = cq::chroma_cens_from_chroma(
-        &c,
-        norm,
-        opt_positive("win_len_smooth", win_len_smooth)?,
-        &smoothing_window.0,
-    )
-    .map_err(audio_err_to_py)?;
-    Ok(squeeze_out(py, r.into_dyn(), nd == 2))
+    with_precision!(precision_of(chroma), |F| {
+        let (c, nd) = spec3::<F>(chroma, "chroma")?;
+        let r = cq::chroma_cens_from_chroma(
+            &c,
+            norm,
+            opt_positive("win_len_smooth", win_len_smooth)?,
+            &smoothing_window.0,
+        )
+        .map_err(audio_err_to_py)?;
+        Ok(squeeze_out(py, r.into_dyn(), nd == 2))
+    })
 }
 
 /// Tonal centroid features from a chromagram, equivalent to
@@ -203,7 +207,7 @@ pub fn chroma_cens_from_chroma<'py>(
 ///     chroma (array_like): Chromagram, ``(n_chroma, T)`` or ``(channels, n_chroma, T)``.
 ///
 /// Returns:
-///     numpy.ndarray[float64]: shape ``(6, T)`` or ``(channels, 6, T)``.
+///     numpy.ndarray[float32 | float64]: shape ``(6, T)`` or ``(channels, 6, T)``.
 ///
 /// Raises:
 ///     RuntimeError: For non-finite input.
@@ -213,9 +217,11 @@ pub fn tonnetz_from_chroma<'py>(
     py: Python<'py>,
     chroma: &Bound<'py, PyAny>,
 ) -> PyResult<Bound<'py, PyAny>> {
-    let (c, nd) = spec3(chroma, "chroma")?;
-    let r = cq::tonnetz_from_chroma(&c).map_err(audio_err_to_py)?;
-    Ok(squeeze_out(py, r.into_dyn(), nd == 2))
+    with_precision!(precision_of(chroma), |F| {
+        let (c, nd) = spec3::<F>(chroma, "chroma")?;
+        let r = cq::tonnetz_from_chroma(&c).map_err(audio_err_to_py)?;
+        Ok(squeeze_out(py, r.into_dyn(), nd == 2))
+    })
 }
 
 /// Registers the constant-Q functions.

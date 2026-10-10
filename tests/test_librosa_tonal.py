@@ -136,17 +136,23 @@ def test_pitch_tuning(fx):
 def test_chroma_stft(fx, sr):
     f = fx["chroma_stft"]
     notes = _audio("notes", sr)
+    # The "default" fixtures use librosa's default tuning=None (estimated); the
+    # binding defaults to tuning=0.0.
+    est = dict(tuning=None)
     cases = {
-        "notes_default": (notes.chroma_stft(), RTOL_CHROMA),
-        "notes_default_float32_basis": (notes.chroma_stft(), RTOL_CHROMA_F32),
+        "notes_default": (notes.chroma_stft(**est), RTOL_CHROMA),
+        "notes_default_float32_basis": (notes.chroma_stft(**est), RTOL_CHROMA_F32),
         "notes_tuning0": (notes.chroma_stft(tuning=0.0), RTOL_CHROMA),
-        "notes_norm_none": (notes.chroma_stft(norm=None), RTOL_CHROMA),
-        "notes_n24": (notes.chroma_stft(n_chroma=24), RTOL_CHROMA),
-        "notes_nfft4096_l2": (notes.chroma_stft(n_fft=4096, norm=2), RTOL_CHROMA),
-        "mix_default": (_audio("mix", sr).chroma_stft(), RTOL_CHROMA),
-        "stereo_default": (_audio("stereo", sr).chroma_stft(), RTOL_CHROMA),
-        "detuned_default": (_detuned(fx, sr).chroma_stft(), RTOL_CHROMA),
-        "notes_magnitude_S": (F.chroma_stft_from_spectrogram(notes.spectrogram_matrix(), sr=sr), RTOL_CHROMA),
+        "notes_norm_none": (notes.chroma_stft(norm=None, **est), RTOL_CHROMA),
+        "notes_n24": (notes.chroma_stft(n_chroma=24, **est), RTOL_CHROMA),
+        "notes_nfft4096_l2": (notes.chroma_stft(n_fft=4096, norm=2, **est), RTOL_CHROMA),
+        "mix_default": (_audio("mix", sr).chroma_stft(**est), RTOL_CHROMA),
+        "stereo_default": (_audio("stereo", sr).chroma_stft(**est), RTOL_CHROMA),
+        "detuned_default": (_detuned(fx, sr).chroma_stft(**est), RTOL_CHROMA),
+        "notes_magnitude_S": (
+            F.chroma_stft_from_spectrogram(notes.spectrogram_matrix(), sr=sr, **est),
+            RTOL_CHROMA,
+        ),
     }
     for name, (got, rtol) in cases.items():
         e = fixture_array(f[name])
@@ -154,7 +160,7 @@ def test_chroma_stft(fx, sr):
         assert got.shape == e.shape, name
         assert_peak_close(got, e, rtol, name)
     # 2-D S= input gives librosa's 2-D output.
-    two_d = F.chroma_stft_from_spectrogram(notes.spectrogram_matrix(power=2.0)[0], sr=sr)
+    two_d = F.chroma_stft_from_spectrogram(notes.spectrogram_matrix(power=2.0)[0], sr=sr, **est)
     assert_peak_close(two_d, fixture_array(f["notes_default"]), RTOL_CHROMA, "S= 2-D")
 
 
@@ -236,7 +242,7 @@ def test_shapes_and_validation(sr):
     p, m = st.piptrack()
     assert p.shape == m.shape and p.shape[:2] == (2, 1025)
     i16 = aus.AudioSamples.new_mono((fixture_signal("notes") * 32767).astype(np.int16), sr)
-    assert i16.chroma_stft().dtype == np.float64
+    assert i16.chroma_stft().dtype == np.float32
     with pytest.raises(ValueError, match="n_chroma"):
         x.chroma_stft(n_chroma=0)
     with pytest.raises(ValueError, match="bins_per_octave"):
@@ -244,7 +250,7 @@ def test_shapes_and_validation(sr):
     with pytest.raises(ValueError, match="ref"):
         x.piptrack(ref="median")
     with pytest.raises(ValueError):
-        F.chroma_stft_from_spectrogram(np.ones((100, 4)), n_fft=2048)
+        F.chroma_stft_from_spectrogram(np.ones((100, 4)), sr=sr, n_fft=2048)
     for name in ("chroma_stft", "piptrack", "estimate_tuning"):
         inspect.signature(getattr(aus.AudioSamples, name))
     assert inspect.signature(F.chroma_stft_from_spectrogram).parameters["norm"].default == np.inf
@@ -255,7 +261,7 @@ def test_against_librosa(sr):
     y = fixture_signal("mix")
     x = aus.AudioSamples.new_mono(y, sr)
     assert_peak_close(
-        x.chroma_stft(n_fft=1024, octwidth=None)[0],
+        x.chroma_stft(n_fft=1024, octwidth=None, tuning=None)[0],
         librosa.feature.chroma_stft(y=y, sr=sr, n_fft=1024, octwidth=None, dtype=np.float64),
         RTOL_CHROMA,
         "chroma_stft",

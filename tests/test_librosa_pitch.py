@@ -205,7 +205,7 @@ def test_shapes_and_validation(sr):
     f, v, p = st.pyin(fmin=65.0, fmax=2093.0)
     assert f.shape == v.shape == p.shape and f.shape[0] == 2
     i16 = aus.AudioSamples.new_mono((fixture_signal("notes") * 32767).astype(np.int16), sr)
-    assert i16.yin(fmin=65.0, fmax=2093.0).dtype == np.float64
+    assert i16.yin(fmin=65.0, fmax=2093.0).dtype == np.float32
     with pytest.raises(TypeError):
         x.yin()  # fmin / fmax are required, as in librosa
     with pytest.raises(ValueError):

@@ -263,8 +263,11 @@ impl<'a, 'py> FromPyObject<'a, 'py> for ReassignRefArg {
 
 /// A spectrogram-like input of shape `(F, T)` or `(channels, F, T)` as an owned
 /// `(channels, F, T)` array plus the input's number of dimensions.
-pub(crate) fn spec3(obj: &Bound<'_, PyAny>, name: &str) -> PyResult<(Array3<f64>, usize)> {
-    let a = f64_array(obj, name)?;
+pub(crate) fn spec3<F: crate::args::FloatElement>(
+    obj: &Bound<'_, PyAny>,
+    name: &str,
+) -> PyResult<(Array3<F>, usize)> {
+    let a = crate::args::float_array_as::<F>(obj, name)?;
     let v = a.as_array();
     match v.ndim() {
         2 => Ok((
@@ -289,11 +292,11 @@ pub(crate) fn spec3(obj: &Bound<'_, PyAny>, name: &str) -> PyResult<(Array3<f64>
 
 /// A signal of shape `(n,)` or `(channels, n)` as an owned `(channels, n)`
 /// array plus the input's number of dimensions.
-pub(crate) fn signal2(
+pub(crate) fn signal2<F: crate::args::FloatElement>(
     obj: &Bound<'_, PyAny>,
     name: &str,
-) -> PyResult<(ndarray::Array2<f64>, usize)> {
-    let a = f64_array(obj, name)?;
+) -> PyResult<(ndarray::Array2<F>, usize)> {
+    let a = crate::args::float_array_as::<F>(obj, name)?;
     let v = a.as_array();
     match v.ndim() {
         1 => Ok((

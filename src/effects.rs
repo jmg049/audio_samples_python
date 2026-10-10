@@ -26,7 +26,8 @@ use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyString};
 
 use crate::args::{
-    WindowArg, f64_array, i64_vec, is_scalar, non_negative, positive, stft_config, value_err,
+    PyFloat, WindowArg, f64_array, float_array_as, i64_vec, is_scalar, non_negative, positive,
+    precision_of, stft_config, value_err, with_precision,
 };
 use crate::audio_err_to_py;
 use crate::rhythm::{cplanes, out3, planes, rows};
@@ -85,7 +86,11 @@ pub(crate) fn hpss_mask_config(
 }
 
 /// A `(n,)` or `(channels, n)` output, matching the input's rank.
-fn rows_out<'py>(py: Python<'py>, a: Array2<f64>, squeeze: bool) -> Bound<'py, PyAny> {
+fn rows_out<'py, T: numpy::Element>(
+    py: Python<'py>,
+    a: Array2<T>,
+    squeeze: bool,
+) -> Bound<'py, PyAny> {
     crate::rhythm::out2(py, a, squeeze)
 }
 
@@ -112,7 +117,7 @@ fn rows_out<'py>(py: Python<'py>, a: Array2<f64>, squeeze: bool) -> Bound<'py, P
 ///     n_fft (Optional[int]): Deprecated and unused, as ``hop_length``.
 ///
 /// Returns:
-///     numpy.ndarray[complex128]: shape ``(n_bins, ceil(n_frames / rate))`` (or
+///     numpy.ndarray[complex64 | complex128]: shape ``(n_bins, ceil(n_frames / rate))`` (or
 ///     ``len(t_out)`` frames), with a leading channel axis for 3-D input.
 ///
 /// Raises:
@@ -154,22 +159,25 @@ pub fn phase_vocoder<'py>(
     if kind != "linear" {
         return Err(value_err("kind", "only kind='linear' is supported"));
     }
-    let (d, squeeze) = cplanes(D, "D")?;
-    let out = match (rate, t_out.filter(|t| !t.is_none())) {
-        (Some(rate), None) => fx::phase_vocoder(d.view(), rate),
-        (None, Some(t)) => {
-            let t: Vec<f64> = f64_array(t, "t_out")?.as_array().iter().copied().collect();
-            fx::phase_vocoder_at(d.view(), &t)
+    let t_out: Option<Vec<f64>> = t_out
+        .filter(|t| !t.is_none())
+        .map(|t| f64_array(t, "t_out").map(|a| a.as_array().iter().copied().collect()))
+        .transpose()?;
+    with_precision!(precision_of(D), |F| {
+        let (d, squeeze) = cplanes::<F>(D, "D")?;
+        let out = match (rate, t_out.as_deref()) {
+            (Some(rate), None) => fx::phase_vocoder(d.view(), rate),
+            (None, Some(t)) => fx::phase_vocoder_at(d.view(), t),
+            _ => {
+                return Err(value_err(
+                    "rate",
+                    "exactly one of rate or t_out must be given",
+                ));
+            }
         }
-        _ => {
-            return Err(value_err(
-                "rate",
-                "exactly one of rate or t_out must be given",
-            ));
-        }
-    }
-    .map_err(audio_err_to_py)?;
-    Ok(out3(py, out, squeeze))
+        .map_err(audio_err_to_py)?;
+        Ok(out3(py, out, squeeze))
+    })
 }
 
 // =============================================================================
@@ -177,20 +185,24 @@ pub fn phase_vocoder<'py>(
 // =============================================================================
 
 /// Per-row emphasis with librosa's `zi` / `return_zf` handling.
-fn emphasis<'py>(
+fn emphasis<'py, F: PyFloat>(
     py: Python<'py>,
     y: &Bound<'py, PyAny>,
     coef: f64,
     zi: Option<&Bound<'py, PyAny>>,
     return_zf: bool,
-    f: fn(&[f64], f64, Option<f64>) -> audio_samples::AudioSampleResult<(Vec<f64>, f64)>,
+    f: fn(&[F], f64, Option<F>) -> audio_samples::AudioSampleResult<(Vec<F>, F)>,
 ) -> PyResult<Bound<'py, PyAny>> {
-    let (x, squeeze) = rows(y, "y")?;
+    let (x, squeeze) = rows::<F>(y, "y")?;
     let n_ch = x.nrows();
-    let zi: Option<Vec<f64>> = zi
+    let zi: Option<Vec<F>> = zi
         .filter(|z| !z.is_none())
-        .map(|z| -> PyResult<Vec<f64>> {
-            let v: Vec<f64> = f64_array(z, "zi")?.as_array().iter().copied().collect();
+        .map(|z| -> PyResult<Vec<F>> {
+            let v: Vec<F> = float_array_as::<F>(z, "zi")?
+                .as_array()
+                .iter()
+                .copied()
+                .collect();
             match v.len() {
                 1 => Ok(vec![v[0]; n_ch]),
                 n if n == n_ch => Ok(v),
@@ -201,7 +213,7 @@ fn emphasis<'py>(
             }
         })
         .transpose()?;
-    let mut out = Array2::<f64>::zeros(x.dim());
+    let mut out = Array2::<F>::zeros(x.dim());
     let mut zf = Vec::with_capacity(n_ch);
     for (c, row) in x.outer_iter().enumerate() {
         let row = row.to_vec();
@@ -236,7 +248,7 @@ fn emphasis<'py>(
 ///     return_zf (bool): Also return the final state. Default False.
 ///
 /// Returns:
-///     numpy.ndarray[float64] of the input's shape, or ``(y, zf)`` with
+///     numpy.ndarray[float32 | float64] of the input's shape, or ``(y, zf)`` with
 ///     ``return_zf=True`` (``zf`` of shape ``(1,)`` or ``(channels, 1)``).
 ///
 /// Raises:
@@ -254,7 +266,14 @@ pub fn preemphasis<'py>(
     zi: Option<&Bound<'py, PyAny>>,
     return_zf: bool,
 ) -> PyResult<Bound<'py, PyAny>> {
-    emphasis(py, y, coef, zi, return_zf, fx::preemphasis_with_state)
+    with_precision!(precision_of(y), |F| emphasis::<F>(
+        py,
+        y,
+        coef,
+        zi,
+        return_zf,
+        fx::preemphasis_with_state::<F>
+    ))
 }
 
 /// De-emphasis filter ``y[n] = x[n] + coef * y[n - 1]`` (inverse of
@@ -269,7 +288,7 @@ pub fn preemphasis<'py>(
 ///     return_zf (bool): Also return the final state. Default False.
 ///
 /// Returns:
-///     numpy.ndarray[float64] of the input's shape, or ``(y, zf)``.
+///     numpy.ndarray[float32 | float64] of the input's shape, or ``(y, zf)``.
 ///
 /// Raises:
 ///     ValueError: As ``preemphasis``.
@@ -285,7 +304,14 @@ pub fn deemphasis<'py>(
     zi: Option<&Bound<'py, PyAny>>,
     return_zf: bool,
 ) -> PyResult<Bound<'py, PyAny>> {
-    emphasis(py, y, coef, zi, return_zf, fx::deemphasis_with_state)
+    with_precision!(precision_of(y), |F| emphasis::<F>(
+        py,
+        y,
+        coef,
+        zi,
+        return_zf,
+        fx::deemphasis_with_state::<F>
+    ))
 }
 
 // =============================================================================
@@ -303,7 +329,8 @@ pub fn deemphasis<'py>(
 ///         else 0. Default False.
 ///
 /// Returns:
-///     numpy.ndarray: float64 in ``[0, 1]`` (bool for ``power=inf``), same shape.
+///     numpy.ndarray: values in ``[0, 1]`` in ``X``'s precision (bool for
+///     ``power=inf``), same shape.
 ///
 /// Raises:
 ///     ValueError: For mismatched shapes, negative input or ``power <= 0``.
@@ -320,15 +347,17 @@ pub fn softmask<'py>(
     power: f64,
     split_zeros: bool,
 ) -> PyResult<Bound<'py, PyAny>> {
-    let x = f64_array(X, "X")?;
-    let r = f64_array(X_ref, "X_ref")?;
-    let m =
-        fx::softmask(&x.as_array(), &r.as_array(), power, split_zeros).map_err(audio_err_to_py)?;
-    if power.is_infinite() {
-        Ok(m.mapv(|v| v != 0.0).into_pyarray(py).into_any())
-    } else {
-        Ok(m.into_pyarray(py).into_any())
-    }
+    with_precision!(precision_of(X), |F| {
+        let x = float_array_as::<F>(X, "X")?;
+        let r = float_array_as::<F>(X_ref, "X_ref")?;
+        let m = fx::softmask(&x.as_array(), &r.as_array(), power, split_zeros)
+            .map_err(audio_err_to_py)?;
+        if power.is_infinite() {
+            Ok(m.mapv(|v| v != 0.0).into_pyarray(py).into_any())
+        } else {
+            Ok(m.into_pyarray(py).into_any())
+        }
+    })
 }
 
 /// Median-filtering harmonic/percussive separation of a spectrogram,
@@ -351,7 +380,7 @@ pub fn softmask<'py>(
 ///
 /// Returns:
 ///     tuple: ``(harmonic, percussive)`` of the input's shape and dtype
-///     (complex input keeps its phase), or with ``mask=True`` the float64 masks
+///     (complex input keeps its phase), or with ``mask=True`` the masks in ``S``'s precision
 ///     (bool for ``power=inf``, as librosa).
 ///
 /// Raises:
@@ -379,40 +408,58 @@ pub fn hpss<'py>(
     let cfg = hpss_mask_config(&ks, power, &mg)?;
     let np = py.import("numpy")?;
     let complex = np.call_method1("iscomplexobj", (S,))?.extract::<bool>()?;
-    let as_mask = |m: Array3<f64>, squeeze: bool| -> Bound<'py, PyAny> {
+    with_precision!(precision_of(S), |F| hpss_typed::<F>(
+        py, S, &cfg, complex, mask, power
+    ))
+}
+
+/// [`hpss`] computed in `F`.
+#[allow(non_snake_case)]
+fn hpss_typed<'py, F: PyFloat>(
+    py: Python<'py>,
+    S: &Bound<'py, PyAny>,
+    cfg: &HpssMaskConfig,
+    complex: bool,
+    mask: bool,
+    power: f64,
+) -> PyResult<(Bound<'py, PyAny>, Bound<'py, PyAny>)>
+where
+    Complex<F>: numpy::Element,
+{
+    let as_mask = |m: Array3<F>, squeeze: bool| -> Bound<'py, PyAny> {
         if power.is_infinite() {
-            out3(py, m.mapv(|v| v != 0.0), squeeze)
+            out3(py, m.mapv(|v| v != F::of(0.0)), squeeze)
         } else {
             out3(py, m, squeeze)
         }
     };
     if complex {
-        let (d, squeeze) = cplanes(S, "S")?;
+        let (d, squeeze) = cplanes::<F>(S, "S")?;
         if mask {
             let mag = d.mapv(Complex::norm);
             let mag = mag.view();
             let (mh, mp) = py
-                .detach(|| fx::hpss_masks(mag, &cfg))
+                .detach(|| fx::hpss_masks(mag, cfg))
                 .map_err(audio_err_to_py)?;
             return Ok((as_mask(mh, squeeze), as_mask(mp, squeeze)));
         }
         let dv = d.view();
         let (h, p) = py
-            .detach(|| fx::hpss_spectrogram(dv, &cfg))
+            .detach(|| fx::hpss_spectrogram(dv, cfg))
             .map_err(audio_err_to_py)?;
         return Ok((out3(py, h, squeeze), out3(py, p, squeeze)));
     }
-    let (s, squeeze) = planes(S, "S")?;
+    let (s, squeeze) = planes::<F>(S, "S")?;
     if mask {
         let sv = s.view();
         let (mh, mp) = py
-            .detach(|| fx::hpss_masks(sv, &cfg))
+            .detach(|| fx::hpss_masks(sv, cfg))
             .map_err(audio_err_to_py)?;
         return Ok((as_mask(mh, squeeze), as_mask(mp, squeeze)));
     }
     let sv = s.view();
     let (h, p) = py
-        .detach(|| fx::hpss_magnitude(sv, &cfg))
+        .detach(|| fx::hpss_magnitude(sv, cfg))
         .map_err(audio_err_to_py)?;
     Ok((out3(py, h, squeeze), out3(py, p, squeeze)))
 }
@@ -468,7 +515,7 @@ fn parse_nn_aggregate(obj: Option<&Bound<'_, PyAny>>) -> PyResult<NnAggregate> {
 ///         ``full``.
 ///
 /// Returns:
-///     numpy.ndarray[float64]: filtered ``(n_features, n_frames)``.
+///     numpy.ndarray[float32 | float64]: filtered ``(n_features, n_frames)``.
 ///
 /// Raises:
 ///     ValueError: For a wrong-shaped ``rec`` or invalid arguments.
@@ -491,32 +538,34 @@ pub fn nn_filter<'py>(
         return Err(value_err("axis", "only axis=-1 (frames last) is supported"));
     }
     let agg = parse_nn_aggregate(aggregate)?;
-    let (data, squeeze) = rows(S, "S")?;
-    let out = match rec.filter(|r| !r.is_none()) {
-        Some(r) => {
-            if kwargs.is_some_and(|k| !k.is_empty()) {
-                return Err(PyTypeError::new_err(
-                    "nn_filter: recurrence_matrix keyword arguments are only used when rec is None",
-                ));
+    with_precision!(precision_of(S), |F| {
+        let (data, squeeze) = rows::<F>(S, "S")?;
+        let out = match rec.filter(|r| !r.is_none()) {
+            Some(r) => {
+                if kwargs.is_some_and(|k| !k.is_empty()) {
+                    return Err(PyTypeError::new_err(
+                        "nn_filter: recurrence_matrix keyword arguments are only used when rec is None",
+                    ));
+                }
+                let r = float_array_as::<F>(r, "rec")?;
+                if r.ndim() != 2 {
+                    return Err(value_err("rec", "expected a 2-D (dense) recurrence matrix"));
+                }
+                let r = r
+                    .as_array()
+                    .into_dimensionality::<Ix2>()
+                    .expect("2-D")
+                    .to_owned();
+                fx::nn_filter(data.view(), r.view(), agg)
             }
-            let r = f64_array(r, "rec")?;
-            if r.ndim() != 2 {
-                return Err(value_err("rec", "expected a 2-D (dense) recurrence matrix"));
+            None => {
+                let cfg = recurrence_config(kwargs)?;
+                fx::nn_filter_recurrence(data.view(), &cfg, agg)
             }
-            let r = r
-                .as_array()
-                .into_dimensionality::<Ix2>()
-                .expect("2-D")
-                .to_owned();
-            fx::nn_filter(data.view(), r.view(), agg)
         }
-        None => {
-            let cfg = recurrence_config(kwargs)?;
-            fx::nn_filter_recurrence(data.view(), &cfg, agg)
-        }
-    }
-    .map_err(audio_err_to_py)?;
-    Ok(rows_out(py, out, squeeze))
+        .map_err(audio_err_to_py)?;
+        Ok(rows_out(py, out, squeeze))
+    })
 }
 
 /// [`RecurrenceConfig`] from `recurrence_matrix` keyword arguments.
@@ -575,30 +624,41 @@ fn recurrence_config(kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<RecurrenceC
 // =============================================================================
 
 /// Parses `init` / `rng` into a [`GriffinLimInit`].
-pub(crate) fn griffinlim_init(
-    init: Option<&str>,
-    rng: Option<&Bound<'_, PyAny>>,
-) -> PyResult<GriffinLimInit> {
+pub(crate) fn griffinlim_init(init: Option<&str>, rng: RngArg) -> PyResult<GriffinLimInit> {
     match init {
         None => Ok(GriffinLimInit::ZeroPhase),
-        Some("random") => {
-            let seed = match rng.filter(|r| !r.is_none()) {
-                None => None,
-                Some(r) => {
-                    let s: i64 = r.extract().map_err(|_| {
-                        PyTypeError::new_err(
-                            "rng: only an integer seed (or None) is supported; NumPy generators are not",
-                        )
-                    })?;
-                    Some(non_negative("rng", s)? as u64)
-                }
-            };
-            Ok(GriffinLimInit::Random(seed))
-        }
+        Some("random") => Ok(GriffinLimInit::Random(rng.0)),
         Some(other) => Err(value_err(
             "init",
             format!("unsupported init {other:?}; expected 'random' or None"),
         )),
+    }
+}
+
+/// The `rng` argument of the Griffin-Lim bindings: an integer seed, or `None`
+/// for a fresh seed on every call. NumPy generators are rejected.
+#[derive(Debug, Clone, Copy)]
+pub struct RngArg(pub(crate) Option<u64>);
+
+impl RngArg {
+    /// The default seed, 0 (reproducible output).
+    pub(crate) const SEEDED: Self = Self(Some(0));
+}
+
+impl<'a, 'py> FromPyObject<'a, 'py> for RngArg {
+    type Error = PyErr;
+
+    #[inline]
+    fn extract(obj: pyo3::Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
+        if obj.is_none() {
+            return Ok(Self(None));
+        }
+        let s: i64 = obj.extract().map_err(|_| {
+            PyTypeError::new_err(
+                "rng: only an integer seed (or None) is supported; NumPy generators are not",
+            )
+        })?;
+        Ok(Self(Some(non_negative("rng", s)? as u64)))
     }
 }
 
@@ -616,7 +676,7 @@ pub(crate) fn griffinlim_config(
     pad_mode: &str,
     momentum: f64,
     init: Option<&str>,
-    rng: Option<&Bound<'_, PyAny>>,
+    rng: RngArg,
 ) -> PyResult<GriffinLimConfig> {
     let n_fft = n_fft.unwrap_or(Int(2 * (n_bins as i64 - 1)));
     Ok(GriffinLimConfig::new()
@@ -638,7 +698,8 @@ pub(crate) fn griffinlim_config(
 ///     n_iter (int): Iterations. Default 32.
 ///     hop_length, win_length, window, center, pad_mode: STFT parameters of ``S``.
 ///     n_fft (Optional[int]): None infers ``2 * (n_bins - 1)``.
-///     dtype: Ignored (the output is float64).
+///     dtype: Ignored; the output follows ``S``'s precision (float32 for a
+///         float32 ``S``, float64 otherwise).
 ///     length (Optional[int]): Exact output length.
 ///     momentum (float): Fast Griffin-Lim momentum (0 = original). Default 0.99.
 ///     init (Optional[str]): ``"random"`` (default) or None (zero phase,
@@ -649,14 +710,14 @@ pub(crate) fn griffinlim_config(
 ///     random_state: Deprecated alias of ``rng``.
 ///
 /// Returns:
-///     numpy.ndarray[float64]: shape ``(n,)`` for 2-D ``S``, ``(channels, n)`` for 3-D.
+///     numpy.ndarray[float32 | float64]: shape ``(n,)`` for 2-D ``S``, ``(channels, n)`` for 3-D.
 ///
 /// Raises:
 ///     ValueError: For invalid parameters or a bin count that does not match ``n_fft``.
 #[pyfunction]
 #[pyo3(
-    signature = (S, *, n_iter = Int(32), hop_length = None, win_length = None, n_fft = None, window = WindowArg(Window::Hann), center = true, dtype = None, length = None, pad_mode = "constant", momentum = 0.99, init = Some("random"), rng = None, random_state = None),
-    text_signature = "(S, *, n_iter=32, hop_length=None, win_length=None, n_fft=None, window='hann', center=True, dtype=None, length=None, pad_mode='constant', momentum=0.99, init='random', rng=None, random_state=None)"
+    signature = (S, *, n_iter = Int(32), hop_length = None, win_length = None, n_fft = None, window = WindowArg(Window::Hann), center = true, dtype = None, length = None, pad_mode = "constant", momentum = 0.99, init = Some("random"), rng = RngArg::SEEDED, random_state = None),
+    text_signature = "(S, *, n_iter=32, hop_length=None, win_length=None, n_fft=None, window='hann', center=True, dtype=None, length=None, pad_mode='constant', momentum=0.99, init='random', rng=0, random_state=None)"
 )]
 #[allow(non_snake_case, clippy::too_many_arguments, unused_variables)]
 pub fn griffinlim<'py>(
@@ -673,27 +734,29 @@ pub fn griffinlim<'py>(
     pad_mode: &str,
     momentum: f64,
     init: Option<&str>,
-    rng: Option<&Bound<'py, PyAny>>,
-    random_state: Option<&Bound<'py, PyAny>>,
+    rng: RngArg,
+    random_state: Option<RngArg>,
 ) -> PyResult<Bound<'py, PyAny>> {
-    let (s, squeeze) = planes(S, "S")?;
-    let rng = rng.filter(|r| !r.is_none()).or(random_state);
-    let cfg = griffinlim_config(
-        s.dim().1,
-        n_iter,
-        hop_length,
-        win_length,
-        n_fft,
-        window,
-        center,
-        length,
-        pad_mode,
-        momentum,
-        init,
-        rng,
-    )?;
-    let y = fx::griffinlim(s.view(), &cfg).map_err(audio_err_to_py)?;
-    Ok(rows_out(py, y, squeeze))
+    let rng = random_state.unwrap_or(rng);
+    with_precision!(precision_of(S), |F| {
+        let (s, squeeze) = planes::<F>(S, "S")?;
+        let cfg = griffinlim_config(
+            s.dim().1,
+            n_iter,
+            hop_length,
+            win_length,
+            n_fft,
+            window,
+            center,
+            length,
+            pad_mode,
+            momentum,
+            init,
+            rng,
+        )?;
+        let y = fx::griffinlim(s.view(), &cfg).map_err(audio_err_to_py)?;
+        Ok(rows_out(py, y, squeeze))
+    })
 }
 
 /// Linear-prediction coefficients by Burg's method, equivalent to ``librosa.lpc``.
@@ -705,7 +768,7 @@ pub fn griffinlim<'py>(
 ///     axis (int): Must be -1.
 ///
 /// Returns:
-///     numpy.ndarray[float64]: ``(order + 1,)`` coefficients ``[1, a_1, ...]``
+///     numpy.ndarray[float32 | float64]: ``(order + 1,)`` coefficients ``[1, a_1, ...]``
 ///     (``(channels, order + 1)`` for 2-D input).
 ///
 /// Raises:
@@ -725,22 +788,24 @@ pub fn lpc<'py>(
         }
     }
     let order = positive("order", order)?;
-    let (x, squeeze) = rows(y, "y")?;
-    if order.get() >= x.ncols() {
-        return Err(value_err(
-            "order",
-            format!(
-                "order={order} needs more than {order} samples (got {})",
-                x.ncols()
-            ),
-        ));
-    }
-    let mut out = Array2::<f64>::zeros((x.nrows(), order.get() + 1));
-    for (c, row) in x.outer_iter().enumerate() {
-        let a = fx::lpc(&row.to_vec(), order).map_err(audio_err_to_py)?;
-        out.row_mut(c).assign(&ndarray::Array1::from(a));
-    }
-    Ok(rows_out(py, out, squeeze))
+    with_precision!(precision_of(y), |F| {
+        let (x, squeeze) = rows::<F>(y, "y")?;
+        if order.get() >= x.ncols() {
+            return Err(value_err(
+                "order",
+                format!(
+                    "order={order} needs more than {order} samples (got {})",
+                    x.ncols()
+                ),
+            ));
+        }
+        let mut out = Array2::<F>::zeros((x.nrows(), order.get() + 1));
+        for (c, row) in x.outer_iter().enumerate() {
+            let a = fx::lpc(&row.to_vec(), order).map_err(audio_err_to_py)?;
+            out.row_mut(c).assign(&ndarray::Array1::from(a));
+        }
+        Ok(rows_out(py, out, squeeze))
+    })
 }
 
 /// Synthesises a click track, equivalent to ``librosa.clicks``.
@@ -749,8 +814,10 @@ pub fn lpc<'py>(
 ///     times (Optional[array_like]): Click times in seconds.
 ///     frames (Optional[array_like]): Click frame indices (used when ``times``
 ///         is None).
-///     sr (int): Sampling rate (a positive integer). Default 22050.
-///     hop_length (int): Samples per frame for ``frames``. Default 512.
+///     sr (int): Sampling rate (a positive integer). Required (librosa defaults to 22050).
+///     hop_length (Optional[int]): Samples per frame for ``frames``. Required
+///         when ``frames`` is given (librosa defaults to 512); unused with
+///         ``times``.
 ///     click_freq (float): Frequency of the default click. Default 1000.
 ///     click_duration (float): Duration of the default click (s). Default 0.1.
 ///     click (Optional[array_like]): Custom 1-D click waveform.
@@ -766,8 +833,8 @@ pub fn lpc<'py>(
 ///         negative, or parameters are invalid.
 #[pyfunction]
 #[pyo3(
-    signature = (*, times = None, frames = None, sr = 22050.0, hop_length = Int(512), click_freq = 1000.0, click_duration = 0.1, click = None, length = None),
-    text_signature = "(*, times=None, frames=None, sr=22050, hop_length=512, click_freq=1000.0, click_duration=0.1, click=None, length=None)"
+    signature = (*, times = None, frames = None, sr, hop_length = None, click_freq = 1000.0, click_duration = 0.1, click = None, length = None),
+    text_signature = "(*, times=None, frames=None, sr, hop_length=None, click_freq=1000.0, click_duration=0.1, click=None, length=None)"
 )]
 #[allow(clippy::too_many_arguments)]
 pub fn clicks<'py>(
@@ -775,7 +842,7 @@ pub fn clicks<'py>(
     times: Option<&Bound<'py, PyAny>>,
     frames: Option<&Bound<'py, PyAny>>,
     sr: f64,
-    hop_length: Int,
+    hop_length: Option<Int>,
     click_freq: f64,
     click_duration: f64,
     click: Option<&Bound<'py, PyAny>>,
@@ -788,13 +855,12 @@ pub fn clicks<'py>(
         ));
     }
     let rate = crate::nzu32_or_err(sr as u32)?;
-    let hop = positive("hop_length", hop_length)?;
+    let hop = crate::args::opt_positive("hop_length", hop_length)?;
     let click = click
         .filter(|c| !c.is_none())
-        .map(|c| crate::rhythm::vec1(c, "click"))
+        .map(|c| crate::rhythm::vec1::<f64>(c, "click"))
         .transpose()?;
     let cfg = ClicksConfig::new()
-        .with_hop_length(hop)
         .with_click_freq(click_freq)
         .with_click_duration(click_duration)
         .with_click(click)
@@ -804,9 +870,16 @@ pub fn clicks<'py>(
     let y = match (times, frames) {
         (Some(t), _) => {
             let t: Vec<f64> = f64_array(t, "times")?.as_array().iter().copied().collect();
-            fx::clicks(ClickPositions::Times(&t), rate, &cfg)
+            fx::clicks::<f64>(ClickPositions::Times(&t), rate, &cfg)
         }
         (None, Some(f)) => {
+            let Some(hop) = hop else {
+                return Err(value_err(
+                    "hop_length",
+                    "required with frames= (the hop of the analysis that produced the frames; \
+                     librosa defaults to 512)",
+                ));
+            };
             let f: Vec<usize> = i64_vec(f, "frames")?
                 .into_iter()
                 .map(|v| non_negative("frames", v))
@@ -814,7 +887,14 @@ pub fn clicks<'py>(
             if f.iter().any(|&v| v.checked_mul(hop.get()).is_none()) {
                 return Err(value_err("frames", "frame index too large"));
             }
-            fx::clicks(ClickPositions::Frames(&f), rate, &cfg)
+            fx::clicks::<f64>(
+                ClickPositions::Frames {
+                    frames: &f,
+                    hop_length: hop,
+                },
+                rate,
+                &cfg,
+            )
         }
         (None, None) => {
             return Err(value_err(
@@ -838,7 +918,9 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
         "__doc__",
         "librosa-compatible effect and decomposition helpers over NumPy arrays \
          (phase vocoder, pre-/de-emphasis with filter state, soft masks, HPSS, \
-         nearest-neighbour filtering, Griffin-Lim, LPC, click tracks).",
+         nearest-neighbour filtering, Griffin-Lim, LPC, click tracks). \
+         float32 / complex64 arrays are processed in float32 and give float32 \
+         output; any other input is converted to float64.",
     )?;
     m.add_function(wrap_pyfunction!(phase_vocoder, &m)?)?;
     m.add_function(wrap_pyfunction!(preemphasis, &m)?)?;

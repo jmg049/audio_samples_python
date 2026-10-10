@@ -116,8 +116,8 @@ def test_spectral_nondefault(fx, sr):
         # S= path with an explicit centroid (n_fft 1024, hop 256).
         s = x.spectrogram_matrix(n_fft=1024, hop_length=256)
         freqs = aus.utils.fft_frequencies(1024, float(sr))
-        cen = F.spectral_centroid_from_spectrogram(s, freq=freqs)
-        bw = F.spectral_bandwidth_from_spectrogram(s, freq=freqs, centroid=cen)
+        cen = F.spectral_centroid_from_spectrogram(s, sr=sr, freq=freqs)
+        bw = F.spectral_bandwidth_from_spectrogram(s, sr=sr, freq=freqs, centroid=cen)
         _check_rows(bw, case["bandwidth_S_centroid"], RTOL_RATIO, "bandwidth_S_centroid")
         _check_rows(x.spectral_rolloff_frames(roll_percent=0.5), case["rolloff_050"], 0.0, "rolloff_050")
         _check_rows(
@@ -200,32 +200,33 @@ def test_pcen(fx, sr):
         "b_explicit_hop256": dict(hop_length=256, b=0.2, time_constant=0.1),
     }
     for name, kw in cases.items():
-        p = F.pcen(mel, sr=sr, **kw)
+        # librosa's default hop_length is 512; the binding requires it.
+        p = F.pcen(mel, sr=sr, **{"hop_length": 512, **kw})
         assert p.shape == mel.shape
         _check_rows(p[::rs][None], f[name], RTOL_PCEN, f"pcen {name}")
     mel_st = _audio("stereo", sr).melspectrogram() * 2.0**31
-    _check_rows(F.pcen(mel_st, sr=sr)[:, ::rs], f["stereo"], RTOL_PCEN, "pcen stereo")
+    _check_rows(F.pcen(mel_st, sr=sr, hop_length=512)[:, ::rs], f["stereo"], RTOL_PCEN, "pcen stereo")
     ms = f["stft_notes_mag_step"]
     mag = _audio("notes", sr).spectrogram_matrix()[0] * 2.0**31
-    _check_rows(F.pcen(mag, sr=sr)[::ms][None], f["stft_notes"], RTOL_PCEN, "pcen stft notes")
+    _check_rows(F.pcen(mag, sr=sr, hop_length=512)[::ms][None], f["stft_notes"], RTOL_PCEN, "pcen stft notes")
 
 
 def test_pcen_streaming_and_options(sr):
     rng = np.random.default_rng(1)
     s = rng.uniform(0, 1e3, (16, 40))
-    whole = F.pcen(s, sr=sr)
-    a, zf = F.pcen(s[:, :15], sr=sr, return_zf=True)
+    whole = F.pcen(s, sr=sr, hop_length=512)
+    a, zf = F.pcen(s[:, :15], sr=sr, hop_length=512, return_zf=True)
     assert zf.shape == (16, 1)
-    b = F.pcen(s[:, 15:], sr=sr, zi=zf)
+    b = F.pcen(s[:, 15:], sr=sr, hop_length=512, zi=zf)
     np.testing.assert_allclose(np.concatenate([a, b], axis=1), whole, rtol=1e-12)
     # ref replaces the smoothed input
-    np.testing.assert_allclose(F.pcen(s, sr=sr, ref=s), whole)
+    np.testing.assert_allclose(F.pcen(s, sr=sr, hop_length=512, ref=s), whole)
     with pytest.raises(ValueError, match="axis"):
-        F.pcen(s, sr=sr, axis=0)
+        F.pcen(s, sr=sr, hop_length=512, axis=0)
     with pytest.raises(ValueError, match="max_size"):
-        F.pcen(s, sr=sr, max_size=0)
+        F.pcen(s, sr=sr, hop_length=512, max_size=0)
     with pytest.raises(TypeError):
-        F.pcen(s + 0j, sr=sr)
+        F.pcen(s + 0j, sr=sr, hop_length=512)
 
 
 def test_frequency_weightings(fx):
@@ -233,7 +234,8 @@ def test_frequency_weightings(fx):
     freqs = fixture_array(f["freqs"])
     special = fixture_array(f["special"])
     for k in "ABCD":
-        assert_peak_close(F.frequency_weighting(freqs, kind=k), fixture_array(f[k]), RTOL_WEIGHT, k)
+        # The fixtures use librosa's min_db=-80; frequency_weighting defaults to None.
+        assert_peak_close(F.frequency_weighting(freqs, kind=k, min_db=-80.0), fixture_array(f[k]), RTOL_WEIGHT, k)
         assert_peak_close(
             F.frequency_weighting(special[1:], kind=k, min_db=None),
             fixture_array(f[k + "_special_nomin"]),
@@ -247,8 +249,11 @@ def test_frequency_weightings(fx):
             k + " min40",
         )
         fn = getattr(F, f"{k.lower()}_weighting")
-        np.testing.assert_array_equal(fn(freqs), F.frequency_weighting(freqs, kind=k))
-    assert_peak_close(F.multi_frequency_weighting(freqs), fixture_array(f["multi_ZAC"]), RTOL_WEIGHT, "ZAC")
+        np.testing.assert_array_equal(fn(freqs), F.frequency_weighting(freqs, kind=k, min_db=-80.0))
+        np.testing.assert_array_equal(fn(freqs, min_db=None), F.frequency_weighting(freqs, kind=k))
+    assert_peak_close(
+        F.multi_frequency_weighting(freqs, min_db=-80.0), fixture_array(f["multi_ZAC"]), RTOL_WEIGHT, "ZAC"
+    )
     assert_peak_close(
         F.multi_frequency_weighting(freqs, kinds="DBA", min_db=-60.0),
         fixture_array(f["multi_DBA_min60"]),
@@ -274,10 +279,11 @@ def test_perceptual_weighting(fx, sr):
     p = _audio("mix", sr).spectrogram_matrix(power=2.0)[0]
     pst = _audio("stereo", sr).spectrogram_matrix(power=2.0)
     cases = {
-        "A_default": (p, {}),
-        "C_ref_max": (p, dict(kind="C", ref=np.max)),
-        "D_no_top_db": (p, dict(kind="D", top_db=None)),
-        "A_stereo": (pst, {}),
+        # librosa's default top_db is 80; the binding defaults to None.
+        "A_default": (p, dict(top_db=80.0)),
+        "C_ref_max": (p, dict(kind="C", ref=np.max, top_db=80.0)),
+        "D_no_top_db": (p, dict(kind="D")),
+        "A_stereo": (pst, dict(top_db=80.0)),
     }
     for name, (spec, kw) in cases.items():
         w = F.perceptual_weighting(spec, freqs, **kw)
@@ -331,9 +337,9 @@ def test_shapes_dtypes_and_inputs(sr):
     assert mono.spectral_contrast_frames().shape[:2] == (1, 7)
     f, t, m = st.reassigned_spectrogram()
     assert f.shape == t.shape == m.shape and f.shape[:2] == (2, 1025)
-    # float32 and int16 audio are accepted (converted to float64 internally).
+    # float32 and int16 audio are analysed in float32.
     f32 = aus.AudioSamples.new_mono(y.astype(np.float32), sr)
-    assert f32.spectral_centroid_frames().dtype == np.float64
+    assert f32.spectral_centroid_frames().dtype == np.float32
     i16 = aus.AudioSamples.new_mono((y * 32767).astype(np.int16), sr)
     assert i16.rms_frames().shape == mono.rms_frames().shape
 
@@ -351,11 +357,11 @@ def test_argument_validation(sr):
     with pytest.raises(ValueError):
         x.spectral_rolloff_frames(roll_percent=1.5)
     with pytest.raises(ValueError):
-        F.spectral_centroid_from_spectrogram(-np.ones((5, 3)))
+        F.spectral_centroid_from_spectrogram(-np.ones((5, 3)), sr=sr)
     with pytest.raises(ValueError, match="freq"):
-        F.spectral_centroid_from_spectrogram(np.ones((5, 3)), freq=np.ones(4))
+        F.spectral_centroid_from_spectrogram(np.ones((5, 3)), sr=sr, freq=np.ones(4))
     with pytest.raises(ValueError, match="S"):
-        F.spectral_centroid_from_spectrogram(np.ones(5))
+        F.spectral_centroid_from_spectrogram(np.ones(5), sr=sr)
     with pytest.raises(TypeError):
         x.reassigned_spectrogram(ref_power=np.mean)
 
@@ -400,7 +406,7 @@ def test_against_librosa(sr):
         "bw S",
     )
     mel = librosa.feature.melspectrogram(y=y, sr=sr, dtype=np.float64) * 2**31
-    ours, zf = F.pcen(mel, sr=sr, max_size=3, return_zf=True)
+    ours, zf = F.pcen(mel, sr=sr, hop_length=512, max_size=3, return_zf=True)
     ref, lzf = librosa.pcen(mel, sr=sr, max_size=3, return_zf=True)
     assert_peak_close(ours, ref, RTOL_PCEN, "pcen")
     assert_peak_close(zf, lzf, RTOL_PCEN, "pcen zf")

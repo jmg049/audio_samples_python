@@ -211,13 +211,13 @@ def test_conversions(fx, sr):
 
 def test_conversions_scalar_and_shape():
     assert isinstance(U.hz_to_mel(1000.0), float)
-    assert isinstance(U.time_to_frames_floor(0.5), int)
+    assert isinstance(U.time_to_frames_floor(0.5, sample_rate=22050, hop_length=512), int)
     out = U.hz_to_midi(np.full((2, 3), 440.0))
     assert out.shape == (2, 3) and np.all(out == 69.0)
     # Existing rounding semantics of time_to_frames are kept (nearest frame).
     assert U.time_to_frames(1.0, 44100.0, 512) == 86
     assert U.frames_to_time(100, 44100.0, 512) == pytest.approx(100 * 512 / 44100)
-    np.testing.assert_array_equal(U.samples_like(3), [0, 512, 1024])
+    np.testing.assert_array_equal(U.samples_like(3, hop_length=512), [0, 512, 1024])
     np.testing.assert_allclose(U.times_like(np.zeros((5, 4)), sample_rate=1000.0, hop_length=100), [0, 0.1, 0.2, 0.3])
 
 
@@ -253,13 +253,24 @@ def test_stft_integer_audio_uses_audio_aware_conversion(sr):
     # Integer audio is converted with the crate's audio-aware conversion
     # (i16: negative codes / 32768, positive codes / 32767), not librosa's
     # usual k / 32768, so compare against the explicit float64 conversion.
+    # int16 audio is analysed in float32 (every int16 value is exact in
+    # float32), so it equals the float32 conversion's STFT exactly and agrees
+    # with the float64 path to float32 FFT round-off.
     pcm = fixture_signal_pcm("mix")
     a16 = aus.AudioSamples.new_mono(pcm, sr)
-    np.testing.assert_array_equal(a16.stft_matrix(n_fft=512), a16.as_f64().stft_matrix(n_fft=512))
-    # f32 audio of the same (exactly representable) values gives the same result.
+    d16 = a16.stft_matrix(n_fft=512)
+    assert d16.dtype == np.complex64
+    np.testing.assert_array_equal(d16, a16.as_f32().stft_matrix(n_fft=512))
+    # float32 FFT of a 512-point frame: a few float32 ulps (6e-8) of the peak per
+    # bin; measured 1.2e-7 peak-relative.
+    assert_peak_close(d16, a16.as_f64().stft_matrix(n_fft=512), 1e-6)
+    # f32 audio of the same (exactly representable) values: float32 output,
+    # equal to the float64 analysis to float32 round-off (measured 1.4e-7).
     a32 = aus.AudioSamples.new_mono((pcm / 32768.0).astype(np.float32), sr)
     a64 = aus.AudioSamples.new_mono(pcm / 32768.0, sr)
-    np.testing.assert_array_equal(a32.stft_matrix(n_fft=512), a64.stft_matrix(n_fft=512))
+    d32 = a32.stft_matrix(n_fft=512)
+    assert d32.dtype == np.complex64
+    assert_peak_close(d32, a64.stft_matrix(n_fft=512), 1e-6)
 
 
 def test_istft(fx, mix):
@@ -323,21 +334,23 @@ def test_db_conversions(fx, stereo):
     f = fx["db"]
     mel_in = fixture_array(fx["melspectrogram"]["default"])
     # Inputs are librosa's exact inputs (stored); log10 ulps only.
-    assert_peak_close(S.power_to_db(mel_in), fixture_array(f["power_default"]), RTOL_DB)
-    assert_peak_close(S.power_to_db(mel_in, ref=np.max), fixture_array(f["power_ref_max"]), RTOL_DB)
-    assert_peak_close(S.power_to_db(mel_in, ref="max"), fixture_array(f["power_ref_max"]), RTOL_DB)
+    # librosa's default top_db is 80; the binding's default is no floor.
+    assert_peak_close(S.power_to_db(mel_in, top_db=80.0), fixture_array(f["power_default"]), RTOL_DB)
+    assert_peak_close(S.power_to_db(mel_in), fixture_array(f["power_no_top_db"]), RTOL_DB)
+    assert_peak_close(S.power_to_db(mel_in, ref=np.max, top_db=80.0), fixture_array(f["power_ref_max"]), RTOL_DB)
+    assert_peak_close(S.power_to_db(mel_in, ref="max", top_db=80.0), fixture_array(f["power_ref_max"]), RTOL_DB)
     assert_peak_close(S.power_to_db(mel_in, top_db=None), fixture_array(f["power_no_top_db"]), RTOL_DB)
     # Stereo: reference max and top_db are per channel (axes="auto"). The input is
     # computed here (melspectrogram round-off ~1e-14 rel) -> dB abs error ~1e-13.
     ms = stereo.melspectrogram()
     step = f["power_stereo_ref_max_row_step"]
-    assert_peak_close(S.power_to_db(ms, ref=np.max)[:, ::step, :], fixture_array(f["power_stereo_ref_max"]), RTOL_DB)
+    assert_peak_close(S.power_to_db(ms, ref=np.max, top_db=80.0)[:, ::step, :], fixture_array(f["power_stereo_ref_max"]), RTOL_DB)
     mag = np.abs(fixture_array(fx["stft"]["default"]["subset"]))
-    assert_peak_close(S.amplitude_to_db(mag, ref=np.max), fixture_array(f["amplitude_ref_max"]), RTOL_DB)
-    assert_peak_close(S.amplitude_to_db(mag), fixture_array(f["amplitude_default"]), RTOL_DB)
+    assert_peak_close(S.amplitude_to_db(mag, ref=np.max, top_db=80.0), fixture_array(f["amplitude_ref_max"]), RTOL_DB)
+    assert_peak_close(S.amplitude_to_db(mag, top_db=80.0), fixture_array(f["amplitude_default"]), RTOL_DB)
     # Complex input: magnitude is taken (as librosa, which warns).
     assert_peak_close(
-        S.amplitude_to_db(fixture_array(fx["stft"]["default"]["subset"])),
+        S.amplitude_to_db(fixture_array(fx["stft"]["default"]["subset"]), top_db=80.0),
         fixture_array(f["amplitude_default"]),
         RTOL_DB,
     )
@@ -363,15 +376,16 @@ MFCC_CASES = {
 
 @pytest.mark.parametrize("name", sorted(MFCC_CASES))
 def test_mfcc_frames(fx, mono, name):
-    m = mono.mfcc_frames(**MFCC_CASES[name])
+    # The fixtures use librosa's default top_db=80 (the binding defaults to None).
+    m = mono.mfcc_frames(top_db=80.0, **MFCC_CASES[name])
     # MFCC = DCT of dB values; dB errors are absolute (~1e-12 dB) and the DCT is a
     # direct product here vs FFT-based in SciPy. Floored bins agree exactly.
     assert_peak_close(m[0], fixture_array(fx["mfcc"][name]), RTOL_MFCC, name)
 
 
 def test_mfcc_stereo_and_from_mel_db(fx, stereo, mono):
-    assert_peak_close(stereo.mfcc_frames(), fixture_array(fx["mfcc"]["stereo"]), RTOL_MFCC, "stereo")
-    mel_db = S.power_to_db(mono.melspectrogram())
+    assert_peak_close(stereo.mfcc_frames(top_db=80.0), fixture_array(fx["mfcc"]["stereo"]), RTOL_MFCC, "stereo")
+    mel_db = S.power_to_db(mono.melspectrogram(), top_db=80.0)
     assert_peak_close(S.mfcc_from_mel_db(mel_db)[0], fixture_array(fx["mfcc"]["default"]), RTOL_MFCC, "from_mel_db")
     with pytest.raises(ValueError):
         mono.mfcc_frames(n_mfcc=200)  # > n_mels (librosa silently truncates)
@@ -470,7 +484,7 @@ def test_direct_librosa_comparison(mono, mix, sr):
         librosa.time_to_frames(times, sr=sr, hop_length=256, n_fft=1024),
     )
     np.testing.assert_array_equal(U.samples_like(np.zeros((2, 7)), hop_length=128), librosa.samples_like(np.zeros((2, 7)), hop_length=128))
-    np.testing.assert_allclose(U.times_like(9, sample_rate=sr, n_fft=2048), librosa.times_like(9, sr=sr, n_fft=2048), rtol=1e-15)
+    np.testing.assert_allclose(U.times_like(9, sample_rate=sr, hop_length=512, n_fft=2048), librosa.times_like(9, sr=sr, n_fft=2048), rtol=1e-15)
 
 
 def test_mu_law_against_librosa():

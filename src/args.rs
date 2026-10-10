@@ -15,10 +15,16 @@
 //!   Size-like integers ([`positive`], [`opt_positive`], [`non_negative`]) are
 //!   capped at [`MAX_SIZE_PARAM`] (2**31): larger values would only ever request
 //!   impossible allocations, which abort the interpreter instead of raising.
-//! * Array inputs are taken as `&Bound<PyAny>` and converted with
-//!   `numpy.asarray(x, dtype=float64)` (or `complex128`), so lists, integer
-//!   arrays and float32 arrays are all accepted, as in librosa.
-//! * Outputs are always new `float64` / `complex128` / `int64` NumPy arrays.
+//! * Array inputs are taken as `&Bound<PyAny>`. Functions that compute on an
+//!   array keep its precision: a `float32` (or `complex64`) numpy array is
+//!   processed in `f32` and gives `float32` / `complex64` output; any other
+//!   array-like (lists, integer arrays, `float64`, `float16`, ...) is converted
+//!   with `numpy.asarray(x, dtype=float64)` (or `complex128`) and gives
+//!   `float64` / `complex128` output. See [`precision_of`] and [`with_precision`].
+//! * Analysis methods of `AudioSamples` return `float32` / `complex64` arrays
+//!   for `uint8`, `int16`, `int24` and `float32` audio, and `float64` /
+//!   `complex128` arrays for `int32` and `float64` audio (the Rust sample
+//!   type's `Float`).
 
 use std::num::NonZeroUsize;
 
@@ -26,7 +32,9 @@ use audio_samples::operations::filterbanks::{MelFilterNorm, MelFilterbankConfig,
 use audio_samples::operations::spectrum::{DbAxes, DbReference, StftConfig, StftPadMode};
 use audio_samples::utils::audio_math::MelScale;
 use num_complex::Complex;
-use numpy::{PyArrayDyn, PyArrayMethods, PyReadonlyArrayDyn, PyUntypedArrayMethods};
+use numpy::{
+    PyArrayDescrMethods, PyArrayDyn, PyArrayMethods, PyReadonlyArrayDyn, PyUntypedArrayMethods,
+};
 use pyo3::IntoPyObjectExt;
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
@@ -141,6 +149,136 @@ fn numpy(py: Python<'_>) -> PyResult<Bound<'_, PyModule>> {
     py.import("numpy")
 }
 
+/// Floating-point precision of an array argument, chosen by [`precision_of`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Precision {
+    /// `float32` / `complex64`.
+    F32,
+    /// `float64` / `complex128`.
+    F64,
+}
+
+/// Precision a free function computes in for the array-like `obj`: [`Precision::F32`]
+/// for a numpy array of dtype `float32` or `complex64`, [`Precision::F64`] for
+/// everything else (other dtypes, lists and scalars are converted to `float64`).
+pub(crate) fn precision_of(obj: &Bound<'_, PyAny>) -> Precision {
+    let py = obj.py();
+    if let Ok(arr) = obj.cast::<numpy::PyUntypedArray>() {
+        let dt = arr.dtype();
+        if dt.is_equiv_to(&numpy::dtype::<f32>(py))
+            || dt.is_equiv_to(&numpy::dtype::<Complex<f32>>(py))
+        {
+            return Precision::F32;
+        }
+    }
+    Precision::F64
+}
+
+/// A real floating-point element type of a numpy array (`f32` or `f64`).
+pub(crate) trait FloatElement: numpy::Element + Copy {
+    /// The numpy name of the real dtype.
+    const REAL_NAME: &'static str;
+    /// The numpy name of the matching complex dtype.
+    const COMPLEX_NAME: &'static str;
+}
+
+impl FloatElement for f32 {
+    const REAL_NAME: &'static str = "float32";
+    const COMPLEX_NAME: &'static str = "complex64";
+}
+
+impl FloatElement for f64 {
+    const REAL_NAME: &'static str = "float64";
+    const COMPLEX_NAME: &'static str = "complex128";
+}
+
+/// The float types the bindings compute in (`f32`, `f64`): the Rust crate's
+/// [`AudioFloat`](audio_samples::AudioFloat) that is also a numpy element.
+pub(crate) trait PyFloat: audio_samples::AudioFloat + FloatElement {}
+
+impl PyFloat for f32 {}
+impl PyFloat for f64 {}
+
+/// Runs `$body` with the type alias `$F` set to `f32` or `f64` according to a
+/// [`Precision`]. Both arms must evaluate to the same type (convert arrays to a
+/// Python object inside the body).
+macro_rules! with_precision {
+    ($prec:expr, |$F:ident| $body:expr) => {
+        match $prec {
+            $crate::args::Precision::F32 => {
+                #[allow(dead_code)]
+                type $F = f32;
+                $body
+            }
+            $crate::args::Precision::F64 => {
+                #[allow(dead_code)]
+                type $F = f64;
+                $body
+            }
+        }
+    };
+}
+pub(crate) use with_precision;
+
+/// Converts an array-like to a read-only real array of element type `F`
+/// (`numpy.asarray(obj, dtype=F)`), of any dimension.
+///
+/// Complex input raises `TypeError` rather than silently dropping the
+/// imaginary part.
+pub(crate) fn float_array_as<'py, F: FloatElement>(
+    obj: &Bound<'py, PyAny>,
+    name: &str,
+) -> PyResult<PyReadonlyArrayDyn<'py, F>> {
+    let py = obj.py();
+    let np = numpy(py)?;
+    if np.call_method1("iscomplexobj", (obj,))?.extract::<bool>()? {
+        return Err(PyTypeError::new_err(format!(
+            "{name}: expected a real-valued array, got complex values (take numpy.abs first)"
+        )));
+    }
+    let kwargs = PyDict::new(py);
+    kwargs.set_item("dtype", np.getattr(F::REAL_NAME)?)?;
+    let conv_err = |e: &dyn std::fmt::Display| {
+        PyTypeError::new_err(format!(
+            "{name}: cannot convert to a {} array ({e})",
+            F::REAL_NAME
+        ))
+    };
+    let arr = np
+        .call_method("asarray", (obj,), Some(&kwargs))
+        .map_err(|e| conv_err(&e))?;
+    let arr = arr.cast_into::<PyArrayDyn<F>>().map_err(|e| conv_err(&e))?;
+    Ok(arr.readonly())
+}
+
+/// Converts an array-like to a read-only complex array of element type
+/// `Complex<F>` (`numpy.asarray(obj, dtype=complex64/complex128)`).
+pub(crate) fn complex_array_as<'py, F: FloatElement>(
+    obj: &Bound<'py, PyAny>,
+    name: &str,
+) -> PyResult<PyReadonlyArrayDyn<'py, Complex<F>>>
+where
+    Complex<F>: numpy::Element,
+{
+    let py = obj.py();
+    let np = numpy(py)?;
+    let kwargs = PyDict::new(py);
+    kwargs.set_item("dtype", np.getattr(F::COMPLEX_NAME)?)?;
+    let conv_err = |e: &dyn std::fmt::Display| {
+        PyTypeError::new_err(format!(
+            "{name}: cannot convert to a {} array ({e})",
+            F::COMPLEX_NAME
+        ))
+    };
+    let arr = np
+        .call_method("asarray", (obj,), Some(&kwargs))
+        .map_err(|e| conv_err(&e))?;
+    let arr = arr
+        .cast_into::<PyArrayDyn<Complex<F>>>()
+        .map_err(|e| conv_err(&e))?;
+    Ok(arr.readonly())
+}
+
 /// Converts an array-like to a read-only `float64` array of any dimension
 /// (`numpy.asarray(obj, dtype=numpy.float64)`).
 ///
@@ -150,48 +288,81 @@ pub(crate) fn f64_array<'py>(
     obj: &Bound<'py, PyAny>,
     name: &str,
 ) -> PyResult<PyReadonlyArrayDyn<'py, f64>> {
-    let py = obj.py();
-    let np = numpy(py)?;
-    if np.call_method1("iscomplexobj", (obj,))?.extract::<bool>()? {
-        return Err(PyTypeError::new_err(format!(
-            "{name}: expected a real-valued array, got complex values (take numpy.abs first)"
-        )));
-    }
-    let kwargs = PyDict::new(py);
-    kwargs.set_item("dtype", np.getattr("float64")?)?;
-    let arr = np
-        .call_method("asarray", (obj,), Some(&kwargs))
-        .map_err(|e| {
-            PyTypeError::new_err(format!("{name}: cannot convert to a float64 array ({e})"))
-        })?;
-    let arr = arr.cast_into::<PyArrayDyn<f64>>().map_err(|e| {
-        PyTypeError::new_err(format!("{name}: cannot convert to a float64 array ({e})"))
-    })?;
-    Ok(arr.readonly())
+    float_array_as::<f64>(obj, name)
 }
 
-/// Converts an array-like to a read-only `complex128` array.
-pub(crate) fn c128_array<'py>(
-    obj: &Bound<'py, PyAny>,
+/// A 2-D `(n_bins, T)` or 3-D `(channels, n_bins, T)` array as 3-D (a 2-D
+/// array becomes one channel).
+pub(crate) fn to_3d<T: Clone>(
+    a: ndarray::ArrayViewD<'_, T>,
     name: &str,
-) -> PyResult<PyReadonlyArrayDyn<'py, Complex<f64>>> {
-    let py = obj.py();
-    let np = numpy(py)?;
-    let kwargs = PyDict::new(py);
-    kwargs.set_item("dtype", np.getattr("complex128")?)?;
-    let arr = np
-        .call_method("asarray", (obj,), Some(&kwargs))
-        .map_err(|e| {
-            PyTypeError::new_err(format!(
-                "{name}: cannot convert to a complex128 array ({e})"
-            ))
-        })?;
-    let arr = arr.cast_into::<PyArrayDyn<Complex<f64>>>().map_err(|e| {
-        PyTypeError::new_err(format!(
-            "{name}: cannot convert to a complex128 array ({e})"
-        ))
-    })?;
-    Ok(arr.readonly())
+) -> PyResult<ndarray::Array3<T>> {
+    use ndarray::{Axis, Ix2, Ix3};
+    match a.ndim() {
+        2 => Ok(a
+            .into_dimensionality::<Ix2>()
+            .expect("ndim checked")
+            .insert_axis(Axis(0))
+            .to_owned()),
+        3 => Ok(a
+            .into_dimensionality::<Ix3>()
+            .expect("ndim checked")
+            .to_owned()),
+        n => Err(value_err(
+            name,
+            format!(
+                "expected a 2-D (n_bins, T) or 3-D (channels, n_bins, T) array, got {n} dimensions"
+            ),
+        )),
+    }
+}
+
+/// Runs `$body` with the type alias `$T` set to the Rust sample type of a
+/// `SampleType` (`u8`, `i16`, `I24`, `i32`, `f32` or `f64`).
+macro_rules! with_sample_type {
+    ($st:expr, |$T:ident| $body:expr) => {
+        match $st {
+            $crate::types::PySampleType::U8 => {
+                type $T = u8;
+                $body
+            }
+            $crate::types::PySampleType::I16 => {
+                type $T = i16;
+                $body
+            }
+            $crate::types::PySampleType::I24 => {
+                type $T = audio_samples::I24;
+                $body
+            }
+            $crate::types::PySampleType::I32 => {
+                type $T = i32;
+                $body
+            }
+            $crate::types::PySampleType::F32 => {
+                type $T = f32;
+                $body
+            }
+            $crate::types::PySampleType::F64 => {
+                type $T = f64;
+                $body
+            }
+        }
+    };
+}
+pub(crate) use with_sample_type;
+
+/// Sample type of the audio returned by the static reconstruction methods
+/// (`istft_matrix`, `icqt`, `griffinlim_cqt`): the `dtype` argument if given,
+/// otherwise `float32` audio for a `complex64`/`float32` input matrix and
+/// `float64` audio for anything else.
+pub(crate) fn output_sample_type(
+    dtype: Option<crate::types::PySampleType>,
+    matrix: &Bound<'_, PyAny>,
+) -> crate::types::PySampleType {
+    dtype.unwrap_or_else(|| match precision_of(matrix) {
+        Precision::F32 => crate::types::PySampleType::F32,
+        Precision::F64 => crate::types::PySampleType::F64,
+    })
 }
 
 /// Converts an array-like of integers to a `Vec<i64>` (flattened), rejecting

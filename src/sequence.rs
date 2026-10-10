@@ -9,6 +9,7 @@
 //! for them (`backtrack`, `return_steps`, `return_logp`).
 
 use crate::args::Int;
+use audio_samples::AudioFloat;
 use audio_samples::operations::sequence::{
     self as seq, Bandwidth, CrossSimilarityConfig, DistanceMetric, DtwConfig, RecurrenceConfig,
     RecurrenceMode, RqaConfig, SyncAggregate, TransitionWindow,
@@ -20,12 +21,15 @@ use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyString, PyTuple};
 
-use crate::args::{f64_array, i64_vec, positive, value_err};
+use crate::args::{
+    FloatElement, PyFloat, f64_array, float_array_as, i64_vec, positive, precision_of, value_err,
+    with_precision,
+};
 use crate::audio_err_to_py;
 
 /// A 1-D or 2-D float array as an owned `(rows, cols)` matrix (1-D -> `(1, n)`).
-fn matrix(obj: &Bound<'_, PyAny>, name: &str) -> PyResult<Array2<f64>> {
-    let a = f64_array(obj, name)?;
+fn matrix<F: FloatElement>(obj: &Bound<'_, PyAny>, name: &str) -> PyResult<Array2<F>> {
+    let a = float_array_as::<F>(obj, name)?;
     let a = a.as_array();
     match a.ndim() {
         1 => Ok(a
@@ -42,8 +46,8 @@ fn matrix(obj: &Bound<'_, PyAny>, name: &str) -> PyResult<Array2<f64>> {
 }
 
 /// A strictly 2-D float array.
-fn matrix2(obj: &Bound<'_, PyAny>, name: &str) -> PyResult<Array2<f64>> {
-    let a = f64_array(obj, name)?;
+fn matrix2<F: FloatElement>(obj: &Bound<'_, PyAny>, name: &str) -> PyResult<Array2<F>> {
+    let a = float_array_as::<F>(obj, name)?;
     if a.ndim() != 2 {
         return Err(value_err(
             name,
@@ -57,11 +61,14 @@ fn matrix2(obj: &Bound<'_, PyAny>, name: &str) -> PyResult<Array2<f64>> {
 }
 
 /// An optional 1-D float vector.
-fn opt_vec(obj: Option<&Bound<'_, PyAny>>, name: &str) -> PyResult<Option<Array1<f64>>> {
+fn opt_vec<F: FloatElement>(
+    obj: Option<&Bound<'_, PyAny>>,
+    name: &str,
+) -> PyResult<Option<Array1<F>>> {
     obj.filter(|o| !o.is_none())
         .map(|o| {
-            let a = f64_array(o, name)?;
-            Ok(a.as_array().iter().copied().collect::<Array1<f64>>())
+            let a = float_array_as::<F>(o, name)?;
+            Ok(a.as_array().iter().copied().collect::<Array1<F>>())
         })
         .transpose()
 }
@@ -140,7 +147,7 @@ fn path_array<'py>(py: Python<'py>, path: &[[usize; 2]]) -> Bound<'py, PyArray2<
 ///     return_steps (bool): Also return the step matrix. Default False.
 ///
 /// Returns:
-///     ``D`` (numpy.ndarray[float64], shape ``(N, M)``); with ``backtrack=True``
+///     ``D`` (numpy.ndarray[float32 | float64], shape ``(N, M)``); with ``backtrack=True``
 ///     the tuple ``(D, wp)`` where ``wp`` is an int64 array of shape
 ///     ``(path_length, 2)`` ordered from the end of the alignment to its start;
 ///     with ``return_steps=True`` the step matrix (int64, same shape as ``D``)
@@ -172,39 +179,46 @@ pub fn dtw<'py>(
     let cfg = DtwConfig {
         metric: parse_metric(metric)?,
         step_sizes_sigma: parse_steps(step_sizes_sigma)?,
-        weights_add: opt_vec(weights_add, "weights_add")?.map(|a| a.to_vec()),
-        weights_mul: opt_vec(weights_mul, "weights_mul")?.map(|a| a.to_vec()),
+        weights_add: opt_vec::<f64>(weights_add, "weights_add")?.map(|a| a.to_vec()),
+        weights_mul: opt_vec::<f64>(weights_mul, "weights_mul")?.map(|a| a.to_vec()),
         subseq,
         backtrack,
         global_constraints,
         band_rad,
     };
-    let res = match (X, Y, C) {
-        (Some(x), Some(y), None) => {
-            let x = matrix(x, "X")?;
-            let y = matrix(y, "Y")?;
-            seq::dtw(x.view(), y.view(), &cfg)
-        }
-        (None, None, Some(c)) => {
-            let c = matrix2(c, "C")?;
-            seq::dtw_with_cost(c.view(), &cfg)
-        }
+    let primary = match (X, Y, C) {
+        (Some(x), Some(_), None) => x,
+        (None, None, Some(c)) => c,
         _ => {
             return Err(PyValueError::new_err(
                 "dtw: pass either both X and Y, or C (and not both)",
             ));
         }
-    }
-    .map_err(audio_err_to_py)?;
-
-    let d = res.cost.into_pyarray(py).into_any();
+    };
+    let (d, path, steps) = with_precision!(precision_of(primary), |F| {
+        let res = match (X, Y, C) {
+            (Some(x), Some(y), None) => {
+                let x = matrix::<F>(x, "X")?;
+                let y = matrix::<F>(y, "Y")?;
+                seq::dtw(x.view(), y.view(), &cfg)
+            }
+            (_, _, Some(c)) => {
+                let c = matrix2::<F>(c, "C")?;
+                seq::dtw_with_cost(c.view(), &cfg)
+            }
+            _ => unreachable!("argument combination checked above"),
+        }
+        .map_err(audio_err_to_py)?;
+        (res.cost.into_pyarray(py).into_any(), res.path, res.steps)
+    });
+    let res_path = path;
     let mut out = vec![d];
     if backtrack {
-        let path = res.path.unwrap_or_default();
+        let path = res_path.unwrap_or_default();
         out.push(path_array(py, &path).into_any());
     }
     if return_steps {
-        out.push(res.steps.mapv(|s| s as i64).into_pyarray(py).into_any());
+        out.push(steps.mapv(|s| s as i64).into_pyarray(py).into_any());
     }
     if out.len() == 1 {
         Ok(out.pop().expect("one element"))
@@ -300,18 +314,20 @@ pub fn viterbi<'py>(
     return_logp: bool,
     transition_min_prob: Option<f64>,
 ) -> PyResult<Bound<'py, PyAny>> {
-    let prob = matrix2(prob, "prob")?;
-    let trans = matrix2(transition, "transition")?;
-    let p_init = opt_vec(p_init, "p_init")?;
-    let r = seq::viterbi(
-        prob.view(),
-        trans.view(),
-        p_init.as_ref().map(|a| a.view()),
-        transition_min_prob,
-    )
-    .map_err(audio_err_to_py)?;
-    let states: Array1<i64> = r.states.iter().map(|&s| s as i64).collect();
-    states_out(py, states, r.log_prob.into_bound_py_any(py)?, return_logp)
+    with_precision!(precision_of(prob), |F| {
+        let prob = matrix2::<F>(prob, "prob")?;
+        let trans = matrix2::<F>(transition, "transition")?;
+        let p_init = opt_vec::<F>(p_init, "p_init")?;
+        let r = seq::viterbi(
+            prob.view(),
+            trans.view(),
+            p_init.as_ref().map(|a| a.view()),
+            transition_min_prob,
+        )
+        .map_err(audio_err_to_py)?;
+        let states: Array1<i64> = r.states.iter().map(|&s| s as i64).collect();
+        states_out(py, states, r.log_prob.into_bound_py_any(py)?, return_logp)
+    })
 }
 
 /// Viterbi decoding from discriminative (posterior) state probabilities,
@@ -341,20 +357,22 @@ pub fn viterbi_discriminative<'py>(
     return_logp: bool,
     transition_min_prob: Option<f64>,
 ) -> PyResult<Bound<'py, PyAny>> {
-    let prob = matrix2(prob, "prob")?;
-    let trans = matrix2(transition, "transition")?;
-    let p_state = opt_vec(p_state, "p_state")?;
-    let p_init = opt_vec(p_init, "p_init")?;
-    let r = seq::viterbi_discriminative(
-        prob.view(),
-        trans.view(),
-        p_state.as_ref().map(|a| a.view()),
-        p_init.as_ref().map(|a| a.view()),
-        transition_min_prob,
-    )
-    .map_err(audio_err_to_py)?;
-    let states: Array1<i64> = r.states.iter().map(|&s| s as i64).collect();
-    states_out(py, states, r.log_prob.into_bound_py_any(py)?, return_logp)
+    with_precision!(precision_of(prob), |F| {
+        let prob = matrix2::<F>(prob, "prob")?;
+        let trans = matrix2::<F>(transition, "transition")?;
+        let p_state = opt_vec::<F>(p_state, "p_state")?;
+        let p_init = opt_vec::<F>(p_init, "p_init")?;
+        let r = seq::viterbi_discriminative(
+            prob.view(),
+            trans.view(),
+            p_state.as_ref().map(|a| a.view()),
+            p_init.as_ref().map(|a| a.view()),
+            transition_min_prob,
+        )
+        .map_err(audio_err_to_py)?;
+        let states: Array1<i64> = r.states.iter().map(|&s| s as i64).collect();
+        states_out(py, states, r.log_prob.into_bound_py_any(py)?, return_logp)
+    })
 }
 
 /// Independent binary (off/on) Viterbi decoding per state, equivalent to
@@ -386,10 +404,31 @@ pub fn viterbi_binary<'py>(
     return_logp: bool,
     transition_min_prob: Option<f64>,
 ) -> PyResult<Bound<'py, PyAny>> {
+    with_precision!(precision_of(prob), |F| viterbi_binary_typed::<F>(
+        py,
+        prob,
+        transition,
+        p_state,
+        p_init,
+        return_logp,
+        transition_min_prob
+    ))
+}
+
+/// [`viterbi_binary`] computed in `F`.
+fn viterbi_binary_typed<'py, F: PyFloat>(
+    py: Python<'py>,
+    prob: &Bound<'py, PyAny>,
+    transition: &Bound<'py, PyAny>,
+    p_state: Option<&Bound<'py, PyAny>>,
+    p_init: Option<&Bound<'py, PyAny>>,
+    return_logp: bool,
+    transition_min_prob: Option<f64>,
+) -> PyResult<Bound<'py, PyAny>> {
     let one_d = f64_array(prob, "prob")?.ndim() == 1;
-    let prob = matrix(prob, "prob")?;
+    let prob = matrix::<F>(prob, "prob")?;
     let n_states = prob.nrows();
-    let t = f64_array(transition, "transition")?;
+    let t = float_array_as::<F>(transition, "transition")?;
     let t = t.as_array();
     let t3 = match t.ndim() {
         2 => t
@@ -406,7 +445,7 @@ pub fn viterbi_binary<'py>(
         }
     };
     // librosa broadcasts a scalar p_state / p_init to every state.
-    let broadcast = |v: Option<Array1<f64>>| -> Option<Array1<f64>> {
+    let broadcast = |v: Option<Array1<F>>| -> Option<Array1<F>> {
         v.map(|a| {
             if a.len() == 1 && n_states > 1 {
                 Array1::from_elem(n_states, a[0])
@@ -415,8 +454,8 @@ pub fn viterbi_binary<'py>(
             }
         })
     };
-    let p_state = broadcast(opt_vec(p_state, "p_state")?);
-    let p_init = broadcast(opt_vec(p_init, "p_init")?);
+    let p_state = broadcast(opt_vec::<F>(p_state, "p_state")?);
+    let p_init = broadcast(opt_vec::<F>(p_init, "p_init")?);
     let r = seq::viterbi_binary(
         prob.view(),
         t3.view(),
@@ -428,7 +467,7 @@ pub fn viterbi_binary<'py>(
     let states = r.states.mapv(|s| s as i64);
     if one_d {
         let s1 = states.index_axis_move(Axis(0), 0);
-        let lp = r.log_prob[0].into_bound_py_any(py)?;
+        let lp = r.log_prob[0].as_f64().into_bound_py_any(py)?;
         return states_out(py, s1, lp, return_logp);
     }
     let lp = r.log_prob.into_pyarray(py).into_any();
@@ -442,8 +481,8 @@ pub fn viterbi_binary<'py>(
 #[pyfunction]
 #[pyo3(signature = (n_states), text_signature = "(n_states)")]
 pub fn transition_uniform(py: Python<'_>, n_states: Int) -> PyResult<Bound<'_, PyArray2<f64>>> {
-    let t =
-        seq::transition_uniform(positive("n_states", n_states)?.get()).map_err(audio_err_to_py)?;
+    let t = seq::transition_uniform::<f64>(positive("n_states", n_states)?.get())
+        .map_err(audio_err_to_py)?;
     Ok(t.into_pyarray(py))
 }
 
@@ -468,7 +507,8 @@ pub fn transition_loop<'py>(
     prob: &Bound<'py, PyAny>,
 ) -> PyResult<Bound<'py, PyArray2<f64>>> {
     let n = positive("n_states", n_states)?.get();
-    let t = seq::transition_loop(n, &float_or_vec(prob, "prob")?).map_err(audio_err_to_py)?;
+    let t =
+        seq::transition_loop::<f64>(n, &float_or_vec(prob, "prob")?).map_err(audio_err_to_py)?;
     Ok(t.into_pyarray(py))
 }
 
@@ -488,7 +528,8 @@ pub fn transition_cycle<'py>(
     prob: &Bound<'py, PyAny>,
 ) -> PyResult<Bound<'py, PyArray2<f64>>> {
     let n = positive("n_states", n_states)?.get();
-    let t = seq::transition_cycle(n, &float_or_vec(prob, "prob")?).map_err(audio_err_to_py)?;
+    let t =
+        seq::transition_cycle::<f64>(n, &float_or_vec(prob, "prob")?).map_err(audio_err_to_py)?;
     Ok(t.into_pyarray(py))
 }
 
@@ -535,7 +576,7 @@ pub fn transition_local<'py>(
         .map(|w| positive("width", w).map(std::num::NonZeroUsize::get))
         .collect::<PyResult<_>>()?;
     let n = positive("n_states", n_states)?.get();
-    let t = seq::transition_local(n, &widths, window, wrap).map_err(audio_err_to_py)?;
+    let t = seq::transition_local::<f64>(n, &widths, window, wrap).map_err(audio_err_to_py)?;
     Ok(t.into_pyarray(py))
 }
 
@@ -549,7 +590,7 @@ pub fn transition_local<'py>(
 ///     backtrack (bool): Return the best path too. Default True.
 ///
 /// Returns:
-///     ``score`` (numpy.ndarray[float64], shape ``(N, M)``), or
+///     ``score`` (numpy.ndarray[float32 | float64], shape ``(N, M)``), or
 ///     ``(score, path)`` with ``path`` an int64 ``(length, 2)`` array ordered
 ///     from start to end (empty when there is no recurrence).
 #[pyfunction]
@@ -565,17 +606,19 @@ pub fn rqa<'py>(
     knight_moves: bool,
     backtrack: bool,
 ) -> PyResult<Bound<'py, PyAny>> {
-    let sim = matrix2(sim, "sim")?;
     let cfg = RqaConfig {
         gap_onset,
         gap_extend,
         knight_moves,
         backtrack,
     };
-    let r = seq::rqa(sim.view(), &cfg).map_err(audio_err_to_py)?;
-    let score = r.score.into_pyarray(py).into_any();
+    let (score, path) = with_precision!(precision_of(sim), |F| {
+        let sim = matrix2::<F>(sim, "sim")?;
+        let r = seq::rqa(sim.view(), &cfg).map_err(audio_err_to_py)?;
+        (r.score.into_pyarray(py).into_any(), r.path)
+    });
     if backtrack {
-        let path = path_array(py, &r.path.unwrap_or_default()).into_any();
+        let path = path_array(py, &path.unwrap_or_default()).into_any();
         Ok(PyTuple::new(py, [score, path])?.into_any())
     } else {
         Ok(score)
@@ -630,10 +673,14 @@ pub(crate) fn parse_bandwidth(obj: Option<&Bound<'_, PyAny>>) -> PyResult<Bandwi
     }
 }
 
-/// Connectivity output as a bool array (as librosa), other modes as float64.
-fn similarity_out<'py>(py: Python<'py>, m: Array2<f64>, mode: RecurrenceMode) -> Bound<'py, PyAny> {
+/// Connectivity output as a bool array (as librosa), other modes as floats.
+fn similarity_out<'py, F: PyFloat>(
+    py: Python<'py>,
+    m: Array2<F>,
+    mode: RecurrenceMode,
+) -> Bound<'py, PyAny> {
     if mode == RecurrenceMode::Connectivity {
-        m.mapv(|v| v != 0.0).into_pyarray(py).into_any()
+        m.mapv(|v| v != F::of(0.0)).into_pyarray(py).into_any()
     } else {
         m.into_pyarray(py).into_any()
     }
@@ -669,7 +716,8 @@ fn reject_sparse(sparse: bool) -> PyResult<()> {
 ///     full (bool): Link every pair in distance/affinity mode. Default False.
 ///
 /// Returns:
-///     numpy.ndarray: ``(t, t)``; bool for connectivity, float64 otherwise.
+///     numpy.ndarray: ``(t, t)``; bool for connectivity, otherwise float in
+///     ``data``'s precision.
 #[pyfunction]
 #[pyo3(
     signature = (data, *, k = None, width = Int(1), metric = "euclidean", sym = false, sparse = false, mode = "connectivity", bandwidth = None, self_links = false, axis = Int(-1), full = false, **kwargs),
@@ -720,9 +768,11 @@ pub fn recurrence_matrix<'py>(
         self_links,
         full,
     };
-    let data = matrix(data, "data")?;
-    let r = seq::recurrence_matrix(data.view(), &cfg).map_err(audio_err_to_py)?;
-    Ok(similarity_out(py, r, mode))
+    with_precision!(precision_of(data), |F| {
+        let data = matrix::<F>(data, "data")?;
+        let r = seq::recurrence_matrix(data.view(), &cfg).map_err(audio_err_to_py)?;
+        Ok(similarity_out(py, r, mode))
+    })
 }
 
 /// Cross-similarity matrix, equivalent to
@@ -740,7 +790,8 @@ pub fn recurrence_matrix<'py>(
 ///     full (bool): Link every query frame to its ``min(n_ref, n)`` nearest. Default False.
 ///
 /// Returns:
-///     numpy.ndarray: ``(n_ref, n)``; bool for connectivity, float64 otherwise.
+///     numpy.ndarray: ``(n_ref, n)``; bool for connectivity, otherwise float in
+///     ``data``'s precision.
 #[pyfunction]
 #[pyo3(
     signature = (data, data_ref, *, k = None, metric = "euclidean", sparse = false, mode = "connectivity", bandwidth = None, full = false),
@@ -768,10 +819,13 @@ pub fn cross_similarity<'py>(
         bandwidth: parse_bandwidth(bandwidth)?,
         full,
     };
-    let data = matrix(data, "data")?;
-    let data_ref = matrix(data_ref, "data_ref")?;
-    let r = seq::cross_similarity(data.view(), data_ref.view(), &cfg).map_err(audio_err_to_py)?;
-    Ok(similarity_out(py, r, mode))
+    with_precision!(precision_of(data), |F| {
+        let data = matrix::<F>(data, "data")?;
+        let data_ref = matrix::<F>(data_ref, "data_ref")?;
+        let r =
+            seq::cross_similarity(data.view(), data_ref.view(), &cfg).map_err(audio_err_to_py)?;
+        Ok(similarity_out(py, r, mode))
+    })
 }
 
 /// Convert a recurrence matrix to a time-lag matrix, equivalent to
@@ -784,7 +838,7 @@ pub fn cross_similarity<'py>(
 ///         ``0``/``-2`` (rows; the result is then ``(t, 2t)``).
 ///
 /// Returns:
-///     numpy.ndarray: ``(2t, t)`` or ``(t, t)``; bool if ``rec`` is bool, else float64.
+///     numpy.ndarray: ``(2t, t)`` or ``(t, t)``; bool if ``rec`` is bool, else ``rec``'s precision.
 #[pyfunction]
 #[pyo3(
     signature = (rec, *, pad = true, axis = Int(-1)),
@@ -798,20 +852,22 @@ pub fn recurrence_to_lag<'py>(
 ) -> PyResult<Bound<'py, PyAny>> {
     let rows_are_time = lag_axis_is_rows(axis)?;
     let is_bool = is_bool_array(rec)?;
-    let m = matrix2(rec, "rec")?;
-    // axis=0 is the axis=-1 transform of the transpose, transposed back.
-    let lag = if rows_are_time {
-        seq::recurrence_to_lag(m.t(), pad)
-            .map_err(audio_err_to_py)?
-            .reversed_axes()
-    } else {
-        seq::recurrence_to_lag(m.view(), pad).map_err(audio_err_to_py)?
-    };
-    Ok(bool_or_float(
-        py,
-        lag.as_standard_layout().into_owned(),
-        is_bool,
-    ))
+    with_precision!(precision_of(rec), |F| {
+        let m = matrix2::<F>(rec, "rec")?;
+        // axis=0 is the axis=-1 transform of the transpose, transposed back.
+        let lag = if rows_are_time {
+            seq::recurrence_to_lag(m.t(), pad)
+                .map_err(audio_err_to_py)?
+                .reversed_axes()
+        } else {
+            seq::recurrence_to_lag(m.view(), pad).map_err(audio_err_to_py)?
+        };
+        Ok(bool_or_float(
+            py,
+            lag.as_standard_layout().into_owned(),
+            is_bool,
+        ))
+    })
 }
 
 /// Convert a time-lag matrix back to a recurrence matrix, equivalent to
@@ -823,7 +879,7 @@ pub fn recurrence_to_lag<'py>(
 ///         ``0``/``-2`` (rows; a padded lag matrix is then ``(t, 2t)``).
 ///
 /// Returns:
-///     numpy.ndarray: ``(t, t)``; bool if ``lag`` is bool, else float64.
+///     numpy.ndarray: ``(t, t)``; bool if ``lag`` is bool, else ``lag``'s precision.
 #[pyfunction]
 #[pyo3(signature = (lag, *, axis = Int(-1)), text_signature = "(lag, *, axis=-1)")]
 pub fn lag_to_recurrence<'py>(
@@ -833,19 +889,21 @@ pub fn lag_to_recurrence<'py>(
 ) -> PyResult<Bound<'py, PyAny>> {
     let rows_are_time = lag_axis_is_rows(axis)?;
     let is_bool = is_bool_array(lag)?;
-    let m = matrix2(lag, "lag")?;
-    let rec = if rows_are_time {
-        seq::lag_to_recurrence(m.t())
-            .map_err(audio_err_to_py)?
-            .reversed_axes()
-    } else {
-        seq::lag_to_recurrence(m.view()).map_err(audio_err_to_py)?
-    };
-    Ok(bool_or_float(
-        py,
-        rec.as_standard_layout().into_owned(),
-        is_bool,
-    ))
+    with_precision!(precision_of(lag), |F| {
+        let m = matrix2::<F>(lag, "lag")?;
+        let rec = if rows_are_time {
+            seq::lag_to_recurrence(m.t())
+                .map_err(audio_err_to_py)?
+                .reversed_axes()
+        } else {
+            seq::lag_to_recurrence(m.view()).map_err(audio_err_to_py)?
+        };
+        Ok(bool_or_float(
+            py,
+            rec.as_standard_layout().into_owned(),
+            is_bool,
+        ))
+    })
 }
 
 /// librosa's `axis` for the (2-D) lag transforms: `-1`/`1` (columns are time,
@@ -867,9 +925,13 @@ fn is_bool_array(obj: &Bound<'_, PyAny>) -> PyResult<bool> {
     dt.eq(np.getattr("bool_")?)
 }
 
-fn bool_or_float<'py>(py: Python<'py>, m: Array2<f64>, is_bool: bool) -> Bound<'py, PyAny> {
+fn bool_or_float<'py, F: PyFloat>(
+    py: Python<'py>,
+    m: Array2<F>,
+    is_bool: bool,
+) -> Bound<'py, PyAny> {
     if is_bool {
-        m.mapv(|v| v != 0.0).into_pyarray(py).into_any()
+        m.mapv(|v| v != F::of(0.0)).into_pyarray(py).into_any()
     } else {
         m.into_pyarray(py).into_any()
     }
@@ -888,7 +950,7 @@ fn bool_or_float<'py>(py: Python<'py>, m: Array2<f64>, is_bool: bool) -> Bound<'
 ///     pad (bool): Add 0 and ``n_frames`` to the boundaries. Default True.
 ///
 /// Returns:
-///     numpy.ndarray[float64]: ``data`` with the last axis replaced by one entry
+///     numpy.ndarray[float32 | float64]: ``data`` with the last axis replaced by one entry
 ///     per segment.
 ///
 /// Raises:
@@ -906,8 +968,8 @@ pub fn sync<'py>(
     pad: bool,
     axis: Int,
 ) -> PyResult<Bound<'py, PyAny>> {
-    let x = f64_array(data, "data")?;
-    if axis != Int(-1) && axis != Int(x.ndim() as i64 - 1) {
+    let ndim = crate::args::f64_array(data, "data")?.ndim();
+    if axis != Int(-1) && axis != Int(ndim as i64 - 1) {
         return Err(value_err(
             "axis",
             "only the last axis (axis=-1) is supported",
@@ -921,33 +983,37 @@ pub fn sync<'py>(
         None => Some(SyncAggregate::Mean),
         Some(a) => builtin_aggregate(a)?,
     };
-    let out = if let Some(agg) = builtin {
-        seq::sync(x.as_array(), &idx, agg, pad).map_err(audio_err_to_py)?
-    } else {
-        let f = aggregate.expect("custom aggregate present");
-        let kwargs = PyDict::new(py);
-        kwargs.set_item("axis", -1)?;
-        let mut first_err: Option<PyErr> = None;
-        let out = seq::sync_with(x.as_array(), &idx, pad, |lane| {
-            if first_err.is_some() {
-                return f64::NAN;
-            }
-            let res = (|| -> PyResult<f64> {
-                let arr = lane.to_owned().into_pyarray(py);
-                f.call((arr,), Some(&kwargs))?.extract::<f64>()
-            })();
-            res.unwrap_or_else(|e| {
-                first_err = Some(e);
-                f64::NAN
+    with_precision!(precision_of(data), |F| {
+        let x = float_array_as::<F>(data, "data")?;
+        let out = if let Some(agg) = builtin {
+            seq::sync(x.as_array(), &idx, agg, pad).map_err(audio_err_to_py)?
+        } else {
+            let f = aggregate.expect("custom aggregate present");
+            let kwargs = PyDict::new(py);
+            kwargs.set_item("axis", -1)?;
+            let mut first_err: Option<PyErr> = None;
+            let out = seq::sync_with(x.as_array(), &idx, pad, |lane| {
+                if first_err.is_some() {
+                    return F::of(f64::NAN);
+                }
+                let res = (|| -> PyResult<F> {
+                    let arr = lane.to_owned().into_pyarray(py);
+                    // The callable's result is converted to the input's precision.
+                    Ok(F::of(f.call((arr,), Some(&kwargs))?.extract::<f64>()?))
+                })();
+                res.unwrap_or_else(|e| {
+                    first_err = Some(e);
+                    F::of(f64::NAN)
+                })
             })
-        })
-        .map_err(audio_err_to_py)?;
-        if let Some(e) = first_err {
-            return Err(e);
-        }
-        out
-    };
-    Ok(out.into_pyarray(py).into_any())
+            .map_err(audio_err_to_py)?;
+            if let Some(e) = first_err {
+                return Err(e);
+            }
+            out
+        };
+        Ok(out.into_pyarray(py).into_any())
+    })
 }
 
 /// Maps numpy reductions / names to the built-in aggregates (`None` = custom callable).
@@ -996,7 +1062,9 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
         "__doc__",
         "Sequence alignment and decoding (librosa.sequence / librosa.segment / \
          librosa.util.sync): DTW, Viterbi, transition matrices, RQA, recurrence \
-         and cross-similarity matrices, lag conversions and sync.",
+         and cross-similarity matrices, lag conversions and sync. \
+         float32 / complex64 arrays are processed in float32 and give float32 \
+         output; any other input is converted to float64.",
     )?;
     m.add_function(wrap_pyfunction!(dtw, &m)?)?;
     m.add_function(wrap_pyfunction!(dtw_backtracking, &m)?)?;

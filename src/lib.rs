@@ -21,11 +21,11 @@
 #![warn(clippy::multiple_unsafe_ops_per_block)]
 
 pub mod args;
-pub mod features;
+pub mod effects;
 pub mod explain;
+pub mod features;
 pub mod io;
 pub mod io_streaming;
-pub mod effects;
 pub mod operations;
 pub mod rhythm;
 pub mod sequence;
@@ -256,6 +256,90 @@ macro_rules! dispatch_with_view_detached {
     }};
 }
 
+/// [`dispatch_with_view_detached!`] for bodies whose result type depends on
+/// the sample type (for example `Array3<T::Float>`): `$post` runs in each match
+/// arm, with the GIL held, and turns that arm's result `$out` into one common
+/// type (usually a Python object).
+macro_rules! dispatch_typed_detached {
+    ($samples:expr, $py:expr, |$audio:ident| $body:expr, |$out:ident| $post:expr) => {{
+        use crate::PyAudioDataInner;
+        let __samples = &$samples;
+        match __samples.inner() {
+            PyAudioDataInner::U8(a) => {
+                let $out = a.with_view_detached($py, |$audio| $body);
+                $post
+            }
+            PyAudioDataInner::I16(a) => {
+                let $out = a.with_view_detached($py, |$audio| $body);
+                $post
+            }
+            PyAudioDataInner::I24(a) => {
+                let $out = a.with_view_detached($py, |$audio| $body);
+                $post
+            }
+            PyAudioDataInner::I32(a) => {
+                let $out = a.with_view_detached($py, |$audio| $body);
+                $post
+            }
+            PyAudioDataInner::F32(a) => {
+                let $out = a.with_view_detached($py, |$audio| $body);
+                $post
+            }
+            PyAudioDataInner::F64(a) => {
+                let $out = a.with_view_detached($py, |$audio| $body);
+                $post
+            }
+        }
+    }};
+}
+
+/// [`dispatch_typed_detached!`] with the GIL held while the body runs (for
+/// bodies that call back into Python).
+macro_rules! dispatch_typed {
+    ($samples:expr, $py:expr, |$audio:ident| $body:expr, |$out:ident| $post:expr) => {{
+        use crate::PyAudioDataInner;
+        let __samples = &$samples;
+        match __samples.inner() {
+            PyAudioDataInner::U8(a) => {
+                let $out = a.with_view($py, |$audio| $body);
+                $post
+            }
+            PyAudioDataInner::I16(a) => {
+                let $out = a.with_view($py, |$audio| $body);
+                $post
+            }
+            PyAudioDataInner::I24(a) => {
+                let $out = a.with_view($py, |$audio| $body);
+                $post
+            }
+            PyAudioDataInner::I32(a) => {
+                let $out = a.with_view($py, |$audio| $body);
+                $post
+            }
+            PyAudioDataInner::F32(a) => {
+                let $out = a.with_view($py, |$audio| $body);
+                $post
+            }
+            PyAudioDataInner::F64(a) => {
+                let $out = a.with_view($py, |$audio| $body);
+                $post
+            }
+        }
+    }};
+}
+
+/// Runs an analysis body returning `AudioSampleResult<Array<A, D>>` (with `A`
+/// the sample type's float or complex float) on every dtype variant with the
+/// GIL released, and converts the array to a NumPy array in each arm. Evaluates
+/// to `PyResult<Bound<'py, PyAny>>`.
+macro_rules! dispatch_array_detached {
+    ($samples:expr, $py:expr, |$audio:ident| $body:expr) => {
+        crate::dispatch_typed_detached!($samples, $py, |$audio| $body, |out| out
+            .map_err(crate::audio_err_to_py)
+            .map(|arr| numpy::IntoPyArray::into_pyarray(arr, $py).into_any()))
+    };
+}
+
 /// Dispatch to all dtype variants with a mutable view.
 /// Usage: `dispatch_with_view_mut!(self, py, |mut audio| audio.mutating_method())`
 macro_rules! dispatch_with_view_mut {
@@ -273,6 +357,9 @@ macro_rules! dispatch_with_view_mut {
     }};
 }
 
+pub(crate) use dispatch_array_detached;
+pub(crate) use dispatch_typed;
+pub(crate) use dispatch_typed_detached;
 pub(crate) use dispatch_with_view;
 pub(crate) use dispatch_with_view_detached;
 pub(crate) use dispatch_with_view_mut;
@@ -705,6 +792,13 @@ fn audio_samples_python(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()>
 /// Primary container for audio data combining raw sample values with essential
 /// metadata including sample rate, channel layout, and type information.
 /// Supports both mono and multi-channel audio with unified interface.
+///
+/// The librosa-compatible analysis methods (``stft_matrix``, ``melspectrogram``,
+/// ``chroma_stft``, ``cqt``, ``onset_strength``, ``yin``, ...) return float32 /
+/// complex64 arrays for uint8, int16, int24 and float32 audio, and float64 /
+/// complex128 arrays for int32 and float64 audio: the smallest float type that
+/// holds every sample value exactly. Audio-returning methods keep the sample
+/// type.
 #[pyclass(name = "AudioSamples", module = "audio_samples")]
 pub struct PyAudioSamples {
     inner: PyAudioDataInner,
@@ -3550,7 +3644,12 @@ AudioSamples expects (channels, samples) - pass arr.T for (samples, channels) da
         let msg = std::ffi::CString::new(msg)
             .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
         // Propagate: under `-W error` the warning must raise.
-        PyErr::warn(py, &py.get_type::<pyo3::exceptions::PyUserWarning>(), &msg, 1)?;
+        PyErr::warn(
+            py,
+            &py.get_type::<pyo3::exceptions::PyUserWarning>(),
+            &msg,
+            1,
+        )?;
     }
     Ok(())
 }

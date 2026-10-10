@@ -211,8 +211,10 @@ def test_chroma_features(fx, sr):
     cc, ce, cv, tz = fx["chroma_cqt"], fx["chroma_cens"], fx["chroma_vqt"], fx["tonnetz"]
     a = fixture_array
     assert_peak_close(notes.chroma_cqt(tuning=0.0)[0], a(cc["notes_tuning0"]), RESAMPLED, "chroma_cqt t0")
-    # tuning=None (default): estimated from the signal, as librosa does.
-    assert_peak_close(notes.chroma_cqt()[0], a(cc["notes_tuning_none"]), RESAMPLED, "chroma_cqt est")
+    # tuning=None: estimated from the signal (librosa's default; the binding's
+    # default is tuning=0.0).
+    assert_peak_close(notes.chroma_cqt(tuning=None)[0], a(cc["notes_tuning_none"]), RESAMPLED, "chroma_cqt est")
+    np.testing.assert_array_equal(notes.chroma_cqt(), notes.chroma_cqt(tuning=0.0))
     assert_peak_close(notes.chroma_cqt(tuning=t_notes)[0], a(cc["notes_tuning_none"]), RESAMPLED, "chroma_cqt t")
     assert_peak_close(mix.chroma_cqt(tuning=0.0)[0], a(cc["mix_tuning0"]), RESAMPLED, "chroma_cqt mix")
     assert_peak_close(
@@ -223,12 +225,12 @@ def test_chroma_features(fx, sr):
     )
     assert_peak_close(_audio("stereo", sr).chroma_cqt(tuning=0.0), a(cc["stereo_tuning0"]), RESAMPLED, "stereo")
     assert_peak_close(notes.chroma_cens(tuning=0.0)[0], a(ce["notes_tuning0"]), CENS, "cens t0")
-    assert_peak_close(notes.chroma_cens()[0], a(ce["notes_tuning_none"]), CENS, "cens est")
+    assert_peak_close(notes.chroma_cens(tuning=None)[0], a(ce["notes_tuning_none"]), CENS, "cens est")
     assert_peak_close(mix.chroma_cens(tuning=0.0, win_len_smooth=10)[0], a(ce["mix_tuning0_win10"]), CENS, "cens 10")
     assert_peak_close(mix.chroma_vqt()[0], a(cv["mix_equal"]), RESAMPLED, "chroma_vqt")
     assert_peak_close(notes.chroma_vqt(gamma=None)[0], a(cv["notes_gamma_none"]), RESAMPLED, "chroma_vqt gamma")
     assert_peak_close(notes.tonnetz(tuning=0.0)[0], a(tz["notes_tuning0"]), RESAMPLED, "tonnetz t0")
-    assert_peak_close(notes.tonnetz()[0], a(tz["notes_tuning_none"]), RESAMPLED, "tonnetz est")
+    assert_peak_close(notes.tonnetz(tuning=None)[0], a(tz["notes_tuning_none"]), RESAMPLED, "tonnetz est")
 
 
 def test_chroma_array_forms(sr):
@@ -263,7 +265,7 @@ def test_shapes_and_validation(sr):
     assert st.chroma_cens(tuning=0.0).shape[:2] == (2, 12)
     assert x.tonnetz(tuning=0.0).shape[:2] == (1, 6)
     f32 = aus.AudioSamples.new_mono(fixture_signal("notes").astype(np.float32), sr)
-    assert f32.cqt(n_bins=12, fmin=440.0).dtype == np.complex128
+    assert f32.cqt(n_bins=12, fmin=440.0).dtype == np.complex64
     with pytest.raises(ValueError, match="hop_length"):
         x.cqt(hop_length=0)
     with pytest.raises(ValueError, match="res_type"):

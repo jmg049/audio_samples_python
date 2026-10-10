@@ -15,19 +15,23 @@ use audio_samples::operations::effects::{
 use audio_samples::operations::filterbanks::Window;
 use audio_samples::operations::spectrum::DbReference;
 use audio_samples::operations::types::ResamplingQuality;
-use audio_samples::{AudioEffects, AudioSamples, ChannelAggregate};
+use audio_samples::{AudioEffects, AudioSample, AudioSamples, ChannelAggregate};
 use ndarray::Array2;
 use numpy::{IntoPyArray, PyArray1, PyArray2, PyUntypedArrayMethods};
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use pyo3::types::PyString;
 
-use crate::args::{DbRefArg, WindowArg, i64_vec, non_negative, positive, stft_config, value_err};
-use crate::effects::{effects_err, griffinlim_config, hpss_mask_config};
+use crate::args::{
+    DbRefArg, WindowArg, i64_vec, non_negative, output_sample_type, positive, stft_config,
+    value_err, with_sample_type,
+};
+use crate::effects::{RngArg, effects_err, griffinlim_config, hpss_mask_config};
 use crate::rhythm::planes;
-use crate::types::PyResamplingQuality;
+use crate::types::{PyResamplingQuality, PySampleType};
 use crate::{
-    PyAudioSamples, audio_err_to_py, dispatch_with_view, dispatch_with_view_detached, nzu32_or_err,
+    PyAudioSamples, audio_err_to_py, dispatch_typed, dispatch_with_view,
+    dispatch_with_view_detached, nzu32_or_err,
 };
 
 /// Parses `res_type`: a `ResamplingQuality` or a name. librosa's soxr names map
@@ -84,8 +88,7 @@ fn silence_config(
             }
         }
     };
-    Ok(SilenceConfig::new()
-        .with_top_db(top_db)
+    Ok(SilenceConfig::new(top_db)
         .with_reference(reference)
         .with_frame_length(positive("frame_length", frame_length)?)
         .with_hop_length(positive("hop_length", hop_length)?)
@@ -384,7 +387,8 @@ impl PyAudioSamples {
     /// ``trim_silence`` (sample-wise absolute dBFS threshold).
     ///
     /// Args:
-    ///     top_db (float): Threshold below the reference in dB. Default 60.
+    ///     top_db (float): Threshold below the reference in dB. Required
+    ///         (librosa defaults to 60).
     ///     ref (float | "max" | numpy.max): Reference RMS amplitude; the default
     ///         ``numpy.max`` uses the loudest frame.
     ///     frame_length (int): RMS frame length. Default 2048.
@@ -401,8 +405,8 @@ impl PyAudioSamples {
     ///         (librosa returns an empty array and ``[0, 0]``; an
     ///         ``AudioSamples`` cannot be empty, use ``split_db`` to test).
     #[pyo3(
-        signature = (*, top_db = 60.0, r#ref = DbRefArg(DbReference::Max), frame_length = Int(2048), hop_length = Int(512), aggregate = None),
-        text_signature = "($self, *, top_db=60, ref='max', frame_length=2048, hop_length=512, aggregate=None)"
+        signature = (*, top_db, r#ref = DbRefArg(DbReference::Max), frame_length = Int(2048), hop_length = Int(512), aggregate = None),
+        text_signature = "($self, *, top_db, ref='max', frame_length=2048, hop_length=512, aggregate=None)"
     )]
     fn trim_db<'py>(
         &self,
@@ -429,8 +433,8 @@ impl PyAudioSamples {
 
     /// In-place ``trim_db``; returns the kept ``[start, end]`` (int64 array).
     #[pyo3(
-        signature = (*, top_db = 60.0, r#ref = DbRefArg(DbReference::Max), frame_length = Int(2048), hop_length = Int(512), aggregate = None),
-        text_signature = "($self, *, top_db=60, ref='max', frame_length=2048, hop_length=512, aggregate=None)"
+        signature = (*, top_db, r#ref = DbRefArg(DbReference::Max), frame_length = Int(2048), hop_length = Int(512), aggregate = None),
+        text_signature = "($self, *, top_db, ref='max', frame_length=2048, hop_length=512, aggregate=None)"
     )]
     fn trim_db_in_place<'py>(
         &mut self,
@@ -456,8 +460,8 @@ impl PyAudioSamples {
     ///     numpy.ndarray[int64]: shape ``(n_intervals, 2)`` of ``[start, end)``
     ///     sample ranges (``(0, 2)`` if everything is silent).
     #[pyo3(
-        signature = (*, top_db = 60.0, r#ref = DbRefArg(DbReference::Max), frame_length = Int(2048), hop_length = Int(512), aggregate = None),
-        text_signature = "($self, *, top_db=60, ref='max', frame_length=2048, hop_length=512, aggregate=None)"
+        signature = (*, top_db, r#ref = DbRefArg(DbReference::Max), frame_length = Int(2048), hop_length = Int(512), aggregate = None),
+        text_signature = "($self, *, top_db, ref='max', frame_length=2048, hop_length=512, aggregate=None)"
     )]
     fn split_db<'py>(
         &self,
@@ -484,7 +488,7 @@ impl PyAudioSamples {
     ///     intervals (array_like): ``(n, 2)`` ``[start, end)`` sample ranges, in
     ///         output order; clipped to the signal, empty ranges skipped.
     ///     align_zeros (bool): Snap boundaries to the nearest zero crossing of
-    ///         the (mono downmix of the) signal. Default True.
+    ///         the (mono downmix of the) signal. Default False (librosa: True).
     ///
     /// Returns:
     ///     AudioSamples: the remixed audio.
@@ -492,8 +496,8 @@ impl PyAudioSamples {
     /// Raises:
     ///     ValueError: For malformed or all-empty intervals.
     #[pyo3(
-        signature = (intervals, *, align_zeros = true),
-        text_signature = "($self, intervals, *, align_zeros=True)"
+        signature = (intervals, *, align_zeros = false),
+        text_signature = "($self, intervals, *, align_zeros=False)"
     )]
     fn remix(
         &self,
@@ -516,8 +520,8 @@ impl PyAudioSamples {
 
     /// In-place ``remix``.
     #[pyo3(
-        signature = (intervals, *, align_zeros = true),
-        text_signature = "($self, intervals, *, align_zeros=True)"
+        signature = (intervals, *, align_zeros = false),
+        text_signature = "($self, intervals, *, align_zeros=False)"
     )]
     fn remix_in_place(
         &mut self,
@@ -757,18 +761,18 @@ impl PyAudioSamples {
     ///         ``order`` samples.
     ///
     /// Returns:
-    ///     numpy.ndarray[float64]: shape ``(channels, order + 1)``, rows
+    ///     numpy.ndarray[float32 | float64]: shape ``(channels, order + 1)``, rows
     ///     ``[1, a_1, ..., a_order]``. librosa returns ``(order + 1,)`` for 1-D
     ///     input; index ``[0]``.
     ///
     /// Raises:
     ///     ValueError: For a too-short or non-finite channel.
     #[pyo3(signature = (*, order), text_signature = "($self, *, order)")]
-    fn lpc<'py>(&self, py: Python<'py>, order: Int) -> PyResult<Bound<'py, PyArray2<f64>>> {
+    fn lpc<'py>(&self, py: Python<'py>, order: Int) -> PyResult<Bound<'py, PyAny>> {
         let order = positive("order", order)?;
-        let a = dispatch_with_view!(self, py, |audio| AudioEffects::lpc(&audio, order))
-            .map_err(audio_err_to_py)?;
-        Ok(a.into_pyarray(py))
+        dispatch_typed!(self, py, |audio| AudioEffects::lpc(&audio, order), |r| r
+            .map_err(audio_err_to_py)
+            .map(|a| a.into_pyarray(py).into_any()))
     }
 
     /// Reconstructs audio from a magnitude spectrogram with fast Griffin-Lim,
@@ -783,14 +787,21 @@ impl PyAudioSamples {
     ///     sample_rate (int): Sample rate of the result (keyword-only).
     ///     **kwargs: ``n_iter``, ``hop_length``, ``win_length``, ``n_fft``,
     ///         ``window``, ``center``, ``length``, ``pad_mode``, ``momentum``,
-    ///         ``init``, ``rng`` as ``audio_samples.effects.griffinlim``.
+    ///         ``init``, ``rng`` as ``audio_samples.effects.griffinlim``
+    ///         (``rng`` defaults to the seed 0, so repeated calls give the same
+    ///         audio).
+    ///     dtype (Optional[SampleType]): Sample type of the returned audio.
+    ///         ``None`` (default) gives float32 audio for a float32 ``S`` and
+    ///         float64 audio for any other input. The reconstruction runs in
+    ///         the float type of ``dtype`` (float32 for U8, I16, I24 and F32;
+    ///         float64 for I32 and F64); integer output is rounded and saturated.
     ///
     /// Returns:
-    ///     AudioSamples: float64 audio (mono for one channel).
+    ///     AudioSamples: audio of sample type ``dtype`` (mono for one channel).
     #[staticmethod]
     #[pyo3(
-        signature = (S, *, sample_rate, n_iter = Int(32), hop_length = None, win_length = None, n_fft = None, window = WindowArg(Window::Hann), center = true, length = None, pad_mode = "constant", momentum = 0.99, init = Some("random"), rng = None),
-        text_signature = "(S, *, sample_rate, n_iter=32, hop_length=None, win_length=None, n_fft=None, window='hann', center=True, length=None, pad_mode='constant', momentum=0.99, init='random', rng=None)"
+        signature = (S, *, sample_rate, n_iter = Int(32), hop_length = None, win_length = None, n_fft = None, window = WindowArg(Window::Hann), center = true, length = None, pad_mode = "constant", momentum = 0.99, init = Some("random"), rng = RngArg::SEEDED, dtype = None),
+        text_signature = "(S, *, sample_rate, n_iter=32, hop_length=None, win_length=None, n_fft=None, window='hann', center=True, length=None, pad_mode='constant', momentum=0.99, init='random', rng=0, dtype=None)"
     )]
     #[allow(non_snake_case, clippy::too_many_arguments)]
     fn griffinlim_audio(
@@ -806,26 +817,29 @@ impl PyAudioSamples {
         pad_mode: &str,
         momentum: f64,
         init: Option<&str>,
-        rng: Option<&Bound<'_, PyAny>>,
+        rng: RngArg,
+        dtype: Option<PySampleType>,
     ) -> PyResult<Self> {
-        let (s, _) = planes(S, "S")?;
-        let cfg = griffinlim_config(
-            s.dim().1,
-            n_iter,
-            hop_length,
-            win_length,
-            n_fft,
-            window,
-            center,
-            length,
-            pad_mode,
-            momentum,
-            init,
-            rng,
-        )?;
         let sr = nzu32_or_err(crate::args::sample_rate_u32(sample_rate)?)?;
-        let y = <AudioSamples<'static, f64> as AudioEffects>::griffinlim_audio(&s, &cfg, sr)
-            .map_err(audio_err_to_py)?;
-        Ok(Self::from_audio_samples(y))
+        with_sample_type!(output_sample_type(dtype, S), |T| {
+            let (s, _) = planes::<<T as AudioSample>::Float>(S, "S")?;
+            let cfg = griffinlim_config(
+                s.dim().1,
+                n_iter,
+                hop_length,
+                win_length,
+                n_fft,
+                window,
+                center,
+                length,
+                pad_mode,
+                momentum,
+                init,
+                rng,
+            )?;
+            let y = <AudioSamples<'static, T> as AudioEffects>::griffinlim_audio(&s, &cfg, sr)
+                .map_err(audio_err_to_py)?;
+            Ok(Self::from_audio_samples(y))
+        })
     }
 }

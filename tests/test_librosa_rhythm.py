@@ -114,16 +114,16 @@ def test_onset_strength_free_function_matches_method(sr):
     S = librosa.power_to_db(librosa.feature.melspectrogram(y=y, sr=sr, dtype=np.float64))
     a = aus.AudioSamples.new_mono(y, sr)
     for kw in ({}, dict(lag=2, max_size=3), dict(aggregate=np.median), dict(detrend=True, center=False)):
-        free = R.onset_strength(S=S, **kw)
+        free = R.onset_strength(S=S, sr=sr, **kw)
         assert free.ndim == 1
         # Same algorithm on librosa's dB spectrogram vs ours: spectrum round-off only.
         assert_peak_close(free, a.onset_strength(**kw)[0], RTOL_ENV, str(kw))
         assert_peak_close(free, librosa.onset.onset_strength(S=S, **kw), RTOL_ENV, f"librosa {kw}")
-    multi = R.onset_strength_multi(S=S, channels=[0, 32, 128])
+    multi = R.onset_strength_multi(S=S, sr=sr, channels=[0, 32, 128])
     assert multi.shape == (2, S.shape[1])
     assert_peak_close(multi, librosa.onset.onset_strength_multi(S=S, channels=[0, 32, 128]), RTOL_ENV)
     # 3-D input keeps the channel axis.
-    assert R.onset_strength(S=np.stack([S, S])).shape == (2, S.shape[1])
+    assert R.onset_strength(S=np.stack([S, S]), sr=sr).shape == (2, S.shape[1])
 
 
 def test_custom_aggregate_callable(sr):
@@ -251,7 +251,7 @@ def test_onset_detect_errors(sr):
         stereo(sr).onset_detect()
     with pytest.raises(ValueError, match="hop_length"):
         a.onset_detect(hop_length=-1)
-    assert R.onset_detect(onset_envelope=np.zeros(50)).size == 0
+    assert R.onset_detect(onset_envelope=np.zeros(50), sr=22050).size == 0
     assert R.onset_backtrack([], np.ones(4)).size == 0
 
 
@@ -275,18 +275,18 @@ def test_tempograms_fixture(fx, sig):
     g = fx["tempogram"][sig]
     env = fixture_array(g["envelope"])
     bs, fs = g["bin_step"], g["frame_step"]
-    tg = R.tempogram(onset_envelope=env)
+    tg = R.tempogram(onset_envelope=env, sr=22050)
     assert list(tg.shape) == g["tempogram_shape"]
     assert_peak_close(tg[::bs, ::fs], fixture_array(g["tempogram"]), RTOL_TG)
-    small = R.tempogram(onset_envelope=env, win_length=32, center=False, norm=2.0)
+    small = R.tempogram(onset_envelope=env, sr=22050, win_length=32, center=False, norm=2.0)
     assert_peak_close(small, fixture_array(g["tempogram_w32_nocenter_l2"]), RTOL_TG)
-    ham = R.tempogram(onset_envelope=env, win_length=33, window="hamming", norm=None)
+    ham = R.tempogram(onset_envelope=env, sr=22050, win_length=33, window="hamming", norm=None)
     assert_peak_close(ham, fixture_array(g["tempogram_w33_hamming_nonorm"]), RTOL_TG)
-    ft = R.fourier_tempogram(onset_envelope=env)
+    ft = R.fourier_tempogram(onset_envelope=env, sr=22050)
     assert ft.dtype == np.complex128 and list(ft.shape) == g["fourier_shape"]
     assert_peak_close(np.abs(ft[::bs, ::fs]), fixture_array(g["fourier_mag"]), RTOL_TG)
     assert_peak_close(ft[::24, ::8], fixture_array(g["fourier"]), RTOL_TG)
-    ft40 = R.fourier_tempogram(onset_envelope=env, win_length=40, center=False)
+    ft40 = R.fourier_tempogram(onset_envelope=env, sr=22050, win_length=40, center=False)
     assert_peak_close(ft40[::4, ::4], fixture_array(g["fourier_w40_nocenter"]), RTOL_TG)
 
 
@@ -322,7 +322,7 @@ def test_tempo_fixture(fx, sr, sig):
     )
     np.testing.assert_array_equal(t(aggregate=np.median, max_tempo=200.0), fixture_array(g["median_max200"]))
     # From a tempogram (tg=): same grid and decision.
-    tg = R.tempogram(onset_envelope=env, win_length=int(8.0 * sr) // 512)
+    tg = R.tempogram(onset_envelope=env, sr=22050, win_length=int(8.0 * sr) // 512)
     np.testing.assert_array_equal(R.tempo(tg=tg, sr=sr), fixture_array(g["default"]))
 
 
@@ -350,12 +350,13 @@ def test_tempo_prior_matches_librosa(sr):
 # ---------------------------------------------------------------------------
 
 
+# The fixtures use librosa's default trim=True; the binding defaults to False.
 BEAT_CASES = {
-    "default": {},
+    "default": dict(trim=True),
     "no_trim": dict(trim=False),
-    "tightness400": dict(tightness=400),
-    "bpm100": dict(bpm=100.0),
-    "start90_tight50": dict(start_bpm=90.0, tightness=50),
+    "tightness400": dict(tightness=400, trim=True),
+    "bpm100": dict(bpm=100.0, trim=True),
+    "start90_tight50": dict(start_bpm=90.0, tightness=50, trim=True),
 }
 
 
@@ -369,10 +370,10 @@ def test_beat_track_fixture(fx, sr, sig):
         np.testing.assert_array_equal(beats, g[name]["beats"], err_msg=f"{sig} {name}")
         np.testing.assert_array_equal(np.atleast_1d(tempo), np.atleast_1d(fixture_array(g[name]["tempo"])))
     np.testing.assert_array_equal(
-        R.beat_track(onset_envelope=env, sr=sr, units="time")[1], fixture_array(g["times"])
+        R.beat_track(onset_envelope=env, sr=sr, units="time", trim=True)[1], fixture_array(g["times"])
     )
     # From audio: our f64-basis envelope and librosa's float32-basis run agree.
-    tempo, beats = mono(sig, sr).beat_track()
+    tempo, beats = mono(sig, sr).beat_track(trim=True)
     np.testing.assert_array_equal(beats, g["default"]["beats"])
     np.testing.assert_array_equal(beats, g["default_f32basis"]["beats"])
     np.testing.assert_array_equal(np.atleast_1d(tempo), np.atleast_1d(fixture_array(g["default_f32basis"]["tempo"])))
@@ -382,27 +383,30 @@ def test_beat_track_random_and_curve(fx, sr):
     g = fx["beat_track"]["random"]
     env = fixture_array(g["envelope"])
     curve = fixture_array(g["curve"])
-    tempo, beats = R.beat_track(onset_envelope=env, sr=sr)
+    tempo, beats = R.beat_track(onset_envelope=env, sr=sr, trim=True)
     np.testing.assert_array_equal(beats, g["default"])
+    # The default (trim=False) keeps the weak edge beats that trim=True removes.
+    untrimmed = R.beat_track(onset_envelope=env, sr=sr)[1]
+    assert set(beats) <= set(untrimmed) and untrimmed.size >= beats.size
     np.testing.assert_array_equal(tempo, fixture_array(g["tempo"]))
-    np.testing.assert_array_equal(R.beat_track(onset_envelope=env, sr=sr, bpm=curve)[1], g["bpm_curve"])
-    np.testing.assert_array_equal(R.beat_track_with_bpm(env, curve, sr=sr), g["bpm_curve"])
+    np.testing.assert_array_equal(R.beat_track(onset_envelope=env, sr=sr, bpm=curve, trim=True)[1], g["bpm_curve"])
+    np.testing.assert_array_equal(R.beat_track_with_bpm(env, curve, sr=sr, trim=True), g["bpm_curve"])
     np.testing.assert_array_equal(R.beat_track_with_bpm(env, curve, sr=sr, trim=False), g["bpm_curve_no_trim"])
-    np.testing.assert_array_equal(R.beat_track_with_bpm(env, 111.0, sr=sr), g["bpm_odd_fpb"])
+    np.testing.assert_array_equal(R.beat_track_with_bpm(env, 111.0, sr=sr, trim=True), g["bpm_odd_fpb"])
 
 
 def test_beat_track_return_conventions(sr):
     librosa = pytest.importorskip("librosa")
     y = fixture_signal("clicks120")
     env = librosa.onset.onset_strength(y=y, sr=sr, aggregate=np.median, dtype=np.float64)
-    ours = R.beat_track(onset_envelope=env, sr=sr)
+    ours = R.beat_track(onset_envelope=env, sr=sr, trim=True)
     theirs = librosa.beat.beat_track(onset_envelope=env, sr=sr)
     assert type(ours[0]) is type(theirs[0]) and ours[0].shape == theirs[0].shape
-    t, b = R.beat_track(onset_envelope=env, sr=sr, bpm=100.0)
+    t, b = R.beat_track(onset_envelope=env, sr=sr, bpm=100.0, trim=True)
     assert t == 100.0
     np.testing.assert_array_equal(b, librosa.beat.beat_track(onset_envelope=env, sr=sr, bpm=100.0)[1])
     np.testing.assert_array_equal(
-        R.beat_track(onset_envelope=env, sr=sr, units="samples")[1],
+        R.beat_track(onset_envelope=env, sr=sr, units="samples", trim=True)[1],
         librosa.beat.beat_track(onset_envelope=env, sr=sr, units="samples")[1],
     )
     silent = R.beat_track(onset_envelope=np.zeros(100), sr=sr)
@@ -410,7 +414,7 @@ def test_beat_track_return_conventions(sr):
     with pytest.raises(ValueError, match="mono"):
         stereo(sr).beat_track()
     with pytest.raises(ValueError, match="units"):
-        R.beat_track(onset_envelope=env, units="bars")
+        R.beat_track(onset_envelope=env, sr=sr, units="bars")
 
 
 # ---------------------------------------------------------------------------
@@ -440,7 +444,7 @@ def test_plp_fixture(fx, sr, sig):
 def test_tempogram_variants_fixture(fx, sr, sig):
     g = fx["tempogram_variants"][sig]
     env = fixture_array(fx["tempogram"][sig]["envelope"])
-    tg = R.tempogram(onset_envelope=env)
+    tg = R.tempogram(onset_envelope=env, sr=22050)
     assert_peak_close(R.tempogram_ratio(tg=tg, sr=sr), fixture_array(g["ratio"]), RTOL_TG)
     assert_peak_close(R.tempogram_ratio(onset_envelope=env, sr=sr), fixture_array(g["ratio"]), RTOL_TG)
     mean = R.tempogram_ratio(tg=tg, sr=sr, aggregate=np.mean)
@@ -453,7 +457,7 @@ def test_tempogram_variants_fixture(fx, sr, sig):
     assert list(h.shape) == g["hybrid_shape"]
     np.testing.assert_allclose(h[::8, ::4], fixture_array(g["hybrid"]), rtol=0, atol=ATOL_HYBRID)
 
-    ftg = np.abs(R.fourier_tempogram(onset_envelope=env))[..., :-1]
+    ftg = np.abs(R.fourier_tempogram(onset_envelope=env, sr=22050))[..., :-1]
     freqs = R.fourier_tempo_frequencies(sr=sr)
     assert_peak_close(R.metrogram(tg=ftg, freqs=freqs), fixture_array(g["metrogram"]), RTOL_TG)
     mmax = R.metrogram(tg=ftg, freqs=freqs, factors=np.array([0.5, 1.0 / 3.0]), aggregate=np.max)
@@ -512,10 +516,12 @@ def test_validation(sr):
     with pytest.raises(ValueError, match="method"):
         R.peak_pick(np.ones(5), pre_max=1, post_max=1, pre_avg=1, post_avg=1, delta=0, wait=0, method="x")
     with pytest.raises(ValueError):
-        R.tempo()
+        R.tempo(sr=sr)
+    with pytest.raises(TypeError, match="sr"):
+        R.tempo(onset_envelope=np.ones(100))
     with pytest.raises(ValueError, match="kind"):
         R.metrogram(tg=np.ones((4, 5)), freqs=np.arange(1.0, 5.0), kind="cubic")
     with pytest.raises(TypeError):
-        R.tempo(onset_envelope=np.ones(100), prior=3)
+        R.tempo(onset_envelope=np.ones(100), sr=sr, prior=3)
     with pytest.raises(ValueError, match="channels"):
-        R.onset_strength_multi(S=np.ones((8, 10)), channels=[slice(0, 4)])
+        R.onset_strength_multi(S=np.ones((8, 10)), sr=sr, channels=[slice(0, 4)])

@@ -16,9 +16,8 @@ use audio_samples::operations::filterbanks::Window;
 use audio_samples::operations::rhythm::{self as rh, Aggregate, OnsetStrengthConfig};
 use audio_samples::operations::spectrum::MelSpectrogramConfig;
 use audio_samples::{AudioRhythm, MelFilterNorm};
-use ndarray::{Array2, Array3};
-use num_complex::Complex;
-use numpy::{IntoPyArray, PyArray2, PyArray3};
+use ndarray::Array2;
+use numpy::IntoPyArray;
 use pyo3::prelude::*;
 
 use crate::args::{MelNormArg, WindowArg, mel_config, positive, stft_config, value_err};
@@ -27,7 +26,47 @@ use crate::rhythm::{
     onset_peak_pick, parse_aggregate, parse_channels, parse_prior, plp_config, ratio_config,
     require_sparse, tempo_config, tempogram_config, track_beats,
 };
-use crate::{PyAudioSamples, audio_err_to_py, dispatch_with_view, dispatch_with_view_detached};
+use crate::{
+    PyAudioSamples, audio_err_to_py, dispatch_typed, dispatch_typed_detached, dispatch_with_view,
+};
+
+/// An onset envelope `(channels, n_frames)` in the float type of the audio's
+/// sample type.
+enum Envelope {
+    F32(Array2<f32>),
+    F64(Array2<f64>),
+}
+
+impl From<Array2<f32>> for Envelope {
+    fn from(a: Array2<f32>) -> Self {
+        Self::F32(a)
+    }
+}
+
+impl From<Array2<f64>> for Envelope {
+    fn from(a: Array2<f64>) -> Self {
+        Self::F64(a)
+    }
+}
+
+impl Envelope {
+    fn nrows(&self) -> usize {
+        match self {
+            Self::F32(a) => a.nrows(),
+            Self::F64(a) => a.nrows(),
+        }
+    }
+}
+
+/// Runs `$body` on the array inside an [`Envelope`], whatever its float type.
+macro_rules! with_envelope {
+    ($env:expr, |$e:ident| $body:expr) => {
+        match $env {
+            Envelope::F32($e) => $body,
+            Envelope::F64($e) => $body,
+        }
+    };
+}
 
 /// librosa's default onset envelope for a hop length (what `tempo`,
 /// `tempogram`, `beat_track`, ... compute from `y`).
@@ -43,13 +82,15 @@ impl PyAudioSamples {
     }
 
     /// Onset envelope `(channels, n_frames)` for `cfg`.
-    fn envelope(&self, py: Python<'_>, cfg: &OnsetStrengthConfig) -> PyResult<Array2<f64>> {
+    fn envelope(&self, py: Python<'_>, cfg: &OnsetStrengthConfig) -> PyResult<Envelope> {
         // Built-in aggregates are pure Rust: release the GIL. A Python callable
         // (Aggregate::Custom trampoline) needs it.
         if matches!(cfg.aggregate, Some(Aggregate::Custom(_))) {
-            dispatch_with_view!(self, py, |audio| audio.onset_strength(cfg))
+            dispatch_typed!(self, py, |audio| audio.onset_strength(cfg), |r| r
+                .map(Envelope::from))
         } else {
-            dispatch_with_view_detached!(self, py, |audio| audio.onset_strength(cfg))
+            dispatch_typed_detached!(self, py, |audio| audio.onset_strength(cfg), |r| r
+                .map(Envelope::from))
         }
         .map_err(audio_err_to_py)
     }
@@ -60,7 +101,7 @@ impl PyAudioSamples {
         py: Python<'_>,
         cfg: &OnsetStrengthConfig,
         operation: &str,
-    ) -> PyResult<Vec<f64>> {
+    ) -> PyResult<Envelope> {
         let env = self.envelope(py, cfg)?;
         if env.nrows() != 1 {
             return Err(value_err(
@@ -71,7 +112,7 @@ impl PyAudioSamples {
                 ),
             ));
         }
-        Ok(env.row(0).to_vec())
+        Ok(env)
     }
 }
 
@@ -133,7 +174,7 @@ impl PyAudioSamples {
     ///         ``melspectrogram``.
     ///
     /// Returns:
-    ///     numpy.ndarray[float64]: shape ``(channels, n_frames)`` with
+    ///     numpy.ndarray[float32 | float64]: shape ``(channels, n_frames)`` with
     ///     ``n_frames = 1 + len // hop_length``. librosa returns ``(n_frames,)``
     ///     for 1-D input; index ``[0]`` to get it.
     ///
@@ -163,7 +204,7 @@ impl PyAudioSamples {
         fmax: Option<f64>,
         htk: bool,
         norm: MelNormArg,
-    ) -> PyResult<Bound<'py, PyArray2<f64>>> {
+    ) -> PyResult<Bound<'py, PyAny>> {
         let agg = parse_aggregate(aggregate)?;
         let cfg = onset_strength_config(
             lag,
@@ -184,8 +225,9 @@ impl PyAudioSamples {
             norm,
         )?;
         let scope = CallbackScope::install(agg.callable(), None, py);
-        let env = scope.finish(dispatch_with_view!(self, py, |audio| audio.onset_strength(&cfg)))?;
-        Ok(env.into_pyarray(py))
+        dispatch_typed!(self, py, |audio| audio.onset_strength(&cfg), |r| scope
+            .finish(r)
+            .map(|env| env.into_pyarray(py).into_any()))
     }
 
     /// Multi-band onset strength of every channel, equivalent to
@@ -202,7 +244,7 @@ impl PyAudioSamples {
     ///         ``n_mels``, ``fmin``, ``fmax``, ``htk``, ``norm`` as ``onset_strength``.
     ///
     /// Returns:
-    ///     numpy.ndarray[float64]: shape ``(channels, n_bands, n_frames)``
+    ///     numpy.ndarray[float32 | float64]: shape ``(channels, n_bands, n_frames)``
     ///     (``n_mels`` rows with ``aggregate=False``). librosa returns
     ///     ``(n_bands, n_frames)`` for 1-D input; index ``[0]`` to get it.
     ///
@@ -233,7 +275,7 @@ impl PyAudioSamples {
         fmax: Option<f64>,
         htk: bool,
         norm: MelNormArg,
-    ) -> PyResult<Bound<'py, PyArray3<f64>>> {
+    ) -> PyResult<Bound<'py, PyAny>> {
         let agg = parse_aggregate(aggregate)?;
         let cfg = onset_strength_config(
             lag,
@@ -255,9 +297,12 @@ impl PyAudioSamples {
         )?;
         let bounds = parse_channels(channels)?;
         let scope = CallbackScope::install(agg.callable(), None, py);
-        let env = scope.finish(dispatch_with_view!(self, py, |audio| audio
-            .onset_strength_multi(&cfg, bounds.as_deref())))?;
-        Ok(env.into_pyarray(py))
+        dispatch_typed!(
+            self,
+            py,
+            |audio| audio.onset_strength_multi(&cfg, bounds.as_deref()),
+            |r| scope.finish(r).map(|env| env.into_pyarray(py).into_any())
+        )
     }
 
     /// Detects onsets, equivalent to
@@ -316,7 +361,17 @@ impl PyAudioSamples {
             sr, hop, pre_max, post_max, pre_avg, post_avg, delta, wait, method,
         )?;
         let env = self.mono_envelope(py, &cfg, "onset_detect")?;
-        detect_onsets(py, &env, sr, hop, peak, backtrack, energy, units, normalize)
+        with_envelope!(env, |e| detect_onsets(
+            py,
+            &e.row(0).to_vec(),
+            sr,
+            hop,
+            peak,
+            backtrack,
+            energy,
+            units,
+            normalize
+        ))
     }
 
     /// Autocorrelation tempogram of every channel, equivalent to
@@ -331,7 +386,7 @@ impl PyAudioSamples {
     ///         a p-norm, or None).
     ///
     /// Returns:
-    ///     numpy.ndarray[float64]: shape ``(channels, win_length, n_frames)``.
+    ///     numpy.ndarray[float32 | float64]: shape ``(channels, win_length, n_frames)``.
     ///     librosa returns ``(win_length, n_frames)`` for 1-D input; index ``[0]``.
     ///
     /// Raises:
@@ -348,11 +403,12 @@ impl PyAudioSamples {
         center: bool,
         window: WindowArg,
         norm: Option<f64>,
-    ) -> PyResult<Bound<'py, PyArray3<f64>>> {
+    ) -> PyResult<Bound<'py, PyAny>> {
         let tcfg = tempogram_config(win_length, center, window, norm)?;
         let env = self.envelope(py, &envelope_config(hop_length.0, Aggregate::Mean)?)?;
-        let tg = rh::tempogram_from_envelope(env.view(), &tcfg).map_err(audio_err_to_py)?;
-        Ok(tg.into_pyarray(py))
+        with_envelope!(env, |e| rh::tempogram_from_envelope(e.view(), &tcfg)
+            .map_err(audio_err_to_py)
+            .map(|tg| tg.into_pyarray(py).into_any()))
     }
 
     /// Fourier tempogram of every channel, equivalent to
@@ -365,7 +421,7 @@ impl PyAudioSamples {
     ///     window: Analysis window. Default ``"hann"``.
     ///
     /// Returns:
-    ///     numpy.ndarray[complex128]: shape
+    ///     numpy.ndarray[complex64 | complex128]: shape
     ///     ``(channels, win_length // 2 + 1, n_frames + 1)`` (centred). librosa
     ///     returns the 2-D array for 1-D input; index ``[0]``.
     #[pyo3(
@@ -379,11 +435,15 @@ impl PyAudioSamples {
         win_length: Int,
         center: bool,
         window: WindowArg,
-    ) -> PyResult<Bound<'py, PyArray3<Complex<f64>>>> {
+    ) -> PyResult<Bound<'py, PyAny>> {
         let fcfg = fourier_tempogram_config(win_length, center, window)?;
         let env = self.envelope(py, &envelope_config(hop_length.0, Aggregate::Mean)?)?;
-        let tg = rh::fourier_tempogram_from_envelope(env.view(), &fcfg).map_err(audio_err_to_py)?;
-        Ok(tg.into_pyarray(py))
+        with_envelope!(env, |e| rh::fourier_tempogram_from_envelope(
+            e.view(),
+            &fcfg
+        )
+        .map_err(audio_err_to_py)
+        .map(|tg| tg.into_pyarray(py).into_any()))
     }
 
     /// Estimates the tempo of every channel, equivalent to
@@ -422,7 +482,7 @@ impl PyAudioSamples {
         max_tempo: Option<f64>,
         aggregate: AggregateArg,
         prior: Option<&Bound<'py, PyAny>>,
-    ) -> PyResult<Bound<'py, PyArray2<f64>>> {
+    ) -> PyResult<Bound<'py, PyAny>> {
         let prior = parse_prior(prior)?;
         let agg = aggregate.0;
         let cfg = tempo_config(
@@ -437,8 +497,13 @@ impl PyAudioSamples {
         let env = self.envelope(py, &envelope_config(hop_length.0, Aggregate::Mean)?)?;
         let sr = self.sample_rate_f64(py);
         let scope = CallbackScope::install(agg.callable(), prior.as_ref(), py);
-        let t = scope.finish(rh::tempo_from_envelope(env.view(), sr, hop, &cfg))?;
-        Ok(t.into_pyarray(py))
+        let t = scope.finish(with_envelope!(env, |e| rh::tempo_from_envelope(
+            e.view(),
+            sr,
+            hop,
+            &cfg
+        )))?;
+        Ok(t.into_pyarray(py).into_any())
     }
 
     /// Tracks beats, equivalent to
@@ -451,7 +516,8 @@ impl PyAudioSamples {
     ///     hop_length (int): Hop of the onset envelope. Default 512.
     ///     start_bpm (float): Prior centre of the tempo estimate. Default 120.
     ///     tightness (float): Tempo-consistency weight. Default 100.
-    ///     trim (bool): Remove weak leading/trailing beats. Default True.
+    ///     trim (bool): Remove weak leading/trailing beats. Default False
+    ///         (librosa: True).
     ///     bpm (Optional[float | array_like]): Tempo to track at (one value or
     ///         one per frame); None estimates it.
     ///     prior: Tempo prior (see ``tempo``).
@@ -468,8 +534,8 @@ impl PyAudioSamples {
     ///     ValueError: For multi-channel audio, invalid parameters or
     ///         ``sparse=False``.
     #[pyo3(
-        signature = (*, hop_length = Int(512), start_bpm = 120.0, tightness = 100.0, trim = true, bpm = None, prior = None, units = "frames", sparse = true),
-        text_signature = "($self, *, hop_length=512, start_bpm=120.0, tightness=100, trim=True, bpm=None, prior=None, units='frames', sparse=True)"
+        signature = (*, hop_length = Int(512), start_bpm = 120.0, tightness = 100.0, trim = false, bpm = None, prior = None, units = "frames", sparse = true),
+        text_signature = "($self, *, hop_length=512, start_bpm=120.0, tightness=100, trim=False, bpm=None, prior=None, units='frames', sparse=True)"
     )]
     #[allow(clippy::too_many_arguments)]
     fn beat_track<'py>(
@@ -492,9 +558,18 @@ impl PyAudioSamples {
             "beat_track",
         )?;
         let sr = self.sample_rate_f64(py);
-        track_beats(
-            py, &env, sr, hop, start_bpm, tightness, trim, bpm, prior, units,
-        )
+        with_envelope!(env, |e| track_beats(
+            py,
+            &e.row(0).to_vec(),
+            sr,
+            hop,
+            start_bpm,
+            tightness,
+            trim,
+            bpm,
+            prior,
+            units
+        ))
     }
 
     /// Predominant local pulse of every channel, equivalent to
@@ -509,7 +584,7 @@ impl PyAudioSamples {
     ///     prior: Tempo prior (see ``tempo``).
     ///
     /// Returns:
-    ///     numpy.ndarray[float64]: shape ``(channels, n_frames)``, values in
+    ///     numpy.ndarray[float32 | float64]: shape ``(channels, n_frames)``, values in
     ///     ``[0, 1]``. librosa returns ``(n_frames,)`` for 1-D input; index ``[0]``.
     ///
     /// Raises:
@@ -526,15 +601,16 @@ impl PyAudioSamples {
         tempo_min: Option<f64>,
         tempo_max: Option<f64>,
         prior: Option<&Bound<'py, PyAny>>,
-    ) -> PyResult<Bound<'py, PyArray2<f64>>> {
+    ) -> PyResult<Bound<'py, PyAny>> {
         let prior = parse_prior(prior)?;
         let cfg = plp_config(win_length, tempo_min, tempo_max, prior.as_ref())?;
         let hop = positive("hop_length", hop_length)?;
         let env = self.envelope(py, &envelope_config(hop_length.0, Aggregate::Median)?)?;
         let sr = self.sample_rate_f64(py);
         let scope = CallbackScope::install(None, prior.as_ref(), py);
-        let p = scope.finish(rh::plp_from_envelope(env.view(), sr, hop, &cfg))?;
-        Ok(p.into_pyarray(py))
+        with_envelope!(env, |e| scope
+            .finish(rh::plp_from_envelope(e.view(), sr, hop, &cfg))
+            .map(|p| p.into_pyarray(py).into_any()))
     }
 
     /// Tempogram ratio features of every channel, equivalent to
@@ -551,7 +627,7 @@ impl PyAudioSamples {
     ///     fill_value (float): Value outside the tempogram range. Default 0.
     ///
     /// Returns:
-    ///     numpy.ndarray[float64]: shape ``(channels, n_factors, n_frames)``, or
+    ///     numpy.ndarray[float32 | float64]: shape ``(channels, n_factors, n_frames)``, or
     ///     ``(channels, n_factors, 1)`` when aggregated (librosa drops the time
     ///     axis instead). For 1-D input librosa returns the array without the
     ///     channel axis; index ``[0]``.
@@ -575,7 +651,7 @@ impl PyAudioSamples {
         window: WindowArg,
         fill_value: f64,
         norm: Option<f64>,
-    ) -> PyResult<Bound<'py, PyArray3<f64>>> {
+    ) -> PyResult<Bound<'py, PyAny>> {
         let prior = parse_prior(prior)?;
         let agg = parse_aggregate(aggregate)?;
         let cfg = ratio_config(
@@ -593,18 +669,21 @@ impl PyAudioSamples {
         )?;
         let hop = positive("hop_length", hop_length)?;
         let env = self.envelope(py, &envelope_config(hop_length.0, Aggregate::Mean)?)?;
-        let tg =
-            rh::tempogram_from_envelope(env.view(), &cfg.tempogram).map_err(audio_err_to_py)?;
         let sr = self.sample_rate_f64(py);
-        let scope = CallbackScope::install(agg.callable(), prior.as_ref(), py);
-        let r: Array3<f64> = scope.finish(rh::tempogram_ratio_from_tempogram(
-            tg.view(),
-            sr,
-            hop,
-            &cfg,
-            None,
-        ))?;
-        Ok(r.into_pyarray(py))
+        with_envelope!(env, |e| {
+            let tg =
+                rh::tempogram_from_envelope(e.view(), &cfg.tempogram).map_err(audio_err_to_py)?;
+            let scope = CallbackScope::install(agg.callable(), prior.as_ref(), py);
+            scope
+                .finish(rh::tempogram_ratio_from_tempogram(
+                    tg.view(),
+                    sr,
+                    hop,
+                    &cfg,
+                    None,
+                ))
+                .map(|r| r.into_pyarray(py).into_any())
+        })
     }
 
     /// Hybrid (Fourier x autocorrelation) tempogram of every channel,
@@ -617,7 +696,7 @@ impl PyAudioSamples {
     ///     window: Window of both tempograms. Default ``"hann"``.
     ///
     /// Returns:
-    ///     numpy.ndarray[float64]: shape ``(channels, win_length // 2 + 1, n_frames)``
+    ///     numpy.ndarray[float32 | float64]: shape ``(channels, win_length // 2 + 1, n_frames)``
     ///     on the ``fourier_tempo_frequencies`` grid. librosa returns the 2-D
     ///     array for 1-D input; index ``[0]``.
     #[pyo3(
@@ -631,13 +710,18 @@ impl PyAudioSamples {
         win_length: Int,
         center: bool,
         window: WindowArg,
-    ) -> PyResult<Bound<'py, PyArray3<f64>>> {
+    ) -> PyResult<Bound<'py, PyAny>> {
         let hcfg = hybrid_tempogram_config(win_length, center, window)?;
         let hop = positive("hop_length", hop_length)?;
         let env = self.envelope(py, &envelope_config(hop_length.0, Aggregate::Mean)?)?;
         let sr = self.sample_rate_f64(py);
-        let h = rh::hybrid_tempogram_from_envelope(env.view(), sr, hop, &hcfg)
-            .map_err(audio_err_to_py)?;
-        Ok(h.into_pyarray(py))
+        with_envelope!(env, |e| rh::hybrid_tempogram_from_envelope(
+            e.view(),
+            sr,
+            hop,
+            &hcfg
+        )
+        .map_err(audio_err_to_py)
+        .map(|h| h.into_pyarray(py).into_any()))
     }
 }

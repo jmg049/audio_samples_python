@@ -37,7 +37,8 @@ use pyo3::prelude::*;
 use pyo3::types::{PyBool, PyDict, PyString};
 
 use crate::args::{
-    WindowArg, c128_array, f64_array, i64_vec, is_scalar, non_negative, positive, value_err,
+    FloatElement, PyFloat, WindowArg, complex_array_as, f64_array, float_array_as, i64_vec,
+    is_scalar, non_negative, positive, precision_of, value_err, with_precision,
 };
 use crate::audio_err_to_py;
 
@@ -304,8 +305,11 @@ pub(crate) fn prior_fn(prior: Option<&Py<PyAny>>) -> Option<TempoLogPrior> {
 // =============================================================================
 
 /// A `(n,)` or `(channels, n)` array as `(channels, n)`; the flag is `true` for 1-D input.
-pub(crate) fn rows(obj: &Bound<'_, PyAny>, name: &str) -> PyResult<(Array2<f64>, bool)> {
-    let a = f64_array(obj, name)?;
+pub(crate) fn rows<F: FloatElement>(
+    obj: &Bound<'_, PyAny>,
+    name: &str,
+) -> PyResult<(Array2<F>, bool)> {
+    let a = float_array_as::<F>(obj, name)?;
     let a = a.as_array();
     match a.ndim() {
         1 => Ok((
@@ -327,8 +331,8 @@ pub(crate) fn rows(obj: &Bound<'_, PyAny>, name: &str) -> PyResult<(Array2<f64>,
 }
 
 /// A 1-D float vector.
-pub(crate) fn vec1(obj: &Bound<'_, PyAny>, name: &str) -> PyResult<Vec<f64>> {
-    let a = f64_array(obj, name)?;
+pub(crate) fn vec1<F: FloatElement>(obj: &Bound<'_, PyAny>, name: &str) -> PyResult<Vec<F>> {
+    let a = float_array_as::<F>(obj, name)?;
     if a.ndim() != 1 {
         return Err(value_err(
             name,
@@ -339,8 +343,11 @@ pub(crate) fn vec1(obj: &Bound<'_, PyAny>, name: &str) -> PyResult<Vec<f64>> {
 }
 
 /// A `(F, T)` or `(channels, F, T)` array as 3-D; the flag is `true` for 2-D input.
-pub(crate) fn planes(obj: &Bound<'_, PyAny>, name: &str) -> PyResult<(Array3<f64>, bool)> {
-    let a = f64_array(obj, name)?;
+pub(crate) fn planes<F: FloatElement>(
+    obj: &Bound<'_, PyAny>,
+    name: &str,
+) -> PyResult<(Array3<F>, bool)> {
+    let a = float_array_as::<F>(obj, name)?;
     let a = a.as_array();
     match a.ndim() {
         2 => Ok((
@@ -364,11 +371,14 @@ pub(crate) fn planes(obj: &Bound<'_, PyAny>, name: &str) -> PyResult<(Array3<f64
 }
 
 /// Complex variant of [`planes`].
-pub(crate) fn cplanes(
+pub(crate) fn cplanes<F: FloatElement>(
     obj: &Bound<'_, PyAny>,
     name: &str,
-) -> PyResult<(Array3<Complex<f64>>, bool)> {
-    let a = c128_array(obj, name)?;
+) -> PyResult<(Array3<Complex<F>>, bool)>
+where
+    Complex<F>: numpy::Element,
+{
+    let a = complex_array_as::<F>(obj, name)?;
     let a = a.as_array();
     match a.ndim() {
         2 => Ok((
@@ -392,7 +402,11 @@ pub(crate) fn cplanes(
 }
 
 /// `(channels, n)` output, as `(n,)` when `squeeze`.
-pub(crate) fn out2<'py>(py: Python<'py>, a: Array2<f64>, squeeze: bool) -> Bound<'py, PyAny> {
+pub(crate) fn out2<'py, T: numpy::Element>(
+    py: Python<'py>,
+    a: Array2<T>,
+    squeeze: bool,
+) -> Bound<'py, PyAny> {
     if squeeze && a.nrows() == 1 {
         a.index_axis_move(Axis(0), 0).into_pyarray(py).into_any()
     } else {
@@ -592,9 +606,9 @@ pub(crate) fn onset_peak_pick(
 
 /// Onset detection on one envelope, with librosa's `units`.
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn detect_onsets<'py>(
+pub(crate) fn detect_onsets<'py, F: PyFloat>(
     py: Python<'py>,
-    envelope: &[f64],
+    envelope: &[F],
     sr: f64,
     hop: NonZeroUsize,
     peak: PeakPickConfig,
@@ -605,7 +619,7 @@ pub(crate) fn detect_onsets<'py>(
 ) -> PyResult<Bound<'py, PyAny>> {
     let energy = energy
         .filter(|e| !e.is_none())
-        .map(|e| vec1(e, "energy"))
+        .map(|e| vec1::<F>(e, "energy"))
         .transpose()?;
     let cfg = OnsetDetectConfig::new()
         .with_peak_pick(Some(peak))
@@ -618,9 +632,9 @@ pub(crate) fn detect_onsets<'py>(
 
 /// Beat tracking on one envelope with librosa's return conventions.
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn track_beats<'py>(
+pub(crate) fn track_beats<'py, F: PyFloat>(
     py: Python<'py>,
-    envelope: &[f64],
+    envelope: &[F],
     sr: f64,
     hop: NonZeroUsize,
     start_bpm: f64,
@@ -639,7 +653,7 @@ pub(crate) fn track_beats<'py>(
             format!("invalid unit type {units:?}; expected 'frames', 'samples' or 'time'"),
         ));
     }
-    if !envelope.iter().any(|&v| v != 0.0) {
+    if !envelope.iter().any(|&v| v != F::of(0.0)) {
         // librosa: no onsets -> tempo 0.0 and no beats, whatever `bpm` is.
         return Ok((
             0.0f64.into_bound_py_any(py)?,
@@ -754,7 +768,8 @@ pub(crate) fn parse_channels(obj: Option<&Bound<'_, PyAny>>) -> PyResult<Option<
 /// Args:
 ///     S (array_like): Log-power spectrogram, shape ``(n_bins, n_frames)`` or
 ///         ``(channels, n_bins, n_frames)``.
-///     sr (float): Unused (librosa only uses it to compute ``S`` from ``y``).
+///     sr (float): Required (librosa defaults to 22050). Not used: librosa
+///         only uses it to compute ``S`` from ``y``.
 ///     lag (int): Time lag of the difference in frames. Default 1.
 ///     max_size (int): Size of the maximum filter across frequency applied to
 ///         the reference (SuperFlux); 1 disables it. Default 1.
@@ -771,15 +786,15 @@ pub(crate) fn parse_channels(obj: Option<&Bound<'_, PyAny>>) -> PyResult<Option<
 ///     hop_length (int): Hop behind ``S`` (centring shift). Default 512.
 ///
 /// Returns:
-///     numpy.ndarray[float64]: shape ``(n_frames,)`` for 2-D ``S``,
+///     numpy.ndarray[float32 | float64]: shape ``(n_frames,)`` for 2-D ``S``,
 ///     ``(channels, n_frames)`` for 3-D.
 ///
 /// Raises:
 ///     ValueError: For invalid parameters or an empty spectrogram.
 #[pyfunction]
 #[pyo3(
-    signature = (*, S, sr = 22050.0, lag = Int(1), max_size = Int(1), r#ref = None, detrend = false, center = true, aggregate = None, n_fft = Int(2048), hop_length = Int(512)),
-    text_signature = "(*, S, sr=22050, lag=1, max_size=1, ref=None, detrend=False, center=True, aggregate=None, n_fft=2048, hop_length=512)"
+    signature = (*, S, sr, lag = Int(1), max_size = Int(1), r#ref = None, detrend = false, center = true, aggregate = None, n_fft = Int(2048), hop_length = Int(512)),
+    text_signature = "(*, S, sr, lag=1, max_size=1, ref=None, detrend=False, center=True, aggregate=None, n_fft=2048, hop_length=512)"
 )]
 #[allow(non_snake_case, clippy::too_many_arguments, unused_variables)]
 pub fn onset_strength<'py>(
@@ -805,21 +820,23 @@ pub fn onset_strength<'py>(
         n_fft,
         hop_length,
     )?;
-    let (s, squeeze) = planes(S, "S")?;
-    let reference = r#ref
-        .filter(|r| !r.is_none())
-        .map(|r| planes(r, "ref").map(|p| p.0))
-        .transpose()?;
-    let scope = CallbackScope::install(agg.callable(), None, py);
-    let multi = scope.finish(rh::onset_strength_multi_from_db(
-        s.view(),
-        reference.as_ref().map(|r| r.view()),
-        &cfg,
-        None,
-    ))?;
-    // One band (or, with aggregate=False, the first bin, as librosa's `[..., 0, :]`).
-    let env = multi.index_axis_move(Axis(1), 0);
-    Ok(out2(py, env, squeeze))
+    with_precision!(precision_of(S), |F| {
+        let (s, squeeze) = planes::<F>(S, "S")?;
+        let reference = r#ref
+            .filter(|r| !r.is_none())
+            .map(|r| planes::<F>(r, "ref").map(|p| p.0))
+            .transpose()?;
+        let scope = CallbackScope::install(agg.callable(), None, py);
+        let multi = scope.finish(rh::onset_strength_multi_from_db(
+            s.view(),
+            reference.as_ref().map(|r| r.view()),
+            &cfg,
+            None,
+        ))?;
+        // One band (or, with aggregate=False, the first bin, as librosa's `[..., 0, :]`).
+        let env = multi.index_axis_move(Axis(1), 0);
+        Ok(out2(py, env, squeeze))
+    })
 }
 
 /// Multi-band onset strength of a precomputed spectrogram, equivalent to
@@ -828,7 +845,8 @@ pub fn onset_strength<'py>(
 /// Args:
 ///     S (array_like): Log-power spectrogram ``(n_bins, n_frames)`` or
 ///         ``(channels, n_bins, n_frames)``, used as given.
-///     sr (float): Unused (see ``onset_strength``).
+///     sr (float): Required (librosa defaults to 22050). Not used (see
+///         ``onset_strength``).
 ///     n_fft (int): FFT size behind ``S`` (centring shift). Default 2048.
 ///     hop_length (int): Hop behind ``S`` (centring shift). Default 512.
 ///     lag, max_size, ref, detrend, center: As ``onset_strength``.
@@ -839,15 +857,15 @@ pub fn onset_strength<'py>(
 ///         not supported.
 ///
 /// Returns:
-///     numpy.ndarray[float64]: shape ``(n_bands, n_frames)`` for 2-D ``S``,
+///     numpy.ndarray[float32 | float64]: shape ``(n_bands, n_frames)`` for 2-D ``S``,
 ///     ``(channels, n_bands, n_frames)`` for 3-D.
 ///
 /// Raises:
 ///     ValueError: For invalid parameters or boundaries.
 #[pyfunction]
 #[pyo3(
-    signature = (*, S, sr = 22050.0, n_fft = Int(2048), hop_length = Int(512), lag = Int(1), max_size = Int(1), r#ref = None, detrend = false, center = true, aggregate = None, channels = None),
-    text_signature = "(*, S, sr=22050, n_fft=2048, hop_length=512, lag=1, max_size=1, ref=None, detrend=False, center=True, aggregate=None, channels=None)"
+    signature = (*, S, sr, n_fft = Int(2048), hop_length = Int(512), lag = Int(1), max_size = Int(1), r#ref = None, detrend = false, center = true, aggregate = None, channels = None),
+    text_signature = "(*, S, sr, n_fft=2048, hop_length=512, lag=1, max_size=1, ref=None, detrend=False, center=True, aggregate=None, channels=None)"
 )]
 #[allow(non_snake_case, clippy::too_many_arguments, unused_variables)]
 pub fn onset_strength_multi<'py>(
@@ -875,19 +893,21 @@ pub fn onset_strength_multi<'py>(
         hop_length,
     )?;
     let bounds = parse_channels(channels)?;
-    let (s, squeeze) = planes(S, "S")?;
-    let reference = r#ref
-        .filter(|r| !r.is_none())
-        .map(|r| planes(r, "ref").map(|p| p.0))
-        .transpose()?;
-    let scope = CallbackScope::install(agg.callable(), None, py);
-    let multi = scope.finish(rh::onset_strength_multi_from_db(
-        s.view(),
-        reference.as_ref().map(|r| r.view()),
-        &cfg,
-        bounds.as_deref(),
-    ))?;
-    Ok(out3(py, multi, squeeze))
+    with_precision!(precision_of(S), |F| {
+        let (s, squeeze) = planes::<F>(S, "S")?;
+        let reference = r#ref
+            .filter(|r| !r.is_none())
+            .map(|r| planes::<F>(r, "ref").map(|p| p.0))
+            .transpose()?;
+        let scope = CallbackScope::install(agg.callable(), None, py);
+        let multi = scope.finish(rh::onset_strength_multi_from_db(
+            s.view(),
+            reference.as_ref().map(|r| r.view()),
+            &cfg,
+            bounds.as_deref(),
+        ))?;
+        Ok(out3(py, multi, squeeze))
+    })
 }
 
 /// Picks peaks in a signal, equivalent to ``librosa.util.peak_pick``.
@@ -934,7 +954,7 @@ pub fn peak_pick<'py>(
     if axis != Int(-1) && axis != Int(0) {
         return Err(value_err("axis", "only 1-D input (axis=-1) is supported"));
     }
-    let x = vec1(x, "x")?;
+    let prec = precision_of(x);
     let cfg = PeakPickConfig {
         pre_max: non_negative("pre_max", pre_max)?,
         post_max: non_negative("post_max", post_max)?,
@@ -944,7 +964,8 @@ pub fn peak_pick<'py>(
         wait: non_negative("wait", wait)?,
         method: parse_peak_method(method)?,
     };
-    let peaks = rh::peak_pick(&x, &cfg).map_err(audio_err_to_py)?;
+    let peaks = with_precision!(prec, |F| rh::peak_pick(&vec1::<F>(x, "x")?, &cfg))
+        .map_err(audio_err_to_py)?;
     Ok(peaks
         .into_iter()
         .map(|p| p as i64)
@@ -971,8 +992,10 @@ pub fn onset_backtrack<'py>(
     energy: &Bound<'py, PyAny>,
 ) -> PyResult<Bound<'py, PyArray1<i64>>> {
     let events = usize_vec(events, "events")?;
-    let energy = vec1(energy, "energy")?;
-    Ok(rh::onset_backtrack(&events, &energy)
+    let backtracked = with_precision!(precision_of(energy), |F| {
+        rh::onset_backtrack(&events, &vec1::<F>(energy, "energy")?)
+    });
+    Ok(backtracked
         .into_iter()
         .map(|p| p as i64)
         .collect::<Vec<_>>()
@@ -989,7 +1012,7 @@ pub fn onset_backtrack<'py>(
 ///
 /// Args:
 ///     onset_envelope (array_like): 1-D onset strength envelope.
-///     sr (float): Sampling rate of the analysed audio. Default 22050.
+///     sr (float): Sampling rate of the analysed audio. Required (librosa defaults to 22050).
 ///     hop_length (int): Hop of the envelope in samples. Default 512.
 ///     backtrack (bool): Move onsets back to the preceding local minimum of
 ///         ``energy``. Default False.
@@ -1009,8 +1032,8 @@ pub fn onset_backtrack<'py>(
 ///     ValueError: For invalid parameters, a 2-D envelope or ``sparse=False``.
 #[pyfunction]
 #[pyo3(
-    signature = (*, onset_envelope, sr = 22050.0, hop_length = Int(512), backtrack = false, energy = None, units = "frames", normalize = true, sparse = true, pre_max = None, post_max = None, pre_avg = None, post_avg = None, delta = None, wait = None, method = "greedy"),
-    text_signature = "(*, onset_envelope, sr=22050, hop_length=512, backtrack=False, energy=None, units='frames', normalize=True, sparse=True, pre_max=None, post_max=None, pre_avg=None, post_avg=None, delta=None, wait=None, method='greedy')"
+    signature = (*, onset_envelope, sr, hop_length = Int(512), backtrack = false, energy = None, units = "frames", normalize = true, sparse = true, pre_max = None, post_max = None, pre_avg = None, post_avg = None, delta = None, wait = None, method = "greedy"),
+    text_signature = "(*, onset_envelope, sr, hop_length=512, backtrack=False, energy=None, units='frames', normalize=True, sparse=True, pre_max=None, post_max=None, pre_avg=None, post_avg=None, delta=None, wait=None, method='greedy')"
 )]
 #[allow(clippy::too_many_arguments)]
 pub fn onset_detect<'py>(
@@ -1033,11 +1056,13 @@ pub fn onset_detect<'py>(
 ) -> PyResult<Bound<'py, PyAny>> {
     require_sparse(sparse)?;
     let hop = hop_nz(hop_length.0)?;
-    let env = vec1(onset_envelope, "onset_envelope")?;
     let peak = onset_peak_pick(
         sr, hop, pre_max, post_max, pre_avg, post_avg, delta, wait, method,
     )?;
-    detect_onsets(py, &env, sr, hop, peak, backtrack, energy, units, normalize)
+    with_precision!(precision_of(onset_envelope), |F| {
+        let env = vec1::<F>(onset_envelope, "onset_envelope")?;
+        detect_onsets(py, &env, sr, hop, peak, backtrack, energy, units, normalize)
+    })
 }
 
 // =============================================================================
@@ -1050,14 +1075,14 @@ pub fn onset_detect<'py>(
 /// Args:
 ///     n_bins (int): Number of lag bins.
 ///     hop_length (int): Hop in samples. Default 512.
-///     sr (float): Sampling rate. Default 22050.
+///     sr (float): Sampling rate. Required (librosa defaults to 22050).
 ///
 /// Returns:
 ///     numpy.ndarray[float64]: shape ``(n_bins,)``; bin 0 (zero lag) is ``inf``.
 #[pyfunction]
 #[pyo3(
-    signature = (n_bins, *, hop_length = Int(512), sr = 22050.0),
-    text_signature = "(n_bins, *, hop_length=512, sr=22050)"
+    signature = (n_bins, *, hop_length = Int(512), sr),
+    text_signature = "(n_bins, *, hop_length=512, sr)"
 )]
 pub fn tempo_frequencies(
     py: Python<'_>,
@@ -1073,7 +1098,7 @@ pub fn tempo_frequencies(
 /// ``librosa.fourier_tempo_frequencies``.
 ///
 /// Args:
-///     sr (float): Sampling rate. Default 22050.
+///     sr (float): Sampling rate. Required (librosa defaults to 22050).
 ///     win_length (int): Fourier tempogram window in frames. Default 384.
 ///     hop_length (int): Hop in samples. Default 512.
 ///
@@ -1081,8 +1106,8 @@ pub fn tempo_frequencies(
 ///     numpy.ndarray[float64]: shape ``(win_length // 2 + 1,)``.
 #[pyfunction]
 #[pyo3(
-    signature = (*, sr = 22050.0, win_length = Int(384), hop_length = Int(512)),
-    text_signature = "(*, sr=22050, win_length=384, hop_length=512)"
+    signature = (*, sr, win_length = Int(384), hop_length = Int(512)),
+    text_signature = "(*, sr, win_length=384, hop_length=512)"
 )]
 pub fn fourier_tempo_frequencies(
     py: Python<'_>,
@@ -1103,7 +1128,8 @@ pub fn fourier_tempo_frequencies(
 ///
 /// Args:
 ///     onset_envelope (array_like): ``(n_frames,)`` or ``(channels, n_frames)``.
-///     sr (float): Unused (librosa only uses it to compute the envelope).
+///     sr (float): Required (librosa defaults to 22050). Not used: librosa
+///         only uses it to compute the envelope.
 ///     hop_length (int): Unused (as above).
 ///     win_length (int): Autocorrelation window in frames (number of lag
 ///         bins). Default 384.
@@ -1113,7 +1139,7 @@ pub fn fourier_tempo_frequencies(
 ///         divide by the maximum), a p-norm, or None.
 ///
 /// Returns:
-///     numpy.ndarray[float64]: shape ``(win_length, n_frames)`` for 1-D input,
+///     numpy.ndarray[float32 | float64]: shape ``(win_length, n_frames)`` for 1-D input,
 ///     ``(channels, win_length, n_frames)`` for 2-D (``n_frames - win_length + 1``
 ///     frames when not centred).
 ///
@@ -1121,8 +1147,8 @@ pub fn fourier_tempo_frequencies(
 ///     ValueError: For invalid parameters or (uncentred) a too-short envelope.
 #[pyfunction]
 #[pyo3(
-    signature = (*, onset_envelope, sr = 22050.0, hop_length = Int(512), win_length = Int(384), center = true, window = WindowArg(Window::Hann), norm = Some(f64::INFINITY)),
-    text_signature = "(*, onset_envelope, sr=22050, hop_length=512, win_length=384, center=True, window='hann', norm=math.inf)"
+    signature = (*, onset_envelope, sr, hop_length = Int(512), win_length = Int(384), center = true, window = WindowArg(Window::Hann), norm = Some(f64::INFINITY)),
+    text_signature = "(*, onset_envelope, sr, hop_length=512, win_length=384, center=True, window='hann', norm=math.inf)"
 )]
 #[allow(clippy::too_many_arguments, unused_variables)]
 pub fn tempogram<'py>(
@@ -1136,9 +1162,11 @@ pub fn tempogram<'py>(
     norm: Option<f64>,
 ) -> PyResult<Bound<'py, PyAny>> {
     let cfg = tempogram_config(win_length, center, window, norm)?;
-    let (env, squeeze) = rows(onset_envelope, "onset_envelope")?;
-    let tg = rh::tempogram_from_envelope(env.view(), &cfg).map_err(audio_err_to_py)?;
-    Ok(out3(py, tg, squeeze))
+    with_precision!(precision_of(onset_envelope), |F| {
+        let (env, squeeze) = rows::<F>(onset_envelope, "onset_envelope")?;
+        let tg = rh::tempogram_from_envelope(env.view(), &cfg).map_err(audio_err_to_py)?;
+        Ok(out3(py, tg, squeeze))
+    })
 }
 
 /// Fourier tempogram of an onset envelope, equivalent to
@@ -1152,12 +1180,12 @@ pub fn tempogram<'py>(
 ///     window: Analysis window. Default ``"hann"``.
 ///
 /// Returns:
-///     numpy.ndarray[complex128]: shape ``(win_length // 2 + 1, n_frames + 1)``
+///     numpy.ndarray[complex64 | complex128]: shape ``(win_length // 2 + 1, n_frames + 1)``
 ///     (centred) for 1-D input, with a leading channel axis for 2-D.
 #[pyfunction]
 #[pyo3(
-    signature = (*, onset_envelope, sr = 22050.0, hop_length = Int(512), win_length = Int(384), center = true, window = WindowArg(Window::Hann)),
-    text_signature = "(*, onset_envelope, sr=22050, hop_length=512, win_length=384, center=True, window='hann')"
+    signature = (*, onset_envelope, sr, hop_length = Int(512), win_length = Int(384), center = true, window = WindowArg(Window::Hann)),
+    text_signature = "(*, onset_envelope, sr, hop_length=512, win_length=384, center=True, window='hann')"
 )]
 #[allow(unused_variables)]
 pub fn fourier_tempogram<'py>(
@@ -1170,9 +1198,11 @@ pub fn fourier_tempogram<'py>(
     window: WindowArg,
 ) -> PyResult<Bound<'py, PyAny>> {
     let cfg = fourier_tempogram_config(win_length, center, window)?;
-    let (env, squeeze) = rows(onset_envelope, "onset_envelope")?;
-    let tg = rh::fourier_tempogram_from_envelope(env.view(), &cfg).map_err(audio_err_to_py)?;
-    Ok(out3(py, tg, squeeze))
+    with_precision!(precision_of(onset_envelope), |F| {
+        let (env, squeeze) = rows::<F>(onset_envelope, "onset_envelope")?;
+        let tg = rh::fourier_tempogram_from_envelope(env.view(), &cfg).map_err(audio_err_to_py)?;
+        Ok(out3(py, tg, squeeze))
+    })
 }
 
 /// Estimates the tempo from an onset envelope or tempogram, equivalent to
@@ -1186,7 +1216,7 @@ pub fn fourier_tempogram<'py>(
 ///         ``(channels, n_frames)``. Exactly one of ``onset_envelope`` / ``tg``.
 ///     tg (Optional[array_like]): Autocorrelation tempogram
 ///         ``(win_length, n_frames)`` or ``(channels, win_length, n_frames)``.
-///     sr (float): Sampling rate. Default 22050.
+///     sr (float): Sampling rate. Required (librosa defaults to 22050).
 ///     hop_length (int): Hop in samples. Default 512.
 ///     start_bpm (float): Prior centre. Default 120.
 ///     std_bpm (float): Prior spread in octaves. Default 1.
@@ -1207,8 +1237,8 @@ pub fn fourier_tempogram<'py>(
 ///     ValueError: For invalid parameters, or neither/both inputs given.
 #[pyfunction]
 #[pyo3(
-    signature = (*, onset_envelope = None, tg = None, sr = 22050.0, hop_length = Int(512), start_bpm = 120.0, std_bpm = 1.0, ac_size = 8.0, max_tempo = Some(320.0), aggregate = AggregateArg::mean(), prior = None),
-    text_signature = "(*, onset_envelope=None, tg=None, sr=22050, hop_length=512, start_bpm=120, std_bpm=1.0, ac_size=8.0, max_tempo=320.0, aggregate='mean', prior=None)"
+    signature = (*, onset_envelope = None, tg = None, sr, hop_length = Int(512), start_bpm = 120.0, std_bpm = 1.0, ac_size = 8.0, max_tempo = Some(320.0), aggregate = AggregateArg::mean(), prior = None),
+    text_signature = "(*, onset_envelope=None, tg=None, sr, hop_length=512, start_bpm=120, std_bpm=1.0, ac_size=8.0, max_tempo=320.0, aggregate='mean', prior=None)"
 )]
 #[allow(clippy::too_many_arguments)]
 pub fn tempo<'py>(
@@ -1239,14 +1269,14 @@ pub fn tempo<'py>(
     let tg = tg.filter(|o| !o.is_none());
     let scope = CallbackScope::install(agg.callable(), prior.as_ref(), py);
     let (out, squeeze) = match (onset_envelope, tg) {
-        (Some(env), None) => {
-            let (env, squeeze) = rows(env, "onset_envelope")?;
+        (Some(env), None) => with_precision!(precision_of(env), |F| {
+            let (env, squeeze) = rows::<F>(env, "onset_envelope")?;
             (rh::tempo_from_envelope(env.view(), sr, hop, &cfg), squeeze)
-        }
-        (None, Some(tg)) => {
-            let (tg, squeeze) = planes(tg, "tg")?;
+        }),
+        (None, Some(tg)) => with_precision!(precision_of(tg), |F| {
+            let (tg, squeeze) = planes::<F>(tg, "tg")?;
             (rh::tempo_from_tempogram(tg.view(), sr, hop, &cfg), squeeze)
-        }
+        }),
         _ => {
             return Err(value_err(
                 "onset_envelope",
@@ -1267,11 +1297,12 @@ pub fn tempo<'py>(
 /// Args:
 ///     onset_envelope (array_like): 1-D onset envelope (librosa's beat tracker
 ///         uses ``aggregate=numpy.median`` for it).
-///     sr (float): Sampling rate. Default 22050.
+///     sr (float): Sampling rate. Required (librosa defaults to 22050).
 ///     hop_length (int): Hop in samples. Default 512.
 ///     start_bpm (float): Prior centre of the tempo estimate. Default 120.
 ///     tightness (float): Tempo-consistency weight. Default 100.
-///     trim (bool): Remove weak leading/trailing beats. Default True.
+///     trim (bool): Remove weak leading/trailing beats. Default False
+///         (librosa: True).
 ///     bpm (Optional[float | array_like]): Tempo to track at (a number, or one
 ///         value per frame for a time-varying tempo); None estimates it.
 ///     prior: Tempo prior (see ``tempo``).
@@ -1288,8 +1319,8 @@ pub fn tempo<'py>(
 ///     ValueError: For invalid parameters, a 2-D envelope or ``sparse=False``.
 #[pyfunction]
 #[pyo3(
-    signature = (*, onset_envelope, sr = 22050.0, hop_length = Int(512), start_bpm = 120.0, tightness = 100.0, trim = true, bpm = None, prior = None, units = "frames", sparse = true),
-    text_signature = "(*, onset_envelope, sr=22050, hop_length=512, start_bpm=120.0, tightness=100, trim=True, bpm=None, prior=None, units='frames', sparse=True)"
+    signature = (*, onset_envelope, sr, hop_length = Int(512), start_bpm = 120.0, tightness = 100.0, trim = false, bpm = None, prior = None, units = "frames", sparse = true),
+    text_signature = "(*, onset_envelope, sr, hop_length=512, start_bpm=120.0, tightness=100, trim=False, bpm=None, prior=None, units='frames', sparse=True)"
 )]
 #[allow(clippy::too_many_arguments)]
 pub fn beat_track<'py>(
@@ -1306,19 +1337,13 @@ pub fn beat_track<'py>(
     sparse: bool,
 ) -> PyResult<(Bound<'py, PyAny>, Bound<'py, PyAny>)> {
     require_sparse(sparse)?;
-    let env = vec1(onset_envelope, "onset_envelope")?;
-    track_beats(
-        py,
-        &env,
-        sr,
-        hop_nz(hop_length.0)?,
-        start_bpm,
-        tightness,
-        trim,
-        bpm,
-        prior,
-        units,
-    )
+    let hop = hop_nz(hop_length.0)?;
+    with_precision!(precision_of(onset_envelope), |F| {
+        let env = vec1::<F>(onset_envelope, "onset_envelope")?;
+        track_beats(
+            py, &env, sr, hop, start_bpm, tightness, trim, bpm, prior, units,
+        )
+    })
 }
 
 /// Runs the dynamic-programming beat tracker at a given tempo (librosa's
@@ -1328,11 +1353,12 @@ pub fn beat_track<'py>(
 /// Args:
 ///     onset_envelope (array_like): 1-D onset envelope.
 ///     bpm (float | array_like): Tempo in BPM: one value, or one per frame.
-///     sr (float): Sampling rate. Default 22050.
+///     sr (float): Sampling rate. Required (librosa defaults to 22050).
 ///     hop_length (int): Hop in samples (frame rate ``sr / hop_length``).
 ///         Default 512.
 ///     tightness (float): Tempo-consistency weight. Default 100.
-///     trim (bool): Remove weak leading/trailing beats. Default True.
+///     trim (bool): Remove weak leading/trailing beats. Default False
+///         (librosa: True).
 ///
 /// Returns:
 ///     numpy.ndarray[int64]: ascending beat frames.
@@ -1342,8 +1368,8 @@ pub fn beat_track<'py>(
 ///         fast that its period is under one frame.
 #[pyfunction]
 #[pyo3(
-    signature = (onset_envelope, bpm, *, sr = 22050.0, hop_length = Int(512), tightness = 100.0, trim = true),
-    text_signature = "(onset_envelope, bpm, *, sr=22050, hop_length=512, tightness=100.0, trim=True)"
+    signature = (onset_envelope, bpm, *, sr, hop_length = Int(512), tightness = 100.0, trim = false),
+    text_signature = "(onset_envelope, bpm, *, sr, hop_length=512, tightness=100.0, trim=False)"
 )]
 pub fn beat_track_with_bpm<'py>(
     py: Python<'py>,
@@ -1354,11 +1380,13 @@ pub fn beat_track_with_bpm<'py>(
     tightness: f64,
     trim: bool,
 ) -> PyResult<Bound<'py, PyArray1<i64>>> {
-    let env = vec1(onset_envelope, "onset_envelope")?;
     let bpm: Vec<f64> = f64_array(bpm, "bpm")?.as_array().iter().copied().collect();
     let hop = hop_nz(hop_length.0)?;
-    let frames = rh::beat_track_with_bpm(&env, &bpm, sr / hop.get() as f64, tightness, trim)
-        .map_err(audio_err_to_py)?;
+    let frames = with_precision!(precision_of(onset_envelope), |F| {
+        let env = vec1::<F>(onset_envelope, "onset_envelope")?;
+        rh::beat_track_with_bpm(&env, &bpm, sr / hop.get() as f64, tightness, trim)
+    })
+    .map_err(audio_err_to_py)?;
     Ok(frames
         .into_iter()
         .map(|f| f as i64)
@@ -1372,7 +1400,7 @@ pub fn beat_track_with_bpm<'py>(
 /// Args:
 ///     onset_envelope (array_like): ``(n_frames,)`` or ``(channels, n_frames)``
 ///         (librosa's PLP uses ``aggregate=numpy.median`` for it).
-///     sr (float): Sampling rate. Default 22050.
+///     sr (float): Sampling rate. Required (librosa defaults to 22050).
 ///     hop_length (int): Hop in samples. Default 512.
 ///     win_length (int): Fourier tempogram window in frames. Default 384.
 ///     tempo_min (Optional[float]): Lowest tempo (BPM). Default 30.
@@ -1380,15 +1408,15 @@ pub fn beat_track_with_bpm<'py>(
 ///     prior: Tempo prior (see ``tempo``), added in the log domain.
 ///
 /// Returns:
-///     numpy.ndarray[float64]: pulse curve, same shape as the envelope, in
+///     numpy.ndarray[float32 | float64]: pulse curve, same shape as the envelope, in
 ///     ``[0, 1]``.
 ///
 /// Raises:
 ///     ValueError: If ``tempo_max <= tempo_min`` or the envelope is empty.
 #[pyfunction]
 #[pyo3(
-    signature = (*, onset_envelope, sr = 22050.0, hop_length = Int(512), win_length = Int(384), tempo_min = Some(30.0), tempo_max = Some(300.0), prior = None),
-    text_signature = "(*, onset_envelope, sr=22050, hop_length=512, win_length=384, tempo_min=30, tempo_max=300, prior=None)"
+    signature = (*, onset_envelope, sr, hop_length = Int(512), win_length = Int(384), tempo_min = Some(30.0), tempo_max = Some(300.0), prior = None),
+    text_signature = "(*, onset_envelope, sr, hop_length=512, win_length=384, tempo_min=30, tempo_max=300, prior=None)"
 )]
 #[allow(clippy::too_many_arguments)]
 pub fn plp<'py>(
@@ -1403,15 +1431,13 @@ pub fn plp<'py>(
 ) -> PyResult<Bound<'py, PyAny>> {
     let prior = parse_prior(prior)?;
     let cfg = plp_config(win_length, tempo_min, tempo_max, prior.as_ref())?;
-    let (env, squeeze) = rows(onset_envelope, "onset_envelope")?;
-    let scope = CallbackScope::install(None, prior.as_ref(), py);
-    let p = scope.finish(rh::plp_from_envelope(
-        env.view(),
-        sr,
-        hop_nz(hop_length.0)?,
-        &cfg,
-    ))?;
-    Ok(out2(py, p, squeeze))
+    let hop = hop_nz(hop_length.0)?;
+    with_precision!(precision_of(onset_envelope), |F| {
+        let (env, squeeze) = rows::<F>(onset_envelope, "onset_envelope")?;
+        let scope = CallbackScope::install(None, prior.as_ref(), py);
+        let p = scope.finish(rh::plp_from_envelope(env.view(), sr, hop, &cfg))?;
+        Ok(out2(py, p, squeeze))
+    })
 }
 
 /// Tempogram ratio features, equivalent to
@@ -1428,7 +1454,7 @@ pub fn plp<'py>(
 ///         ``(win_length, n_frames)`` or ``(channels, win_length, n_frames)``.
 ///     bpm (Optional[array_like]): Per-frame tempo ``(n_frames,)`` /
 ///         ``(channels, n_frames)``; None estimates it from the tempogram.
-///     sr (float): Sampling rate. Default 22050.
+///     sr (float): Sampling rate. Required (librosa defaults to 22050).
 ///     hop_length (int): Hop in samples. Default 512.
 ///     win_length, center, window, norm: Tempogram parameters (envelope input).
 ///     start_bpm, std_bpm, max_tempo, prior: Per-frame tempo estimation.
@@ -1440,7 +1466,7 @@ pub fn plp<'py>(
 ///     fill_value (float): Value outside the tempogram's range. Default 0.
 ///
 /// Returns:
-///     numpy.ndarray[float64]: shape ``(n_factors, n_frames)`` for 1-D input
+///     numpy.ndarray[float32 | float64]: shape ``(n_factors, n_frames)`` for 1-D input
 ///     (``(n_factors,)`` when aggregated), with a leading channel axis for 2-D.
 ///
 /// Raises:
@@ -1448,8 +1474,8 @@ pub fn plp<'py>(
 ///         or neither input given.
 #[pyfunction]
 #[pyo3(
-    signature = (*, onset_envelope = None, tg = None, bpm = None, sr = 22050.0, hop_length = Int(512), win_length = Int(384), start_bpm = 120.0, std_bpm = 1.0, max_tempo = Some(320.0), freqs = None, factors = None, aggregate = None, prior = None, center = true, window = WindowArg(Window::Hann), kind = "linear", fill_value = 0.0, norm = Some(f64::INFINITY)),
-    text_signature = "(*, onset_envelope=None, tg=None, bpm=None, sr=22050, hop_length=512, win_length=384, start_bpm=120, std_bpm=1.0, max_tempo=320.0, freqs=None, factors=None, aggregate=None, prior=None, center=True, window='hann', kind='linear', fill_value=0, norm=math.inf)"
+    signature = (*, onset_envelope = None, tg = None, bpm = None, sr, hop_length = Int(512), win_length = Int(384), start_bpm = 120.0, std_bpm = 1.0, max_tempo = Some(320.0), freqs = None, factors = None, aggregate = None, prior = None, center = true, window = WindowArg(Window::Hann), kind = "linear", fill_value = 0.0, norm = Some(f64::INFINITY)),
+    text_signature = "(*, onset_envelope=None, tg=None, bpm=None, sr, hop_length=512, win_length=384, start_bpm=120, std_bpm=1.0, max_tempo=320.0, freqs=None, factors=None, aggregate=None, prior=None, center=True, window='hann', kind='linear', fill_value=0, norm=math.inf)"
 )]
 #[allow(clippy::too_many_arguments)]
 pub fn tempogram_ratio<'py>(
@@ -1496,18 +1522,11 @@ pub fn tempogram_ratio<'py>(
         agg.resolve(None),
         fill_value,
     )?;
-    let (tg, squeeze) = match (
-        onset_envelope.filter(|o| !o.is_none()),
-        tg.filter(|o| !o.is_none()),
-    ) {
-        (_, Some(tg)) => planes(tg, "tg")?,
-        (Some(env), None) => {
-            let (env, squeeze) = rows(env, "onset_envelope")?;
-            (
-                rh::tempogram_from_envelope(env.view(), &cfg.tempogram).map_err(audio_err_to_py)?,
-                squeeze,
-            )
-        }
+    let onset_envelope = onset_envelope.filter(|o| !o.is_none());
+    let tg = tg.filter(|o| !o.is_none());
+    let primary = match (onset_envelope, tg) {
+        (_, Some(tg)) => tg,
+        (Some(env), None) => env,
         (None, None) => {
             return Err(value_err(
                 "onset_envelope",
@@ -1517,23 +1536,34 @@ pub fn tempogram_ratio<'py>(
     };
     let bpm = bpm
         .filter(|b| !b.is_none())
-        .map(|b| rows(b, "bpm").map(|r| r.0))
+        .map(|b| rows::<f64>(b, "bpm").map(|r| r.0))
         .transpose()?;
-    let scope = CallbackScope::install(agg.callable(), prior.as_ref(), py);
-    let r = scope.finish(rh::tempogram_ratio_from_tempogram(
-        tg.view(),
-        sr,
-        hop,
-        &cfg,
-        bpm.as_ref().map(|b| b.view()),
-    ))?;
-    Ok(ratio_out(py, r, squeeze, cfg.aggregate.is_some()))
+    with_precision!(precision_of(primary), |F| {
+        let (tg, squeeze) = if let Some(tg) = tg {
+            planes::<F>(tg, "tg")?
+        } else {
+            let (env, squeeze) = rows::<F>(primary, "onset_envelope")?;
+            (
+                rh::tempogram_from_envelope(env.view(), &cfg.tempogram).map_err(audio_err_to_py)?,
+                squeeze,
+            )
+        };
+        let scope = CallbackScope::install(agg.callable(), prior.as_ref(), py);
+        let r = scope.finish(rh::tempogram_ratio_from_tempogram(
+            tg.view(),
+            sr,
+            hop,
+            &cfg,
+            bpm.as_ref().map(|b| b.view()),
+        ))?;
+        Ok(ratio_out(py, r, squeeze, cfg.aggregate.is_some()))
+    })
 }
 
 /// librosa drops the time axis of an aggregated tempogram ratio.
-fn ratio_out<'py>(
+fn ratio_out<'py, T: numpy::Element>(
     py: Python<'py>,
-    r: Array3<f64>,
+    r: Array3<T>,
     squeeze: bool,
     aggregated: bool,
 ) -> Bound<'py, PyAny> {
@@ -1577,19 +1607,19 @@ pub(crate) fn ratio_config(
 ///
 /// Args:
 ///     onset_envelope (array_like): ``(n_frames,)`` or ``(channels, n_frames)``.
-///     sr (float): Sampling rate. Default 22050.
+///     sr (float): Sampling rate. Required (librosa defaults to 22050).
 ///     hop_length (int): Hop in samples. Default 512.
 ///     win_length (int): Window of both tempograms in frames (>= 3). Default 384.
 ///     center (bool): Centred frames. Default True.
 ///     window: Window of both tempograms. Default ``"hann"``.
 ///
 /// Returns:
-///     numpy.ndarray[float64]: shape ``(win_length // 2 + 1, n_frames)`` on the
+///     numpy.ndarray[float32 | float64]: shape ``(win_length // 2 + 1, n_frames)`` on the
 ///     ``fourier_tempo_frequencies`` grid, with a leading channel axis for 2-D input.
 #[pyfunction]
 #[pyo3(
-    signature = (*, onset_envelope, sr = 22050.0, hop_length = Int(512), win_length = Int(384), center = true, window = WindowArg(Window::Hann)),
-    text_signature = "(*, onset_envelope, sr=22050, hop_length=512, win_length=384, center=True, window='hann')"
+    signature = (*, onset_envelope, sr, hop_length = Int(512), win_length = Int(384), center = true, window = WindowArg(Window::Hann)),
+    text_signature = "(*, onset_envelope, sr, hop_length=512, win_length=384, center=True, window='hann')"
 )]
 pub fn hybrid_tempogram<'py>(
     py: Python<'py>,
@@ -1601,10 +1631,13 @@ pub fn hybrid_tempogram<'py>(
     window: WindowArg,
 ) -> PyResult<Bound<'py, PyAny>> {
     let cfg = hybrid_tempogram_config(win_length, center, window)?;
-    let (env, squeeze) = rows(onset_envelope, "onset_envelope")?;
-    let h = rh::hybrid_tempogram_from_envelope(env.view(), sr, hop_nz(hop_length.0)?, &cfg)
-        .map_err(audio_err_to_py)?;
-    Ok(out3(py, h, squeeze))
+    let hop = hop_nz(hop_length.0)?;
+    with_precision!(precision_of(onset_envelope), |F| {
+        let (env, squeeze) = rows::<F>(onset_envelope, "onset_envelope")?;
+        let h = rh::hybrid_tempogram_from_envelope(env.view(), sr, hop, &cfg)
+            .map_err(audio_err_to_py)?;
+        Ok(out3(py, h, squeeze))
+    })
 }
 
 /// Metrogram (metrical subharmonic salience) of a tempogram, equivalent to
@@ -1623,7 +1656,7 @@ pub fn hybrid_tempogram<'py>(
 ///     fill_value (float): Value outside the frequency grid. Default 0.
 ///
 /// Returns:
-///     numpy.ndarray[float64]: shape ``(n_factors, n_frames)``, with a leading
+///     numpy.ndarray[float32 | float64]: shape ``(n_factors, n_frames)``, with a leading
 ///     channel axis for 3-D input.
 #[pyfunction]
 #[pyo3(
@@ -1647,21 +1680,23 @@ pub fn metrogram<'py>(
             "aggregate=None (librosa's per-bin output) is not supported; pass a reduction",
         ));
     };
-    let (tg, squeeze) = planes(tg, "tg")?;
-    let freqs = vec1(freqs, "freqs")?;
+    let freqs = vec1::<f64>(freqs, "freqs")?;
     let factors: Option<Vec<f64>> = factors
         .filter(|f| !f.is_none())
         .map(|f| f64_array(f, "factors").map(|a| a.as_array().iter().copied().collect()))
         .transpose()?;
-    let scope = CallbackScope::install(agg.callable(), None, py);
-    let m = scope.finish(rh::metrogram(
-        tg.view(),
-        &freqs,
-        factors.as_deref(),
-        aggregate,
-        fill_value,
-    ))?;
-    Ok(out3(py, m, squeeze))
+    with_precision!(precision_of(tg), |F| {
+        let (tg, squeeze) = planes::<F>(tg, "tg")?;
+        let scope = CallbackScope::install(agg.callable(), None, py);
+        let m = scope.finish(rh::metrogram(
+            tg.view(),
+            &freqs,
+            factors.as_deref(),
+            aggregate,
+            fill_value,
+        ))?;
+        Ok(out3(py, m, squeeze))
+    })
 }
 
 /// Registers `audio_samples.rhythm`.
@@ -1670,7 +1705,9 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add(
         "__doc__",
         "librosa-compatible rhythm analysis over NumPy arrays (onset strength and \
-         detection, peak picking, tempograms, tempo, beat tracking, PLP).",
+         detection, peak picking, tempograms, tempo, beat tracking, PLP). \
+         float32 / complex64 arrays are processed in float32 and give float32 \
+         output; any other input is converted to float64.",
     )?;
     m.add_function(wrap_pyfunction!(onset_strength, &m)?)?;
     m.add_function(wrap_pyfunction!(onset_strength_multi, &m)?)?;

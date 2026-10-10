@@ -4,17 +4,20 @@
 use crate::args::Int;
 use audio_samples::operations::filterbanks::Window;
 use audio_samples::operations::tonal::{AudioTonal, ChromaStftConfig, TuningConfig};
-use numpy::{IntoPyArray, PyArray3};
+use numpy::IntoPyArray;
 use pyo3::IntoPyObjectExt;
 use pyo3::prelude::*;
 
 use crate::args::{WindowArg, positive, stft_config};
-use crate::{PyAudioSamples, audio_err_to_py, dispatch_with_view_detached};
+use crate::{
+    PyAudioSamples, audio_err_to_py, dispatch_array_detached, dispatch_typed_detached,
+    dispatch_with_view_detached,
+};
 
 #[pymethods]
 impl PyAudioSamples {
     /// Chromagram from the power STFT, equivalent to
-    /// ``librosa.feature.chroma_stft(y=..., sr=self.sample_rate, ..., dtype=numpy.float64)``.
+    /// ``librosa.feature.chroma_stft(y=..., sr=self.sample_rate, ...)``.
     ///
     /// Unlike ``chroma()`` (spectrograms crate), this reproduces librosa's
     /// filterbank, tuning estimation and normalisation.
@@ -25,22 +28,22 @@ impl PyAudioSamples {
     ///     n_fft (int): FFT length. Default 2048.
     ///     hop_length (int): Samples between frames. Default 512.
     ///     win_length, window, center, pad_mode: STFT parameters (see ``stft_matrix``).
-    ///     tuning (Optional[float]): Tuning offset in fractions of a chroma bin;
-    ///         None (default) estimates it from the signal.
+    ///     tuning (Optional[float]): Tuning offset in fractions of a chroma bin.
+    ///         Default 0.0; None estimates it from the signal (librosa's default).
     ///     n_chroma (int): Number of chroma bins. Default 12.
     ///     ctroct (float): Centre of the octave weighting (octaves above A0). Default 5.
     ///     octwidth (Optional[float]): Octave-weighting half-width; None = flat. Default 2.
     ///     base_c (bool): Row 0 is C (True) or A. Default True.
     ///
     /// Returns:
-    ///     numpy.ndarray[float64]: shape ``(channels, n_chroma, n_frames)`` (librosa
+    ///     numpy.ndarray[float32 | float64]: shape ``(channels, n_chroma, n_frames)`` (librosa
     ///     returns ``(n_chroma, n_frames)`` for 1-D input; index ``[0]``).
     ///
     /// Raises:
     ///     ValueError: For invalid parameters.
     #[pyo3(
-        signature = (*, norm = Some(f64::INFINITY), n_fft = Int(2048), hop_length = Int(512), win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", tuning = None, n_chroma = Int(12), ctroct = 5.0, octwidth = Some(2.0), base_c = true),
-        text_signature = "($self, *, norm=math.inf, n_fft=2048, hop_length=512, win_length=None, window='hann', center=True, pad_mode='constant', tuning=None, n_chroma=12, ctroct=5.0, octwidth=2.0, base_c=True)"
+        signature = (*, norm = Some(f64::INFINITY), n_fft = Int(2048), hop_length = Int(512), win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", tuning = Some(0.0), n_chroma = Int(12), ctroct = 5.0, octwidth = Some(2.0), base_c = true),
+        text_signature = "($self, *, norm=math.inf, n_fft=2048, hop_length=512, win_length=None, window='hann', center=True, pad_mode='constant', tuning=0.0, n_chroma=12, ctroct=5.0, octwidth=2.0, base_c=True)"
     )]
     #[allow(clippy::too_many_arguments)]
     fn chroma_stft<'py>(
@@ -58,7 +61,7 @@ impl PyAudioSamples {
         ctroct: f64,
         octwidth: Option<f64>,
         base_c: bool,
-    ) -> PyResult<Bound<'py, PyArray3<f64>>> {
+    ) -> PyResult<Bound<'py, PyAny>> {
         let cfg = ChromaStftConfig {
             stft: stft_config(
                 n_fft,
@@ -75,9 +78,7 @@ impl PyAudioSamples {
             octwidth,
             base_c,
         };
-        let r = dispatch_with_view_detached!(self, py, |audio| audio.chroma_stft(&cfg))
-            .map_err(audio_err_to_py)?;
-        Ok(r.into_pyarray(py))
+        dispatch_array_detached!(self, py, |audio| audio.chroma_stft(&cfg))
     }
 
     /// Spectral peak tracking with parabolic interpolation, equivalent to
@@ -94,7 +95,7 @@ impl PyAudioSamples {
     ///         (default) = per-frame maximum, a number = absolute threshold.
     ///
     /// Returns:
-    ///     tuple: ``(pitches, magnitudes)``, each numpy.ndarray[float64] of shape
+    ///     tuple: ``(pitches, magnitudes)``, each numpy.ndarray[float32 | float64] of shape
     ///     ``(channels, 1 + n_fft // 2, n_frames)``; zero except at detected peaks.
     ///
     /// Raises:
@@ -120,9 +121,10 @@ impl PyAudioSamples {
     ) -> PyResult<Bound<'py, PyAny>> {
         let stft = stft_config(n_fft, hop_length, win_length, window, center, pad_mode)?;
         let cfg = piptrack_config(stft, fmin, fmax, threshold, r#ref)?;
-        let (p, m) = dispatch_with_view_detached!(self, py, |audio| audio.piptrack(&cfg))
-            .map_err(audio_err_to_py)?;
-        (p.into_pyarray(py), m.into_pyarray(py)).into_bound_py_any(py)
+        dispatch_typed_detached!(self, py, |audio| audio.piptrack(&cfg), |r| {
+            let (p, m) = r.map_err(audio_err_to_py)?;
+            (p.into_pyarray(py), m.into_pyarray(py)).into_bound_py_any(py)
+        })
     }
 
     /// Tuning offset relative to A440 in fractions of a bin, equivalent to

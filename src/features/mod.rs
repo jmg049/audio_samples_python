@@ -25,7 +25,9 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
          chroma filterbanks and tuning (librosa.filters.chroma, pitch_tuning, \
          estimate_tuning, util.normalize), constant-Q filters (cq_to_chroma, wavelet), \
          chroma_cens / tonnetz from a chromagram, yin / pyin on arrays and the harmonic \
-         helpers (salience, interp_harmonics, f0_harmonics).",
+         helpers (salience, interp_harmonics, f0_harmonics). float32 / complex64 \
+         arrays are processed in float32 and give float32 output; any other input is \
+         converted to float64.",
     )?;
     spectral::add(&m)?;
     tonal::add(&m)?;

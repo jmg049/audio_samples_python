@@ -9,23 +9,21 @@
 //! librosa by about 1e-4 of the peak.
 
 use crate::args::Int;
-use audio_samples::AudioSamples;
 use audio_samples::operations::constant_q::{
     AudioConstantQ, ChromaCensConfig, ChromaCqtConfig, ChromaVqtConfig, CqtConfig, TonnetzConfig,
     VqtConfig,
 };
 use audio_samples::operations::filterbanks::Window;
-use ndarray::{Array3, Axis, Ix2, Ix3};
-use num_complex::Complex;
-use numpy::{IntoPyArray, PyArray3};
+use audio_samples::{AudioSample, AudioSamples};
 use pyo3::prelude::*;
 
 use crate::args::{
-    WindowArg, c128_array, f64_array, non_negative, opt_positive, parse_pad_mode, positive,
-    value_err,
+    WindowArg, complex_array_as, float_array_as, non_negative, opt_positive, output_sample_type,
+    parse_pad_mode, positive, to_3d, value_err, with_sample_type,
 };
 use crate::features::args::{check_intervals, parse_cqt_mode, parse_res_type};
-use crate::{PyAudioSamples, audio_err_to_py, dispatch_with_view_detached, nzu32_or_err};
+use crate::types::PySampleType;
+use crate::{PyAudioSamples, audio_err_to_py, dispatch_array_detached, nzu32_or_err};
 
 /// Builds a [`CqtConfig`] from librosa's `cqt` keyword arguments.
 #[allow(clippy::too_many_arguments)]
@@ -57,27 +55,6 @@ fn cqt_config(
         pad_mode: parse_pad_mode(pad_mode)?,
         resampling_quality: parse_res_type(res_type)?,
     })
-}
-
-/// A 2-D `(n_bins, T)` or 3-D `(channels, n_bins, T)` array as 3-D.
-fn to3<T: Clone>(a: ndarray::ArrayViewD<'_, T>, name: &str) -> PyResult<Array3<T>> {
-    match a.ndim() {
-        2 => Ok(a
-            .into_dimensionality::<Ix2>()
-            .expect("ndim checked")
-            .insert_axis(Axis(0))
-            .to_owned()),
-        3 => Ok(a
-            .into_dimensionality::<Ix3>()
-            .expect("ndim checked")
-            .to_owned()),
-        n => Err(value_err(
-            name,
-            format!(
-                "expected a 2-D (n_bins, T) or 3-D (channels, n_bins, T) array, got {n} dimensions"
-            ),
-        )),
-    }
 }
 
 fn check_window_none(window: Option<&Bound<'_, PyAny>>) -> PyResult<()> {
@@ -145,7 +122,7 @@ impl PyAudioSamples {
     ///         is not used).
     ///
     /// Returns:
-    ///     numpy.ndarray[complex128]: shape ``(channels, n_bins, n_frames)``
+    ///     numpy.ndarray[complex64 | complex128]: shape ``(channels, n_bins, n_frames)``
     ///     (librosa returns ``(n_bins, n_frames)`` for 1-D input; index ``[0]``).
     ///
     /// Raises:
@@ -170,7 +147,7 @@ impl PyAudioSamples {
         scale: bool,
         pad_mode: &str,
         res_type: &str,
-    ) -> PyResult<Bound<'py, PyArray3<Complex<f64>>>> {
+    ) -> PyResult<Bound<'py, PyAny>> {
         let cfg = cqt_config(
             hop_length,
             fmin,
@@ -185,9 +162,7 @@ impl PyAudioSamples {
             pad_mode,
             res_type,
         )?;
-        let c = dispatch_with_view_detached!(self, py, |audio| audio.cqt(&cfg))
-            .map_err(audio_err_to_py)?;
-        Ok(c.into_pyarray(py))
+        dispatch_array_detached!(self, py, |audio| audio.cqt(&cfg))
     }
 
     /// Variable-Q transform of every channel, equivalent to
@@ -200,7 +175,7 @@ impl PyAudioSamples {
     ///         ERB-derived, 0 = constant-Q.
     ///
     /// Returns:
-    ///     numpy.ndarray[complex128]: shape ``(channels, n_bins, n_frames)``.
+    ///     numpy.ndarray[complex64 | complex128]: shape ``(channels, n_bins, n_frames)``.
     ///
     /// Raises:
     ///     ValueError: For invalid parameters or ``intervals`` other than ``"equal"``.
@@ -226,7 +201,7 @@ impl PyAudioSamples {
         scale: bool,
         pad_mode: &str,
         res_type: &str,
-    ) -> PyResult<Bound<'py, PyArray3<Complex<f64>>>> {
+    ) -> PyResult<Bound<'py, PyAny>> {
         if let Some(i) = intervals {
             check_intervals(i)?;
         }
@@ -247,9 +222,7 @@ impl PyAudioSamples {
             )?,
             gamma,
         };
-        let c = dispatch_with_view_detached!(self, py, |audio| audio.vqt(&cfg))
-            .map_err(audio_err_to_py)?;
-        Ok(c.into_pyarray(py))
+        dispatch_array_detached!(self, py, |audio| audio.vqt(&cfg))
     }
 
     /// Pseudo constant-Q magnitude (a single STFT with CQT filters), equivalent
@@ -259,7 +232,7 @@ impl PyAudioSamples {
     ///     hop_length, fmin, n_bins, bins_per_octave, tuning, filter_scale, norm, sparsity, window, scale, pad_mode: As ``cqt``.
     ///
     /// Returns:
-    ///     numpy.ndarray[float64]: magnitudes, shape ``(channels, n_bins, n_frames)``.
+    ///     numpy.ndarray[float32 | float64]: magnitudes, shape ``(channels, n_bins, n_frames)``.
     ///
     /// Raises:
     ///     ValueError: For invalid parameters.
@@ -282,7 +255,7 @@ impl PyAudioSamples {
         window: WindowArg,
         scale: bool,
         pad_mode: &str,
-    ) -> PyResult<Bound<'py, PyArray3<f64>>> {
+    ) -> PyResult<Bound<'py, PyAny>> {
         let cfg = cqt_config(
             hop_length,
             fmin,
@@ -297,9 +270,7 @@ impl PyAudioSamples {
             pad_mode,
             "soxr_hq",
         )?;
-        let c = dispatch_with_view_detached!(self, py, |audio| audio.pseudo_cqt(&cfg))
-            .map_err(audio_err_to_py)?;
-        Ok(c.into_pyarray(py))
+        dispatch_array_detached!(self, py, |audio| audio.pseudo_cqt(&cfg))
     }
 
     /// Hybrid constant-Q magnitude (pseudo-CQT for the high, full CQT for the
@@ -309,7 +280,7 @@ impl PyAudioSamples {
     ///     As ``cqt``.
     ///
     /// Returns:
-    ///     numpy.ndarray[float64]: magnitudes, shape ``(channels, n_bins, n_frames)``.
+    ///     numpy.ndarray[float32 | float64]: magnitudes, shape ``(channels, n_bins, n_frames)``.
     ///
     /// Raises:
     ///     ValueError: For invalid parameters.
@@ -333,7 +304,7 @@ impl PyAudioSamples {
         scale: bool,
         pad_mode: &str,
         res_type: &str,
-    ) -> PyResult<Bound<'py, PyArray3<f64>>> {
+    ) -> PyResult<Bound<'py, PyAny>> {
         let cfg = cqt_config(
             hop_length,
             fmin,
@@ -348,9 +319,7 @@ impl PyAudioSamples {
             pad_mode,
             res_type,
         )?;
-        let c = dispatch_with_view_detached!(self, py, |audio| audio.hybrid_cqt(&cfg))
-            .map_err(audio_err_to_py)?;
-        Ok(c.into_pyarray(py))
+        dispatch_array_detached!(self, py, |audio| audio.hybrid_cqt(&cfg))
     }
 
     /// Inverse constant-Q transform, equivalent to ``librosa.icqt``.
@@ -363,16 +332,21 @@ impl PyAudioSamples {
     ///     hop_length, fmin, bins_per_octave, filter_scale, norm, sparsity, window, scale, res_type: The forward parameters (see ``cqt``).
     ///     tuning (float): Tuning used by the forward transform. Default 0.0.
     ///     length (Optional[int]): Exact output length per channel.
+    ///     dtype (Optional[SampleType]): Sample type of the returned audio.
+    ///         ``None`` (default) gives float32 audio for a complex64 ``C`` and
+    ///         float64 audio for any other input. The computation runs in the
+    ///         float type of ``dtype`` (float32 for U8, I16, I24 and F32; float64
+    ///         for I32 and F64); integer output is rounded and saturated.
     ///
     /// Returns:
-    ///     AudioSamples: float64 audio (mono for a single channel).
+    ///     AudioSamples: audio of sample type ``dtype`` (mono for a single channel).
     ///
     /// Raises:
     ///     ValueError: For invalid parameters or an empty ``C``.
     #[staticmethod]
     #[pyo3(
-        signature = (C, *, sample_rate, hop_length = Int(512), fmin = None, bins_per_octave = Int(12), tuning = 0.0, filter_scale = 1.0, norm = Some(1.0), sparsity = 0.01, window = WindowArg(Window::Hann), scale = true, length = None, res_type = "soxr_hq"),
-        text_signature = "(C, *, sample_rate, hop_length=512, fmin=None, bins_per_octave=12, tuning=0.0, filter_scale=1, norm=1, sparsity=0.01, window='hann', scale=True, length=None, res_type='soxr_hq')"
+        signature = (C, *, sample_rate, hop_length = Int(512), fmin = None, bins_per_octave = Int(12), tuning = 0.0, filter_scale = 1.0, norm = Some(1.0), sparsity = 0.01, window = WindowArg(Window::Hann), scale = true, length = None, res_type = "soxr_hq", dtype = None),
+        text_signature = "(C, *, sample_rate, hop_length=512, fmin=None, bins_per_octave=12, tuning=0.0, filter_scale=1, norm=1, sparsity=0.01, window='hann', scale=True, length=None, res_type='soxr_hq', dtype=None)"
     )]
     #[allow(non_snake_case, clippy::too_many_arguments)]
     fn icqt(
@@ -389,9 +363,8 @@ impl PyAudioSamples {
         scale: bool,
         length: Option<Int>,
         res_type: &str,
+        dtype: Option<PySampleType>,
     ) -> PyResult<Self> {
-        let c = c128_array(C, "C")?;
-        let c3 = to3(c.as_array(), "C")?;
         let cfg = cqt_config(
             hop_length,
             fmin,
@@ -408,9 +381,13 @@ impl PyAudioSamples {
         )?;
         let sr = nzu32_or_err(crate::args::sample_rate_u32(sample_rate)?)?;
         let length = opt_positive("length", length)?;
-        let y = <AudioSamples<'static, f64> as AudioConstantQ>::icqt(&c3, &cfg, sr, length)
-            .map_err(audio_err_to_py)?;
-        Ok(Self::from_audio_samples(y))
+        with_sample_type!(output_sample_type(dtype, C), |T| {
+            let c = complex_array_as::<<T as AudioSample>::Float>(C, "C")?;
+            let c3 = to_3d(c.as_array(), "C")?;
+            let y = <AudioSamples<'static, T> as AudioConstantQ>::icqt(&c3, &cfg, sr, length)
+                .map_err(audio_err_to_py)?;
+            Ok(Self::from_audio_samples(y))
+        })
     }
 
     /// Reconstructs audio from a constant-Q magnitude by Griffin-Lim, equivalent
@@ -429,16 +406,21 @@ impl PyAudioSamples {
     ///     length (Optional[int]): Output length per channel.
     ///     momentum (float): Fast Griffin-Lim momentum. Default 0.99.
     ///     init (None): Must be None.
+    ///     dtype (Optional[SampleType]): Sample type of the returned audio.
+    ///         ``None`` (default) gives float32 audio for a float32 ``C`` and
+    ///         float64 audio for any other input. The computation runs in the
+    ///         float type of ``dtype`` (float32 for U8, I16, I24 and F32; float64
+    ///         for I32 and F64); integer output is rounded and saturated.
     ///
     /// Returns:
-    ///     AudioSamples: float64 audio.
+    ///     AudioSamples: audio of sample type ``dtype``.
     ///
     /// Raises:
     ///     ValueError: For invalid parameters or ``init`` other than None.
     #[staticmethod]
     #[pyo3(
-        signature = (C, *, sample_rate, n_iter = Int(32), hop_length = Int(512), fmin = None, bins_per_octave = Int(12), tuning = 0.0, filter_scale = 1.0, norm = Some(1.0), sparsity = 0.01, window = WindowArg(Window::Hann), scale = true, pad_mode = "constant", res_type = "soxr_hq", length = None, momentum = 0.99, init = None),
-        text_signature = "(C, *, sample_rate, n_iter=32, hop_length=512, fmin=None, bins_per_octave=12, tuning=0.0, filter_scale=1, norm=1, sparsity=0.01, window='hann', scale=True, pad_mode='constant', res_type='soxr_hq', length=None, momentum=0.99, init=None)"
+        signature = (C, *, sample_rate, n_iter = Int(32), hop_length = Int(512), fmin = None, bins_per_octave = Int(12), tuning = 0.0, filter_scale = 1.0, norm = Some(1.0), sparsity = 0.01, window = WindowArg(Window::Hann), scale = true, pad_mode = "constant", res_type = "soxr_hq", length = None, momentum = 0.99, init = None, dtype = None),
+        text_signature = "(C, *, sample_rate, n_iter=32, hop_length=512, fmin=None, bins_per_octave=12, tuning=0.0, filter_scale=1, norm=1, sparsity=0.01, window='hann', scale=True, pad_mode='constant', res_type='soxr_hq', length=None, momentum=0.99, init=None, dtype=None)"
     )]
     #[allow(non_snake_case, clippy::too_many_arguments)]
     fn griffinlim_cqt(
@@ -459,6 +441,7 @@ impl PyAudioSamples {
         length: Option<Int>,
         momentum: f64,
         init: Option<&Bound<'_, PyAny>>,
+        dtype: Option<PySampleType>,
     ) -> PyResult<Self> {
         if init.is_some_and(|i| !i.is_none()) {
             return Err(value_err(
@@ -467,8 +450,6 @@ impl PyAudioSamples {
                  initialisation cannot be reproduced",
             ));
         }
-        let m = f64_array(C, "C")?;
-        let m3 = to3(m.as_array(), "C")?;
         let cfg = cqt_config(
             hop_length,
             fmin,
@@ -485,16 +466,16 @@ impl PyAudioSamples {
         )?;
         let sr = nzu32_or_err(crate::args::sample_rate_u32(sample_rate)?)?;
         let length = opt_positive("length", length)?;
-        let y = <AudioSamples<'static, f64> as AudioConstantQ>::griffinlim_cqt(
-            &m3,
-            &cfg,
-            sr,
-            non_negative("n_iter", n_iter)?,
-            momentum,
-            length,
-        )
-        .map_err(audio_err_to_py)?;
-        Ok(Self::from_audio_samples(y))
+        let n_iter = non_negative("n_iter", n_iter)?;
+        with_sample_type!(output_sample_type(dtype, C), |T| {
+            let m = float_array_as::<<T as AudioSample>::Float>(C, "C")?;
+            let m3 = to_3d(m.as_array(), "C")?;
+            let y = <AudioSamples<'static, T> as AudioConstantQ>::griffinlim_cqt(
+                &m3, &cfg, sr, n_iter, momentum, length,
+            )
+            .map_err(audio_err_to_py)?;
+            Ok(Self::from_audio_samples(y))
+        })
     }
 
     /// Constant-Q chromagram, equivalent to
@@ -505,8 +486,8 @@ impl PyAudioSamples {
     ///     fmin (Optional[float]): Lowest CQT frequency; None = C1.
     ///     norm (Optional[float]): Per-frame normalisation. Default ``numpy.inf``.
     ///     threshold (Optional[float]): Values below are zeroed. Default 0.0.
-    ///     tuning (Optional[float]): Tuning in fractions of a CQT bin; None
-    ///         (default) estimates it.
+    ///     tuning (Optional[float]): Tuning in fractions of a CQT bin. Default
+    ///         0.0; None estimates it from the signal (librosa's default).
     ///     n_chroma (int): Default 12.
     ///     n_octaves (int): Default 7.
     ///     window: Must be None (librosa's chroma smoothing kernel is unsupported).
@@ -515,13 +496,13 @@ impl PyAudioSamples {
     ///     cqt_mode (str): ``"full"`` (default) or ``"hybrid"``.
     ///
     /// Returns:
-    ///     numpy.ndarray[float64]: shape ``(channels, n_chroma, n_frames)``.
+    ///     numpy.ndarray[float32 | float64]: shape ``(channels, n_chroma, n_frames)``.
     ///
     /// Raises:
     ///     ValueError: For invalid parameters.
     #[pyo3(
-        signature = (*, hop_length = Int(512), fmin = None, norm = Some(f64::INFINITY), threshold = Some(0.0), tuning = None, n_chroma = Int(12), n_octaves = Int(7), window = None, bins_per_octave = Some(Int(36)), cqt_mode = "full"),
-        text_signature = "($self, *, hop_length=512, fmin=None, norm=math.inf, threshold=0.0, tuning=None, n_chroma=12, n_octaves=7, window=None, bins_per_octave=36, cqt_mode='full')"
+        signature = (*, hop_length = Int(512), fmin = None, norm = Some(f64::INFINITY), threshold = Some(0.0), tuning = Some(0.0), n_chroma = Int(12), n_octaves = Int(7), window = None, bins_per_octave = Some(Int(36)), cqt_mode = "full"),
+        text_signature = "($self, *, hop_length=512, fmin=None, norm=math.inf, threshold=0.0, tuning=0.0, n_chroma=12, n_octaves=7, window=None, bins_per_octave=36, cqt_mode='full')"
     )]
     #[allow(clippy::too_many_arguments)]
     fn chroma_cqt<'py>(
@@ -537,7 +518,7 @@ impl PyAudioSamples {
         window: Option<&Bound<'py, PyAny>>,
         bins_per_octave: Option<Int>,
         cqt_mode: &str,
-    ) -> PyResult<Bound<'py, PyArray3<f64>>> {
+    ) -> PyResult<Bound<'py, PyAny>> {
         check_window_none(window)?;
         let cfg = chroma_cqt_config(
             hop_length,
@@ -550,9 +531,7 @@ impl PyAudioSamples {
             bins_per_octave,
             cqt_mode,
         )?;
-        let c = dispatch_with_view_detached!(self, py, |audio| audio.chroma_cqt(&cfg))
-            .map_err(audio_err_to_py)?;
-        Ok(c.into_pyarray(py))
+        dispatch_array_detached!(self, py, |audio| audio.chroma_cqt(&cfg))
     }
 
     /// Chroma Energy Normalized Statistics, equivalent to
@@ -566,13 +545,13 @@ impl PyAudioSamples {
     ///     smoothing_window: Smoothing window shape. Default ``"hann"``.
     ///
     /// Returns:
-    ///     numpy.ndarray[float64]: shape ``(channels, n_chroma, n_frames)``.
+    ///     numpy.ndarray[float32 | float64]: shape ``(channels, n_chroma, n_frames)``.
     ///
     /// Raises:
     ///     ValueError: For invalid parameters.
     #[pyo3(
-        signature = (*, hop_length = Int(512), fmin = None, tuning = None, n_chroma = Int(12), n_octaves = Int(7), bins_per_octave = Int(36), cqt_mode = "full", window = None, norm = Some(2.0), win_len_smooth = Some(Int(41)), smoothing_window = WindowArg(Window::Hann)),
-        text_signature = "($self, *, hop_length=512, fmin=None, tuning=None, n_chroma=12, n_octaves=7, bins_per_octave=36, cqt_mode='full', window=None, norm=2, win_len_smooth=41, smoothing_window='hann')"
+        signature = (*, hop_length = Int(512), fmin = None, tuning = Some(0.0), n_chroma = Int(12), n_octaves = Int(7), bins_per_octave = Int(36), cqt_mode = "full", window = None, norm = Some(2.0), win_len_smooth = Some(Int(41)), smoothing_window = WindowArg(Window::Hann)),
+        text_signature = "($self, *, hop_length=512, fmin=None, tuning=0.0, n_chroma=12, n_octaves=7, bins_per_octave=36, cqt_mode='full', window=None, norm=2, win_len_smooth=41, smoothing_window='hann')"
     )]
     #[allow(clippy::too_many_arguments)]
     fn chroma_cens<'py>(
@@ -589,7 +568,7 @@ impl PyAudioSamples {
         norm: Option<f64>,
         win_len_smooth: Option<Int>,
         smoothing_window: WindowArg,
-    ) -> PyResult<Bound<'py, PyArray3<f64>>> {
+    ) -> PyResult<Bound<'py, PyAny>> {
         check_window_none(window)?;
         let cfg = ChromaCensConfig {
             chroma: chroma_cqt_config(
@@ -607,9 +586,7 @@ impl PyAudioSamples {
             win_len_smooth: opt_positive("win_len_smooth", win_len_smooth)?,
             smoothing_window: smoothing_window.0,
         };
-        let c = dispatch_with_view_detached!(self, py, |audio| audio.chroma_cens(&cfg))
-            .map_err(audio_err_to_py)?;
-        Ok(c.into_pyarray(py))
+        dispatch_array_detached!(self, py, |audio| audio.chroma_cens(&cfg))
     }
 
     /// Variable-Q chromagram, equivalent to
@@ -627,7 +604,7 @@ impl PyAudioSamples {
     ///         ERB-derived.
     ///
     /// Returns:
-    ///     numpy.ndarray[float64]: shape ``(channels, bins_per_octave, n_frames)``.
+    ///     numpy.ndarray[float32 | float64]: shape ``(channels, bins_per_octave, n_frames)``.
     ///
     /// Raises:
     ///     ValueError: For invalid parameters or ``intervals`` other than ``"equal"``.
@@ -647,7 +624,7 @@ impl PyAudioSamples {
         n_octaves: Int,
         bins_per_octave: Int,
         gamma: Option<f64>,
-    ) -> PyResult<Bound<'py, PyArray3<f64>>> {
+    ) -> PyResult<Bound<'py, PyAny>> {
         if let Some(i) = intervals {
             check_intervals(i)?;
         }
@@ -660,9 +637,7 @@ impl PyAudioSamples {
             bins_per_octave: positive("bins_per_octave", bins_per_octave)?,
             gamma,
         };
-        let c = dispatch_with_view_detached!(self, py, |audio| audio.chroma_vqt(&cfg))
-            .map_err(audio_err_to_py)?;
-        Ok(c.into_pyarray(py))
+        dispatch_array_detached!(self, py, |audio| audio.chroma_vqt(&cfg))
     }
 
     /// Tonal centroid features (tonnetz) from the constant-Q chroma, equivalent
@@ -673,13 +648,13 @@ impl PyAudioSamples {
     ///     ``**kwargs``).
     ///
     /// Returns:
-    ///     numpy.ndarray[float64]: shape ``(channels, 6, n_frames)``.
+    ///     numpy.ndarray[float32 | float64]: shape ``(channels, 6, n_frames)``.
     ///
     /// Raises:
     ///     ValueError: For invalid parameters.
     #[pyo3(
-        signature = (*, hop_length = Int(512), fmin = None, norm = Some(f64::INFINITY), threshold = Some(0.0), tuning = None, n_chroma = Int(12), n_octaves = Int(7), bins_per_octave = Some(Int(36)), cqt_mode = "full"),
-        text_signature = "($self, *, hop_length=512, fmin=None, norm=math.inf, threshold=0.0, tuning=None, n_chroma=12, n_octaves=7, bins_per_octave=36, cqt_mode='full')"
+        signature = (*, hop_length = Int(512), fmin = None, norm = Some(f64::INFINITY), threshold = Some(0.0), tuning = Some(0.0), n_chroma = Int(12), n_octaves = Int(7), bins_per_octave = Some(Int(36)), cqt_mode = "full"),
+        text_signature = "($self, *, hop_length=512, fmin=None, norm=math.inf, threshold=0.0, tuning=0.0, n_chroma=12, n_octaves=7, bins_per_octave=36, cqt_mode='full')"
     )]
     #[allow(clippy::too_many_arguments)]
     fn tonnetz<'py>(
@@ -694,7 +669,7 @@ impl PyAudioSamples {
         n_octaves: Int,
         bins_per_octave: Option<Int>,
         cqt_mode: &str,
-    ) -> PyResult<Bound<'py, PyArray3<f64>>> {
+    ) -> PyResult<Bound<'py, PyAny>> {
         let cfg = TonnetzConfig {
             chroma: chroma_cqt_config(
                 hop_length,
@@ -708,8 +683,6 @@ impl PyAudioSamples {
                 cqt_mode,
             )?,
         };
-        let c = dispatch_with_view_detached!(self, py, |audio| audio.tonnetz(&cfg))
-            .map_err(audio_err_to_py)?;
-        Ok(c.into_pyarray(py))
+        dispatch_array_detached!(self, py, |audio| audio.tonnetz(&cfg))
     }
 }

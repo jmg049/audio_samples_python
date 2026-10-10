@@ -347,13 +347,19 @@ impl PyAudioSamples {
     }
     /// Apply a sample-wise window to the signal.
     ///
+    /// Each sample is multiplied by its float64 coefficient. Integer audio is
+    /// multiplied on its raw scale and the products are rounded to nearest and
+    /// saturated to the sample type, so fractional windows (Hann, Hamming, ...)
+    /// work for every sample type.
+    ///
     /// Args:
     ///     window (numpy.ndarray): 1-D sequence of coefficients matching the
     ///         audio length. Any real array-like is accepted (e.g. float32);
     ///         it is converted to float64.
     ///
     /// Returns:
-    ///     AudioSamples: New buffer with the window applied.
+    ///     AudioSamples: New buffer of the same sample type with the window
+    ///     applied.
     ///
     /// Raises:
     ///     ValueError: If the window length does not equal the audio length.
@@ -369,12 +375,12 @@ impl PyAudioSamples {
                 self.len(py)
             )));
         }
+        let window = window_data.to_vec();
+        // safety: the window length equals the audio length, which is non-empty
+        let window: NonEmptyVec<f64> = unsafe { NonEmptyVec::new_unchecked(window) };
         dispatch_with_view!(self, py, |audio| {
-            let window_t: Vec<_> = window_data.into_iter().map(ConvertTo::convert_to).collect();
-            // safety: have checked for non-empty already
-            let window_t: NonEmptyVec<_> = unsafe { NonEmptyVec::new_unchecked(window_t) };
             audio
-                .apply_window(&window_t)
+                .apply_window_f64(&window)
                 .map_err(audio_err_to_py)
                 .map(|a| Self::from_audio_samples(a.into_owned()))
         })
@@ -401,11 +407,10 @@ impl PyAudioSamples {
     /// compensated. Filters with 160 or more taps use FFT convolution; the
     /// result is the same up to rounding.
     ///
-    /// Computation is carried out in float64. For integer audio both the
-    /// samples and the coefficients are interpreted on the normalised
-    /// ``[-1, 1]`` scale, so coefficients are quantised to the sample type and
-    /// must lie in ``[-1, 1]``; convert to float first (``as_f64()``) for
-    /// general filters.
+    /// Computation is carried out in float64 with float64 coefficients. Integer
+    /// audio is filtered on its raw scale and the result is rounded to nearest
+    /// and saturated to the sample type, so taps outside ``[-1, 1]`` work for
+    /// every sample type.
     ///
     /// Args:
     ///     coefficients (numpy.ndarray): 1-D array-like of FIR taps ``h``
@@ -433,12 +438,11 @@ impl PyAudioSamples {
                 "apply_filter requires at least one filter coefficient",
             ));
         }
+        // safety: checked non-empty above
+        let taps: NonEmptyVec<f64> = unsafe { NonEmptyVec::new_unchecked(coeffs) };
         dispatch_with_view!(self, py, |audio| {
-            let taps: Vec<_> = coeffs.iter().copied().map(ConvertTo::convert_to).collect();
-            // safety: checked non-empty above
-            let taps: NonEmptyVec<_> = unsafe { NonEmptyVec::new_unchecked(taps) };
             audio
-                .apply_filter(&taps)
+                .apply_filter_f64(&taps)
                 .map_err(audio_err_to_py)
                 .map(|a| Self::from_audio_samples(a.into_owned()))
         })

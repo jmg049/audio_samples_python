@@ -39,7 +39,7 @@ INT_CASES = [
     (lambda v: features.chroma_filterbank(sr=22050, n_fft=2048, n_chroma=v), "n_chroma"),
     (lambda v: effects.clicks(times=[0.1], sr=22050, hop_length=v), "hop_length"),
     (lambda v: effects.clicks(times=[0.1], sr=22050, length=v), "length"),
-    (lambda v: rhythm.tempo_frequencies(v), "n_bins"),
+    (lambda v: rhythm.tempo_frequencies(v, sr=22050), "n_bins"),
     (lambda v: U.midi_to_note(v), "midi_note"),
 ]
 
@@ -109,8 +109,8 @@ def test_other_rust_side_size_checks():
 
 def test_huge_max_size_is_fast():
     S = np.abs(RNG.standard_normal((128, 20)))
-    small = rhythm.onset_strength(S=S, max_size=2 * 128)
-    np.testing.assert_allclose(rhythm.onset_strength(S=S, max_size=2**31), small)
+    small = rhythm.onset_strength(S=S, sr=22050, max_size=2 * 128)
+    np.testing.assert_allclose(rhythm.onset_strength(S=S, sr=22050, max_size=2**31), small)
 
 
 def test_clicks_far_time_is_value_error():
@@ -196,16 +196,19 @@ def test_phase_vocoder_accepts_deprecated_keywords():
 def test_times_like_axis_and_sr_alias():
     librosa = pytest.importorskip("librosa")
     X = np.zeros((3, 7, 5))
-    np.testing.assert_allclose(U.times_like(X, sr=8000, axis=-2), librosa.times_like(X, sr=8000, axis=-2))
-    np.testing.assert_array_equal(U.samples_like(X, axis=0), librosa.samples_like(X, axis=0))
-    np.testing.assert_allclose(U.times_like(X), librosa.times_like(X))
+    np.testing.assert_allclose(U.times_like(X, sr=8000, hop_length=512, axis=-2), librosa.times_like(X, sr=8000, axis=-2))
+    np.testing.assert_array_equal(U.samples_like(X, hop_length=512, axis=0), librosa.samples_like(X, axis=0))
+    # librosa's defaults (sr=22050, hop_length=512) are explicit arguments here.
+    np.testing.assert_allclose(U.times_like(X, sr=22050, hop_length=512), librosa.times_like(X))
+    with pytest.raises(TypeError, match="sample_rate"):
+        U.times_like(X, hop_length=512)
     np.testing.assert_array_equal(U.time_to_samples([0.5, 1.25], sr=100), librosa.time_to_samples([0.5, 1.25], sr=100))
     assert U.time_to_frames_floor(0.5, sr=1000, hop_length=10) == librosa.time_to_frames(0.5, sr=1000, hop_length=10)
     assert U.time_to_samples(1.0, sample_rate=100) == U.time_to_samples(1.0, sr=100) == 100
     with pytest.raises(TypeError, match="not both"):
         U.time_to_samples(1.0, sr=1, sample_rate=2)
     with pytest.raises(ValueError, match="axis"):
-        U.times_like(X, axis=3)
+        U.times_like(X, sr=22050, hop_length=512, axis=3)
 
 
 # ---------------------------------------------------------------------------

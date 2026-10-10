@@ -6,13 +6,13 @@
 
 use crate::args::Int;
 use audio_samples::operations::pitch_tracking::{AudioPitchTracking, UnvoicedFill};
-use numpy::{IntoPyArray, PyArray2};
+use numpy::IntoPyArray;
 use pyo3::IntoPyObjectExt;
 use pyo3::prelude::*;
 
 use crate::features::args::FillNaArg;
 use crate::features::pitch::{pyin_config, yin_config};
-use crate::{PyAudioSamples, audio_err_to_py, dispatch_with_view_detached};
+use crate::{PyAudioSamples, audio_err_to_py, dispatch_array_detached, dispatch_typed_detached};
 
 #[pymethods]
 impl PyAudioSamples {
@@ -33,7 +33,7 @@ impl PyAudioSamples {
     ///     pad_mode (str): Padding for ``center``. Default ``"constant"``.
     ///
     /// Returns:
-    ///     numpy.ndarray[float64]: f0 in Hz, shape ``(channels, n_frames)``.
+    ///     numpy.ndarray[float32 | float64]: f0 in Hz, shape ``(channels, n_frames)``.
     ///
     /// Raises:
     ///     ValueError: For invalid parameters (e.g. ``fmax > sr / 2``) or a
@@ -53,7 +53,7 @@ impl PyAudioSamples {
         trough_threshold: f64,
         center: bool,
         pad_mode: &str,
-    ) -> PyResult<Bound<'py, PyArray2<f64>>> {
+    ) -> PyResult<Bound<'py, PyAny>> {
         let cfg = yin_config(
             fmin,
             fmax,
@@ -63,9 +63,7 @@ impl PyAudioSamples {
             center,
             pad_mode,
         )?;
-        let f0 = dispatch_with_view_detached!(self, py, |audio| audio.yin(&cfg))
-            .map_err(audio_err_to_py)?;
-        Ok(f0.into_pyarray(py))
+        dispatch_array_detached!(self, py, |audio| audio.yin(&cfg))
     }
 
     /// Probabilistic YIN with HMM decoding, equivalent to
@@ -91,7 +89,9 @@ impl PyAudioSamples {
     ///
     /// Returns:
     ///     tuple: ``(f0, voiced_flag, voiced_prob)``, each of shape
-    ///     ``(channels, n_frames)``: float64 Hz, ``bool``, float64 in ``[0, 1]``.
+    ///     ``(channels, n_frames)``: Hz, ``bool``, values in ``[0, 1]``; the float
+    ///     arrays are float32 for uint8, int16, int24 and float32 audio and
+    ///     float64 otherwise.
     ///
     /// Raises:
     ///     ValueError: For invalid parameters or a too-short uncentred signal.
@@ -136,13 +136,14 @@ impl PyAudioSamples {
             pad_mode,
             transition_min_prob,
         )?;
-        let r = dispatch_with_view_detached!(self, py, |audio| audio.pyin(&cfg))
-            .map_err(audio_err_to_py)?;
-        (
-            r.f0.into_pyarray(py),
-            r.voiced_flag.into_pyarray(py),
-            r.voiced_prob.into_pyarray(py),
-        )
-            .into_bound_py_any(py)
+        dispatch_typed_detached!(self, py, |audio| audio.pyin(&cfg), |r| {
+            let r = r.map_err(audio_err_to_py)?;
+            (
+                r.f0.into_pyarray(py),
+                r.voiced_flag.into_pyarray(py),
+                r.voiced_prob.into_pyarray(py),
+            )
+                .into_bound_py_any(py)
+        })
     }
 }

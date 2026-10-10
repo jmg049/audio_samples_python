@@ -11,19 +11,23 @@ use crate::args::Int;
 use audio_samples::operations::filterbanks::{self, Window};
 use audio_samples::operations::spectrum::{self, DbConfig, DeltaConfig, DeltaMode};
 use ndarray::{ArrayD, Axis, Ix1, Ix2, Ix3};
-use numpy::{IntoPyArray, PyArray1, PyArray2, PyArrayDyn, PyUntypedArrayMethods};
+use numpy::{IntoPyArray, PyArray1, PyArray2, PyUntypedArrayMethods};
 use pyo3::IntoPyObjectExt;
 use pyo3::prelude::*;
 
 use crate::args::{
-    DbAxesArg, DbRefArg, MelNormArg, WindowArg, c128_array, f64_array, is_scalar, mel_config,
-    non_negative, opt_positive, positive, stft_config, value_err,
+    DbAxesArg, DbRefArg, MelNormArg, WindowArg, complex_array_as, float_array_as, is_scalar,
+    mel_config, non_negative, opt_positive, positive, precision_of, stft_config, value_err,
+    with_precision,
 };
 use crate::audio_err_to_py;
 use crate::operations::spectrum::mfcc_cepstrum_config;
 
 /// Returns a 0-d result as a Python float and anything else as an array.
-fn dyn_out<'py>(py: Python<'py>, a: ArrayD<f64>, scalar: bool) -> PyResult<Bound<'py, PyAny>> {
+fn dyn_out<'py, F>(py: Python<'py>, a: ArrayD<F>, scalar: bool) -> PyResult<Bound<'py, PyAny>>
+where
+    F: numpy::Element + Copy + for<'a> IntoPyObject<'a>,
+{
     if scalar {
         if let Some(&v) = a.iter().next() {
             return v.into_bound_py_any(py);
@@ -45,7 +49,7 @@ fn dyn_out<'py>(py: Python<'py>, a: ArrayD<f64>, scalar: bool) -> PyResult<Bound
 ///     pad_mode (str): ``"constant"`` (default), ``"reflect"``, ``"edge"``, ``"symmetric"``.
 ///
 /// Returns:
-///     numpy.ndarray[complex128]: shape ``(1 + n_fft // 2, n_frames)`` for 1-D
+///     numpy.ndarray[complex64 | complex128]: shape ``(1 + n_fft // 2, n_frames)`` for 1-D
 ///     input, ``(channels, 1 + n_fft // 2, n_frames)`` for 2-D input.
 ///
 /// Raises:
@@ -66,31 +70,33 @@ pub fn stft<'py>(
     pad_mode: &str,
 ) -> PyResult<Bound<'py, PyAny>> {
     let cfg = stft_config(n_fft, hop_length, win_length, window, center, pad_mode)?;
-    let y = f64_array(y, "y")?;
-    let y = y.as_array();
-    match y.ndim() {
-        1 => {
-            let y2 = y
-                .into_dimensionality::<Ix1>()
-                .expect("1-D")
-                .insert_axis(Axis(0));
-            let s = py
-                .detach(|| spectrum::stft(y2, &cfg))
-                .map_err(audio_err_to_py)?;
-            Ok(s.index_axis_move(Axis(0), 0).into_pyarray(py).into_any())
+    with_precision!(precision_of(y), |F| {
+        let y = float_array_as::<F>(y, "y")?;
+        let y = y.as_array();
+        match y.ndim() {
+            1 => {
+                let y2 = y
+                    .into_dimensionality::<Ix1>()
+                    .expect("1-D")
+                    .insert_axis(Axis(0));
+                let s = py
+                    .detach(|| spectrum::stft(y2, &cfg))
+                    .map_err(audio_err_to_py)?;
+                Ok(s.index_axis_move(Axis(0), 0).into_pyarray(py).into_any())
+            }
+            2 => {
+                let y2 = y.into_dimensionality::<Ix2>().expect("2-D");
+                let s = py
+                    .detach(|| spectrum::stft(y2, &cfg))
+                    .map_err(audio_err_to_py)?;
+                Ok(s.into_pyarray(py).into_any())
+            }
+            n => Err(value_err(
+                "y",
+                format!("expected shape (n,) or (channels, n), got {n} dimensions"),
+            )),
         }
-        2 => {
-            let y2 = y.into_dimensionality::<Ix2>().expect("2-D");
-            let s = py
-                .detach(|| spectrum::stft(y2, &cfg))
-                .map_err(audio_err_to_py)?;
-            Ok(s.into_pyarray(py).into_any())
-        }
-        n => Err(value_err(
-            "y",
-            format!("expected shape (n,) or (channels, n), got {n} dimensions"),
-        )),
-    }
+    })
 }
 
 /// Inverse short-time Fourier transform, equivalent to ``librosa.istft``.
@@ -106,7 +112,7 @@ pub fn stft<'py>(
 ///     length (Optional[int]): Exact output length.
 ///
 /// Returns:
-///     numpy.ndarray[float64]: shape ``(n,)`` for 2-D input, ``(channels, n)`` for 3-D.
+///     numpy.ndarray[float32 | float64]: shape ``(n,)`` for 2-D input, ``(channels, n)`` for 3-D.
 ///
 /// Raises:
 ///     ValueError: For invalid parameters or a bin count that does not match ``n_fft``.
@@ -125,35 +131,37 @@ pub fn istft<'py>(
     center: bool,
     length: Option<Int>,
 ) -> PyResult<Bound<'py, PyAny>> {
-    let d = c128_array(stft_matrix, "stft_matrix")?;
-    let d = d.as_array();
-    let ndim = d.ndim();
-    if !(ndim == 2 || ndim == 3) {
-        return Err(value_err(
-            "stft_matrix",
-            format!("expected 2 or 3 dimensions, got {ndim}"),
-        ));
-    }
-    let n_bins = d.shape()[ndim - 2] as i64;
-    let n_fft = n_fft.unwrap_or(Int(2 * (n_bins - 1)));
-    let cfg = stft_config(n_fft, hop_length, win_length, window, center, "constant")?;
-    let length = opt_positive("length", length)?.map(std::num::NonZeroUsize::get);
-    if ndim == 2 {
-        let d3 = d
-            .into_dimensionality::<Ix2>()
-            .expect("2-D")
-            .insert_axis(Axis(0));
-        let y = py
-            .detach(|| spectrum::istft(d3, &cfg, length))
-            .map_err(audio_err_to_py)?;
-        Ok(y.index_axis_move(Axis(0), 0).into_pyarray(py).into_any())
-    } else {
-        let d3 = d.into_dimensionality::<Ix3>().expect("3-D");
-        let y = py
-            .detach(|| spectrum::istft(d3, &cfg, length))
-            .map_err(audio_err_to_py)?;
-        Ok(y.into_pyarray(py).into_any())
-    }
+    with_precision!(precision_of(stft_matrix), |F| {
+        let d = complex_array_as::<F>(stft_matrix, "stft_matrix")?;
+        let d = d.as_array();
+        let ndim = d.ndim();
+        if !(ndim == 2 || ndim == 3) {
+            return Err(value_err(
+                "stft_matrix",
+                format!("expected 2 or 3 dimensions, got {ndim}"),
+            ));
+        }
+        let n_bins = d.shape()[ndim - 2] as i64;
+        let n_fft = n_fft.unwrap_or(Int(2 * (n_bins - 1)));
+        let cfg = stft_config(n_fft, hop_length, win_length, window, center, "constant")?;
+        let length = opt_positive("length", length)?.map(std::num::NonZeroUsize::get);
+        if ndim == 2 {
+            let d3 = d
+                .into_dimensionality::<Ix2>()
+                .expect("2-D")
+                .insert_axis(Axis(0));
+            let y = py
+                .detach(|| spectrum::istft(d3, &cfg, length))
+                .map_err(audio_err_to_py)?;
+            Ok(y.index_axis_move(Axis(0), 0).into_pyarray(py).into_any())
+        } else {
+            let d3 = d.into_dimensionality::<Ix3>().expect("3-D");
+            let y = py
+                .detach(|| spectrum::istft(d3, &cfg, length))
+                .map_err(audio_err_to_py)?;
+            Ok(y.into_pyarray(py).into_any())
+        }
+    })
 }
 
 fn db_config(r: DbRefArg, amin: f64, top_db: Option<f64>, axes: DbAxesArg) -> DbConfig {
@@ -174,21 +182,22 @@ fn db_config(r: DbRefArg, amin: f64, top_db: Option<f64>, axes: DbAxesArg) -> Db
 ///     S (array_like): Power values, any shape (or a scalar).
 ///     ref (float | "max" | numpy.max): 0 dB reference. Default 1.0.
 ///     amin (float): Lower clamp before the log. Default 1e-10.
-///     top_db (Optional[float]): Dynamic range below the maximum. Default 80.
+///     top_db (Optional[float]): Dynamic range below the maximum. Default None
+///         (no floor); librosa's default is 80.
 ///     axes ("auto" | None): Reduction axes for ``ref=numpy.max`` and ``top_db``.
 ///         ``"auto"`` (default) uses the last two axes, i.e. per channel for
 ///         ``(channels, F, T)`` input; ``None`` uses the whole array.
 ///
 /// Returns:
-///     float | numpy.ndarray[float64]: Same shape as ``S``.
+///     float | numpy.ndarray[float32 | float64]: Same shape as ``S``.
 ///
 /// Raises:
 ///     ValueError: If ``amin <= 0`` or ``top_db < 0``.
 ///     TypeError: For complex input (pass power, e.g. ``numpy.abs(D) ** 2``).
 #[pyfunction]
 #[pyo3(
-    signature = (S, *, r#ref = DbRefArg(audio_samples::DbReference::Value(1.0)), amin = 1e-10, top_db = Some(80.0), axes = DbAxesArg(audio_samples::DbAxes::Auto)),
-    text_signature = "(S, *, ref=1.0, amin=1e-10, top_db=80.0, axes='auto')"
+    signature = (S, *, r#ref = DbRefArg(audio_samples::DbReference::Value(1.0)), amin = 1e-10, top_db = None, axes = DbAxesArg(audio_samples::DbAxes::Auto)),
+    text_signature = "(S, *, ref=1.0, amin=1e-10, top_db=None, axes='auto')"
 )]
 #[allow(non_snake_case)]
 pub fn power_to_db<'py>(
@@ -200,10 +209,12 @@ pub fn power_to_db<'py>(
     axes: DbAxesArg,
 ) -> PyResult<Bound<'py, PyAny>> {
     let scalar = is_scalar(S)?;
-    let s = f64_array(S, "S")?;
-    let out = spectrum::power_to_db(&s.as_array(), &db_config(r#ref, amin, top_db, axes))
-        .map_err(audio_err_to_py)?;
-    dyn_out(py, out, scalar)
+    let cfg = db_config(r#ref, amin, top_db, axes);
+    with_precision!(precision_of(S), |F| {
+        let s = float_array_as::<F>(S, "S")?;
+        let out = spectrum::power_to_db(&s.as_array(), &cfg).map_err(audio_err_to_py)?;
+        dyn_out(py, out, scalar)
+    })
 }
 
 /// Convert an amplitude spectrogram to decibels, equivalent to
@@ -216,18 +227,19 @@ pub fn power_to_db<'py>(
 ///     S (array_like): Amplitudes (real or complex), any shape.
 ///     ref (float | "max" | numpy.max): 0 dB reference. Default 1.0.
 ///     amin (float): Lower clamp. Default 1e-5.
-///     top_db (Optional[float]): Default 80.
+///     top_db (Optional[float]): Dynamic range below the maximum. Default None
+///         (no floor); librosa's default is 80.
 ///     axes ("auto" | None): As ``power_to_db``.
 ///
 /// Returns:
-///     float | numpy.ndarray[float64]: Same shape as ``S``.
+///     float | numpy.ndarray[float32 | float64]: Same shape as ``S``.
 ///
 /// Raises:
 ///     ValueError: If ``amin <= 0`` or ``top_db < 0``.
 #[pyfunction]
 #[pyo3(
-    signature = (S, *, r#ref = DbRefArg(audio_samples::DbReference::Value(1.0)), amin = 1e-5, top_db = Some(80.0), axes = DbAxesArg(audio_samples::DbAxes::Auto)),
-    text_signature = "(S, *, ref=1.0, amin=1e-05, top_db=80.0, axes='auto')"
+    signature = (S, *, r#ref = DbRefArg(audio_samples::DbReference::Value(1.0)), amin = 1e-5, top_db = None, axes = DbAxesArg(audio_samples::DbAxes::Auto)),
+    text_signature = "(S, *, ref=1.0, amin=1e-05, top_db=None, axes='auto')"
 )]
 #[allow(non_snake_case)]
 pub fn amplitude_to_db<'py>(
@@ -241,10 +253,12 @@ pub fn amplitude_to_db<'py>(
     let scalar = is_scalar(S)?;
     let np = py.import("numpy")?;
     let mag = np.call_method1("abs", (S,))?;
-    let s = f64_array(&mag, "S")?;
-    let out = spectrum::amplitude_to_db(&s.as_array(), &db_config(r#ref, amin, top_db, axes))
-        .map_err(audio_err_to_py)?;
-    dyn_out(py, out, scalar)
+    let cfg = db_config(r#ref, amin, top_db, axes);
+    with_precision!(precision_of(&mag), |F| {
+        let s = float_array_as::<F>(&mag, "S")?;
+        let out = spectrum::amplitude_to_db(&s.as_array(), &cfg).map_err(audio_err_to_py)?;
+        dyn_out(py, out, scalar)
+    })
 }
 
 /// Convert decibels to power, equivalent to ``librosa.db_to_power``:
@@ -255,7 +269,7 @@ pub fn amplitude_to_db<'py>(
 ///     ref (float): Reference power. Default 1.0.
 ///
 /// Returns:
-///     float | numpy.ndarray[float64]: Same shape as ``S_db``.
+///     float | numpy.ndarray[float32 | float64]: Same shape as ``S_db``.
 #[pyfunction]
 #[pyo3(signature = (S_db, *, r#ref = 1.0), text_signature = "(S_db, *, ref=1.0)")]
 #[allow(non_snake_case)]
@@ -265,8 +279,10 @@ pub fn db_to_power<'py>(
     r#ref: f64,
 ) -> PyResult<Bound<'py, PyAny>> {
     let scalar = is_scalar(S_db)?;
-    let s = f64_array(S_db, "S_db")?;
-    dyn_out(py, spectrum::db_to_power(&s.as_array(), r#ref), scalar)
+    with_precision!(precision_of(S_db), |F| {
+        let s = float_array_as::<F>(S_db, "S_db")?;
+        dyn_out(py, spectrum::db_to_power(&s.as_array(), r#ref), scalar)
+    })
 }
 
 /// Convert decibels to amplitude, equivalent to ``librosa.db_to_amplitude``:
@@ -277,7 +293,7 @@ pub fn db_to_power<'py>(
 ///     ref (float): Reference amplitude. Default 1.0.
 ///
 /// Returns:
-///     float | numpy.ndarray[float64]: Same shape as ``S_db``.
+///     float | numpy.ndarray[float32 | float64]: Same shape as ``S_db``.
 #[pyfunction]
 #[pyo3(signature = (S_db, *, r#ref = 1.0), text_signature = "(S_db, *, ref=1.0)")]
 #[allow(non_snake_case)]
@@ -287,8 +303,10 @@ pub fn db_to_amplitude<'py>(
     r#ref: f64,
 ) -> PyResult<Bound<'py, PyAny>> {
     let scalar = is_scalar(S_db)?;
-    let s = f64_array(S_db, "S_db")?;
-    dyn_out(py, spectrum::db_to_amplitude(&s.as_array(), r#ref), scalar)
+    with_precision!(precision_of(S_db), |F| {
+        let s = float_array_as::<F>(S_db, "S_db")?;
+        dyn_out(py, spectrum::db_to_amplitude(&s.as_array(), r#ref), scalar)
+    })
 }
 
 /// Mel filterbank matrix, equivalent to ``librosa.filters.mel(..., dtype=numpy.float64)``.
@@ -455,7 +473,7 @@ pub fn window_bandwidth(window: WindowArg, n: Int) -> PyResult<f64> {
 ///         ``"constant"`` or ``"wrap"``.
 ///
 /// Returns:
-///     numpy.ndarray[float64]: Same shape as ``data``.
+///     numpy.ndarray[float32 | float64]: Same shape as ``data``.
 ///
 /// Raises:
 ///     ValueError: Invalid width/order/axis, or ``mode="interp"`` with
@@ -472,7 +490,7 @@ pub fn delta<'py>(
     order: Int,
     axis: Int,
     mode: &str,
-) -> PyResult<Bound<'py, PyArrayDyn<f64>>> {
+) -> PyResult<Bound<'py, PyAny>> {
     let mode = match mode {
         "interp" => DeltaMode::Interp,
         "nearest" => DeltaMode::Nearest,
@@ -494,9 +512,11 @@ pub fn delta<'py>(
         axis: crate::args::signed("axis", axis)?,
         mode,
     };
-    let x = f64_array(data, "data")?;
-    let out = spectrum::delta(&x.as_array(), &cfg).map_err(audio_err_to_py)?;
-    Ok(out.into_pyarray(py))
+    with_precision!(precision_of(data), |F| {
+        let x = float_array_as::<F>(data, "data")?;
+        let out = spectrum::delta(&x.as_array(), &cfg).map_err(audio_err_to_py)?;
+        Ok(out.into_pyarray(py).into_any())
+    })
 }
 
 /// Stack time-delayed copies of a feature array, equivalent to
@@ -509,7 +529,7 @@ pub fn delta<'py>(
 ///         ahead). Default 1.
 ///
 /// Returns:
-///     numpy.ndarray[float64]: shape ``(..., d * n_steps, t)``.
+///     numpy.ndarray[float32 | float64]: shape ``(..., d * n_steps, t)``.
 ///
 /// Raises:
 ///     ValueError: If ``n_steps < 1`` or ``delay == 0``.
@@ -520,21 +540,20 @@ pub fn stack_memory<'py>(
     data: &Bound<'py, PyAny>,
     n_steps: Int,
     delay: Int,
-) -> PyResult<Bound<'py, PyArrayDyn<f64>>> {
-    let x = f64_array(data, "data")?;
-    let x = x.as_array();
-    let x = if x.ndim() == 1 {
-        x.insert_axis(Axis(0))
-    } else {
-        x
-    };
-    let out = spectrum::stack_memory(
-        &x,
-        positive("n_steps", n_steps)?,
-        crate::args::signed("delay", delay)?,
-    )
-    .map_err(audio_err_to_py)?;
-    Ok(out.into_pyarray(py))
+) -> PyResult<Bound<'py, PyAny>> {
+    let n_steps = positive("n_steps", n_steps)?;
+    let delay = crate::args::signed("delay", delay)?;
+    with_precision!(precision_of(data), |F| {
+        let x = float_array_as::<F>(data, "data")?;
+        let x = x.as_array();
+        let x = if x.ndim() == 1 {
+            x.insert_axis(Axis(0))
+        } else {
+            x
+        };
+        let out = spectrum::stack_memory(&x, n_steps, delay).map_err(audio_err_to_py)?;
+        Ok(out.into_pyarray(py).into_any())
+    })
 }
 
 /// Slice a 1-D signal into overlapping frames, equivalent to
@@ -546,7 +565,7 @@ pub fn stack_memory<'py>(
 ///     hop_length (int): Samples between frame starts.
 ///
 /// Returns:
-///     numpy.ndarray[float64]: shape ``(frame_length, 1 + (len(x) - frame_length) // hop_length)``.
+///     numpy.ndarray[float32 | float64]: shape ``(frame_length, 1 + (len(x) - frame_length) // hop_length)``.
 ///
 /// Raises:
 ///     ValueError: If ``x`` is not 1-D or is shorter than ``frame_length``.
@@ -557,19 +576,18 @@ pub fn frame<'py>(
     x: &Bound<'py, PyAny>,
     frame_length: Int,
     hop_length: Int,
-) -> PyResult<Bound<'py, PyArray2<f64>>> {
-    let a = f64_array(x, "x")?;
-    if a.ndim() != 1 {
-        return Err(value_err("x", "only 1-D input is supported"));
-    }
-    let v: Vec<f64> = a.as_array().iter().copied().collect();
-    let out = spectrum::frame(
-        &v,
-        positive("frame_length", frame_length)?,
-        positive("hop_length", hop_length)?,
-    )
-    .map_err(audio_err_to_py)?;
-    Ok(out.into_pyarray(py))
+) -> PyResult<Bound<'py, PyAny>> {
+    let frame_length = positive("frame_length", frame_length)?;
+    let hop_length = positive("hop_length", hop_length)?;
+    with_precision!(precision_of(x), |F| {
+        let a = float_array_as::<F>(x, "x")?;
+        if a.ndim() != 1 {
+            return Err(value_err("x", "only 1-D input is supported"));
+        }
+        let v: Vec<F> = a.as_array().iter().copied().collect();
+        let out = spectrum::frame(&v, frame_length, hop_length).map_err(audio_err_to_py)?;
+        Ok(out.into_pyarray(py).into_any())
+    })
 }
 
 /// Project a spectrogram onto mel bands, equivalent to
@@ -583,7 +601,7 @@ pub fn frame<'py>(
 ///     n_mels, fmin, fmax, htk, norm: As ``mel_filterbank``.
 ///
 /// Returns:
-///     numpy.ndarray[float64]: shape ``(n_mels, T)`` or ``(channels, n_mels, T)``.
+///     numpy.ndarray[float32 | float64]: shape ``(n_mels, T)`` or ``(channels, n_mels, T)``.
 #[pyfunction]
 #[pyo3(
     signature = (S, *, sr, n_fft = None, n_mels = Int(128), fmin = 0.0, fmax = None, htk = false, norm = MelNormArg(audio_samples::MelFilterNorm::Slaney)),
@@ -601,31 +619,33 @@ pub fn melspectrogram_from_spectrogram<'py>(
     htk: bool,
     norm: MelNormArg,
 ) -> PyResult<Bound<'py, PyAny>> {
-    let s = f64_array(S, "S")?;
-    let s = s.as_array();
-    let ndim = s.ndim();
-    let s3 = match ndim {
-        2 => s
-            .into_dimensionality::<Ix2>()
-            .expect("2-D")
-            .insert_axis(Axis(0)),
-        3 => s.into_dimensionality::<Ix3>().expect("3-D"),
-        n => {
-            return Err(value_err(
-                "S",
-                format!("expected 2 or 3 dimensions, got {n}"),
-            ));
+    with_precision!(precision_of(S), |F| {
+        let s = float_array_as::<F>(S, "S")?;
+        let s = s.as_array();
+        let ndim = s.ndim();
+        let s3 = match ndim {
+            2 => s
+                .into_dimensionality::<Ix2>()
+                .expect("2-D")
+                .insert_axis(Axis(0)),
+            3 => s.into_dimensionality::<Ix3>().expect("3-D"),
+            n => {
+                return Err(value_err(
+                    "S",
+                    format!("expected 2 or 3 dimensions, got {n}"),
+                ));
+            }
+        };
+        let n_fft = n_fft.unwrap_or(Int(2 * (s3.dim().1 as i64 - 1)));
+        let cfg = mel_config(n_mels, fmin, fmax, htk, norm)?;
+        let m = spectrum::melspectrogram_from_spectrogram(s3, sr, positive("n_fft", n_fft)?, &cfg)
+            .map_err(audio_err_to_py)?;
+        if ndim == 2 {
+            Ok(m.index_axis_move(Axis(0), 0).into_pyarray(py).into_any())
+        } else {
+            Ok(m.into_pyarray(py).into_any())
         }
-    };
-    let n_fft = n_fft.unwrap_or(Int(2 * (s3.dim().1 as i64 - 1)));
-    let cfg = mel_config(n_mels, fmin, fmax, htk, norm)?;
-    let m = spectrum::melspectrogram_from_spectrogram(s3, sr, positive("n_fft", n_fft)?, &cfg)
-        .map_err(audio_err_to_py)?;
-    if ndim == 2 {
-        Ok(m.index_axis_move(Axis(0), 0).into_pyarray(py).into_any())
-    } else {
-        Ok(m.into_pyarray(py).into_any())
-    }
+    })
 }
 
 /// MFCCs from a log-power (dB) mel spectrogram, equivalent to
@@ -639,7 +659,7 @@ pub fn melspectrogram_from_spectrogram<'py>(
 ///     lifter (float): Liftering coefficient; 0 (default) disables.
 ///
 /// Returns:
-///     numpy.ndarray[float64]: shape ``(..., n_mfcc, T)``.
+///     numpy.ndarray[float32 | float64]: shape ``(..., n_mfcc, T)``.
 #[pyfunction]
 #[pyo3(
     signature = (S, *, n_mfcc = Int(20), dct_type = Int(2), norm = Some("ortho"), lifter = 0.0),
@@ -653,11 +673,13 @@ pub fn mfcc_from_mel_db<'py>(
     dct_type: Int,
     norm: Option<&str>,
     lifter: f64,
-) -> PyResult<Bound<'py, PyArrayDyn<f64>>> {
+) -> PyResult<Bound<'py, PyAny>> {
     let cfg = mfcc_cepstrum_config(n_mfcc, dct_type, norm, lifter)?;
-    let s = f64_array(S, "S")?;
-    let out = spectrum::mfcc_from_mel_db(&s.as_array(), &cfg).map_err(audio_err_to_py)?;
-    Ok(out.into_pyarray(py))
+    with_precision!(precision_of(S), |F| {
+        let s = float_array_as::<F>(S, "S")?;
+        let out = spectrum::mfcc_from_mel_db(&s.as_array(), &cfg).map_err(audio_err_to_py)?;
+        Ok(out.into_pyarray(py).into_any())
+    })
 }
 
 /// Registers `audio_samples.spectral`.
@@ -666,7 +688,9 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add(
         "__doc__",
         "librosa-compatible spectral helpers over NumPy arrays (STFT/ISTFT, dB \
-         conversions, mel filterbank, windows, delta, stack_memory, frame).",
+         conversions, mel filterbank, windows, delta, stack_memory, frame). \
+         float32 / complex64 arrays are processed in float32 and give float32 \
+         output; any other input is converted to float64.",
     )?;
     m.add_function(wrap_pyfunction!(stft, &m)?)?;
     m.add_function(wrap_pyfunction!(istft, &m)?)?;

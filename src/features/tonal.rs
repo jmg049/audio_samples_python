@@ -15,7 +15,9 @@ use pyo3::IntoPyObjectExt;
 use pyo3::prelude::*;
 
 use super::args::{parse_piptrack_ref, signal2, spec3, squeeze_out};
-use crate::args::{WindowArg, f64_array, positive, stft_config, value_err};
+use crate::args::{
+    WindowArg, float_array_as, positive, precision_of, stft_config, value_err, with_precision,
+};
 use crate::audio_err_to_py;
 
 /// Infers `n_fft = 2 * (bins - 1)` when not given (librosa's convention).
@@ -90,7 +92,7 @@ pub fn chroma_filterbank<'py>(
 ///         True fills them with the unit-norm constant.
 ///
 /// Returns:
-///     numpy.ndarray[float64]: same shape as ``S``.
+///     numpy.ndarray[float32 | float64]: same shape as ``S``.
 ///
 /// Raises:
 ///     ValueError: For an invalid norm/threshold/axis, ``fill=True`` with
@@ -109,15 +111,17 @@ pub fn normalize<'py>(
     threshold: Option<f64>,
     fill: Option<bool>,
 ) -> PyResult<Bound<'py, PyAny>> {
-    let s = f64_array(S, "S")?;
     let cfg = NormalizeConfig {
         norm,
         axis: axis.map(|a| crate::args::signed("axis", a)).transpose()?,
         threshold,
         fill,
     };
-    let r = tonal::normalize_array(&s.as_array(), &cfg).map_err(audio_err_to_py)?;
-    Ok(r.into_pyarray(py).into_any())
+    with_precision!(precision_of(S), |F| {
+        let s = float_array_as::<F>(S, "S")?;
+        let r = tonal::normalize_array(&s.as_array(), &cfg).map_err(audio_err_to_py)?;
+        Ok(r.into_pyarray(py).into_any())
+    })
 }
 
 /// Tuning offset of a set of frequencies relative to A440, equivalent to
@@ -154,13 +158,13 @@ pub fn pitch_tuning(
 }
 
 /// Chromagram of a precomputed spectrogram, equivalent to
-/// ``librosa.feature.chroma_stft(S=S, sr=sr, ..., dtype=numpy.float64)``.
+/// ``librosa.feature.chroma_stft(S=S, sr=sr, ...)``.
 ///
 /// Args:
 ///     S (array_like): Power spectrogram (librosa's expectation; a magnitude
 ///         spectrogram gives "energy" chroma), shape ``(1 + n_fft // 2, T)`` or
 ///         ``(channels, 1 + n_fft // 2, T)``.
-///     sr (float): Sample rate (Hz). Default 22050.
+///     sr (float): Sample rate (Hz). Required (librosa defaults to 22050).
 ///     norm (Optional[float]): Per-frame normalisation (default ``numpy.inf``).
 ///     n_fft (Optional[int]): FFT length; None infers ``2 * (F - 1)``.
 ///     tuning (Optional[float]): Tuning in fractions of a chroma bin; None
@@ -169,14 +173,14 @@ pub fn pitch_tuning(
 ///     ctroct, octwidth, base_c: Filterbank parameters (see ``chroma_filterbank``).
 ///
 /// Returns:
-///     numpy.ndarray[float64]: shape ``(n_chroma, T)`` or ``(channels, n_chroma, T)``.
+///     numpy.ndarray[float32 | float64]: shape ``(n_chroma, T)`` or ``(channels, n_chroma, T)``.
 ///
 /// Raises:
 ///     ValueError: For invalid parameters or a bin count that does not match ``n_fft``.
 #[pyfunction]
 #[pyo3(
-    signature = (S, *, sr = 22050.0, norm = Some(f64::INFINITY), n_fft = None, tuning = None, n_chroma = Int(12), ctroct = 5.0, octwidth = Some(2.0), base_c = true),
-    text_signature = "(S, *, sr=22050, norm=math.inf, n_fft=None, tuning=None, n_chroma=12, ctroct=5.0, octwidth=2.0, base_c=True)"
+    signature = (S, *, sr, norm = Some(f64::INFINITY), n_fft = None, tuning = Some(0.0), n_chroma = Int(12), ctroct = 5.0, octwidth = Some(2.0), base_c = true),
+    text_signature = "(S, *, sr, norm=math.inf, n_fft=None, tuning=0.0, n_chroma=12, ctroct=5.0, octwidth=2.0, base_c=True)"
 )]
 #[allow(non_snake_case, clippy::too_many_arguments)]
 pub fn chroma_stft_from_spectrogram<'py>(
@@ -191,18 +195,20 @@ pub fn chroma_stft_from_spectrogram<'py>(
     octwidth: Option<f64>,
     base_c: bool,
 ) -> PyResult<Bound<'py, PyAny>> {
-    let (s, nd) = spec3(S, "S")?;
-    let cfg = ChromaStftConfig {
-        stft: StftConfig::default().with_n_fft(infer_n_fft(n_fft, s.dim().1)?),
-        norm,
-        tuning,
-        n_chroma: positive("n_chroma", n_chroma)?,
-        ctroct,
-        octwidth,
-        base_c,
-    };
-    let r = tonal::chroma_stft_from_spectrogram(s.view(), sr, &cfg).map_err(audio_err_to_py)?;
-    Ok(squeeze_out(py, r.into_dyn(), nd == 2))
+    with_precision!(precision_of(S), |F| {
+        let (s, nd) = spec3::<F>(S, "S")?;
+        let cfg = ChromaStftConfig {
+            stft: StftConfig::default().with_n_fft(infer_n_fft(n_fft, s.dim().1)?),
+            norm,
+            tuning,
+            n_chroma: positive("n_chroma", n_chroma)?,
+            ctroct,
+            octwidth,
+            base_c,
+        };
+        let r = tonal::chroma_stft_from_spectrogram(s.view(), sr, &cfg).map_err(audio_err_to_py)?;
+        Ok(squeeze_out(py, r.into_dyn(), nd == 2))
+    })
 }
 
 fn piptrack_cfg(
@@ -231,7 +237,7 @@ fn piptrack_cfg(
 /// Args:
 ///     S (array_like): Magnitude spectrogram, ``(1 + n_fft // 2, T)`` or
 ///         ``(channels, 1 + n_fft // 2, T)``.
-///     sr (float): Sample rate (Hz). Default 22050.
+///     sr (float): Sample rate (Hz). Required (librosa defaults to 22050).
 ///     n_fft (Optional[int]): FFT length; None infers ``2 * (F - 1)``.
 ///     fmin (float): Lowest reported frequency (Hz). Default 150.
 ///     fmax (float): Peaks must lie below this frequency (Hz). Default 4000.
@@ -240,15 +246,15 @@ fn piptrack_cfg(
 ///         (default) = per-frame maximum, a number = absolute threshold.
 ///
 /// Returns:
-///     tuple[numpy.ndarray[float64], numpy.ndarray[float64]]: ``(pitches,
+///     tuple[numpy.ndarray[float32 | float64], numpy.ndarray[float32 | float64]]: ``(pitches,
 ///     magnitudes)``, both shaped like ``S``; zero except at detected peaks.
 ///
 /// Raises:
 ///     ValueError: For invalid parameters or a bin count that does not match ``n_fft``.
 #[pyfunction]
 #[pyo3(
-    signature = (S, *, sr = 22050.0, n_fft = None, fmin = 150.0, fmax = 4000.0, threshold = 0.1, r#ref = None),
-    text_signature = "(S, *, sr=22050, n_fft=None, fmin=150.0, fmax=4000.0, threshold=0.1, ref=None)"
+    signature = (S, *, sr, n_fft = None, fmin = 150.0, fmax = 4000.0, threshold = 0.1, r#ref = None),
+    text_signature = "(S, *, sr, n_fft=None, fmin=150.0, fmax=4000.0, threshold=0.1, ref=None)"
 )]
 #[allow(non_snake_case, clippy::too_many_arguments)]
 pub fn piptrack_from_spectrogram<'py>(
@@ -261,15 +267,18 @@ pub fn piptrack_from_spectrogram<'py>(
     threshold: f64,
     r#ref: Option<&Bound<'py, PyAny>>,
 ) -> PyResult<Bound<'py, PyAny>> {
-    let (s, nd) = spec3(S, "S")?;
-    let stft = StftConfig::default().with_n_fft(infer_n_fft(n_fft, s.dim().1)?);
-    let cfg = piptrack_cfg(stft, fmin, fmax, threshold, r#ref)?;
-    let (p, m) = tonal::piptrack_from_spectrogram(s.view(), sr, &cfg).map_err(audio_err_to_py)?;
-    (
-        squeeze_out(py, p.into_dyn(), nd == 2),
-        squeeze_out(py, m.into_dyn(), nd == 2),
-    )
-        .into_bound_py_any(py)
+    with_precision!(precision_of(S), |F| {
+        let (s, nd) = spec3::<F>(S, "S")?;
+        let stft = StftConfig::default().with_n_fft(infer_n_fft(n_fft, s.dim().1)?);
+        let cfg = piptrack_cfg(stft, fmin, fmax, threshold, r#ref)?;
+        let (p, m) =
+            tonal::piptrack_from_spectrogram(s.view(), sr, &cfg).map_err(audio_err_to_py)?;
+        (
+            squeeze_out(py, p.into_dyn(), nd == 2),
+            squeeze_out(py, m.into_dyn(), nd == 2),
+        )
+            .into_bound_py_any(py)
+    })
 }
 
 /// Tuning estimate from a precomputed spectrogram, equivalent to
@@ -278,7 +287,7 @@ pub fn piptrack_from_spectrogram<'py>(
 /// Args:
 ///     S (array_like): Magnitude or power spectrogram, ``(F, T)`` or
 ///         ``(channels, F, T)`` (all channels are pooled).
-///     sr (float): Sample rate (Hz). Default 22050.
+///     sr (float): Sample rate (Hz). Required (librosa defaults to 22050).
 ///     n_fft (Optional[int]): FFT length; None infers ``2 * (F - 1)``.
 ///     resolution (float): Resolution in fractions of a bin. Default 0.01.
 ///     bins_per_octave (int): Bins per octave of the grid. Default 12.
@@ -291,8 +300,8 @@ pub fn piptrack_from_spectrogram<'py>(
 ///     ValueError: For invalid parameters.
 #[pyfunction]
 #[pyo3(
-    signature = (S, *, sr = 22050.0, n_fft = None, resolution = 0.01, bins_per_octave = Int(12), fmin = 150.0, fmax = 4000.0, threshold = 0.1, r#ref = None),
-    text_signature = "(S, *, sr=22050, n_fft=None, resolution=0.01, bins_per_octave=12, fmin=150.0, fmax=4000.0, threshold=0.1, ref=None)"
+    signature = (S, *, sr, n_fft = None, resolution = 0.01, bins_per_octave = Int(12), fmin = 150.0, fmax = 4000.0, threshold = 0.1, r#ref = None),
+    text_signature = "(S, *, sr, n_fft=None, resolution=0.01, bins_per_octave=12, fmin=150.0, fmax=4000.0, threshold=0.1, ref=None)"
 )]
 #[allow(non_snake_case, clippy::too_many_arguments)]
 pub fn estimate_tuning_from_spectrogram(
@@ -306,21 +315,23 @@ pub fn estimate_tuning_from_spectrogram(
     threshold: f64,
     r#ref: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<f64> {
-    let (s, _) = spec3(S, "S")?;
-    let stft = StftConfig::default().with_n_fft(infer_n_fft(n_fft, s.dim().1)?);
-    let cfg = TuningConfig {
-        piptrack: piptrack_cfg(stft, fmin, fmax, threshold, r#ref)?,
-        resolution,
-        bins_per_octave: positive("bins_per_octave", bins_per_octave)?,
-    };
-    tonal::estimate_tuning_from_spectrogram(s.view(), sr, &cfg).map_err(audio_err_to_py)
+    with_precision!(precision_of(S), |F| {
+        let (s, _) = spec3::<F>(S, "S")?;
+        let stft = StftConfig::default().with_n_fft(infer_n_fft(n_fft, s.dim().1)?);
+        let cfg = TuningConfig {
+            piptrack: piptrack_cfg(stft, fmin, fmax, threshold, r#ref)?,
+            resolution,
+            bins_per_octave: positive("bins_per_octave", bins_per_octave)?,
+        };
+        tonal::estimate_tuning_from_spectrogram(s.view(), sr, &cfg).map_err(audio_err_to_py)
+    })
 }
 
 /// Tuning estimate from a signal, equivalent to ``librosa.estimate_tuning(y=y, sr=sr, ...)``.
 ///
 /// Args:
 ///     y (array_like): Signal, ``(n,)`` or ``(channels, n)`` (channels are pooled).
-///     sr (float): Sample rate (Hz). Default 22050.
+///     sr (float): Sample rate (Hz). Required (librosa defaults to 22050).
 ///     n_fft (int): FFT length. Default 2048.
 ///     resolution (float): Resolution in fractions of a bin. Default 0.01.
 ///     bins_per_octave (int): Bins per octave of the grid. Default 12.
@@ -335,8 +346,8 @@ pub fn estimate_tuning_from_spectrogram(
 ///     ValueError: For invalid parameters or a signal too short for an uncentred STFT.
 #[pyfunction]
 #[pyo3(
-    signature = (y, *, sr = 22050.0, n_fft = Int(2048), resolution = 0.01, bins_per_octave = Int(12), hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", fmin = 150.0, fmax = 4000.0, threshold = 0.1, r#ref = None),
-    text_signature = "(y, *, sr=22050, n_fft=2048, resolution=0.01, bins_per_octave=12, hop_length=None, win_length=None, window='hann', center=True, pad_mode='constant', fmin=150.0, fmax=4000.0, threshold=0.1, ref=None)"
+    signature = (y, *, sr, n_fft = Int(2048), resolution = 0.01, bins_per_octave = Int(12), hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", fmin = 150.0, fmax = 4000.0, threshold = 0.1, r#ref = None),
+    text_signature = "(y, *, sr, n_fft=2048, resolution=0.01, bins_per_octave=12, hop_length=None, win_length=None, window='hann', center=True, pad_mode='constant', fmin=150.0, fmax=4000.0, threshold=0.1, ref=None)"
 )]
 #[allow(clippy::too_many_arguments)]
 pub fn estimate_tuning_from_signal(
@@ -355,17 +366,19 @@ pub fn estimate_tuning_from_signal(
     threshold: f64,
     r#ref: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<f64> {
-    let (x, _) = signal2(y, "y")?;
-    let stft = stft_config(n_fft, hop_length, win_length, window, center, pad_mode)?;
-    let cfg = TuningConfig {
-        piptrack: piptrack_cfg(stft, fmin, fmax, threshold, r#ref)?,
-        resolution,
-        bins_per_octave: positive("bins_per_octave", bins_per_octave)?,
-    };
-    if !(sr.is_finite() && sr > 0.0) {
-        return Err(value_err("sr", format!("must be positive, got {sr}")));
-    }
-    tonal::estimate_tuning_from_signal(x.view(), sr, &cfg).map_err(audio_err_to_py)
+    with_precision!(precision_of(y), |F| {
+        let (x, _) = signal2::<F>(y, "y")?;
+        let stft = stft_config(n_fft, hop_length, win_length, window, center, pad_mode)?;
+        let cfg = TuningConfig {
+            piptrack: piptrack_cfg(stft, fmin, fmax, threshold, r#ref)?,
+            resolution,
+            bins_per_octave: positive("bins_per_octave", bins_per_octave)?,
+        };
+        if !(sr.is_finite() && sr > 0.0) {
+            return Err(value_err("sr", format!("must be positive, got {sr}")));
+        }
+        tonal::estimate_tuning_from_signal(x.view(), sr, &cfg).map_err(audio_err_to_py)
+    })
 }
 
 /// Registers the tonal functions.

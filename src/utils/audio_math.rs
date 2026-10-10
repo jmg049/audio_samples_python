@@ -580,7 +580,8 @@ pub fn linspace<'py>(
 ///
 /// Args:
 ///     times (float | array_like): Time(s) in seconds.
-///     sample_rate (Optional[float]): Sampling rate in Hertz. Default 22050.
+///     sample_rate (Optional[float]): Sampling rate in Hertz. Give this or
+///         ``sr`` (librosa defaults to 22050).
 ///     sr (Optional[float]): librosa's name for ``sample_rate`` (give at most one).
 ///
 /// Returns:
@@ -609,13 +610,14 @@ pub fn time_to_samples<'py>(
 ///
 /// Args:
 ///     samples (int | array_like[int]): Sample index or indices (may be negative).
-///     hop_length (int): Samples between frames. Default 512.
+///     hop_length (int): Samples between frames. Required (librosa defaults
+///         to 512).
 ///     n_fft (Optional[int]): Optional frame-length offset.
 ///
 /// Returns:
 ///     int | numpy.ndarray[int64]: Frame indices, same shape as the input.
 #[pyfunction]
-#[pyo3(signature = (samples, *, hop_length = Int(512), n_fft = None), text_signature = "(samples, *, hop_length=512, n_fft=None)")]
+#[pyo3(signature = (samples, *, hop_length, n_fft = None), text_signature = "(samples, *, hop_length, n_fft=None)")]
 pub fn samples_to_frames<'py>(
     samples: &Bound<'py, PyAny>,
     hop_length: Int,
@@ -634,13 +636,14 @@ pub fn samples_to_frames<'py>(
 ///
 /// Args:
 ///     frames (int | array_like[int]): Frame index or indices.
-///     hop_length (int): Samples between frames. Default 512.
+///     hop_length (int): Samples between frames. Required (librosa defaults
+///         to 512).
 ///     n_fft (Optional[int]): Optional frame-length offset.
 ///
 /// Returns:
 ///     int | numpy.ndarray[int64]: Sample indices, same shape as the input.
 #[pyfunction]
-#[pyo3(signature = (frames, *, hop_length = Int(512), n_fft = None), text_signature = "(frames, *, hop_length=512, n_fft=None)")]
+#[pyo3(signature = (frames, *, hop_length, n_fft = None), text_signature = "(frames, *, hop_length, n_fft=None)")]
 pub fn frames_to_samples<'py>(
     frames: &Bound<'py, PyAny>,
     hop_length: Int,
@@ -662,9 +665,11 @@ pub fn frames_to_samples<'py>(
 ///
 /// Args:
 ///     times (float | array_like): Time(s) in seconds.
-///     sample_rate (Optional[float]): Sampling rate in Hertz. Default 22050.
+///     sample_rate (Optional[float]): Sampling rate in Hertz. Give this or
+///         ``sr`` (librosa defaults to 22050).
 ///     sr (Optional[float]): librosa's name for ``sample_rate`` (give at most one).
-///     hop_length (int): Samples between frames. Default 512.
+///     hop_length (int): Samples between frames. Required (librosa defaults
+///         to 512).
 ///     n_fft (Optional[int]): Optional frame-length offset.
 ///
 /// Returns:
@@ -672,9 +677,9 @@ pub fn frames_to_samples<'py>(
 ///
 /// Example:
 ///     >>> from audio_samples.utils import time_to_frames_floor
-///     >>> time_to_frames_floor([0.0, 0.1, 0.2])  # [0, 4, 8]
+///     >>> time_to_frames_floor([0.0, 0.1, 0.2], sample_rate=22050, hop_length=512)  # [0, 4, 8]
 #[pyfunction]
-#[pyo3(signature = (times, *, sample_rate = None, hop_length = Int(512), n_fft = None, sr = None), text_signature = "(times, *, sample_rate=None, hop_length=512, n_fft=None, sr=None)")]
+#[pyo3(signature = (times, *, sample_rate = None, hop_length, n_fft = None, sr = None), text_signature = "(times, *, sample_rate=None, hop_length, n_fft=None, sr=None)")]
 pub fn time_to_frames_floor<'py>(
     times: &Bound<'py, PyAny>,
     sample_rate: Option<f64>,
@@ -690,14 +695,16 @@ pub fn time_to_frames_floor<'py>(
     })
 }
 
-/// `sample_rate` or its librosa spelling `sr` (default 22050).
+/// `sample_rate` or its librosa spelling `sr`; exactly one is required.
 fn sample_rate_or_sr(sample_rate: Option<f64>, sr: Option<f64>) -> PyResult<f64> {
     match (sample_rate, sr) {
         (Some(_), Some(_)) => Err(pyo3::exceptions::PyTypeError::new_err(
             "give sample_rate or its alias sr, not both",
         )),
         (Some(v), None) | (None, Some(v)) => Ok(v),
-        (None, None) => Ok(22050.0),
+        (None, None) => Err(pyo3::exceptions::PyTypeError::new_err(
+            "missing the sample rate: pass sample_rate= (or its alias sr=)",
+        )),
     }
 }
 
@@ -737,16 +744,18 @@ fn frame_count(x: &Bound<'_, PyAny>, axis: Int) -> PyResult<usize> {
 ///
 /// Args:
 ///     X (int | array_like): Number of frames, or an array whose ``axis`` is time.
-///     sample_rate (Optional[float]): Sampling rate in Hertz. Default 22050.
+///     sample_rate (Optional[float]): Sampling rate in Hertz. Give this or
+///         ``sr`` (librosa defaults to 22050).
 ///     sr (Optional[float]): librosa's name for ``sample_rate`` (give at most one).
-///     hop_length (int): Samples between frames. Default 512.
+///     hop_length (int): Samples between frames. Required (librosa defaults
+///         to 512).
 ///     n_fft (Optional[int]): Optional frame-length offset.
 ///     axis (int): The time axis of ``X``. Default -1.
 ///
 /// Returns:
 ///     numpy.ndarray[float64]: shape ``(n_frames,)``.
 #[pyfunction]
-#[pyo3(signature = (X, *, sample_rate = None, hop_length = Int(512), n_fft = None, axis = Int(-1), sr = None), text_signature = "(X, *, sample_rate=None, hop_length=512, n_fft=None, axis=-1, sr=None)")]
+#[pyo3(signature = (X, *, sample_rate = None, hop_length, n_fft = None, axis = Int(-1), sr = None), text_signature = "(X, *, sample_rate=None, hop_length, n_fft=None, axis=-1, sr=None)")]
 #[allow(non_snake_case)]
 pub fn times_like<'py>(
     py: Python<'py>,
@@ -767,14 +776,15 @@ pub fn times_like<'py>(
 ///
 /// Args:
 ///     X (int | array_like): Number of frames, or an array whose ``axis`` is time.
-///     hop_length (int): Samples between frames. Default 512.
+///     hop_length (int): Samples between frames. Required (librosa defaults
+///         to 512).
 ///     n_fft (Optional[int]): Optional frame-length offset.
 ///     axis (int): The time axis of ``X``. Default -1.
 ///
 /// Returns:
 ///     numpy.ndarray[int64]: shape ``(n_frames,)``.
 #[pyfunction]
-#[pyo3(signature = (X, *, hop_length = Int(512), n_fft = None, axis = Int(-1)), text_signature = "(X, *, hop_length=512, n_fft=None, axis=-1)")]
+#[pyo3(signature = (X, *, hop_length, n_fft = None, axis = Int(-1)), text_signature = "(X, *, hop_length, n_fft=None, axis=-1)")]
 #[allow(non_snake_case)]
 pub fn samples_like<'py>(
     py: Python<'py>,

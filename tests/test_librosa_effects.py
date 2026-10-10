@@ -211,6 +211,8 @@ def test_trim_split_fixture(fx, sr):
     for name in ("default", "top_db30", "frame1024_hop256", "ref_abs"):
         params = f[name].get("params", {})
         kw = {key: (int(v) if key in ("frame_length", "hop_length") else v) for key, v in params.items()}
+        # top_db is required here; the fixtures use librosa's default of 60 unless given.
+        kw.setdefault("top_db", 60.0)
         trimmed, idx = burst.trim_db(**kw)
         assert idx.dtype == np.int64
         np.testing.assert_array_equal(idx, f[name]["trim"], err_msg=name)
@@ -221,7 +223,7 @@ def test_trim_split_fixture(fx, sr):
     np.testing.assert_array_equal(mono("mix", sr).split_db(top_db=20), f["mix_split"])
     np.testing.assert_array_equal(stereo(sr).split_db(top_db=20), f["stereo_split_top_db20"])
     z = mono("burst", sr)
-    np.testing.assert_array_equal(z.trim_db_in_place(), f["default"]["trim"])
+    np.testing.assert_array_equal(z.trim_db_in_place(top_db=60.0), f["default"]["trim"])
     assert z.samples_per_channel() == f["default"]["trim"][1] - f["default"]["trim"][0]
 
 
@@ -229,15 +231,17 @@ def test_trim_silence_and_aggregate(sr):
     silent = aus.AudioSamples.new_mono(np.zeros(4096), sr)
     # As librosa: with ref=max an all-zero signal is its own 0 dB reference
     # (one interval); with an absolute reference everything is silent.
-    np.testing.assert_array_equal(silent.split_db(), [[0, 4096]])
-    assert silent.split_db(ref=1.0).shape == (0, 2)
+    np.testing.assert_array_equal(silent.split_db(top_db=60.0), [[0, 4096]])
+    assert silent.split_db(top_db=60.0, ref=1.0).shape == (0, 2)
     with pytest.raises(ValueError, match="silent"):
-        silent.trim_db(ref=1.0)
+        silent.trim_db(top_db=60.0, ref=1.0)
+    with pytest.raises(TypeError, match="top_db"):
+        silent.trim_db()  # no default threshold (librosa's is 60 dB)
     st = stereo(sr)
     for agg in (np.max, np.min, np.mean, "mean"):
         assert st.split_db(top_db=20, aggregate=agg).ndim == 2
     with pytest.raises(TypeError):
-        st.split_db(aggregate=np.median)
+        st.split_db(top_db=60.0, aggregate=np.median)
 
 
 def test_remix_fixture(fx, sr):
@@ -249,6 +253,8 @@ def test_remix_fixture(fx, sr):
         y = arr(x.remix(np.asarray(f["intervals"]), align_zeros=align))
         assert y.size == case["len"]
         np.testing.assert_array_equal(y[::k], fixture_array(case["y"]))
+    # align_zeros defaults to False (librosa: True).
+    np.testing.assert_array_equal(arr(x.remix(np.asarray(f["intervals"]))), arr(x.remix(f["intervals"], align_zeros=False)))
     z = mono("mix", sr)
     z.remix_in_place(f["intervals"], align_zeros=False)
     assert z.samples_per_channel() == f["align_False"]["len"]
@@ -359,6 +365,15 @@ def test_griffinlim_fixture(fx, sr):
     # Random init with a seed is reproducible (different RNG from librosa's).
     a = E.griffinlim(S, n_iter=2, n_fft=512, rng=3)
     np.testing.assert_array_equal(a, E.griffinlim(S, n_iter=2, n_fft=512, rng=3))
+    # The default is the seed 0, so repeated calls agree; rng=None draws a new seed.
+    d = E.griffinlim(S, n_iter=2, n_fft=512)
+    np.testing.assert_array_equal(d, E.griffinlim(S, n_iter=2, n_fft=512, rng=0))
+    np.testing.assert_array_equal(d, E.griffinlim(S, n_iter=2, n_fft=512))
+    assert not np.array_equal(E.griffinlim(S, n_iter=2, n_fft=512, rng=None), d)
+    np.testing.assert_array_equal(
+        arr(aus.AudioSamples.griffinlim_audio(S, sample_rate=sr, n_iter=2, n_fft=512)),
+        arr(aus.AudioSamples.griffinlim_audio(S, sample_rate=sr, n_iter=2, n_fft=512)),
+    )
     with pytest.raises(TypeError):
         E.griffinlim(S, n_fft=512, rng=np.random.default_rng(0))
 
@@ -388,6 +403,10 @@ def test_clicks_fixture(fx, sr):
     assert_peak_close(y[::k], fixture_array(f["frames_len"]), RTOL_CLICKS)
     with pytest.raises(ValueError):
         E.clicks(sr=sr)
+    with pytest.raises(ValueError, match="hop_length"):
+        E.clicks(frames=[3, 20], sr=sr)  # the frames' hop is required
+    with pytest.raises(TypeError, match="sr"):
+        E.clicks(times=[0.1])
 
 
 # ---------------------------------------------------------------------------

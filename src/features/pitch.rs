@@ -12,7 +12,10 @@ use pyo3::IntoPyObjectExt;
 use pyo3::prelude::*;
 
 use super::args::{FillNaArg, parse_aggregate, signal2, spec3, squeeze_out};
-use crate::args::{f64_array, opt_positive, parse_pad_mode, positive, value_err};
+use crate::args::{
+    FloatElement, float_array_as, opt_positive, parse_pad_mode, positive, precision_of, value_err,
+    with_precision,
+};
 use crate::audio_err_to_py;
 
 /// Builds a [`YinConfig`] from librosa's `yin` keyword arguments.
@@ -89,7 +92,7 @@ fn rows_out<'py, T: numpy::Element>(
 ///     y (array_like): Signal, ``(n,)`` or ``(channels, n)``.
 ///     fmin (float): Lowest frequency searched (Hz). Required.
 ///     fmax (float): Highest frequency searched (Hz). Required.
-///     sr (float): Sample rate. Default 22050.
+///     sr (float): Sample rate. Required (librosa defaults to 22050).
 ///     frame_length (int): Samples per frame. Default 2048.
 ///     hop_length (Optional[int]): None = ``frame_length // 4``.
 ///     trough_threshold (float): Absolute CMND threshold. Default 0.1.
@@ -97,14 +100,14 @@ fn rows_out<'py, T: numpy::Element>(
 ///     pad_mode (str): Padding for ``center``. Default ``"constant"``.
 ///
 /// Returns:
-///     numpy.ndarray[float64]: f0 in Hz, shape ``(n_frames,)`` or ``(channels, n_frames)``.
+///     numpy.ndarray[float32 | float64]: f0 in Hz, shape ``(n_frames,)`` or ``(channels, n_frames)``.
 ///
 /// Raises:
 ///     ValueError: For invalid parameters or a too-short signal.
 #[pyfunction]
 #[pyo3(
-    signature = (y, *, fmin, fmax, sr = 22050.0, frame_length = Int(2048), hop_length = None, trough_threshold = 0.1, center = true, pad_mode = "constant"),
-    text_signature = "(y, *, fmin, fmax, sr=22050, frame_length=2048, hop_length=None, trough_threshold=0.1, center=True, pad_mode='constant')"
+    signature = (y, *, fmin, fmax, sr, frame_length = Int(2048), hop_length = None, trough_threshold = 0.1, center = true, pad_mode = "constant"),
+    text_signature = "(y, *, fmin, fmax, sr, frame_length=2048, hop_length=None, trough_threshold=0.1, center=True, pad_mode='constant')"
 )]
 #[allow(clippy::too_many_arguments)]
 pub fn yin<'py>(
@@ -119,7 +122,6 @@ pub fn yin<'py>(
     center: bool,
     pad_mode: &str,
 ) -> PyResult<Bound<'py, PyAny>> {
-    let (x, nd) = signal2(y, "y")?;
     let cfg = yin_config(
         fmin,
         fmax,
@@ -129,11 +131,14 @@ pub fn yin<'py>(
         center,
         pad_mode,
     )?;
-    let x = x.view();
-    let f0 = py
-        .detach(|| pt::yin(x, sr, &cfg))
-        .map_err(audio_err_to_py)?;
-    Ok(rows_out(py, f0, nd))
+    with_precision!(precision_of(y), |F| {
+        let (x, nd) = signal2::<F>(y, "y")?;
+        let x = x.view();
+        let f0 = py
+            .detach(|| pt::yin(x, sr, &cfg))
+            .map_err(audio_err_to_py)?;
+        Ok(rows_out(py, f0, nd))
+    })
 }
 
 /// Probabilistic YIN of an array, equivalent to ``librosa.pyin``.
@@ -141,7 +146,7 @@ pub fn yin<'py>(
 /// Args:
 ///     y (array_like): Signal, ``(n,)`` or ``(channels, n)``.
 ///     fmin, fmax (float): Search range in Hz. Required.
-///     sr (float): Sample rate. Default 22050.
+///     sr (float): Sample rate. Required (librosa defaults to 22050).
 ///     frame_length (int): Default 2048.
 ///     hop_length (Optional[int]): None = ``frame_length // 4``.
 ///     n_thresholds (int): Default 100.
@@ -160,14 +165,14 @@ pub fn yin<'py>(
 ///
 /// Returns:
 ///     tuple: ``(f0, voiced_flag, voiced_prob)``, each ``(n_frames,)`` or
-///     ``(channels, n_frames)``; ``voiced_flag`` is ``bool``, the others float64.
+///     ``(channels, n_frames)``; ``voiced_flag`` is ``bool``, the others in ``y``'s precision.
 ///
 /// Raises:
 ///     ValueError: For invalid parameters or a too-short signal.
 #[pyfunction]
 #[pyo3(
-    signature = (y, *, fmin, fmax, sr = 22050.0, frame_length = Int(2048), hop_length = None, n_thresholds = Int(100), beta_parameters = (2.0, 18.0), boltzmann_parameter = 2.0, resolution = 0.1, max_transition_rate = 35.92, switch_prob = 0.01, no_trough_prob = 0.01, fill_na = FillNaArg(audio_samples::operations::pitch_tracking::UnvoicedFill::Nan), center = true, pad_mode = "constant", transition_min_prob = Some(1e-4)),
-    text_signature = "(y, *, fmin, fmax, sr=22050, frame_length=2048, hop_length=None, n_thresholds=100, beta_parameters=(2, 18), boltzmann_parameter=2, resolution=0.1, max_transition_rate=35.92, switch_prob=0.01, no_trough_prob=0.01, fill_na=math.nan, center=True, pad_mode='constant', transition_min_prob=0.0001)"
+    signature = (y, *, fmin, fmax, sr, frame_length = Int(2048), hop_length = None, n_thresholds = Int(100), beta_parameters = (2.0, 18.0), boltzmann_parameter = 2.0, resolution = 0.1, max_transition_rate = 35.92, switch_prob = 0.01, no_trough_prob = 0.01, fill_na = FillNaArg(audio_samples::operations::pitch_tracking::UnvoicedFill::Nan), center = true, pad_mode = "constant", transition_min_prob = Some(1e-4)),
+    text_signature = "(y, *, fmin, fmax, sr, frame_length=2048, hop_length=None, n_thresholds=100, beta_parameters=(2, 18), boltzmann_parameter=2, resolution=0.1, max_transition_rate=35.92, switch_prob=0.01, no_trough_prob=0.01, fill_na=math.nan, center=True, pad_mode='constant', transition_min_prob=0.0001)"
 )]
 #[allow(clippy::too_many_arguments)]
 pub fn pyin<'py>(
@@ -190,7 +195,6 @@ pub fn pyin<'py>(
     pad_mode: &str,
     transition_min_prob: Option<f64>,
 ) -> PyResult<Bound<'py, PyAny>> {
-    let (x, nd) = signal2(y, "y")?;
     let cfg = pyin_config(
         fmin,
         fmax,
@@ -208,27 +212,30 @@ pub fn pyin<'py>(
         pad_mode,
         transition_min_prob,
     )?;
-    let x = x.view();
-    let r = py
-        .detach(|| pt::pyin(x, sr, &cfg))
-        .map_err(audio_err_to_py)?;
-    (
-        rows_out(py, r.f0, nd),
-        rows_out(py, r.voiced_flag, nd),
-        rows_out(py, r.voiced_prob, nd),
-    )
-        .into_bound_py_any(py)
+    with_precision!(precision_of(y), |F| {
+        let (x, nd) = signal2::<F>(y, "y")?;
+        let x = x.view();
+        let r = py
+            .detach(|| pt::pyin(x, sr, &cfg))
+            .map_err(audio_err_to_py)?;
+        (
+            rows_out(py, r.f0, nd),
+            rows_out(py, r.voiced_flag, nd),
+            rows_out(py, r.voiced_prob, nd),
+        )
+            .into_bound_py_any(py)
+    })
 }
 
 /// A `freqs` argument: 1-D (fixed grid) or shaped like the spectrogram.
-enum Grid {
-    Fixed(Array1<f64>),
-    Varying(Array3<f64>),
+enum Grid<F> {
+    Fixed(Array1<F>),
+    Varying(Array3<F>),
 }
 
-impl Grid {
+impl<F: FloatElement> Grid<F> {
     fn parse(obj: &Bound<'_, PyAny>, s_ndim: usize) -> PyResult<Self> {
-        let a = f64_array(obj, "freqs")?;
+        let a = float_array_as::<F>(obj, "freqs")?;
         let v = a.as_array();
         match v.ndim() {
             1 => Ok(Self::Fixed(
@@ -257,7 +264,7 @@ impl Grid {
         }
     }
 
-    fn view(&self) -> FrequencyGrid<'_> {
+    fn view(&self) -> FrequencyGrid<'_, F> {
         match self {
             Self::Fixed(a) => FrequencyGrid::Fixed(a.view()),
             Self::Varying(a) => FrequencyGrid::TimeVarying(a.view()),
@@ -297,7 +304,7 @@ fn check_kind_axis(kind: &str, axis: i64, ndim: usize) -> PyResult<()> {
 ///     axis (int): Must be -2.
 ///
 /// Returns:
-///     numpy.ndarray[float64]: same shape as ``S``.
+///     numpy.ndarray[float32 | float64]: same shape as ``S``.
 ///
 /// Raises:
 ///     ValueError: For shape mismatches or unsupported options.
@@ -319,9 +326,6 @@ pub fn salience<'py>(
     kind: &str,
     axis: Int,
 ) -> PyResult<Bound<'py, PyAny>> {
-    let (s, nd) = spec3(S, "S")?;
-    check_kind_axis(kind, axis.0, nd)?;
-    let grid = Grid::parse(freqs, nd)?;
     let h = super::args::f64_vec(harmonics, "harmonics")?;
     let (agg, is_mean) = match aggregate {
         Some(a) => parse_aggregate(a)?,
@@ -338,8 +342,13 @@ pub fn salience<'py>(
         filter_peaks,
         fill_value,
     };
-    let r = pt::salience(s.view(), grid.view(), &h, &cfg).map_err(audio_err_to_py)?;
-    Ok(squeeze_out(py, r.into_dyn(), nd == 2))
+    with_precision!(precision_of(S), |F| {
+        let (s, nd) = spec3::<F>(S, "S")?;
+        check_kind_axis(kind, axis.0, nd)?;
+        let grid = Grid::<F>::parse(freqs, nd)?;
+        let r = pt::salience(s.view(), grid.view(), &h, &cfg).map_err(audio_err_to_py)?;
+        Ok(squeeze_out(py, r.into_dyn(), nd == 2))
+    })
 }
 
 /// Interpolated harmonics of a spectrogram, equivalent to ``librosa.interp_harmonics``.
@@ -353,7 +362,7 @@ pub fn salience<'py>(
 ///     axis (int): Must be -2.
 ///
 /// Returns:
-///     numpy.ndarray[float64]: shape ``(len(harmonics), F, T)`` or
+///     numpy.ndarray[float32 | float64]: shape ``(len(harmonics), F, T)`` or
 ///     ``(channels, len(harmonics), F, T)``.
 ///
 /// Raises:
@@ -372,12 +381,15 @@ pub fn interp_harmonics<'py>(
     fill_value: f64,
     axis: Int,
 ) -> PyResult<Bound<'py, PyAny>> {
-    let (s, nd) = spec3(x, "x")?;
-    check_kind_axis(kind, axis.0, nd)?;
-    let grid = Grid::parse(freqs, nd)?;
     let h = super::args::f64_vec(harmonics, "harmonics")?;
-    let r = pt::interp_harmonics(s.view(), grid.view(), &h, fill_value).map_err(audio_err_to_py)?;
-    Ok(squeeze_out(py, r.into_dyn(), nd == 2))
+    with_precision!(precision_of(x), |F| {
+        let (s, nd) = spec3::<F>(x, "x")?;
+        check_kind_axis(kind, axis.0, nd)?;
+        let grid = Grid::<F>::parse(freqs, nd)?;
+        let r =
+            pt::interp_harmonics(s.view(), grid.view(), &h, fill_value).map_err(audio_err_to_py)?;
+        Ok(squeeze_out(py, r.into_dyn(), nd == 2))
+    })
 }
 
 /// Energy at the harmonics of a time-varying f0, equivalent to ``librosa.f0_harmonics``.
@@ -393,7 +405,7 @@ pub fn interp_harmonics<'py>(
 ///     axis (int): Must be -2.
 ///
 /// Returns:
-///     numpy.ndarray[float64]: shape ``(len(harmonics), T)`` or
+///     numpy.ndarray[float32 | float64]: shape ``(len(harmonics), T)`` or
 ///     ``(channels, len(harmonics), T)``.
 ///
 /// Raises:
@@ -414,23 +426,25 @@ pub fn f0_harmonics<'py>(
     fill_value: f64,
     axis: Int,
 ) -> PyResult<Bound<'py, PyAny>> {
-    let (s, nd) = spec3(x, "x")?;
-    check_kind_axis(kind, axis.0, nd)?;
-    let grid = Grid::parse(freqs, nd)?;
     let h = super::args::f64_vec(harmonics, "harmonics")?;
-    let (f0, f0_nd) = signal2(f0, "f0")?;
-    if f0_nd + 1 != nd {
-        return Err(value_err(
-            "f0",
-            format!(
-                "expected {} dimensions for an input with {nd} dimensions, got {f0_nd}",
-                nd - 1
-            ),
-        ));
-    }
-    let r = pt::f0_harmonics(s.view(), f0.view(), grid.view(), &h, fill_value)
-        .map_err(audio_err_to_py)?;
-    Ok(squeeze_out(py, r.into_dyn(), nd == 2))
+    with_precision!(precision_of(x), |F| {
+        let (s, nd) = spec3::<F>(x, "x")?;
+        check_kind_axis(kind, axis.0, nd)?;
+        let grid = Grid::<F>::parse(freqs, nd)?;
+        let (f0, f0_nd) = signal2::<F>(f0, "f0")?;
+        if f0_nd + 1 != nd {
+            return Err(value_err(
+                "f0",
+                format!(
+                    "expected {} dimensions for an input with {nd} dimensions, got {f0_nd}",
+                    nd - 1
+                ),
+            ));
+        }
+        let r = pt::f0_harmonics(s.view(), f0.view(), grid.view(), &h, fill_value)
+            .map_err(audio_err_to_py)?;
+        Ok(squeeze_out(py, r.into_dyn(), nd == 2))
+    })
 }
 
 /// Registers the pitch-tracking functions.
