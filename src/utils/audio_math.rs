@@ -6,7 +6,7 @@
 
 use crate::args::Int;
 use audio_samples::utils::audio_math;
-use numpy::{IntoPyArray, PyArray1, PyUntypedArrayMethods};
+use numpy::{IntoPyArray, PyArray1};
 use pyo3::prelude::*;
 
 use crate::args::{is_scalar, map_f64, map_f64_to_i64, map_i64, non_negative, positive, value_err};
@@ -826,18 +826,63 @@ pub fn samples_like<'py>(
 #[pyfunction]
 #[pyo3(signature = (x, *, mu = 255.0), text_signature = "(x, *, mu=255.0)")]
 pub fn mu_law_encode<'py>(x: &Bound<'py, PyAny>, mu: f64) -> PyResult<Bound<'py, PyAny>> {
+    use crate::args::{Precision, float_array_as, precision_of};
     use pyo3::IntoPyObjectExt;
     let py = x.py();
-    let a = crate::args::f64_array(x, "x")?;
-    let flat: Vec<f64> = a.as_array().iter().copied().collect();
-    let codes = audio_samples::mu_law_encode(&flat, mu).map_err(audio_err_to_py)?;
-    if is_scalar(x)? {
+    let scalar = is_scalar(x)?;
+    let (codes, shape) = match precision_of(x) {
+        Precision::F32 => {
+            let a = float_array_as::<f32>(x, "x")?;
+            let v = a.as_array();
+            (mu_encode_blocks(v.view(), mu)?, v.raw_dim())
+        }
+        Precision::F64 => {
+            let a = float_array_as::<f64>(x, "x")?;
+            let v = a.as_array();
+            let codes = match v.as_slice() {
+                // C-contiguous float64: encoded in place.
+                Some(flat) => audio_samples::mu_law_encode(flat, mu).map_err(audio_err_to_py)?,
+                None => mu_encode_blocks(v.view(), mu)?,
+            };
+            (codes, v.raw_dim())
+        }
+    };
+    if scalar {
         return codes[0].into_bound_py_any(py);
     }
-    let out = ndarray::ArrayD::from_shape_vec(ndarray::IxDyn(a.shape()), codes)
-        .map_err(|e| value_err("x", e))?;
+    let out = ndarray::ArrayD::from_shape_vec(shape, codes).map_err(|e| value_err("x", e))?;
     Ok(out.into_pyarray(py).into_any())
 }
+
+/// [`audio_samples::mu_law_encode`] of `v` in logical order, widened to
+/// float64 in blocks of [`MU_BLOCK`] samples (no float64 copy of the whole
+/// input).
+fn mu_encode_blocks<F: audio_samples::AudioFloat>(
+    v: ndarray::ArrayViewD<'_, F>,
+    mu: f64,
+) -> PyResult<Vec<i64>> {
+    let mut codes = Vec::with_capacity(v.len());
+    let mut buf = Vec::with_capacity(MU_BLOCK.min(v.len()));
+    let flush = |buf: &mut Vec<f64>, codes: &mut Vec<i64>| -> PyResult<()> {
+        codes.extend(audio_samples::mu_law_encode(buf, mu).map_err(audio_err_to_py)?);
+        buf.clear();
+        Ok(())
+    };
+    for &s in &v {
+        buf.push(s.as_f64());
+        if buf.len() == MU_BLOCK {
+            flush(&mut buf, &mut codes)?;
+        }
+    }
+    // Also run once on empty input, so that `mu` is still validated.
+    if !buf.is_empty() || codes.is_empty() {
+        flush(&mut buf, &mut codes)?;
+    }
+    Ok(codes)
+}
+
+/// Block length of the μ-law conversions that widen or gather their input.
+const MU_BLOCK: usize = 4096;
 
 /// Map integer μ-law codes back to amplitudes, like
 /// ``librosa.mu_expand(codes, mu=mu, quantize=True)``.
@@ -859,13 +904,33 @@ pub fn mu_law_encode<'py>(x: &Bound<'py, PyAny>, mu: f64) -> PyResult<Bound<'py,
 pub fn mu_law_decode<'py>(codes: &Bound<'py, PyAny>, mu: f64) -> PyResult<Bound<'py, PyAny>> {
     use pyo3::IntoPyObjectExt;
     let py = codes.py();
-    let a = crate::args::f64_array(codes, "codes")?;
-    let ints = crate::args::i64_vec(codes, "codes")?;
-    let vals = audio_samples::mu_law_decode(&ints, mu).map_err(audio_err_to_py)?;
-    if is_scalar(codes)? {
+    let scalar = is_scalar(codes)?;
+    let (vals, shape) = crate::args::with_i64_view(codes, "codes", |v| {
+        let vals = match v.as_slice() {
+            Some(flat) => audio_samples::mu_law_decode(flat, mu).map_err(audio_err_to_py)?,
+            None => {
+                let mut vals = Vec::with_capacity(v.len());
+                let mut buf = Vec::with_capacity(MU_BLOCK.min(v.len()));
+                for &k in &v {
+                    buf.push(k);
+                    if buf.len() == MU_BLOCK {
+                        vals.extend(
+                            audio_samples::mu_law_decode(&buf, mu).map_err(audio_err_to_py)?,
+                        );
+                        buf.clear();
+                    }
+                }
+                if !buf.is_empty() || vals.is_empty() {
+                    vals.extend(audio_samples::mu_law_decode(&buf, mu).map_err(audio_err_to_py)?);
+                }
+                vals
+            }
+        };
+        Ok((vals, v.raw_dim()))
+    })?;
+    if scalar {
         return vals[0].into_bound_py_any(py);
     }
-    let out = ndarray::ArrayD::from_shape_vec(ndarray::IxDyn(a.shape()), vals)
-        .map_err(|e| value_err("codes", e))?;
+    let out = ndarray::ArrayD::from_shape_vec(shape, vals).map_err(|e| value_err("codes", e))?;
     Ok(out.into_pyarray(py).into_any())
 }
