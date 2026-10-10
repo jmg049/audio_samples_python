@@ -316,14 +316,14 @@ pub(crate) fn signal2(
     }
 }
 
-/// Drops the leading channel axis of `a` when the input had `ndim_in` dimensions
-/// one fewer than `a` (librosa's shape convention for unbatched input).
+/// Drops the leading (length-1) channel axis of `a` when `drop_channel` is set,
+/// i.e. when the input had no channel axis (librosa's shape convention).
 pub(crate) fn squeeze_out<'py, T: numpy::Element>(
     py: Python<'py>,
     a: ArrayD<T>,
     drop_channel: bool,
 ) -> Bound<'py, PyAny> {
-    if drop_channel && a.ndim() > 0 && a.shape()[0] == 1 {
+    if drop_channel && a.shape().first() == Some(&1) {
         a.index_axis_move(Axis(0), 0).into_pyarray(py).into_any()
     } else {
         a.into_pyarray(py).into_any()

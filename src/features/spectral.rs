@@ -295,8 +295,8 @@ pub fn rms_from_spectrogram<'py>(
 fn pcen_zi(zi: &Bound<'_, PyAny>, channels: usize, bins: usize) -> PyResult<Array2<f64>> {
     let a = f64_array(zi, "zi")?;
     let v: Vec<f64> = a.as_array().iter().copied().collect();
-    if v.len() == 1 {
-        return Ok(Array2::from_elem((channels, bins), v[0]));
+    if let [single] = v[..] {
+        return Ok(Array2::from_elem((channels, bins), single));
     }
     if v.len() != channels * bins {
         return Err(value_err(
@@ -437,8 +437,10 @@ fn weighting_map<'py>(
     let shape = a.shape().to_vec();
     let vals: Vec<f64> = a.as_array().iter().copied().collect();
     let w = f(&vals);
-    if is_scalar(frequencies)? {
-        return w[0].into_bound_py_any(py);
+    if is_scalar(frequencies)?
+        && let Some(&v) = w.first()
+    {
+        return v.into_bound_py_any(py);
     }
     let arr = ArrayD::from_shape_vec(IxDyn(&shape), w).map_err(|e| value_err("frequencies", e))?;
     Ok(arr.into_pyarray(py).into_any())
