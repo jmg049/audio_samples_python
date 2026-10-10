@@ -460,8 +460,9 @@ impl PyAudioSamples {
         Bound<'py, PyArray2<Complex<f64>>>,
     )> {
         let power = power.map(nzu_or_err).transpose()?;
-        let spect = complex_spect.as_array().to_owned();
-        let (mag, phase) = <AudioSamples<f64> as AudioTransforms>::magphase(&spect, power);
+        // On the borrowed numpy data: no copy of the input.
+        let (mag, phase) =
+            audio_samples::operations::transforms::magphase(complex_spect.as_array(), power);
         Ok((mag.into_pyarray(py), phase.into_pyarray(py)))
     }
 }
