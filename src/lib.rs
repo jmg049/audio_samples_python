@@ -223,6 +223,24 @@ macro_rules! dispatch_with_view {
     }};
 }
 
+/// [`dispatch_with_view!`] with the GIL released while the body runs
+/// (`TypedAudioSamples::with_view_detached`). Only for pure-Rust bodies: the
+/// body is a `Send` closure, so capturing a Python object does not compile.
+macro_rules! dispatch_with_view_detached {
+    ($samples:expr, $py:expr, |$audio:ident| $body:expr) => {{
+        let __samples = &$samples;
+        use crate::PyAudioDataInner;
+        match __samples.inner() {
+            PyAudioDataInner::U8(a) => a.with_view_detached($py, |$audio| $body),
+            PyAudioDataInner::I16(a) => a.with_view_detached($py, |$audio| $body),
+            PyAudioDataInner::I24(a) => a.with_view_detached($py, |$audio| $body),
+            PyAudioDataInner::I32(a) => a.with_view_detached($py, |$audio| $body),
+            PyAudioDataInner::F32(a) => a.with_view_detached($py, |$audio| $body),
+            PyAudioDataInner::F64(a) => a.with_view_detached($py, |$audio| $body),
+        }
+    }};
+}
+
 /// Dispatch to all dtype variants with a mutable view.
 /// Usage: `dispatch_with_view_mut!(self, py, |mut audio| audio.mutating_method())`
 macro_rules! dispatch_with_view_mut {
@@ -241,6 +259,7 @@ macro_rules! dispatch_with_view_mut {
 }
 
 pub(crate) use dispatch_with_view;
+pub(crate) use dispatch_with_view_detached;
 pub(crate) use dispatch_with_view_mut;
 
 /// Convert an audio_samples error to a PyErr with appropriate exception type.
@@ -3093,6 +3112,66 @@ where
                     sr,
                 );
                 f(core)
+            }
+        }
+    }
+
+    /// [`Self::with_view`] with the GIL released while `f` runs, for long
+    /// pure-Rust computations (STFT, CQT, pYIN, HPSS, ...), so other Python
+    /// threads keep running.
+    ///
+    /// Safe for the same reasons as [`Self::with_view_mut_detached`]: owned
+    /// data is borrowed through `&self` (the pyclass borrow keeps Rust-side
+    /// mutation out), and a NumPy-backed view stays valid because the
+    /// `Py<PyArray>` handle keeps the array alive. `f` must not call back into
+    /// Python (it is `Send`, so it cannot capture Python objects).
+    pub fn with_view_detached<R: Send>(
+        &self,
+        py: Python<'_>,
+        f: impl for<'a> FnOnce(AudioSamples<'a, T>) -> R + Send,
+    ) -> R {
+        use PyAudioBacking::*;
+        let sr = self.sample_rate;
+        match &self.backing {
+            OwnedMono(arr) => {
+                let view = arr.view();
+                py.detach(move || {
+                    // safety: an instantiated TypedAudioSamples is non-empty
+                    f(AudioSamples::new(
+                        unsafe { AudioData::from_borrowed_array1_unchecked(view) },
+                        sr,
+                    ))
+                })
+            }
+            OwnedMulti(arr) => {
+                let view = arr.view();
+                py.detach(move || {
+                    // safety: an instantiated TypedAudioSamples is non-empty
+                    f(AudioSamples::new(
+                        unsafe { AudioData::from_borrowed_array2_unchecked(view) },
+                        sr,
+                    ))
+                })
+            }
+            NumpyMono(handle) => {
+                let view = unsafe { handle.bind(py).as_array() };
+                py.detach(move || {
+                    // safety: an instantiated TypedAudioSamples is non-empty
+                    f(AudioSamples::new(
+                        unsafe { AudioData::from_borrowed_array1_unchecked(view) },
+                        sr,
+                    ))
+                })
+            }
+            NumpyMulti(handle) | NumpyInterleaved(handle) => {
+                let view = unsafe { handle.bind(py).as_array() };
+                py.detach(move || {
+                    // safety: an instantiated TypedAudioSamples is non-empty
+                    f(AudioSamples::new(
+                        unsafe { AudioData::from_borrowed_array2_unchecked(view) },
+                        sr,
+                    ))
+                })
             }
         }
     }

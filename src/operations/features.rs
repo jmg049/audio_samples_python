@@ -23,7 +23,7 @@ use pyo3::prelude::*;
 
 use crate::args::{WindowArg, non_negative, parse_pad_mode, positive, stft_config};
 use crate::features::args::{ReassignRefArg, parse_zcr_ref};
-use crate::{PyAudioSamples, audio_err_to_py, dispatch_with_view};
+use crate::{PyAudioSamples, audio_err_to_py, dispatch_with_view_detached};
 
 #[pymethods]
 impl PyAudioSamples {
@@ -71,8 +71,9 @@ impl PyAudioSamples {
                 pad_mode,
             )?,
         };
-        let r = dispatch_with_view!(self, py, |audio| audio.spectral_centroid_frames(&cfg))
-            .map_err(audio_err_to_py)?;
+        let r = dispatch_with_view_detached!(self, py, |audio| audio
+            .spectral_centroid_frames(&cfg))
+        .map_err(audio_err_to_py)?;
         Ok(r.into_pyarray(py))
     }
 
@@ -119,8 +120,9 @@ impl PyAudioSamples {
             p,
             norm,
         };
-        let r = dispatch_with_view!(self, py, |audio| audio.spectral_bandwidth_frames(&cfg))
-            .map_err(audio_err_to_py)?;
+        let r = dispatch_with_view_detached!(self, py, |audio| audio
+            .spectral_bandwidth_frames(&cfg))
+        .map_err(audio_err_to_py)?;
         Ok(r.into_pyarray(py))
     }
 
@@ -164,7 +166,7 @@ impl PyAudioSamples {
             )?,
             roll_percent,
         };
-        let r = dispatch_with_view!(self, py, |audio| audio.spectral_rolloff_frames(&cfg))
+        let r = dispatch_with_view_detached!(self, py, |audio| audio.spectral_rolloff_frames(&cfg))
             .map_err(audio_err_to_py)?;
         Ok(r.into_pyarray(py))
     }
@@ -212,8 +214,9 @@ impl PyAudioSamples {
             amin,
             power,
         };
-        let r = dispatch_with_view!(self, py, |audio| audio.spectral_flatness_frames(&cfg))
-            .map_err(audio_err_to_py)?;
+        let r = dispatch_with_view_detached!(self, py, |audio| audio
+            .spectral_flatness_frames(&cfg))
+        .map_err(audio_err_to_py)?;
         Ok(r.into_pyarray(py))
     }
 
@@ -266,8 +269,9 @@ impl PyAudioSamples {
             quantile,
             linear,
         };
-        let r = dispatch_with_view!(self, py, |audio| audio.spectral_contrast_frames(&cfg))
-            .map_err(audio_err_to_py)?;
+        let r = dispatch_with_view_detached!(self, py, |audio| audio
+            .spectral_contrast_frames(&cfg))
+        .map_err(audio_err_to_py)?;
         Ok(r.into_pyarray(py))
     }
 
@@ -312,7 +316,7 @@ impl PyAudioSamples {
             )?,
             order: non_negative("order", order)?,
         };
-        let r = dispatch_with_view!(self, py, |audio| audio.poly_features(&cfg))
+        let r = dispatch_with_view_detached!(self, py, |audio| audio.poly_features(&cfg))
             .map_err(audio_err_to_py)?;
         Ok(r.into_pyarray(py))
     }
@@ -352,7 +356,7 @@ impl PyAudioSamples {
             center,
             pad_mode: parse_pad_mode(pad_mode)?,
         };
-        let r = dispatch_with_view!(self, py, |audio| audio.rms_frames(&cfg))
+        let r = dispatch_with_view_detached!(self, py, |audio| audio.rms_frames(&cfg))
             .map_err(audio_err_to_py)?;
         Ok(r.into_pyarray(py))
     }
@@ -406,8 +410,9 @@ impl PyAudioSamples {
             pad,
             zero_pos,
         };
-        let r = dispatch_with_view!(self, py, |audio| audio.zero_crossing_rate_frames(&cfg))
-            .map_err(audio_err_to_py)?;
+        let r = dispatch_with_view_detached!(self, py, |audio| audio
+            .zero_crossing_rate_frames(&cfg))
+        .map_err(audio_err_to_py)?;
         Ok(r.into_pyarray(py))
     }
 
@@ -462,7 +467,7 @@ impl PyAudioSamples {
             fill_nan,
             clip,
         };
-        let r = dispatch_with_view!(self, py, |audio| audio.reassigned_spectrogram(&cfg))
+        let r = dispatch_with_view_detached!(self, py, |audio| audio.reassigned_spectrogram(&cfg))
             .map_err(audio_err_to_py)?;
         (
             r.freqs.into_pyarray(py),

@@ -206,3 +206,30 @@ def test_times_like_axis_and_sr_alias():
         U.time_to_samples(1.0, sr=1, sample_rate=2)
     with pytest.raises(ValueError, match="axis"):
         U.times_like(X, axis=3)
+
+
+# ---------------------------------------------------------------------------
+# GIL release in the heavy pure-Rust computations
+# ---------------------------------------------------------------------------
+
+
+def test_detached_computations_are_thread_safe():
+    from concurrent.futures import ThreadPoolExecutor
+
+    sr = 22050
+    y = np.sin(2 * np.pi * 220 * np.arange(sr) / sr)
+    a = aus.AudioSamples.new_mono(y, sample_rate=sr)
+    env = a.onset_strength()[0]
+    jobs = {
+        "pyin": lambda: a.pyin(fmin=80, fmax=800)[0],
+        "stft": lambda: spectral.stft(y),
+        "cqt": lambda: a.cqt(),
+        "beat_track": lambda: rhythm.beat_track(onset_envelope=env, sr=sr)[1],
+        # A Python prior keeps the GIL (callback path) and must still work in threads.
+        "beat_track_prior": lambda: rhythm.beat_track(onset_envelope=env, sr=sr, prior=lambda bpm: 0.0)[1],
+    }
+    ref = {k: f() for k, f in jobs.items()}
+    with ThreadPoolExecutor(4) as ex:
+        futs = [(k, ex.submit(f)) for _ in range(4) for k, f in jobs.items()]
+        for k, fut in futs:
+            np.testing.assert_array_equal(fut.result(), ref[k], err_msg=k)

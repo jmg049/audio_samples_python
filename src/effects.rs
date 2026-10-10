@@ -390,18 +390,30 @@ pub fn hpss<'py>(
         let (d, squeeze) = cplanes(S, "S")?;
         if mask {
             let mag = d.mapv(Complex::norm);
-            let (mh, mp) = fx::hpss_masks(mag.view(), &cfg).map_err(audio_err_to_py)?;
+            let mag = mag.view();
+            let (mh, mp) = py
+                .detach(|| fx::hpss_masks(mag, &cfg))
+                .map_err(audio_err_to_py)?;
             return Ok((as_mask(mh, squeeze), as_mask(mp, squeeze)));
         }
-        let (h, p) = fx::hpss_spectrogram(d.view(), &cfg).map_err(audio_err_to_py)?;
+        let dv = d.view();
+        let (h, p) = py
+            .detach(|| fx::hpss_spectrogram(dv, &cfg))
+            .map_err(audio_err_to_py)?;
         return Ok((out3(py, h, squeeze), out3(py, p, squeeze)));
     }
     let (s, squeeze) = planes(S, "S")?;
     if mask {
-        let (mh, mp) = fx::hpss_masks(s.view(), &cfg).map_err(audio_err_to_py)?;
+        let sv = s.view();
+        let (mh, mp) = py
+            .detach(|| fx::hpss_masks(sv, &cfg))
+            .map_err(audio_err_to_py)?;
         return Ok((as_mask(mh, squeeze), as_mask(mp, squeeze)));
     }
-    let (h, p) = fx::hpss_magnitude(s.view(), &cfg).map_err(audio_err_to_py)?;
+    let sv = s.view();
+    let (h, p) = py
+        .detach(|| fx::hpss_magnitude(sv, &cfg))
+        .map_err(audio_err_to_py)?;
     Ok((out3(py, h, squeeze), out3(py, p, squeeze)))
 }
 

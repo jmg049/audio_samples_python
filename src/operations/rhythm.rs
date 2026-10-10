@@ -27,7 +27,7 @@ use crate::rhythm::{
     onset_peak_pick, parse_aggregate, parse_channels, parse_prior, plp_config, ratio_config,
     require_sparse, tempo_config, tempogram_config, track_beats,
 };
-use crate::{PyAudioSamples, audio_err_to_py, dispatch_with_view};
+use crate::{PyAudioSamples, audio_err_to_py, dispatch_with_view, dispatch_with_view_detached};
 
 /// librosa's default onset envelope for a hop length (what `tempo`,
 /// `tempogram`, `beat_track`, ... compute from `y`).
@@ -44,7 +44,14 @@ impl PyAudioSamples {
 
     /// Onset envelope `(channels, n_frames)` for `cfg`.
     fn envelope(&self, py: Python<'_>, cfg: &OnsetStrengthConfig) -> PyResult<Array2<f64>> {
-        dispatch_with_view!(self, py, |audio| audio.onset_strength(cfg)).map_err(audio_err_to_py)
+        // Built-in aggregates are pure Rust: release the GIL. A Python callable
+        // (Aggregate::Custom trampoline) needs it.
+        if matches!(cfg.aggregate, Some(Aggregate::Custom(_))) {
+            dispatch_with_view!(self, py, |audio| audio.onset_strength(cfg))
+        } else {
+            dispatch_with_view_detached!(self, py, |audio| audio.onset_strength(cfg))
+        }
+        .map_err(audio_err_to_py)
     }
 
     /// The single envelope row of mono audio, for the event detectors.

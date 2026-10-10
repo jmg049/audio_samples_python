@@ -74,12 +74,16 @@ pub fn stft<'py>(
                 .into_dimensionality::<Ix1>()
                 .expect("1-D")
                 .insert_axis(Axis(0));
-            let s = spectrum::stft(y2, &cfg).map_err(audio_err_to_py)?;
+            let s = py
+                .detach(|| spectrum::stft(y2, &cfg))
+                .map_err(audio_err_to_py)?;
             Ok(s.index_axis_move(Axis(0), 0).into_pyarray(py).into_any())
         }
         2 => {
             let y2 = y.into_dimensionality::<Ix2>().expect("2-D");
-            let s = spectrum::stft(y2, &cfg).map_err(audio_err_to_py)?;
+            let s = py
+                .detach(|| spectrum::stft(y2, &cfg))
+                .map_err(audio_err_to_py)?;
             Ok(s.into_pyarray(py).into_any())
         }
         n => Err(value_err(
@@ -139,11 +143,15 @@ pub fn istft<'py>(
             .into_dimensionality::<Ix2>()
             .expect("2-D")
             .insert_axis(Axis(0));
-        let y = spectrum::istft(d3, &cfg, length).map_err(audio_err_to_py)?;
+        let y = py
+            .detach(|| spectrum::istft(d3, &cfg, length))
+            .map_err(audio_err_to_py)?;
         Ok(y.index_axis_move(Axis(0), 0).into_pyarray(py).into_any())
     } else {
         let d3 = d.into_dimensionality::<Ix3>().expect("3-D");
-        let y = spectrum::istft(d3, &cfg, length).map_err(audio_err_to_py)?;
+        let y = py
+            .detach(|| spectrum::istft(d3, &cfg, length))
+            .map_err(audio_err_to_py)?;
         Ok(y.into_pyarray(py).into_any())
     }
 }

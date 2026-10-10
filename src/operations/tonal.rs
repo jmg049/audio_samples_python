@@ -9,7 +9,7 @@ use pyo3::IntoPyObjectExt;
 use pyo3::prelude::*;
 
 use crate::args::{WindowArg, positive, stft_config};
-use crate::{PyAudioSamples, audio_err_to_py, dispatch_with_view};
+use crate::{PyAudioSamples, audio_err_to_py, dispatch_with_view_detached};
 
 #[pymethods]
 impl PyAudioSamples {
@@ -75,7 +75,7 @@ impl PyAudioSamples {
             octwidth,
             base_c,
         };
-        let r = dispatch_with_view!(self, py, |audio| audio.chroma_stft(&cfg))
+        let r = dispatch_with_view_detached!(self, py, |audio| audio.chroma_stft(&cfg))
             .map_err(audio_err_to_py)?;
         Ok(r.into_pyarray(py))
     }
@@ -120,8 +120,8 @@ impl PyAudioSamples {
     ) -> PyResult<Bound<'py, PyAny>> {
         let stft = stft_config(n_fft, hop_length, win_length, window, center, pad_mode)?;
         let cfg = piptrack_config(stft, fmin, fmax, threshold, r#ref)?;
-        let (p, m) =
-            dispatch_with_view!(self, py, |audio| audio.piptrack(&cfg)).map_err(audio_err_to_py)?;
+        let (p, m) = dispatch_with_view_detached!(self, py, |audio| audio.piptrack(&cfg))
+            .map_err(audio_err_to_py)?;
         (p.into_pyarray(py), m.into_pyarray(py)).into_bound_py_any(py)
     }
 
@@ -168,7 +168,8 @@ impl PyAudioSamples {
             resolution,
             bins_per_octave: positive("bins_per_octave", bins_per_octave)?,
         };
-        dispatch_with_view!(self, py, |audio| audio.estimate_tuning(&cfg)).map_err(audio_err_to_py)
+        dispatch_with_view_detached!(self, py, |audio| audio.estimate_tuning(&cfg))
+            .map_err(audio_err_to_py)
     }
 }
 

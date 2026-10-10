@@ -665,8 +665,14 @@ pub(crate) fn track_beats<'py>(
                 .with_trim(trim)
                 .with_bpm(fixed)
                 .with_prior(prior_fn(prior.as_ref()));
-            let scope = CallbackScope::install(None, prior.as_ref(), py);
-            let bt = scope.finish(rh::beat_track_from_envelope(envelope, sr, hop, &cfg))?;
+            let bt = if prior.is_some() {
+                // A Python prior is called back from the Rust code: keep the GIL.
+                let scope = CallbackScope::install(None, prior.as_ref(), py);
+                scope.finish(rh::beat_track_from_envelope(envelope, sr, hop, &cfg))?
+            } else {
+                py.detach(|| rh::beat_track_from_envelope(envelope, sr, hop, &cfg))
+                    .map_err(audio_err_to_py)?
+            };
             // librosa returns the given `bpm` unchanged, or the estimate as a
             // shape-(1,) array.
             let tempo = match bpm {

@@ -12,7 +12,7 @@ use pyo3::prelude::*;
 
 use crate::features::args::FillNaArg;
 use crate::features::pitch::{pyin_config, yin_config};
-use crate::{PyAudioSamples, audio_err_to_py, dispatch_with_view};
+use crate::{PyAudioSamples, audio_err_to_py, dispatch_with_view_detached};
 
 #[pymethods]
 impl PyAudioSamples {
@@ -63,7 +63,8 @@ impl PyAudioSamples {
             center,
             pad_mode,
         )?;
-        let f0 = dispatch_with_view!(self, py, |audio| audio.yin(&cfg)).map_err(audio_err_to_py)?;
+        let f0 = dispatch_with_view_detached!(self, py, |audio| audio.yin(&cfg))
+            .map_err(audio_err_to_py)?;
         Ok(f0.into_pyarray(py))
     }
 
@@ -135,7 +136,8 @@ impl PyAudioSamples {
             pad_mode,
             transition_min_prob,
         )?;
-        let r = dispatch_with_view!(self, py, |audio| audio.pyin(&cfg)).map_err(audio_err_to_py)?;
+        let r = dispatch_with_view_detached!(self, py, |audio| audio.pyin(&cfg))
+            .map_err(audio_err_to_py)?;
         (
             r.f0.into_pyarray(py),
             r.voiced_flag.into_pyarray(py),

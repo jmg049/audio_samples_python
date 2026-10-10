@@ -25,7 +25,7 @@ use crate::args::{
     value_err,
 };
 use crate::features::args::{check_intervals, parse_cqt_mode, parse_res_type};
-use crate::{PyAudioSamples, audio_err_to_py, dispatch_with_view, nzu32_or_err};
+use crate::{PyAudioSamples, audio_err_to_py, dispatch_with_view_detached, nzu32_or_err};
 
 /// Builds a [`CqtConfig`] from librosa's `cqt` keyword arguments.
 #[allow(clippy::too_many_arguments)]
@@ -185,7 +185,8 @@ impl PyAudioSamples {
             pad_mode,
             res_type,
         )?;
-        let c = dispatch_with_view!(self, py, |audio| audio.cqt(&cfg)).map_err(audio_err_to_py)?;
+        let c = dispatch_with_view_detached!(self, py, |audio| audio.cqt(&cfg))
+            .map_err(audio_err_to_py)?;
         Ok(c.into_pyarray(py))
     }
 
@@ -246,7 +247,8 @@ impl PyAudioSamples {
             )?,
             gamma,
         };
-        let c = dispatch_with_view!(self, py, |audio| audio.vqt(&cfg)).map_err(audio_err_to_py)?;
+        let c = dispatch_with_view_detached!(self, py, |audio| audio.vqt(&cfg))
+            .map_err(audio_err_to_py)?;
         Ok(c.into_pyarray(py))
     }
 
@@ -295,7 +297,7 @@ impl PyAudioSamples {
             pad_mode,
             "soxr_hq",
         )?;
-        let c = dispatch_with_view!(self, py, |audio| audio.pseudo_cqt(&cfg))
+        let c = dispatch_with_view_detached!(self, py, |audio| audio.pseudo_cqt(&cfg))
             .map_err(audio_err_to_py)?;
         Ok(c.into_pyarray(py))
     }
@@ -346,7 +348,7 @@ impl PyAudioSamples {
             pad_mode,
             res_type,
         )?;
-        let c = dispatch_with_view!(self, py, |audio| audio.hybrid_cqt(&cfg))
+        let c = dispatch_with_view_detached!(self, py, |audio| audio.hybrid_cqt(&cfg))
             .map_err(audio_err_to_py)?;
         Ok(c.into_pyarray(py))
     }
@@ -548,7 +550,7 @@ impl PyAudioSamples {
             bins_per_octave,
             cqt_mode,
         )?;
-        let c = dispatch_with_view!(self, py, |audio| audio.chroma_cqt(&cfg))
+        let c = dispatch_with_view_detached!(self, py, |audio| audio.chroma_cqt(&cfg))
             .map_err(audio_err_to_py)?;
         Ok(c.into_pyarray(py))
     }
@@ -605,7 +607,7 @@ impl PyAudioSamples {
             win_len_smooth: opt_positive("win_len_smooth", win_len_smooth)?,
             smoothing_window: smoothing_window.0,
         };
-        let c = dispatch_with_view!(self, py, |audio| audio.chroma_cens(&cfg))
+        let c = dispatch_with_view_detached!(self, py, |audio| audio.chroma_cens(&cfg))
             .map_err(audio_err_to_py)?;
         Ok(c.into_pyarray(py))
     }
@@ -658,7 +660,7 @@ impl PyAudioSamples {
             bins_per_octave: positive("bins_per_octave", bins_per_octave)?,
             gamma,
         };
-        let c = dispatch_with_view!(self, py, |audio| audio.chroma_vqt(&cfg))
+        let c = dispatch_with_view_detached!(self, py, |audio| audio.chroma_vqt(&cfg))
             .map_err(audio_err_to_py)?;
         Ok(c.into_pyarray(py))
     }
@@ -706,8 +708,8 @@ impl PyAudioSamples {
                 cqt_mode,
             )?,
         };
-        let c =
-            dispatch_with_view!(self, py, |audio| audio.tonnetz(&cfg)).map_err(audio_err_to_py)?;
+        let c = dispatch_with_view_detached!(self, py, |audio| audio.tonnetz(&cfg))
+            .map_err(audio_err_to_py)?;
         Ok(c.into_pyarray(py))
     }
 }

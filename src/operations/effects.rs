@@ -26,7 +26,9 @@ use crate::args::{DbRefArg, WindowArg, i64_vec, non_negative, positive, stft_con
 use crate::effects::{effects_err, griffinlim_config, hpss_mask_config};
 use crate::rhythm::planes;
 use crate::types::PyResamplingQuality;
-use crate::{PyAudioSamples, audio_err_to_py, dispatch_with_view, nzu32_or_err};
+use crate::{
+    PyAudioSamples, audio_err_to_py, dispatch_with_view, dispatch_with_view_detached, nzu32_or_err,
+};
 
 /// Parses `res_type`: a `ResamplingQuality` or a name. librosa's soxr names map
 /// to the closest tier of this library's resampler.
@@ -189,7 +191,7 @@ impl PyAudioSamples {
         pad_mode: &str,
     ) -> PyResult<Self> {
         let cfg = stft_config(n_fft, hop_length, win_length, window, center, pad_mode)?;
-        dispatch_with_view!(self, py, |audio| audio
+        dispatch_with_view_detached!(self, py, |audio| audio
             .time_stretch(rate, &cfg)
             .map(Self::from_audio_samples))
         .map_err(effects_err)
@@ -276,7 +278,7 @@ impl PyAudioSamples {
             .with_stft(stft_config(
                 n_fft, hop_length, win_length, window, center, pad_mode,
             )?);
-        dispatch_with_view!(self, py, |audio| audio
+        dispatch_with_view_detached!(self, py, |audio| audio
             .pitch_shift(n_steps, &cfg)
             .map(Self::from_audio_samples))
         .map_err(effects_err)
@@ -576,7 +578,7 @@ impl PyAudioSamples {
             center,
             pad_mode,
         )?;
-        dispatch_with_view!(self, py, |audio| audio
+        dispatch_with_view_detached!(self, py, |audio| audio
             .harmonic(&cfg)
             .map(Self::from_audio_samples))
         .map_err(effects_err)
@@ -657,7 +659,7 @@ impl PyAudioSamples {
             center,
             pad_mode,
         )?;
-        dispatch_with_view!(self, py, |audio| audio
+        dispatch_with_view_detached!(self, py, |audio| audio
             .percussive(&cfg)
             .map(Self::from_audio_samples))
         .map_err(effects_err)
@@ -741,7 +743,7 @@ impl PyAudioSamples {
             center,
             pad_mode,
         )?;
-        dispatch_with_view!(self, py, |audio| audio
+        dispatch_with_view_detached!(self, py, |audio| audio
             .harmonic_percussive(&cfg)
             .map(|(h, p)| (Self::from_audio_samples(h), Self::from_audio_samples(p))))
         .map_err(effects_err)

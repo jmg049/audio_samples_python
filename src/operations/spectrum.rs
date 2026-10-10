@@ -20,7 +20,7 @@ use pyo3::prelude::*;
 use crate::args::{
     DbRefArg, MelNormArg, WindowArg, c128_array, mel_config, positive, stft_config, value_err,
 };
-use crate::{PyAudioSamples, audio_err_to_py, dispatch_with_view, nzu32_or_err};
+use crate::{PyAudioSamples, audio_err_to_py, dispatch_with_view_detached, nzu32_or_err};
 
 /// Parses `dct_type` (1, 2 or 3).
 pub(crate) fn parse_dct_type(dct_type: i64) -> PyResult<DctType> {
@@ -107,7 +107,7 @@ impl PyAudioSamples {
         pad_mode: &str,
     ) -> PyResult<Bound<'py, PyArray3<Complex<f64>>>> {
         let cfg = stft_config(n_fft, hop_length, win_length, window, center, pad_mode)?;
-        let s = dispatch_with_view!(self, py, |audio| audio.stft_matrix(&cfg))
+        let s = dispatch_with_view_detached!(self, py, |audio| audio.stft_matrix(&cfg))
             .map_err(audio_err_to_py)?;
         Ok(s.into_pyarray(py))
     }
@@ -140,6 +140,7 @@ impl PyAudioSamples {
         text_signature = "(stft_matrix, *, sample_rate, hop_length=None, win_length=None, n_fft=None, window='hann', center=True, length=None)"
     )]
     fn istft_matrix(
+        py: Python<'_>,
         stft_matrix: &Bound<'_, PyAny>,
         sample_rate: Int,
         hop_length: Option<Int>,
@@ -177,7 +178,10 @@ impl PyAudioSamples {
         let cfg = stft_config(n_fft, hop_length, win_length, window, center, "constant")?;
         let sr = nzu32_or_err(crate::args::sample_rate_u32(sample_rate)?)?;
         let length = crate::args::opt_positive("length", length)?;
-        let y = <AudioSamples<'static, f64> as AudioSpectrum>::istft_matrix(&d3, &cfg, sr, length)
+        let y = py
+            .detach(|| {
+                <AudioSamples<'static, f64> as AudioSpectrum>::istft_matrix(&d3, &cfg, sr, length)
+            })
             .map_err(audio_err_to_py)?;
         Ok(Self::from_audio_samples(y))
     }
@@ -212,8 +216,9 @@ impl PyAudioSamples {
         power: f64,
     ) -> PyResult<Bound<'py, PyArray3<f64>>> {
         let cfg = stft_config(n_fft, hop_length, win_length, window, center, pad_mode)?;
-        let s = dispatch_with_view!(self, py, |audio| audio.spectrogram_matrix(&cfg, power))
-            .map_err(audio_err_to_py)?;
+        let s = dispatch_with_view_detached!(self, py, |audio| audio
+            .spectrogram_matrix(&cfg, power))
+        .map_err(audio_err_to_py)?;
         Ok(s.into_pyarray(py))
     }
 
@@ -270,7 +275,7 @@ impl PyAudioSamples {
             mel: mel_config(n_mels, fmin, fmax, htk, norm)?,
             power,
         };
-        let m = dispatch_with_view!(self, py, |audio| audio.melspectrogram(&cfg))
+        let m = dispatch_with_view_detached!(self, py, |audio| audio.melspectrogram(&cfg))
             .map_err(audio_err_to_py)?;
         Ok(m.into_pyarray(py))
     }
@@ -347,7 +352,7 @@ impl PyAudioSamples {
             .with_reference(r#ref.0)
             .with_amin(amin)
             .with_top_db(top_db);
-        let m = dispatch_with_view!(self, py, |audio| audio.mfcc_frames(&cfg))
+        let m = dispatch_with_view_detached!(self, py, |audio| audio.mfcc_frames(&cfg))
             .map_err(audio_err_to_py)?;
         Ok(m.into_pyarray(py))
     }

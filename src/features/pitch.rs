@@ -129,7 +129,10 @@ pub fn yin<'py>(
         center,
         pad_mode,
     )?;
-    let f0 = pt::yin(x.view(), sr, &cfg).map_err(audio_err_to_py)?;
+    let x = x.view();
+    let f0 = py
+        .detach(|| pt::yin(x, sr, &cfg))
+        .map_err(audio_err_to_py)?;
     Ok(rows_out(py, f0, nd))
 }
 
@@ -205,7 +208,10 @@ pub fn pyin<'py>(
         pad_mode,
         transition_min_prob,
     )?;
-    let r = pt::pyin(x.view(), sr, &cfg).map_err(audio_err_to_py)?;
+    let x = x.view();
+    let r = py
+        .detach(|| pt::pyin(x, sr, &cfg))
+        .map_err(audio_err_to_py)?;
     (
         rows_out(py, r.f0, nd),
         rows_out(py, r.voiced_flag, nd),
