@@ -13,9 +13,9 @@
 
 ## Overview
 
-Python bindings for the high-performance AudioSamples Rust ecosystem. AudioSamples eliminates the manual metadata coordination burden that plagues existing audio processing libraries by treating audio as a first-class data type with intrinsically embedded properties.
+Python bindings for the AudioSamples Rust crates. An `AudioSamples` object stores its sample rate, channel layout and sample type together with the samples, so these properties do not have to be passed separately to each function, as they do in most existing audio processing libraries.
 
-Current audio processing workflows suffer from artificial complexity inherited from C-era design patterns. Libraries like librosa, soundfile, and torchaudio force researchers to manually coordinate sample rates, channel layouts, and format information across every function call, creating cognitive overhead and error-prone workflows. AudioSamples eliminates this coordination burden by embedding audio properties intrinsically within the data structure, enabling automatic property preservation through processing pipelines.
+In libraries such as librosa, soundfile and torchaudio, the caller keeps track of the sample rate, channel layout and format and passes them to each function call. A mismatch between these values and the data is an easy mistake to make and is often not detected. AudioSamples stores these properties in the data structure, and processing methods carry them through to their outputs.
 
 
 ```text
@@ -53,9 +53,9 @@ stft = librosa.stft(data, sr=sr)  # Must pass sr manually
 freqs = librosa.fft_frequencies(sr=sr, n_fft=2048)  # Must pass sr again
 ```
 
-**Hidden Operations**: Libraries like librosa perform transformative operations without user awareness, automatically resampling to non-standard sample rates (22050Hz) and converting formats, compromising research reproducibility.
+**Hidden Operations**: Some libraries change the data without the caller asking. librosa resamples to 22050 Hz by default and converts the sample format on load, which makes research results harder to reproduce.
 
-**Performance Bottlenecks**: Popular frameworks like TorchAudio suffer from inefficient I/O implementations that deliver 4-10x slower performance than focused audio libraries, despite corporate backing.
+**I/O Performance**: TorchAudio's file I/O is 4-10x slower than that of dedicated audio I/O libraries.
 
 ### The AudioSamples Solution
 
@@ -69,9 +69,9 @@ stft = audio.stft(aus.StftParams(n_fft=2048, hop_size=512, window=aus.WindowType
 freqs = stft.frequencies  # frequency axis in Hz, from the audio's own sample rate
 ```
 
-**Explicit Operations Only**: The aim is that no implicit behavior occurs without user consent (trying to find any and all remainging). AudioSamples preserves original audio properties unless explicitly requested to change them.
+**Explicit Operations Only**: The aim is that nothing happens to the data unless the caller requests it (any remaining implicit behaviour is treated as a bug). AudioSamples keeps the original audio properties unless the caller asks to change them.
 
-**Performance by Default**: Rust foundations deliver 2-4x faster I/O operations compared to established Python libraries while maintaining full ecosystem interoperability.
+**I/O Speed**: File I/O, implemented in Rust, is 2-4x faster than in established Python libraries, and the data converts to and from NumPy arrays.
 
 ## Installation
 
@@ -146,9 +146,17 @@ tempo, beats = y.beat_track(units="time")       # librosa.beat.beat_track(y=y, s
 
 The [librosa migration guide](docs/source/librosa_migration.rst) maps every librosa function to its equivalent and lists every difference.
 
+## Learning guide
+
+`docs/source/tutorials/` holds a short course in speech and audio processing:
+fourteen notebooks that assert every number they state. The same course exists
+for the Rust crate as an illustrated
+[book](https://github.com/jmg049/audio_samples/tree/main/book) whose figures
+are computed by the library.
+
 ## Performance Benchmarks
 
-The I/O layer is built also built in Rust: a streaming WAV header parser feeds a single `read_exact` call directly into a NumPy-owned buffer — matching the speed of `np.fromfile`. Writes use a Fortran-layout fast path (F-order interleaved arrays write in one `write_all` call) and a tiled streaming interleave for C-order arrays, eliminating all intermediate allocations.
+The I/O layer is also written in Rust: a streaming WAV header parser feeds a single `read_exact` call directly into a NumPy-owned buffer — matching the speed of `np.fromfile`. Writes use a Fortran-layout fast path (F-order interleaved arrays write in one `write_all` call) and a tiled streaming interleave for C-order arrays, eliminating all intermediate allocations.
 
 Benchmarked against 80 configurations (4 sample rates × 2 dtypes × 5 durations × 2 channel counts) with 100 iterations each, warmed up over 20 runs:
 
@@ -349,7 +357,7 @@ except aus.AudioParameterError as err:          # also a ValueError
 
 ## NumPy Integration
 
-AudioSamples provides seamless NumPy interoperability while encouraging the use of audio-specific methods:
+`AudioSamples` works with NumPy functions and ufuncs. For audio operations, prefer the audio-specific methods:
 
 ```python
 left = aus.sine_wave(440.0, duration, sample_rate)
@@ -398,7 +406,7 @@ MIT License
 
 ## Contributing
 
-Contributions are welcome! This package is part of the broader AudioSamples ecosystem:
+Contributions are welcome. This package is part of the AudioSamples family of crates:
 
 - [`audio_samples`](https://github.com/jmg049/audio_samples) - Core Rust library
 - [`audio_samples_io`](https://github.com/jmg049/audio_samples_io) - Audio I/O for Rust
