@@ -127,6 +127,22 @@ aus.io.save("output.wav", audio)
 print(repr(audio))
 ```
 
+## Coming from librosa
+
+The `AudioSamples` methods and the `spectral`, `features`, `rhythm`, `effects` and `sequence` submodules reproduce librosa 1.0 with its keyword names and defaults, tested against librosa's own output. The audio carries its sample rate, and methods return `(channels, F, T)` arrays (index `[0]` for librosa's mono shape):
+
+```python
+import numpy as np
+import audio_samples as aus
+
+y = aus.generation.sine_wave(440.0, 1.0, 22050, 0.5, dtype=np.float64)
+S = y.melspectrogram()                          # librosa.feature.melspectrogram(y=y, sr=sr)
+S_db = aus.spectral.power_to_db(S, ref=np.max)  # librosa.power_to_db(S, ref=np.max)
+tempo, beats = y.beat_track(units="time")       # librosa.beat.beat_track(y=y, sr=sr, units="time")
+```
+
+The [librosa migration guide](docs/source/librosa_migration.rst) maps every librosa function to its equivalent and lists every difference.
+
 ## Performance Benchmarks
 
 The I/O layer is built also built in Rust: a streaming WAV header parser feeds a single `read_exact` call directly into a NumPy-owned buffer — matching the speed of `np.fromfile`. Writes use a Fortran-layout fast path (F-order interleaved arrays write in one `write_all` call) and a tiled streaming interleave for C-order arrays, eliminating all intermediate allocations.
