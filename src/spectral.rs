@@ -11,7 +11,7 @@ use crate::args::Int;
 use audio_samples::operations::filterbanks::{self, Window};
 use audio_samples::operations::spectrum::{self, DbConfig, DeltaConfig, DeltaMode};
 use ndarray::{ArrayD, Axis, Ix1, Ix2, Ix3};
-use numpy::{IntoPyArray, PyArray1, PyArray2, PyUntypedArrayMethods};
+use numpy::{IntoPyArray, PyArray1, PyArray2, PyArrayDescrMethods, PyUntypedArrayMethods};
 use pyo3::IntoPyObjectExt;
 use pyo3::prelude::*;
 
@@ -251,8 +251,20 @@ pub fn amplitude_to_db<'py>(
     axes: DbAxesArg,
 ) -> PyResult<Bound<'py, PyAny>> {
     let scalar = is_scalar(S)?;
-    let np = py.import("numpy")?;
-    let mag = np.call_method1("abs", (S,))?;
+    // The Rust conversion takes |S| itself, so only complex input needs
+    // numpy.abs first (it gives the real magnitude array).
+    let complex = match S.cast::<numpy::PyUntypedArray>() {
+        Ok(a) => a.dtype().kind() == b'c',
+        Err(_) => py
+            .import("numpy")?
+            .call_method1("iscomplexobj", (S,))?
+            .extract::<bool>()?,
+    };
+    let mag = if complex {
+        py.import("numpy")?.call_method1("abs", (S,))?
+    } else {
+        S.clone()
+    };
     let cfg = db_config(r#ref, amin, top_db, axes);
     with_precision!(precision_of(&mag), |F| {
         let s = float_array_as::<F>(&mag, "S")?;
