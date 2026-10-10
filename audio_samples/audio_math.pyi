@@ -372,3 +372,64 @@ def mu_law_decode(codes: npt.ArrayLike, *, mu: float = 255.0) -> Any:
         ValueError: ``mu <= 0`` or a code out of range.
     """
     ...
+
+# =============================================================================
+# TUNING, OCTAVES AND KEYS (librosa-compatible)
+# =============================================================================
+
+def hz_to_octs(frequencies: npt.ArrayLike, *, tuning: float = 0.0, bins_per_octave: int = 12) -> Any:
+    """Frequencies (Hz) to fractional octaves, like ``librosa.hz_to_octs`` (A4 = 4.75).
+
+    Returns:
+        float for scalar input, otherwise numpy.ndarray[float64] of the same shape.
+    """
+    ...
+
+def octs_to_hz(octs: npt.ArrayLike, *, tuning: float = 0.0, bins_per_octave: int = 12) -> Any:
+    """Fractional octaves to Hz, like ``librosa.octs_to_hz``.
+
+    Returns:
+        float for scalar input, otherwise numpy.ndarray[float64] of the same shape.
+    """
+    ...
+
+def a4_to_tuning(A4: npt.ArrayLike, *, bins_per_octave: int = 12) -> Any:
+    """A4 reference frequency to a tuning deviation in fractions of a bin, like
+    ``librosa.A4_to_tuning``.
+
+    Returns:
+        float for scalar input, otherwise numpy.ndarray[float64] of the same shape.
+    """
+    ...
+
+def tuning_to_a4(tuning: npt.ArrayLike, *, bins_per_octave: int = 12) -> Any:
+    """Tuning deviation to the A4 reference frequency, like ``librosa.tuning_to_A4``.
+
+    Returns:
+        float for scalar input, otherwise numpy.ndarray[float64] of the same shape.
+    """
+    ...
+
+def cqt_frequencies(n_bins: int, *, fmin: float, bins_per_octave: int = 12, tuning: float = 0.0) -> NDArray[np.float64]:
+    """Centre frequencies of a constant-Q filterbank, like ``librosa.cqt_frequencies``.
+
+    Returns:
+        numpy.ndarray[float64], shape ``(n_bins,)``.
+    """
+    ...
+
+def key_to_notes(key: str, *, unicode: bool = True, natural: bool = False) -> list[str]:
+    """The 12 pitch-class names (from C) spelled for a key, like ``librosa.key_to_notes``.
+
+    Raises:
+        ValueError: Unparsable key.
+    """
+    ...
+
+def key_to_degrees(key: str) -> NDArray[np.int64]:
+    """Pitch classes (0 = C) of a key's 7 scale degrees, like ``librosa.key_to_degrees``.
+
+    Returns:
+        numpy.ndarray[int64], shape ``(7,)``.
+    """
+    ...

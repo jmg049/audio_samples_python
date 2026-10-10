@@ -299,6 +299,14 @@ from .audio_math import (
     fft_frequencies as fft_frequencies,
     mel_frequencies as mel_frequencies,
     linspace as linspace,
+    # Tuning, octaves and keys
+    hz_to_octs as hz_to_octs,
+    octs_to_hz as octs_to_hz,
+    a4_to_tuning as a4_to_tuning,
+    tuning_to_a4 as tuning_to_a4,
+    cqt_frequencies as cqt_frequencies,
+    key_to_notes as key_to_notes,
+    key_to_degrees as key_to_degrees,
 )
 
 __all__ = [
@@ -349,4 +357,12 @@ __all__ = [
     "fft_frequencies",
     "mel_frequencies",
     "linspace",
+    # Audio math - tuning, octaves and keys
+    "hz_to_octs",
+    "octs_to_hz",
+    "a4_to_tuning",
+    "tuning_to_a4",
+    "cqt_frequencies",
+    "key_to_notes",
+    "key_to_degrees",
 ]

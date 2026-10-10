@@ -61,6 +61,7 @@ from . import mpl as mpl
 from . import types as types
 from . import spectral as spectral
 from . import sequence as sequence
+from . import features as features
 from .utils import mu_law_encode as mu_law_encode, mu_law_decode as mu_law_decode
 
 #: A window specification accepted by the librosa-compatible functions:
@@ -102,6 +103,7 @@ __all__ = [
     "types",
     "spectral",
     "sequence",
+    "features",
     "mu_law_encode",
     "mu_law_decode",
     "sine_wave",
@@ -2378,6 +2380,529 @@ class AudioSamples:
         Raises:
             ValueError: Invalid parameters (librosa silently truncates when
                 ``n_mfcc > n_mels``; this raises).
+        """
+        ...
+
+    # ------------------------------------------------------------------
+    # librosa-compatible features, tonal, constant-Q and pitch analysis
+    #
+    # Frame-wise outputs are float64 / complex128 arrays shaped
+    # (channels, n_features, n_frames) (pitch trackers: (channels, n_frames)).
+    # librosa returns (n_features, n_frames) for 1-D input: index ``[0]``.
+    # Array-level (S=...) forms live in ``audio_samples.features``.
+    # ------------------------------------------------------------------
+
+    def spectral_centroid_frames(
+        self,
+        *,
+        n_fft: int = 2048,
+        hop_length: int = 512,
+        win_length: Optional[int] = None,
+        window: WindowSpec = "hann",
+        center: bool = True,
+        pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
+    ) -> NDArray[np.float64]:
+        """Spectral centroid per frame, ``librosa.feature.spectral_centroid(y=..., sr=self.sample_rate)``.
+
+        Returns:
+            numpy.ndarray[float64], shape ``(channels, 1, n_frames)`` in Hz.
+        """
+        ...
+
+    def spectral_bandwidth_frames(
+        self,
+        *,
+        n_fft: int = 2048,
+        hop_length: int = 512,
+        win_length: Optional[int] = None,
+        window: WindowSpec = "hann",
+        center: bool = True,
+        pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
+        norm: bool = True,
+        p: float = 2.0,
+    ) -> NDArray[np.float64]:
+        """Order-``p`` spectral bandwidth per frame, ``librosa.feature.spectral_bandwidth``.
+
+        Returns:
+            numpy.ndarray[float64], shape ``(channels, 1, n_frames)`` in Hz.
+        """
+        ...
+
+    def spectral_rolloff_frames(
+        self,
+        *,
+        n_fft: int = 2048,
+        hop_length: int = 512,
+        win_length: Optional[int] = None,
+        window: WindowSpec = "hann",
+        center: bool = True,
+        pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
+        roll_percent: float = 0.85,
+    ) -> NDArray[np.float64]:
+        """Roll-off frequency per frame, ``librosa.feature.spectral_rolloff``.
+
+        Returns:
+            numpy.ndarray[float64], shape ``(channels, 1, n_frames)`` in Hz.
+        """
+        ...
+
+    def spectral_flatness_frames(
+        self,
+        *,
+        n_fft: int = 2048,
+        hop_length: int = 512,
+        win_length: Optional[int] = None,
+        window: WindowSpec = "hann",
+        center: bool = True,
+        pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
+        amin: float = 1e-10,
+        power: float = 2.0,
+    ) -> NDArray[np.float64]:
+        """Spectral flatness per frame, ``librosa.feature.spectral_flatness``.
+
+        Returns:
+            numpy.ndarray[float64], shape ``(channels, 1, n_frames)``, in ``[0, 1]``.
+        """
+        ...
+
+    def spectral_contrast_frames(
+        self,
+        *,
+        n_fft: int = 2048,
+        hop_length: int = 512,
+        win_length: Optional[int] = None,
+        window: WindowSpec = "hann",
+        center: bool = True,
+        pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
+        fmin: float = 200.0,
+        n_bands: int = 6,
+        quantile: float = 0.02,
+        linear: bool = False,
+    ) -> NDArray[np.float64]:
+        """Octave-band spectral contrast, ``librosa.feature.spectral_contrast``.
+
+        Returns:
+            numpy.ndarray[float64], shape ``(channels, n_bands + 1, n_frames)``.
+        """
+        ...
+
+    def poly_features(
+        self,
+        *,
+        n_fft: int = 2048,
+        hop_length: int = 512,
+        win_length: Optional[int] = None,
+        window: WindowSpec = "hann",
+        center: bool = True,
+        pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
+        order: int = 1,
+    ) -> NDArray[np.float64]:
+        """Polynomial fit to every magnitude frame, ``librosa.feature.poly_features``.
+
+        Returns:
+            numpy.ndarray[float64], shape ``(channels, order + 1, n_frames)``, highest power first.
+        """
+        ...
+
+    def rms_frames(
+        self,
+        *,
+        frame_length: int = 2048,
+        hop_length: int = 512,
+        center: bool = True,
+        pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
+    ) -> NDArray[np.float64]:
+        """RMS per frame, ``librosa.feature.rms(y=..., dtype=numpy.float64)`` (scalar: ``rms()``).
+
+        Returns:
+            numpy.ndarray[float64], shape ``(channels, 1, n_frames)``.
+        """
+        ...
+
+    def zero_crossing_rate_frames(
+        self,
+        *,
+        frame_length: int = 2048,
+        hop_length: int = 512,
+        center: bool = True,
+        threshold: float = 1e-10,
+        ref_magnitude: Union[None, float, Callable[..., Any]] = None,
+        pad: bool = False,
+        zero_pos: bool = True,
+    ) -> NDArray[np.float64]:
+        """Fraction of sign changes per frame, ``librosa.feature.zero_crossing_rate``
+        (the scalar ``zero_crossing_rate()`` is crossings per second).
+
+        Args:
+            ref_magnitude: None, a number, or ``numpy.max``.
+
+        Returns:
+            numpy.ndarray[float64], shape ``(channels, 1, n_frames)``.
+        """
+        ...
+
+    def reassigned_spectrogram(
+        self,
+        *,
+        n_fft: int = 2048,
+        hop_length: Optional[int] = None,
+        win_length: Optional[int] = None,
+        window: WindowSpec = "hann",
+        center: bool = True,
+        reassign_frequencies: bool = True,
+        reassign_times: bool = True,
+        ref_power: Union[float, Callable[..., Any]] = 1e-6,
+        fill_nan: bool = False,
+        clip: bool = True,
+        pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
+    ) -> tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]:
+        """Reassigned spectrogram, ``librosa.reassigned_spectrogram``.
+
+        Returns:
+            ``(freqs, times, mags)``, each float64 ``(channels, 1 + n_fft // 2, n_frames)``.
+        """
+        ...
+
+    def chroma_stft(
+        self,
+        *,
+        norm: Optional[float] = np.inf,
+        n_fft: int = 2048,
+        hop_length: int = 512,
+        win_length: Optional[int] = None,
+        window: WindowSpec = "hann",
+        center: bool = True,
+        pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
+        tuning: Optional[float] = None,
+        n_chroma: int = 12,
+        ctroct: float = 5.0,
+        octwidth: Optional[float] = 2.0,
+        base_c: bool = True,
+    ) -> NDArray[np.float64]:
+        """Chromagram from the power STFT, ``librosa.feature.chroma_stft(..., dtype=numpy.float64)``.
+
+        ``tuning=None`` estimates the tuning from the signal, as librosa.
+
+        Returns:
+            numpy.ndarray[float64], shape ``(channels, n_chroma, n_frames)``.
+        """
+        ...
+
+    def piptrack(
+        self,
+        *,
+        n_fft: int = 2048,
+        hop_length: Optional[int] = None,
+        fmin: float = 150.0,
+        fmax: float = 4000.0,
+        threshold: float = 0.1,
+        win_length: Optional[int] = None,
+        window: WindowSpec = "hann",
+        center: bool = True,
+        pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
+        ref: Union[None, float, Callable[..., Any]] = None,
+    ) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+        """Spectral peak tracking, ``librosa.piptrack``.
+
+        Returns:
+            ``(pitches, magnitudes)``, each float64 ``(channels, 1 + n_fft // 2, n_frames)``.
+        """
+        ...
+
+    def estimate_tuning(
+        self,
+        *,
+        n_fft: int = 2048,
+        resolution: float = 0.01,
+        bins_per_octave: int = 12,
+        hop_length: Optional[int] = None,
+        win_length: Optional[int] = None,
+        window: WindowSpec = "hann",
+        center: bool = True,
+        pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
+        fmin: float = 150.0,
+        fmax: float = 4000.0,
+        threshold: float = 0.1,
+        ref: Union[None, float, Callable[..., Any]] = None,
+    ) -> float:
+        """Tuning deviation from A440 in fractions of a bin, ``librosa.estimate_tuning``
+        (channels pooled).
+
+        Returns:
+            float in ``[-0.5, 0.5)``.
+        """
+        ...
+
+    def cqt(
+        self,
+        *,
+        hop_length: int = 512,
+        fmin: Optional[float] = None,
+        n_bins: Optional[int] = 84,
+        bins_per_octave: int = 12,
+        tuning: Optional[float] = 0.0,
+        filter_scale: float = 1,
+        norm: Optional[float] = 1,
+        sparsity: float = 0.01,
+        window: WindowSpec = "hann",
+        scale: bool = True,
+        pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
+        res_type: str = "soxr_hq",
+    ) -> NDArray[np.complex128]:
+        """Constant-Q transform, ``librosa.cqt``.
+
+        ``res_type`` selects the crate's own resampler quality (soxr is not used):
+        ``"soxr_hq"``/``"soxr_vhq"`` high, ``"soxr_mq"`` medium, ``"soxr_lq"`` fast.
+        Octaves below the top one differ from librosa by ~1e-4 of the peak.
+
+        Returns:
+            numpy.ndarray[complex128], shape ``(channels, n_bins, n_frames)``.
+        """
+        ...
+
+    def vqt(
+        self,
+        *,
+        hop_length: int = 512,
+        fmin: Optional[float] = None,
+        n_bins: Optional[int] = 84,
+        intervals: Literal["equal"] = "equal",
+        gamma: Optional[float] = None,
+        bins_per_octave: int = 12,
+        tuning: Optional[float] = 0.0,
+        filter_scale: float = 1,
+        norm: Optional[float] = 1,
+        sparsity: float = 0.01,
+        window: WindowSpec = "hann",
+        scale: bool = True,
+        pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
+        res_type: str = "soxr_hq",
+    ) -> NDArray[np.complex128]:
+        """Variable-Q transform, ``librosa.vqt`` (``intervals="equal"`` only).
+
+        Returns:
+            numpy.ndarray[complex128], shape ``(channels, n_bins, n_frames)``.
+        """
+        ...
+
+    def pseudo_cqt(
+        self,
+        *,
+        hop_length: int = 512,
+        fmin: Optional[float] = None,
+        n_bins: Optional[int] = 84,
+        bins_per_octave: int = 12,
+        tuning: Optional[float] = 0.0,
+        filter_scale: float = 1,
+        norm: Optional[float] = 1,
+        sparsity: float = 0.01,
+        window: WindowSpec = "hann",
+        scale: bool = True,
+        pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
+    ) -> NDArray[np.float64]:
+        """Pseudo-CQT magnitude, ``librosa.pseudo_cqt``.
+
+        Returns:
+            numpy.ndarray[float64], shape ``(channels, n_bins, n_frames)``.
+        """
+        ...
+
+    def hybrid_cqt(
+        self,
+        *,
+        hop_length: int = 512,
+        fmin: Optional[float] = None,
+        n_bins: Optional[int] = 84,
+        bins_per_octave: int = 12,
+        tuning: Optional[float] = 0.0,
+        filter_scale: float = 1,
+        norm: Optional[float] = 1,
+        sparsity: float = 0.01,
+        window: WindowSpec = "hann",
+        scale: bool = True,
+        pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
+        res_type: str = "soxr_hq",
+    ) -> NDArray[np.float64]:
+        """Hybrid CQT magnitude, ``librosa.hybrid_cqt``.
+
+        Returns:
+            numpy.ndarray[float64], shape ``(channels, n_bins, n_frames)``.
+        """
+        ...
+
+    @staticmethod
+    def icqt(
+        C: npt.ArrayLike,
+        *,
+        sample_rate: int,
+        hop_length: int = 512,
+        fmin: Optional[float] = None,
+        bins_per_octave: int = 12,
+        tuning: float = 0.0,
+        filter_scale: float = 1,
+        norm: Optional[float] = 1,
+        sparsity: float = 0.01,
+        window: WindowSpec = "hann",
+        scale: bool = True,
+        length: Optional[int] = None,
+        res_type: str = "soxr_hq",
+    ) -> AudioSamples:
+        """Inverse CQT, ``librosa.icqt`` (static). ``C``: complex ``(n_bins, T)`` or
+        ``(channels, n_bins, T)``. Returns float64 audio."""
+        ...
+
+    @staticmethod
+    def griffinlim_cqt(
+        C: npt.ArrayLike,
+        *,
+        sample_rate: int,
+        n_iter: int = 32,
+        hop_length: int = 512,
+        fmin: Optional[float] = None,
+        bins_per_octave: int = 12,
+        tuning: float = 0.0,
+        filter_scale: float = 1,
+        norm: Optional[float] = 1,
+        sparsity: float = 0.01,
+        window: WindowSpec = "hann",
+        scale: bool = True,
+        pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
+        res_type: str = "soxr_hq",
+        length: Optional[int] = None,
+        momentum: float = 0.99,
+        init: None = None,
+    ) -> AudioSamples:
+        """Griffin-Lim phase retrieval from a CQT magnitude, ``librosa.griffinlim_cqt(init=None)``
+        (static). Only ``init=None`` (zero phase) is supported; librosa defaults to a
+        random initial phase."""
+        ...
+
+    def chroma_cqt(
+        self,
+        *,
+        hop_length: int = 512,
+        fmin: Optional[float] = None,
+        norm: Optional[float] = np.inf,
+        threshold: Optional[float] = 0.0,
+        tuning: Optional[float] = None,
+        n_chroma: int = 12,
+        n_octaves: int = 7,
+        window: None = None,
+        bins_per_octave: Optional[int] = 36,
+        cqt_mode: Literal["full", "hybrid"] = "full",
+    ) -> NDArray[np.float64]:
+        """Constant-Q chromagram, ``librosa.feature.chroma_cqt`` (``window`` must be None).
+
+        Returns:
+            numpy.ndarray[float64], shape ``(channels, n_chroma, n_frames)``.
+        """
+        ...
+
+    def chroma_cens(
+        self,
+        *,
+        hop_length: int = 512,
+        fmin: Optional[float] = None,
+        tuning: Optional[float] = None,
+        n_chroma: int = 12,
+        n_octaves: int = 7,
+        bins_per_octave: int = 36,
+        cqt_mode: Literal["full", "hybrid"] = "full",
+        window: None = None,
+        norm: Optional[float] = 2,
+        win_len_smooth: Optional[int] = 41,
+        smoothing_window: WindowSpec = "hann",
+    ) -> NDArray[np.float64]:
+        """CENS chroma features, ``librosa.feature.chroma_cens``.
+
+        Returns:
+            numpy.ndarray[float64], shape ``(channels, n_chroma, n_frames)``.
+        """
+        ...
+
+    def chroma_vqt(
+        self,
+        *,
+        hop_length: int = 512,
+        fmin: Optional[float] = None,
+        intervals: Literal["equal"] = "equal",
+        norm: Optional[float] = np.inf,
+        threshold: Optional[float] = 0.0,
+        n_octaves: int = 7,
+        bins_per_octave: int = 12,
+        gamma: Optional[float] = 0,
+    ) -> NDArray[np.float64]:
+        """Variable-Q chromagram, ``librosa.feature.chroma_vqt(intervals="equal")``.
+
+        Returns:
+            numpy.ndarray[float64], shape ``(channels, bins_per_octave, n_frames)``.
+        """
+        ...
+
+    def tonnetz(
+        self,
+        *,
+        hop_length: int = 512,
+        fmin: Optional[float] = None,
+        norm: Optional[float] = np.inf,
+        threshold: Optional[float] = 0.0,
+        tuning: Optional[float] = None,
+        n_chroma: int = 12,
+        n_octaves: int = 7,
+        bins_per_octave: Optional[int] = 36,
+        cqt_mode: Literal["full", "hybrid"] = "full",
+    ) -> NDArray[np.float64]:
+        """Tonal centroid features, ``librosa.feature.tonnetz`` (keywords go to ``chroma_cqt``).
+
+        Returns:
+            numpy.ndarray[float64], shape ``(channels, 6, n_frames)``.
+        """
+        ...
+
+    def yin(
+        self,
+        *,
+        fmin: float,
+        fmax: float,
+        frame_length: int = 2048,
+        hop_length: Optional[int] = None,
+        trough_threshold: float = 0.1,
+        center: bool = True,
+        pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
+    ) -> NDArray[np.float64]:
+        """YIN f0 per frame, ``librosa.yin`` (``fmin``/``fmax`` required, as librosa).
+
+        Returns:
+            numpy.ndarray[float64] in Hz, shape ``(channels, n_frames)``.
+        """
+        ...
+
+    def pyin(
+        self,
+        *,
+        fmin: float,
+        fmax: float,
+        frame_length: int = 2048,
+        hop_length: Optional[int] = None,
+        n_thresholds: int = 100,
+        beta_parameters: tuple[float, float] = (2, 18),
+        boltzmann_parameter: float = 2,
+        resolution: float = 0.1,
+        max_transition_rate: float = 35.92,
+        switch_prob: float = 0.01,
+        no_trough_prob: float = 0.01,
+        fill_na: Optional[float] = np.nan,
+        center: bool = True,
+        pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
+        transition_min_prob: Optional[float] = 1e-4,
+    ) -> tuple[NDArray[np.float64], NDArray[np.bool_], NDArray[np.float64]]:
+        """Probabilistic YIN, ``librosa.pyin``.
+
+        Args:
+            fill_na: f0 of unvoiced frames: NaN (default), None (best guess) or a number.
+
+        Returns:
+            ``(f0, voiced_flag, voiced_prob)``, each ``(channels, n_frames)``.
         """
         ...
 
