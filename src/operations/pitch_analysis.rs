@@ -11,7 +11,11 @@ impl PyAudioSamples {
     /// Detect the fundamental frequency using the YIN algorithm.
     ///
     /// Args:
-    ///     threshold (float): Detection threshold; lower values make detection more permissive.
+    ///     threshold (float): Absolute threshold on YIN's cumulative mean
+    ///         normalised difference d'(tau), in [0, 1]. The first lag whose d'
+    ///         dips below it is taken. Lower values are **stricter** (a deeper
+    ///         dip is required, so fewer false detections and more ``None``);
+    ///         higher values are more permissive. 0.1-0.2 is typical.
     ///     min_frequency (float): Minimum expected frequency in hertz.
     ///     max_frequency (float): Maximum expected frequency in hertz.
     ///
@@ -20,7 +24,7 @@ impl PyAudioSamples {
     ///
     /// Raises:
     ///     AudioError: If pitch detection fails.
-    #[pyo3(signature = (threshold: "float" = 0.1, min_frequency: "float" = 50.0, max_frequency:"float" = 2000.0), text_signature = "($self, threshold: float = 0.1, min_frequency: float = 50.0, max_frequency: float = 2000.0) -> Optional[float]")]
+    #[pyo3(signature = (threshold: "float" = 0.1, min_frequency: "float" = 50.0, max_frequency:"float" = 2000.0))]
     fn detect_pitch_yin(
         &self,
         py: Python<'_>,
@@ -65,8 +69,11 @@ impl PyAudioSamples {
     /// Args:
     ///     window_size (int): Size of each analysis window in samples; must be greater than zero.
     ///     hop_size (int): Step between windows in samples; must be greater than zero.
-    ///     pitch_method (PitchDetectionMethod): Detection strategy to apply per window.
-    ///     threshold (float): Detection threshold interpreted by the selected method.
+    ///     pitch_method (PitchDetectionMethod): Detection strategy to apply per
+    ///         window. Only ``yin`` and ``autocorrelation`` are implemented;
+    ///         ``cepstrum`` and ``harmonic_product`` raise ``AudioParameterError``.
+    ///     threshold (float): YIN threshold on d'(tau) in [0, 1]; lower is
+    ///         stricter (more unvoiced frames). Ignored for autocorrelation.
     ///     min_frequency (float): Minimum expected frequency in hertz.
     ///     max_frequency (float): Maximum expected frequency in hertz.
     ///
@@ -76,7 +83,7 @@ impl PyAudioSamples {
     /// Raises:
     ///     ValueError: If window_size or hop_size is zero.
     ///     AudioError: If pitch tracking fails.
-    #[pyo3(signature = (window_size: "int", hop_size: "int", pitch_method: "PitchDetectionMethod" = PyPitchDetectionMethod::detect_yin(), threshold: "float" = 0.1, min_frequency: "float" = 50.0, max_frequency: "float" = 2000.0), text_signature = "($self, window_size: int, hop_size: int, pitch_method=PitchDetection.yin, threshold: float = 0.1, min_frequency: float = 50.0, max_frequency: float = 2000.0) -> PitchContour")]
+    #[pyo3(signature = (window_size: "int", hop_size: "int", pitch_method: "PitchDetectionMethod" = PyPitchDetectionMethod::detect_yin(), threshold: "float" = 0.1, min_frequency: "float" = 50.0, max_frequency: "float" = 2000.0))]
     fn track_pitch(
         &self,
         py: Python<'_>,

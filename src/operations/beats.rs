@@ -25,7 +25,7 @@ impl PyAudioSamples {
     ///
     /// Raises:
     ///     AudioError: If beat tracking fails.
-    #[pyo3(signature = (config: "BeatTrackingConfig"), text_signature = "($self, config: BeatTrackingConfig) -> BeatTrackingData")]
+    #[pyo3(signature = (config: "BeatTrackingConfig"))]
     fn detect_beats(
         &self,
         py: Python<'_>,
@@ -51,7 +51,7 @@ impl PyAudioSamples {
     ///
     /// Raises:
     ///     AudioError: If tempo estimation fails.
-    #[pyo3(signature = (config: "BeatTrackingConfig"), text_signature = "($self, config: BeatTrackingConfig) -> float")]
+    #[pyo3(signature = (config: "BeatTrackingConfig"))]
     fn estimate_tempo(&self, py: Python<'_>, config: PyBeatTrackingConfig) -> PyResult<f64> {
         dispatch_with_view!(self, py, |audio| {
             audio

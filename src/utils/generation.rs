@@ -3,13 +3,12 @@ use std::time::Duration;
 use audio_samples::I24;
 use audio_samples::utils::generation::ToneComponent;
 use non_empty_slice::NonEmptyVec;
-use numpy::PyArrayDescrMethods;
+use numpy::{PyArrayDescr, PyArrayDescrMethods};
 use pyo3::{
     exceptions::{PyTypeError, PyValueError},
     prelude::*,
 };
 
-use crate::args::DTypeArg;
 use crate::{PyAudioSamples, nzu32_or_err, reexport};
 
 #[derive(Debug, Clone, Copy)]
@@ -33,9 +32,12 @@ pub enum Generator {
 
 macro_rules! dispatch_audio {
     ($py:expr, $dtype:expr, |$T:ident| $body:expr) => {{
-        let dtype = $dtype
-            .map(|d| d.0)
-            .unwrap_or_else(|| numpy::dtype::<f32>($py));
+        // Accept anything `numpy.dtype(...)` accepts: a dtype instance, a
+        // scalar type such as `np.float64`, or a string such as "float64".
+        let dtype: Bound<'_, PyArrayDescr> = match $dtype {
+            Some(d) => PyArrayDescr::new($py, &d)?,
+            None => numpy::dtype::<f32>($py),
+        };
 
         if dtype.is_equiv_to(&numpy::dtype::<i16>($py)) {
             type $T = i16;
@@ -53,7 +55,9 @@ macro_rules! dispatch_audio {
             type $T = f64;
             $body
         } else {
-            Err(PyTypeError::new_err("Unsupported dtype"))
+            Err(PyTypeError::new_err(format!(
+                "Unsupported dtype {dtype}; generators support int16, int24, int32, float32 and float64"
+            )))
         }
     }};
 }
@@ -64,7 +68,7 @@ fn generate_audio(
     duration_secs: f64,
     sample_rate: u32,
     amplitude: f64,
-    dtype: Option<DTypeArg<'_>>,
+    dtype: Option<Bound<'_, PyAny>>,
 ) -> PyResult<PyAudioSamples> {
     if duration_secs <= 0.0 {
         return Err(PyValueError::new_err("duration_secs must be positive"));
@@ -214,19 +218,20 @@ pub fn generation(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
 ///     duration_secs: Duration of the signal in seconds
 ///     sample_rate: Sample rate in samples per second (default: 44100)
 ///     amplitude: Peak amplitude of the wave (default: 1.0)
-///     dtype: NumPy dtype (numpy.dtype, scalar type such as numpy.float64, or name) for the output (default: float32)
+///     dtype: Output sample type as a NumPy dtype, scalar type (``np.float64``)
+///         or string (``"float64"``). Default: float32
 ///
 /// Returns:
-///     PyAudioSamples: Generated sine wave audio data
+///     AudioSamples: Generated sine wave audio data
 #[pyfunction]
-#[pyo3(signature = (frequency, duration_secs, sample_rate=44100, amplitude=1.0, dtype=None), text_signature = "(frequency: float, duration_secs: float, sample_rate: int = 44100, amplitude: float = 1.0, dtype: Optional[numpy.dtype] = None) -> PyAudioSamples")]
+#[pyo3(signature = (frequency, duration_secs, sample_rate=44100, amplitude=1.0, dtype=None))]
 pub fn sine_wave(
     py: Python<'_>,
     frequency: f64,
     duration_secs: f64,
     sample_rate: u32,
     amplitude: f64,
-    dtype: Option<DTypeArg<'_>>,
+    dtype: Option<Bound<'_, PyAny>>,
 ) -> PyResult<PyAudioSamples> {
     generate_audio(
         py,
@@ -245,19 +250,20 @@ pub fn sine_wave(
 ///     duration_secs: Duration of the signal in seconds
 ///     sample_rate: Sample rate in samples per second (default: 44100)
 ///     amplitude: Peak amplitude of the wave (default: 1.0)
-///     dtype: NumPy dtype (numpy.dtype, scalar type such as numpy.float64, or name) for the output (default: float32)
+///     dtype: Output sample type as a NumPy dtype, scalar type (``np.float64``)
+///         or string (``"float64"``). Default: float32
 ///
 /// Returns:
-///     PyAudioSamples: Generated cosine wave audio data
+///     AudioSamples: Generated cosine wave audio data
 #[pyfunction]
-#[pyo3(signature = (frequency, duration_secs, sample_rate=44100, amplitude=1.0, dtype=None), text_signature = "(frequency: float, duration_secs: float, sample_rate: int = 44100, amplitude: float = 1.0, dtype: Optional[numpy.dtype] = None) -> PyAudioSamples")]
+#[pyo3(signature = (frequency, duration_secs, sample_rate=44100, amplitude=1.0, dtype=None))]
 fn cosine_wave(
     py: Python<'_>,
     frequency: f64,
     duration_secs: f64,
     sample_rate: u32,
     amplitude: f64,
-    dtype: Option<DTypeArg<'_>>,
+    dtype: Option<Bound<'_, PyAny>>,
 ) -> PyResult<PyAudioSamples> {
     generate_audio(
         py,
@@ -276,19 +282,20 @@ fn cosine_wave(
 ///     duration_secs: Duration of the signal in seconds
 ///     sample_rate: Sample rate in samples per second (default: 44100)
 ///     amplitude: Peak amplitude of the wave (default: 1.0)
-///     dtype: NumPy dtype (numpy.dtype, scalar type such as numpy.float64, or name) for the output (default: float32)
+///     dtype: Output sample type as a NumPy dtype, scalar type (``np.float64``)
+///         or string (``"float64"``). Default: float32
 ///
 /// Returns:
-///     PyAudioSamples: Generated sawtooth wave audio data
+///     AudioSamples: Generated sawtooth wave audio data
 #[pyfunction]
-#[pyo3(signature = (frequency, duration_secs, sample_rate=44100, amplitude=1.0, dtype=None), text_signature = "(frequency: float, duration_secs: float, sample_rate: int = 44100, amplitude: float = 1.0, dtype: Optional[numpy.dtype] = None) -> PyAudioSamples")]
+#[pyo3(signature = (frequency, duration_secs, sample_rate=44100, amplitude=1.0, dtype=None))]
 fn sawtooth_wave(
     py: Python<'_>,
     frequency: f64,
     duration_secs: f64,
     sample_rate: u32,
     amplitude: f64,
-    dtype: Option<DTypeArg<'_>>,
+    dtype: Option<Bound<'_, PyAny>>,
 ) -> PyResult<PyAudioSamples> {
     generate_audio(
         py,
@@ -307,19 +314,20 @@ fn sawtooth_wave(
 ///     duration_secs: Duration of the signal in seconds
 ///     sample_rate: Sample rate in samples per second (default: 44100)
 ///     amplitude: Peak amplitude of the wave (default: 1.0)
-///     dtype: NumPy dtype (numpy.dtype, scalar type such as numpy.float64, or name) for the output (default: float32)
+///     dtype: Output sample type as a NumPy dtype, scalar type (``np.float64``)
+///         or string (``"float64"``). Default: float32
 ///
 /// Returns:
-///     PyAudioSamples: Generated square wave audio data
+///     AudioSamples: Generated square wave audio data
 #[pyfunction]
-#[pyo3(signature = (frequency, duration_secs, sample_rate=44100, amplitude=1.0, dtype=None), text_signature = "(frequency: float, duration_secs: float, sample_rate: int = 44100, amplitude: float = 1.0, dtype: Optional[numpy.dtype] = None) -> PyAudioSamples")]
+#[pyo3(signature = (frequency, duration_secs, sample_rate=44100, amplitude=1.0, dtype=None))]
 fn square_wave(
     py: Python<'_>,
     frequency: f64,
     duration_secs: f64,
     sample_rate: u32,
     amplitude: f64,
-    dtype: Option<DTypeArg<'_>>,
+    dtype: Option<Bound<'_, PyAny>>,
 ) -> PyResult<PyAudioSamples> {
     generate_audio(
         py,
@@ -338,19 +346,20 @@ fn square_wave(
 ///     duration_secs: Duration of the signal in seconds
 ///     sample_rate: Sample rate in samples per second (default: 44100)
 ///     amplitude: Peak amplitude of the wave (default: 1.0)
-///     dtype: NumPy dtype (numpy.dtype, scalar type such as numpy.float64, or name) for the output (default: float32)
+///     dtype: Output sample type as a NumPy dtype, scalar type (``np.float64``)
+///         or string (``"float64"``). Default: float32
 ///
 /// Returns:
-///     PyAudioSamples: Generated triangle wave audio data
+///     AudioSamples: Generated triangle wave audio data
 #[pyfunction]
-#[pyo3(signature = (frequency, duration_secs, sample_rate=44100, amplitude=1.0, dtype=None), text_signature = "(frequency: float, duration_secs: float, sample_rate: int = 44100, amplitude: float = 1.0, dtype: Optional[numpy.dtype] = None) -> PyAudioSamples")]
+#[pyo3(signature = (frequency, duration_secs, sample_rate=44100, amplitude=1.0, dtype=None))]
 fn triangle_wave(
     py: Python<'_>,
     frequency: f64,
     duration_secs: f64,
     sample_rate: u32,
     amplitude: f64,
-    dtype: Option<DTypeArg<'_>>,
+    dtype: Option<Bound<'_, PyAny>>,
 ) -> PyResult<PyAudioSamples> {
     generate_audio(
         py,
@@ -370,12 +379,13 @@ fn triangle_wave(
 ///     duration_secs: Duration of the signal in seconds
 ///     sample_rate: Sample rate in samples per second (default: 44100)
 ///     amplitude: Peak amplitude of the wave (default: 1.0)
-///     dtype: NumPy dtype (numpy.dtype, scalar type such as numpy.float64, or name) for the output (default: float32)
+///     dtype: Output sample type as a NumPy dtype, scalar type (``np.float64``)
+///         or string (``"float64"``). Default: float32
 ///
 /// Returns:
-///     PyAudioSamples: Generated chirp audio data
+///     AudioSamples: Generated chirp audio data
 #[pyfunction]
-#[pyo3(signature = (f0, f1, duration_secs, sample_rate=44100, amplitude=1.0, dtype=None), text_signature = "(f0: float, f1: float, duration_secs: float, sample_rate: int = 44100, amplitude: float = 1.0, dtype: Optional[numpy.dtype] = None) -> PyAudioSamples")]
+#[pyo3(signature = (f0, f1, duration_secs, sample_rate=44100, amplitude=1.0, dtype=None))]
 fn chirp(
     py: Python<'_>,
     f0: f64,
@@ -383,7 +393,7 @@ fn chirp(
     duration_secs: f64,
     sample_rate: u32,
     amplitude: f64,
-    dtype: Option<DTypeArg<'_>>,
+    dtype: Option<Bound<'_, PyAny>>,
 ) -> PyResult<PyAudioSamples> {
     generate_audio(
         py,
@@ -401,19 +411,20 @@ fn chirp(
 ///     duration_secs: Duration of the signal in seconds
 ///     sample_rate: Sample rate in samples per second (default: 44100)
 ///     amplitude: Peak amplitude of the noise (default: 1.0)
-///     dtype: NumPy dtype (numpy.dtype, scalar type such as numpy.float64, or name) for the output (default: float32)
+///     dtype: Output sample type as a NumPy dtype, scalar type (``np.float64``)
+///         or string (``"float64"``). Default: float32
 ///     seed: Optional seed for reproducible noise generation
 ///
 /// Returns:
-///     PyAudioSamples: Generated white noise audio data
+///     AudioSamples: Generated white noise audio data
 #[pyfunction]
-#[pyo3(signature = (duration_secs, sample_rate=44100, amplitude=1.0, dtype=None, seed=None), text_signature = "(duration_secs: float, sample_rate: int = 44100, amplitude: float = 1.0, dtype: Optional[numpy.dtype] = None, seed: Optional[int] = None) -> PyAudioSamples")]
+#[pyo3(signature = (duration_secs, sample_rate=44100, amplitude=1.0, dtype=None, seed=None))]
 fn white_noise(
     py: Python<'_>,
     duration_secs: f64,
     sample_rate: u32,
     amplitude: f64,
-    dtype: Option<DTypeArg<'_>>,
+    dtype: Option<Bound<'_, PyAny>>,
     seed: Option<u64>,
 ) -> PyResult<PyAudioSamples> {
     generate_audio(
@@ -432,18 +443,19 @@ fn white_noise(
 ///     duration_secs: Duration of the signal in seconds
 ///     sample_rate: Sample rate in samples per second (default: 44100)
 ///     amplitude: Peak amplitude of the noise (default: 1.0)
-///     dtype: NumPy dtype (numpy.dtype, scalar type such as numpy.float64, or name) for the output (default: float32)
+///     dtype: Output sample type as a NumPy dtype, scalar type (``np.float64``)
+///         or string (``"float64"``). Default: float32
 ///
 /// Returns:
-///     PyAudioSamples: Generated pink noise audio data
+///     AudioSamples: Generated pink noise audio data
 #[pyfunction]
-#[pyo3(signature = (duration_secs, sample_rate=44100, amplitude=1.0, dtype=None,seed=None), text_signature = "(duration_secs: float, sample_rate: int = 44100, amplitude: float = 1.0, dtype: Optional[numpy.dtype] = None, seed: Optional[int] = None) -> PyAudioSamples")]
+#[pyo3(signature = (duration_secs, sample_rate=44100, amplitude=1.0, dtype=None,seed=None))]
 fn pink_noise(
     py: Python<'_>,
     duration_secs: f64,
     sample_rate: u32,
     amplitude: f64,
-    dtype: Option<DTypeArg<'_>>,
+    dtype: Option<Bound<'_, PyAny>>,
     seed: Option<u64>,
 ) -> PyResult<PyAudioSamples> {
     generate_audio(
@@ -463,19 +475,20 @@ fn pink_noise(
 ///     sample_rate: Sample rate in samples per second (default: 44100)
 ///     step: Step size for the random walk (default: 0.01)
 ///     amplitude: Peak amplitude of the noise (default: 1.0)
-///     dtype: NumPy dtype (numpy.dtype, scalar type such as numpy.float64, or name) for the output (default: float32)
+///     dtype: Output sample type as a NumPy dtype, scalar type (``np.float64``)
+///         or string (``"float64"``). Default: float32
 ///
 /// Returns:
-///     PyAudioSamples: Generated brown noise audio data
+///     AudioSamples: Generated brown noise audio data
 #[pyfunction]
-#[pyo3(signature = (duration_secs, sample_rate=44100, step=0.01, amplitude=1.0, dtype=None, seed=None), text_signature = "(duration_secs: float, sample_rate: int = 44100, step: float = 0.01, amplitude: float = 1.0, dtype: Optional[numpy.dtype] = None, seed: Optional[int] = None) -> PyAudioSamples")]
+#[pyo3(signature = (duration_secs, sample_rate=44100, step=0.01, amplitude=1.0, dtype=None, seed=None))]
 fn brown_noise(
     py: Python<'_>,
     duration_secs: f64,
     sample_rate: u32,
     step: f64,
     amplitude: f64,
-    dtype: Option<DTypeArg<'_>>,
+    dtype: Option<Bound<'_, PyAny>>,
     seed: Option<u64>,
 ) -> PyResult<PyAudioSamples> {
     generate_audio(
@@ -495,19 +508,20 @@ fn brown_noise(
 ///     sample_rate: Sample rate in samples per second (default: 44100)
 ///     amplitude: Peak amplitude of the impulse (default: 1.0)
 ///     position: Position of the impulse as fraction of duration (default: 0.5)
-///     dtype: NumPy dtype (numpy.dtype, scalar type such as numpy.float64, or name) for the output (default: float32)
+///     dtype: Output sample type as a NumPy dtype, scalar type (``np.float64``)
+///         or string (``"float64"``). Default: float32
 ///
 /// Returns:
-///     PyAudioSamples: Generated impulse audio data
+///     AudioSamples: Generated impulse audio data
 #[pyfunction]
-#[pyo3(signature = (duration_secs, sample_rate=44100, amplitude=1.0, position=0.5, dtype=None), text_signature = "(duration_secs: float, sample_rate: int = 44100, amplitude: float = 1.0, position: float = 0.5, dtype: Optional[numpy.dtype] = None) -> PyAudioSamples")]
+#[pyo3(signature = (duration_secs, sample_rate=44100, amplitude=1.0, position=0.5, dtype=None))]
 fn impulse(
     py: Python<'_>,
     duration_secs: f64,
     sample_rate: u32,
     amplitude: f64,
     position: f64,
-    dtype: Option<DTypeArg<'_>>,
+    dtype: Option<Bound<'_, PyAny>>,
 ) -> PyResult<PyAudioSamples> {
     generate_audio(
         py,
@@ -524,17 +538,18 @@ fn impulse(
 /// Args:
 ///     duration_secs: Duration of the signal in seconds
 ///     sample_rate: Sample rate in samples per second (default: 44100)
-///     dtype: NumPy dtype (numpy.dtype, scalar type such as numpy.float64, or name) for the output (default: float32)
+///     dtype: Output sample type as a NumPy dtype, scalar type (``np.float64``)
+///         or string (``"float64"``). Default: float32
 ///
 /// Returns:
-///     PyAudioSamples: Generated silence audio data
+///     AudioSamples: Generated silence audio data
 #[pyfunction]
-#[pyo3(signature = (duration_secs, sample_rate=44100, dtype=None), text_signature = "(duration_secs: float, sample_rate: int = 44100, dtype: Optional[numpy.dtype] = None) -> PyAudioSamples")]
+#[pyo3(signature = (duration_secs, sample_rate=44100, dtype=None))]
 fn silence(
     py: Python<'_>,
     duration_secs: f64,
     sample_rate: u32,
-    dtype: Option<DTypeArg<'_>>,
+    dtype: Option<Bound<'_, PyAny>>,
 ) -> PyResult<PyAudioSamples> {
     generate_audio(
         py,
@@ -553,19 +568,20 @@ fn silence(
 ///     duration_secs: Duration of the signal in seconds
 ///     sample_rate: Sample rate in samples per second (default: 44100)
 ///     amplitude: Peak amplitude of the wave (default: 1.0)
-///     dtype: NumPy dtype (numpy.dtype, scalar type such as numpy.float64, or name) for the output (default: float32)
+///     dtype: Output sample type as a NumPy dtype, scalar type (``np.float64``)
+///         or string (``"float64"``). Default: float32
 ///
 /// Returns:
-///     PyAudioSamples: Generated stereo sine wave audio data
+///     AudioSamples: Generated stereo sine wave audio data
 #[pyfunction]
-#[pyo3(signature = (frequency, duration_secs, sample_rate=44100, amplitude=1.0, dtype=None), text_signature = "(frequency: float, duration_secs: float, sample_rate: int = 44100, amplitude: float = 1.0, dtype: Optional[numpy.dtype] = None) -> PyAudioSamples")]
+#[pyo3(signature = (frequency, duration_secs, sample_rate=44100, amplitude=1.0, dtype=None))]
 pub fn stereo_sine_wave(
     py: Python<'_>,
     frequency: f64,
     duration_secs: f64,
     sample_rate: u32,
     amplitude: f64,
-    dtype: Option<DTypeArg<'_>>,
+    dtype: Option<Bound<'_, PyAny>>,
 ) -> PyResult<PyAudioSamples> {
     if duration_secs <= 0.0 {
         return Err(PyValueError::new_err("duration_secs must be positive"));
@@ -588,12 +604,13 @@ pub fn stereo_sine_wave(
 ///     duration_secs: Duration of the signal in seconds
 ///     sample_rate: Sample rate in samples per second (default: 44100)
 ///     amplitude: Peak amplitude of the chirp (default: 1.0)
-///     dtype: NumPy dtype (numpy.dtype, scalar type such as numpy.float64, or name) for the output (default: float32)
+///     dtype: Output sample type as a NumPy dtype, scalar type (``np.float64``)
+///         or string (``"float64"``). Default: float32
 ///
 /// Returns:
-///     PyAudioSamples: Generated stereo chirp audio data
+///     AudioSamples: Generated stereo chirp audio data
 #[pyfunction]
-#[pyo3(signature = (start_freq, end_freq, duration_secs, sample_rate=44100, amplitude=1.0, dtype=None), text_signature = "(start_freq: float, end_freq: float, duration_secs: float, sample_rate: int = 44100, amplitude: float = 1.0, dtype: Optional[numpy.dtype] = None) -> PyAudioSamples")]
+#[pyo3(signature = (start_freq, end_freq, duration_secs, sample_rate=44100, amplitude=1.0, dtype=None))]
 pub fn stereo_chirp(
     py: Python<'_>,
     start_freq: f64,
@@ -601,7 +618,7 @@ pub fn stereo_chirp(
     duration_secs: f64,
     sample_rate: u32,
     amplitude: f64,
-    dtype: Option<DTypeArg<'_>>,
+    dtype: Option<Bound<'_, PyAny>>,
 ) -> PyResult<PyAudioSamples> {
     if duration_secs <= 0.0 {
         return Err(PyValueError::new_err("duration_secs must be positive"));
@@ -626,17 +643,18 @@ pub fn stereo_chirp(
 /// Args:
 ///     duration_secs: Duration of the signal in seconds
 ///     sample_rate: Sample rate in samples per second (default: 44100)
-///     dtype: NumPy dtype (numpy.dtype, scalar type such as numpy.float64, or name) for the output (default: float32)
+///     dtype: Output sample type as a NumPy dtype, scalar type (``np.float64``)
+///         or string (``"float64"``). Default: float32
 ///
 /// Returns:
-///     PyAudioSamples: Stereo silence audio data
+///     AudioSamples: Stereo silence audio data
 #[pyfunction]
-#[pyo3(signature = (duration_secs, sample_rate=44100, dtype=None), text_signature = "(duration_secs: float, sample_rate: int = 44100, dtype: Optional[numpy.dtype] = None) -> PyAudioSamples")]
+#[pyo3(signature = (duration_secs, sample_rate=44100, dtype=None))]
 pub fn stereo_silence(
     py: Python<'_>,
     duration_secs: f64,
     sample_rate: u32,
-    dtype: Option<DTypeArg<'_>>,
+    dtype: Option<Bound<'_, PyAny>>,
 ) -> PyResult<PyAudioSamples> {
     if duration_secs <= 0.0 {
         return Err(PyValueError::new_err("duration_secs must be positive"));
@@ -661,19 +679,20 @@ pub fn stereo_silence(
 ///     duration_secs: Duration of the signal in seconds
 ///     sample_rate: Sample rate in samples per second (default: 44100)
 ///     amplitude: Peak amplitude of the underlying ideal square wave (default: 1.0)
-///     dtype: NumPy dtype for the output array (default: f32)
+///     dtype: Output sample type as a NumPy dtype, scalar type (``np.float64``)
+///         or string (``"float64"``). Default: float32
 ///
 /// Returns:
-///     PyAudioSamples: Generated band-limited square wave audio data
+///     AudioSamples: Generated band-limited square wave audio data
 #[pyfunction]
-#[pyo3(signature = (frequency, duration_secs, sample_rate=44100, amplitude=1.0, dtype=None), text_signature = "(frequency: float, duration_secs: float, sample_rate: int = 44100, amplitude: float = 1.0, dtype: Optional[numpy.dtype] = None) -> PyAudioSamples")]
+#[pyo3(signature = (frequency, duration_secs, sample_rate=44100, amplitude=1.0, dtype=None))]
 fn square_wave_bandlimited(
     py: Python<'_>,
     frequency: f64,
     duration_secs: f64,
     sample_rate: u32,
     amplitude: f64,
-    dtype: Option<DTypeArg<'_>>,
+    dtype: Option<Bound<'_, PyAny>>,
 ) -> PyResult<PyAudioSamples> {
     generate_audio(
         py,
@@ -695,19 +714,20 @@ fn square_wave_bandlimited(
 ///     duration_secs: Duration of the signal in seconds
 ///     sample_rate: Sample rate in samples per second (default: 44100)
 ///     amplitude: Peak amplitude of the underlying ideal sawtooth wave (default: 1.0)
-///     dtype: NumPy dtype for the output array (default: f32)
+///     dtype: Output sample type as a NumPy dtype, scalar type (``np.float64``)
+///         or string (``"float64"``). Default: float32
 ///
 /// Returns:
-///     PyAudioSamples: Generated band-limited sawtooth wave audio data
+///     AudioSamples: Generated band-limited sawtooth wave audio data
 #[pyfunction]
-#[pyo3(signature = (frequency, duration_secs, sample_rate=44100, amplitude=1.0, dtype=None), text_signature = "(frequency: float, duration_secs: float, sample_rate: int = 44100, amplitude: float = 1.0, dtype: Optional[numpy.dtype] = None) -> PyAudioSamples")]
+#[pyo3(signature = (frequency, duration_secs, sample_rate=44100, amplitude=1.0, dtype=None))]
 fn sawtooth_wave_bandlimited(
     py: Python<'_>,
     frequency: f64,
     duration_secs: f64,
     sample_rate: u32,
     amplitude: f64,
-    dtype: Option<DTypeArg<'_>>,
+    dtype: Option<Bound<'_, PyAny>>,
 ) -> PyResult<PyAudioSamples> {
     generate_audio(
         py,
@@ -729,19 +749,20 @@ fn sawtooth_wave_bandlimited(
 ///     duration_secs: Duration of the signal in seconds
 ///     sample_rate: Sample rate in samples per second (default: 44100)
 ///     amplitude: Peak amplitude of the underlying ideal triangle wave (default: 1.0)
-///     dtype: NumPy dtype for the output array (default: f32)
+///     dtype: Output sample type as a NumPy dtype, scalar type (``np.float64``)
+///         or string (``"float64"``). Default: float32
 ///
 /// Returns:
-///     PyAudioSamples: Generated band-limited triangle wave audio data
+///     AudioSamples: Generated band-limited triangle wave audio data
 #[pyfunction]
-#[pyo3(signature = (frequency, duration_secs, sample_rate=44100, amplitude=1.0, dtype=None), text_signature = "(frequency: float, duration_secs: float, sample_rate: int = 44100, amplitude: float = 1.0, dtype: Optional[numpy.dtype] = None) -> PyAudioSamples")]
+#[pyo3(signature = (frequency, duration_secs, sample_rate=44100, amplitude=1.0, dtype=None))]
 fn triangle_wave_bandlimited(
     py: Python<'_>,
     frequency: f64,
     duration_secs: f64,
     sample_rate: u32,
     amplitude: f64,
-    dtype: Option<DTypeArg<'_>>,
+    dtype: Option<Bound<'_, PyAny>>,
 ) -> PyResult<PyAudioSamples> {
     generate_audio(
         py,
@@ -764,12 +785,13 @@ fn triangle_wave_bandlimited(
 ///     duration_secs: Duration of the signal in seconds
 ///     sample_rate: Sample rate in samples per second (default: 44100)
 ///     amplitude: Peak amplitude of the wave (default: 1.0)
-///     dtype: NumPy dtype for the output array (default: f32)
+///     dtype: Output sample type as a NumPy dtype, scalar type (``np.float64``)
+///         or string (``"float64"``). Default: float32
 ///
 /// Returns:
-///     PyAudioSamples: Generated exponential chirp audio data
+///     AudioSamples: Generated exponential chirp audio data
 #[pyfunction]
-#[pyo3(signature = (start_freq, end_freq, duration_secs, sample_rate=44100, amplitude=1.0, dtype=None), text_signature = "(start_freq: float, end_freq: float, duration_secs: float, sample_rate: int = 44100, amplitude: float = 1.0, dtype: Optional[numpy.dtype] = None) -> PyAudioSamples")]
+#[pyo3(signature = (start_freq, end_freq, duration_secs, sample_rate=44100, amplitude=1.0, dtype=None))]
 fn exponential_chirp(
     py: Python<'_>,
     start_freq: f64,
@@ -777,7 +799,7 @@ fn exponential_chirp(
     duration_secs: f64,
     sample_rate: u32,
     amplitude: f64,
-    dtype: Option<DTypeArg<'_>>,
+    dtype: Option<Bound<'_, PyAny>>,
 ) -> PyResult<PyAudioSamples> {
     if start_freq <= 0.0 || end_freq <= 0.0 {
         return Err(PyValueError::new_err(
@@ -810,12 +832,13 @@ fn exponential_chirp(
 ///     duration_secs: Duration of the signal in seconds
 ///     sample_rate: Sample rate in samples per second (default: 44100)
 ///     amplitude: Peak amplitude (default: 1.0)
-///     dtype: NumPy dtype for the output array (default: f32)
+///     dtype: Output sample type as a NumPy dtype, scalar type (``np.float64``)
+///         or string (``"float64"``). Default: float32
 ///
 /// Returns:
-///     PyAudioSamples: Generated FM signal audio data
+///     AudioSamples: Generated FM signal audio data
 #[pyfunction]
-#[pyo3(signature = (carrier_freq, modulator_freq, modulation_index, duration_secs, sample_rate=44100, amplitude=1.0, dtype=None), text_signature = "(carrier_freq: float, modulator_freq: float, modulation_index: float, duration_secs: float, sample_rate: int = 44100, amplitude: float = 1.0, dtype: Optional[numpy.dtype] = None) -> PyAudioSamples")]
+#[pyo3(signature = (carrier_freq, modulator_freq, modulation_index, duration_secs, sample_rate=44100, amplitude=1.0, dtype=None))]
 fn fm_signal(
     py: Python<'_>,
     carrier_freq: f64,
@@ -824,7 +847,7 @@ fn fm_signal(
     duration_secs: f64,
     sample_rate: u32,
     amplitude: f64,
-    dtype: Option<DTypeArg<'_>>,
+    dtype: Option<Bound<'_, PyAny>>,
 ) -> PyResult<PyAudioSamples> {
     if duration_secs <= 0.0 {
         return Err(PyValueError::new_err("duration_secs must be positive"));
@@ -856,12 +879,13 @@ fn fm_signal(
 ///     duration_secs: Duration of the signal in seconds
 ///     sample_rate: Sample rate in samples per second (default: 44100)
 ///     amplitude: Overall amplitude (default: 1.0)
-///     dtype: NumPy dtype for the output array (default: f32)
+///     dtype: Output sample type as a NumPy dtype, scalar type (``np.float64``)
+///         or string (``"float64"``). Default: float32
 ///
 /// Returns:
-///     PyAudioSamples: Generated AM signal audio data
+///     AudioSamples: Generated AM signal audio data
 #[pyfunction]
-#[pyo3(signature = (carrier_freq, modulator_freq, modulation_depth, duration_secs, sample_rate=44100, amplitude=1.0, dtype=None), text_signature = "(carrier_freq: float, modulator_freq: float, modulation_depth: float, duration_secs: float, sample_rate: int = 44100, amplitude: float = 1.0, dtype: Optional[numpy.dtype] = None) -> PyAudioSamples")]
+#[pyo3(signature = (carrier_freq, modulator_freq, modulation_depth, duration_secs, sample_rate=44100, amplitude=1.0, dtype=None))]
 fn am_signal(
     py: Python<'_>,
     carrier_freq: f64,
@@ -870,7 +894,7 @@ fn am_signal(
     duration_secs: f64,
     sample_rate: u32,
     amplitude: f64,
-    dtype: Option<DTypeArg<'_>>,
+    dtype: Option<Bound<'_, PyAny>>,
 ) -> PyResult<PyAudioSamples> {
     if duration_secs <= 0.0 {
         return Err(PyValueError::new_err("duration_secs must be positive"));
@@ -900,21 +924,22 @@ fn am_signal(
 ///     components: List of ``(frequency_hz, amplitude)`` tuples. Must be non-empty.
 ///     duration_secs: Duration of the signal in seconds
 ///     sample_rate: Sample rate in samples per second (default: 44100)
-///     dtype: NumPy dtype for the output array (default: f32)
+///     dtype: Output sample type as a NumPy dtype, scalar type (``np.float64``)
+///         or string (``"float64"``). Default: float32
 ///
 /// Returns:
-///     PyAudioSamples: Generated compound tone audio data
+///     AudioSamples: Generated compound tone audio data
 ///
 /// Raises:
 ///     ValueError: If `components` is empty or `duration_secs` is not positive.
 #[pyfunction]
-#[pyo3(signature = (components, duration_secs, sample_rate=44100, dtype=None), text_signature = "(components: list[tuple[float, float]], duration_secs: float, sample_rate: int = 44100, dtype: Optional[numpy.dtype] = None) -> PyAudioSamples")]
+#[pyo3(signature = (components, duration_secs, sample_rate=44100, dtype=None))]
 fn compound_tone(
     py: Python<'_>,
     components: Vec<(f64, f64)>,
     duration_secs: f64,
     sample_rate: u32,
-    dtype: Option<DTypeArg<'_>>,
+    dtype: Option<Bound<'_, PyAny>>,
 ) -> PyResult<PyAudioSamples> {
     if duration_secs <= 0.0 {
         return Err(PyValueError::new_err("duration_secs must be positive"));
@@ -951,12 +976,13 @@ fn compound_tone(
 ///     duration_secs: Duration of the signal in seconds
 ///     sample_rate: Sample rate in samples per second (default: 44100)
 ///     amplitude: Peak amplitude of bursts (default: 1.0)
-///     dtype: NumPy dtype for the output array (default: f32)
+///     dtype: Output sample type as a NumPy dtype, scalar type (``np.float64``)
+///         or string (``"float64"``). Default: float32
 ///
 /// Returns:
-///     PyAudioSamples: Generated burst signal audio data
+///     AudioSamples: Generated burst signal audio data
 #[pyfunction]
-#[pyo3(signature = (burst_rate, decay_rate, duration_secs, sample_rate=44100, amplitude=1.0, dtype=None), text_signature = "(burst_rate: float, decay_rate: float, duration_secs: float, sample_rate: int = 44100, amplitude: float = 1.0, dtype: Optional[numpy.dtype] = None) -> PyAudioSamples")]
+#[pyo3(signature = (burst_rate, decay_rate, duration_secs, sample_rate=44100, amplitude=1.0, dtype=None))]
 fn exponential_bursts(
     py: Python<'_>,
     burst_rate: f64,
@@ -964,7 +990,7 @@ fn exponential_bursts(
     duration_secs: f64,
     sample_rate: u32,
     amplitude: f64,
-    dtype: Option<DTypeArg<'_>>,
+    dtype: Option<Bound<'_, PyAny>>,
 ) -> PyResult<PyAudioSamples> {
     if duration_secs <= 0.0 {
         return Err(PyValueError::new_err("duration_secs must be positive"));

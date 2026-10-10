@@ -10,7 +10,7 @@ use crate::{
 
 #[pymethods]
 impl PyAudioSamples {
-    #[pyo3(signature = (method: "MonoConversionMethod" = PyMonoConversionMethod::default()), text_signature = "($self, method: MonoConversionMethod=MonoConversionMethod.average) -> AudioSamples")]
+    #[pyo3(signature = (method: "MonoConversionMethod" = PyMonoConversionMethod::default()))]
     /// Convert the audio buffer to mono using the provided strategy.
     ///
     /// Args:
@@ -30,7 +30,7 @@ impl PyAudioSamples {
         })
     }
 
-    #[pyo3(signature = (method: "StereoConversionMethod" = PyStereoConversionMethod::default()), text_signature = "($self, method: StereoConversionMethod=StereoConversionMethod.duplicate) -> AudioSamples")]
+    #[pyo3(signature = (method: "StereoConversionMethod" = PyStereoConversionMethod::default()))]
     /// Convert the audio buffer to stereo using the provided strategy.
     ///
     /// Args:
@@ -53,7 +53,7 @@ impl PyAudioSamples {
                 .map(Self::from_audio_samples)
         })
     }
-    #[pyo3(signature = (n_channels: "int"), text_signature = "($self, n_channels: int) -> AudioSamples")]
+    #[pyo3(signature = (n_channels: "int"))]
     /// Duplicate the buffer into the requested number of channels.
     ///
     /// Args:
@@ -73,7 +73,7 @@ impl PyAudioSamples {
         })
     }
 
-    #[pyo3(signature = (channel_index: "int"), text_signature = "($self, channel_index: int) -> AudioSamples")]
+    #[pyo3(signature = (channel_index: "int"))]
     /// Extract a single channel from the buffer.
     ///
     /// Args:
@@ -93,8 +93,12 @@ impl PyAudioSamples {
         })
     }
 
-    #[pyo3(signature = (channel1: "int", channel2: "int"), text_signature = "($self, channel1: int, channel2: int) -> None")]
+    #[pyo3(signature = (channel1: "int", channel2: "int"))]
     /// Swap two channels in place.
+    ///
+    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// was created from a NumPy array (``new_mono``/``new_multi``), that array
+    /// is modified too; pass ``arr.copy()`` to keep the original.
     ///
     /// Args:
     ///     channel1 (int): Zero-based index of the first channel.
@@ -114,8 +118,12 @@ impl PyAudioSamples {
         })
     }
 
-    #[pyo3(signature = (pan_value: "float"), text_signature = "($self, pan_value: float)")]
+    #[pyo3(signature = (pan_value: "float"))]
     /// Apply stereo panning to the buffer in place.
+    ///
+    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// was created from a NumPy array (``new_mono``/``new_multi``), that array
+    /// is modified too; pass ``arr.copy()`` to keep the original.
     ///
     /// Args:
     ///     pan_value (float): Normalized pan value; negative favors left, positive favors right.
@@ -133,8 +141,12 @@ impl PyAudioSamples {
         })
     }
 
-    #[pyo3(signature = (balance: "float"), text_signature = "($self, balance: float)")]
+    #[pyo3(signature = (balance: "float"))]
     /// Adjust the stereo balance in place.
+    ///
+    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// was created from a NumPy array (``new_mono``/``new_multi``), that array
+    /// is modified too; pass ``arr.copy()`` to keep the original.
     ///
     /// Args:
     ///     balance (float): Balance offset; negative favors left, positive favors right.
@@ -150,7 +162,7 @@ impl PyAudioSamples {
         })
     }
 
-    #[pyo3(signature = (channel_index: "int"), text_signature = "($self, channel_index: int) -> AudioSamples")]
+    #[pyo3(signature = (channel_index: "int"))]
     /// Return a single channel as a new mono buffer.
     ///
     /// The underlying crate method ``borrow_channel`` returns a borrowed,
@@ -177,7 +189,7 @@ impl PyAudioSamples {
     }
 
     #[staticmethod]
-    #[pyo3(signature = (channels: "list[AudioSamples]"), text_signature = "(channels: list[AudioSamples]) -> AudioSamples")]
+    #[pyo3(signature = (channels: "list[AudioSamples]"))]
     /// Combine multiple mono buffers into a single multi-channel buffer.
     ///
     /// The first buffer becomes channel 0, the second channel 1, and so on. All
@@ -249,7 +261,7 @@ impl PyAudioSamples {
         }
     }
 
-    #[pyo3(signature = (), text_signature = "($self) -> list[AudioSamples]")]
+    #[pyo3(signature = ())]
     /// Split a multi-channel buffer into individual mono buffers.
     ///
     /// Channel 0 becomes element 0, channel 1 becomes element 1, and so on. For

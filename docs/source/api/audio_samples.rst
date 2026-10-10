@@ -73,7 +73,7 @@ Key Features
 **Amplitude Processing**
    - Amplitude scaling with precise factor control
    - Normalization with multiple methods (peak, minmax, RMS)
-   - Soft clipping to prevent distortion
+   - Hard clipping (clamping samples to a range)
    - DC offset removal for signal cleanup
 
 **Dynamic Range Processing**

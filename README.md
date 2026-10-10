@@ -45,6 +45,7 @@ audio_samples
 
 **Manual Metadata Coordination**: Every operation requires passing sample rates and format information manually:
 
+<!-- readme-test: skip (illustrative librosa code, needs audio.wav) -->
 ```python
 # Traditional approach - error-prone manual coordination
 data, sr = soundfile.read('audio.wav') # silently converts all samples in 'audio.wav' to 'float64'
@@ -60,10 +61,12 @@ freqs = librosa.fft_frequencies(sr=sr, n_fft=2048)  # Must pass sr again
 
 **Audio-First Design**: Audio objects carry sample rates, channel configurations, and format information intrinsically:
 
+<!-- readme-test: skip (needs audio.wav) -->
 ```python
 # AudioSamples approach - automatic coordination
-audio = aus.io.read('audio.wav') # Reads samples in the same encoding as the file itself. Can pass a dtype argument to specify the target type if desired. YOU make that choice.
-stft_matrix, freqs = audio.stft_with_freqs(window_size=2048, hop_size=512)
+audio = aus.io.read('audio.wav')  # Keeps the file's own sample encoding. Pass as_type=aus.SampleType.F32 to choose another. YOU make that choice.
+stft = audio.stft(aus.StftParams(n_fft=2048, hop_size=512, window=aus.WindowType.hanning))
+freqs = stft.frequencies  # frequency axis in Hz, from the audio's own sample rate
 ```
 
 **Explicit Operations Only**: The aim is that no implicit behavior occurs without user consent (trying to find any and all remainging). AudioSamples preserves original audio properties unless explicitly requested to change them.
@@ -113,7 +116,7 @@ aus.io.save("sine.wav", sine)
 
 # read audio file
 audio = aus.io.read("sine.wav")
-# audio = aus.io.read("sine.wav", dtype=np.float32)  # Optionally specify target dtype (default is the file's native encoding)
+# audio = aus.io.read("sine.wav", as_type=aus.SampleType.F32)  # Optionally choose the sample type (default is the file's native encoding)
 
 # Apply processing
 audio.normalize(-1.0, 1.0, aus.NormalizationMethod.peak)
@@ -203,7 +206,7 @@ triangle = aus.generation.triangle_wave(660.0, duration, sample_rate)
 
 # Advanced signals
 chirp = aus.generation.chirp(100.0, 2000.0, duration, sample_rate)
-impulse = aus.generation.impulse(100, sample_rate)  # 100ms impulse
+impulse = aus.generation.impulse(0.1, sample_rate)  # 0.1 s (100 ms) signal containing one impulse
 
 # Noise generators
 pink = aus.generation.pink_noise(duration, sample_rate)
@@ -272,27 +275,27 @@ split_segments = concatenated.split(0.5)    # 0.5s segments
 audio.scale(0.5)                            # 50% volume
 audio.normalize(-1.0, 1.0, 'minmax')        # Normalize range
 audio.remove_dc_offset()                    # Remove DC bias
-audio.clip(-0.8, 0.8)                       # Soft clipping
+audio.clip(-0.8, 0.8)                       # Hard clipping: clamp samples to [-0.8, 0.8]
 ```
 
 ### 5. Resampling and Format Conversion
 
 ```python
-# High-quality resampling
+# High-quality resampling (the default quality is ResamplingQuality.fast)
 original = aus.generation.sine_wave(440.0, 0.5, 44100)
 
 # Resample to different rates
-upsampled = original.resample(88200, 'high')     # 2x upsampling
-downsampled = original.resample(22050, 'high')   # 2x downsampling
-ratio_resampled = original.resample_by_ratio(1.5, 'high')  # 1.5x rate
+upsampled = original.resample(88200, aus.ResamplingQuality.high)     # 2x upsampling
+downsampled = original.resample(22050, aus.ResamplingQuality.high)   # 2x downsampling
+ratio_resampled = original.resample_by_ratio(1.5, aus.ResamplingQuality.high)  # 1.5x rate
 
 # Multiple sample format support
 # i16, i32, f32, f64 with type-safe conversions
 
-audio_i16 = original.to_format(SampleType.I16)
-audio_i32  = original.to_format(SampleType.I32)
-audio_f32 = original.to_format(SampleType.F32)
-audio_f64 = original.to_format(SampleType.F64)
+audio_i16 = original.to_format(aus.SampleType.I16)
+audio_i32  = original.to_format(aus.SampleType.I32)
+audio_f32 = original.to_format(aus.SampleType.F32)
+audio_f64 = original.to_format(aus.SampleType.F64)
 ```
 
 ### 6. Digital Filtering
@@ -312,6 +315,36 @@ audio.butterworth_highpass(4, 80.0)        # 4th-order Butterworth high-pass
 # Designs interoperate with scipy: same SOS coefficients
 design = aus.IirFilterDesign.chebyshev_i("lowpass", 6, 5000.0, 0.5)
 sos = design.sos(sample_rate)              # (n_sections, 6), usable with scipy.signal.sosfilt
+```
+
+### 7. Spectrograms, Mel and MFCC
+
+The parameter classes live in `audio_samples.spectrograms` and are re-exported at the top level:
+
+```python
+speech = aus.sine_wave(220.0, 1.0, 16000)
+
+stft_params = aus.StftParams(n_fft=512, hop_size=160, window=aus.WindowType.hanning)
+stft = speech.stft(stft_params)                  # complex STFT, shape (257, n_frames)
+
+spec_params = aus.SpectrogramParams(stft_params, sample_rate=speech.sample_rate)
+mel = speech.mel_spectrogram(spec_params, aus.MelParams(n_mels=40, f_min=0.0, f_max=8000.0))
+mfcc = speech.mfcc(stft_params, 40, aus.MfccParams(n_mfcc=13))   # shape (13, n_frames)
+```
+
+`SpectrogramParams.sample_rate` must equal the audio's sample rate; a mismatch raises `ValueError`.
+
+### 8. Errors
+
+Errors from the Rust core derive from `aus.AudioError`. Each subclass also derives from the matching
+built-in exception, so `except ValueError:` keeps working, and carries the diagnostic `code` and `help`:
+
+```python
+try:
+    speech.butterworth_lowpass(4, 9000.0)       # above Nyquist (8000 Hz)
+except aus.AudioParameterError as err:          # also a ValueError
+    print(err)
+    print(err.help)
 ```
 
 ## NumPy Integration
@@ -338,11 +371,21 @@ windowed_audio = audio * window                          # Windowing
 # Custom mathematical transformations
 distortion = np.tanh(audio.to_numpy() * 3.0)            # Custom distortion
 distorted_audio = aus.AudioSamples.new_mono(distortion, sample_rate)
+
+# NumPy functions and ufuncs accept AudioSamples directly
+peak = np.max(np.abs(audio))                             # same as on audio.to_numpy()
+spectrum = np.fft.rfft(audio)
 ```
+
+**Memory sharing.** `AudioSamples.new_mono(arr, sr)` and `new_multi(arr, sr)`
+do not copy: the `AudioSamples` views `arr`'s memory. Methods that work in place
+(`apply_compressor`, `apply_limiter`, `apply_iir_filter`, `filtfilt`,
+`reverse_in_place`, ...) therefore modify `arr` too. Pass `arr.copy()` if you
+want to keep the original array unchanged.
 
 ## Requirements
 
-- Python >= 3.8
+- Python >= 3.10
 - NumPy >= 1.24.4
 
 ## License

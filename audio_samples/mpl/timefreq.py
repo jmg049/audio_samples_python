@@ -4,7 +4,7 @@ from __future__ import annotations
 
 
 import numpy as np
-from spectrograms import (
+from audio_samples.spectrograms import (
     ChromaParams,
     ErbParams,
     LogParams,

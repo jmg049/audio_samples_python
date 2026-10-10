@@ -1,0 +1,23 @@
+# Pre-commit hooks (https://pre-commit.com).
+#
+#   pre-commit install            # once per clone
+#   pre-commit run --all-files    # run everything manually
+#
+# The notebook hooks guard the tutorials in docs/source/tutorials: they must be
+# committed without outputs, and they must execute (each asserts the numbers
+# its text states). Executing them needs the extension built into the active
+# environment (`maturin develop --release`).
+repos:
+  - repo: local
+    hooks:
+      - id: notebooks-clean
+        name: tutorial notebooks have no outputs
+        entry: tests/hooks/check_notebooks_clean.py
+        language: system
+        files: ^docs/source/tutorials/.*\.ipynb$
+
+      - id: notebooks-execute
+        name: tutorial notebooks execute and pass their checks
+        entry: tests/hooks/check_notebooks.sh
+        language: system
+        files: ^docs/source/tutorials/.*\.ipynb$

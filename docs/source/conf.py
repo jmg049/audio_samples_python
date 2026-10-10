@@ -21,7 +21,7 @@ extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
     "sphinx_copybutton",
-    "myst_parser",
+    "myst_nb",
 ]
 autosummary_generate = True
 autodoc_default_options = {
@@ -36,12 +36,13 @@ templates_path = ["_templates"]
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
-exclude_patterns = []
+exclude_patterns = ["**.ipynb_checkpoints"]
 
 # The suffix(es) of source filenames.
 source_suffix = {
-    ".rst": None,
-    ".md": "myst_parser",
+    ".rst": "restructuredtext",
+    ".md": "myst-nb",
+    ".ipynb": "myst-nb",
 }
 
 # -- Options for HTML output -------------------------------------------------
@@ -113,3 +114,19 @@ myst_enable_extensions = [
     "substitution",
     "tasklist",
 ]
+
+
+# -- Notebooks (tutorials) ----------------------------------------------------
+# The tutorial notebooks are committed without outputs. When the compiled
+# extension is importable (e.g. after `maturin develop`), the docs build runs
+# them so the rendered pages show real results; otherwise (e.g. a docs-only CI
+# job without the extension) they are rendered unexecuted. Their correctness
+# is checked separately by `pytest --nbmake docs/source/tutorials`.
+try:  # pragma: no cover - depends on the build environment
+    import audio_samples as _aus  # noqa: F401
+
+    nb_execution_mode = os.environ.get("AUDIO_SAMPLES_NB_EXECUTION", "auto")
+except Exception:  # noqa: BLE001
+    nb_execution_mode = "off"
+nb_execution_timeout = 180
+nb_execution_raise_on_error = True

@@ -16,7 +16,7 @@ use numpy::{PyArray1, PyArrayMethods};
 use pyo3::prelude::*;
 
 #[pyfunction]
-#[pyo3(name = "detect_sample_rate", signature=(audio), text_signature="(audio: AudioSamples) -> Optional[int]")]
+#[pyo3(name = "detect_sample_rate", signature=(audio))]
 /// Heuristically detect the original sample rate of a signal from its spectral content.
 ///
 /// Analyses the power spectrum for sharp high-frequency cutoffs characteristic of
@@ -37,7 +37,7 @@ pub fn py_detect_sample_rate(py: Python<'_>, audio: &PyAudioSamples) -> PyResult
 }
 
 #[pyfunction]
-#[pyo3(name = "detect_fundamental_frequency", signature=(audio), text_signature="(audio: AudioSamples) -> Optional[float]")]
+#[pyo3(name = "detect_fundamental_frequency", signature=(audio))]
 /// Estimate the fundamental frequency of a signal using autocorrelation.
 ///
 /// Args:
@@ -56,7 +56,7 @@ pub fn py_detect_fundamental_frequency(
 }
 
 #[pyfunction]
-#[pyo3(name = "detect_silence_regions", signature=(audio, threshold), text_signature="(audio: AudioSamples, threshold: float) -> list[tuple[float, float]]")]
+#[pyo3(name = "detect_silence_regions", signature=(audio, threshold))]
 /// Detect time intervals where the signal amplitude falls below a threshold.
 ///
 /// For mono signals each sample is checked directly. For multi-channel signals a position
@@ -80,7 +80,7 @@ pub fn py_detect_silence_regions(
 }
 
 #[pyfunction]
-#[pyo3(name = "detect_clipping", signature=(audio, threshold_ratio=0.99), text_signature="(audio: AudioSamples, threshold_ratio: float = 0.99) -> list[tuple[float, float]]")]
+#[pyo3(name = "detect_clipping", signature=(audio, threshold_ratio=0.99))]
 /// Detect time intervals where the signal reaches or exceeds the full-scale value.
 ///
 /// A sample is considered clipped when it reaches or exceeds ``threshold_ratio`` of the
@@ -106,7 +106,7 @@ pub fn py_detect_clipping(
 }
 
 #[pyfunction]
-#[pyo3(name = "detect_dynamic_range", signature=(audio), text_signature="(audio: AudioSamples) -> tuple[float, float, float]")]
+#[pyo3(name = "detect_dynamic_range", signature=(audio))]
 /// Compute the dynamic-range characteristics of a signal.
 ///
 /// All samples across all channels are considered together.
@@ -127,7 +127,7 @@ pub fn py_detect_dynamic_range(
 }
 
 #[pyfunction]
-#[pyo3(name = "estimate_noise_floor", signature=(audio), text_signature="(audio: AudioSamples) -> Optional[float]")]
+#[pyo3(name = "estimate_noise_floor", signature=(audio))]
 /// Estimate the noise floor of a signal in dBFS.
 ///
 /// Computes the noise floor from the quietest 10th percentile of sample magnitudes. Only
@@ -149,7 +149,7 @@ pub fn py_estimate_noise_floor(
 }
 
 #[pyfunction]
-#[pyo3(name = "estimate_frequency_range", signature=(audio), text_signature="(audio: AudioSamples) -> Optional[tuple[float, float]]")]
+#[pyo3(name = "estimate_frequency_range", signature=(audio))]
 /// Estimate the active frequency range of a signal.
 ///
 /// Computes the power spectrum of the first channel and returns the lowest and highest
@@ -171,7 +171,7 @@ pub fn py_estimate_frequency_range(
 }
 
 #[pyfunction]
-#[pyo3(name = "analyze_spectrum_for_cutoff", signature=(spectrum, nyquist_freq), text_signature="(spectrum: numpy.ndarray, nyquist_freq: float) -> Optional[int]")]
+#[pyo3(name = "analyze_spectrum_for_cutoff", signature=(spectrum, nyquist_freq))]
 /// Analyse a power spectrum for a spectral cutoff indicating prior resampling.
 ///
 /// Checks candidate Nyquist frequencies (derived from common sample rates) for a 2x or
@@ -203,7 +203,7 @@ pub fn py_analyze_spectrum_for_cutoff(
 }
 
 #[pyfunction]
-#[pyo3(name = "detect_fundamental_autocorrelation", signature=(data, sample_rate), text_signature="(data: numpy.ndarray, sample_rate: float) -> Optional[float]")]
+#[pyo3(name = "detect_fundamental_autocorrelation", signature=(data, sample_rate))]
 /// Estimate the fundamental frequency of a raw sample buffer using autocorrelation.
 ///
 /// Searches candidate periods corresponding to fundamentals in the range 50..2000 Hz.

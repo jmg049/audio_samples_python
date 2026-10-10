@@ -83,7 +83,7 @@ def plot_hpss_components(
         ``(fig, [orig_ax, harm_ax, perc_ax])``.
     """
     import matplotlib.pyplot as plt
-    import spectrograms as sp
+    from audio_samples import spectrograms as sp
 
     style = _resolve_style(style)
     stft_p = sp.StftParams(

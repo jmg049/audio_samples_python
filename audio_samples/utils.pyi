@@ -33,10 +33,12 @@ def correlation(a: AudioSamples, b: AudioSamples) -> float:
         TypeError: If the signals have different data types.
 
     Example:
+        >>> import numpy as np
         >>> from audio_samples import AudioSamples
         >>> from audio_samples.utils import correlation
-        >>> audio1 = AudioSamples.zeros_mono_f32(44100, 44100)
-        >>> corr = correlation(audio1, audio1)  # Returns 1.0 for identical signals
+        >>> audio1 = AudioSamples.new_mono(np.sin(np.arange(100) / 5.0), sample_rate=44100)
+        >>> correlation(audio1, audio1)  # identical signals
+        1.0
     """
     ...
 
@@ -63,10 +65,12 @@ def mse(a: AudioSamples, b: AudioSamples) -> float:
         TypeError: If the signals have different data types.
 
     Example:
+        >>> import numpy as np
         >>> from audio_samples import AudioSamples
         >>> from audio_samples.utils import mse
-        >>> audio1 = AudioSamples.zeros_mono_f32(44100, 44100)
-        >>> error = mse(audio1, audio1)  # Returns 0.0 for identical signals
+        >>> audio1 = AudioSamples.new_mono(np.sin(np.arange(100) / 5.0), sample_rate=44100)
+        >>> mse(audio1, audio1)  # identical signals
+        0.0
     """
     ...
 
@@ -93,11 +97,13 @@ def snr(signal: AudioSamples, noise: AudioSamples) -> float:
         TypeError: If the signals have different data types.
 
     Example:
+        >>> import numpy as np
         >>> from audio_samples import AudioSamples
         >>> from audio_samples.utils import snr
-        >>> signal = AudioSamples.from_mono_f32([1.0, 2.0, 3.0], 44100)
-        >>> noise = AudioSamples.from_mono_f32([0.1, 0.2, 0.1], 44100)
-        >>> ratio = snr(signal, noise)  # Returns positive value in dB
+        >>> signal = AudioSamples.new_mono(np.array([1.0, 2.0, 3.0]), sample_rate=44100)
+        >>> noise = AudioSamples.new_mono(np.array([0.1, 0.2, 0.1]), sample_rate=44100)
+        >>> round(snr(signal, noise), 2)  # 10*log10(mean(s**2) / mean(n**2))
+        23.68
     """
     ...
 
@@ -130,12 +136,14 @@ def align_signals(
         TypeError: If the signals have different data types.
 
     Example:
+        >>> import numpy as np
         >>> from audio_samples import AudioSamples
         >>> from audio_samples.utils import align_signals
-        >>> reference = AudioSamples.from_mono_f32([1.0, 2.0, 3.0, 4.0], 44100)
-        >>> signal = AudioSamples.from_mono_f32([2.0, 3.0, 4.0, 5.0], 44100)
+        >>> reference = AudioSamples.new_mono(np.array([0, 0, 0, 0, 1.0, 0, 0, 0]), sample_rate=44100)
+        >>> signal = AudioSamples.new_mono(np.array([0, 0, 1.0, 0, 0, 0, 0, 0]), sample_rate=44100)  # 2 samples early
         >>> aligned, offset = align_signals(reference, signal)
         >>> print(f"Offset: {offset} samples")
+        Offset: 2 samples
     """
     ...
 

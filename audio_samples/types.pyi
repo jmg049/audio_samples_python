@@ -3,7 +3,8 @@ from enum import Enum
 from typing import Optional
 import numpy
 import numpy.typing
-from .spectrograms import CqtParams, StftParams
+from audio_samples.spectrograms import CqtParams, StftParams
+from audio_samples.explain import ExplainDoc
 
 class SampleType(Enum):
     """
@@ -55,10 +56,8 @@ class PadSide:
     padding operations.
     """
 
-    @classmethod
-    def left(cls) -> PadSide: ...
-    @classmethod
-    def right(cls) -> PadSide: ...
+    left: PadSide
+    right: PadSide
 
 class NormalizationMethod:
     """
@@ -367,6 +366,28 @@ class VadConfig:
         ...
 
     ...
+
+    def explain(
+        self,
+        sample_rate: Optional[float] = None,
+        *,
+        n_samples: Optional[int] = None,
+        n_channels: Optional[int] = None,
+        f0_range: Optional[tuple[float, float]] = None,
+    ) -> ExplainDoc:
+        """Explain what this voice-activity-detection configuration will do (see ``audio_samples.explain``).
+
+        Args:
+            sample_rate: Sample rate in Hz of the signal it will be applied to.
+                Without it, quantities that need a sample rate are omitted.
+            n_samples: Signal length in samples per channel.
+            n_channels: Number of channels.
+            f0_range: Expected fundamental-frequency range ``(lowest, highest)`` in Hz.
+
+        Returns:
+            The explanation.
+        """
+        ...
 
 class ResamplingQuality:
     """
@@ -797,6 +818,28 @@ class IirFilterDesign:
 
     ...
 
+    def explain(
+        self,
+        sample_rate: Optional[float] = None,
+        *,
+        n_samples: Optional[int] = None,
+        n_channels: Optional[int] = None,
+        f0_range: Optional[tuple[float, float]] = None,
+    ) -> ExplainDoc:
+        """Explain what this IIR filter design will do (see ``audio_samples.explain``).
+
+        Args:
+            sample_rate: Sample rate in Hz of the signal it will be applied to.
+                Without it, quantities that need a sample rate are omitted.
+            n_samples: Signal length in samples per channel.
+            n_channels: Number of channels.
+            f0_range: Expected fundamental-frequency range ``(lowest, highest)`` in Hz.
+
+        Returns:
+            The explanation.
+        """
+        ...
+
 class EqBandType:
     """
     Parametric equaliser band type.
@@ -925,6 +968,28 @@ class EqBand:
     """Whether this band is enabled."""
 
     ...
+
+    def explain(
+        self,
+        sample_rate: Optional[float] = None,
+        *,
+        n_samples: Optional[int] = None,
+        n_channels: Optional[int] = None,
+        f0_range: Optional[tuple[float, float]] = None,
+    ) -> ExplainDoc:
+        """Explain what this EQ band will do (see ``audio_samples.explain``).
+
+        Args:
+            sample_rate: Sample rate in Hz of the signal it will be applied to.
+                Without it, quantities that need a sample rate are omitted.
+            n_samples: Signal length in samples per channel.
+            n_channels: Number of channels.
+            f0_range: Expected fundamental-frequency range ``(lowest, highest)`` in Hz.
+
+        Returns:
+            The explanation.
+        """
+        ...
 
 class ParametricEq:
     """
@@ -1076,7 +1141,18 @@ class EnvelopeFollower:
         """Create a default EnvelopeFollower with 10ms attack and 100ms release at 44100 Hz."""
         ...
 
-    ...
+    def process(self, input: float) -> float:
+        """Process one sample; returns the envelope level (stateful)."""
+        ...
+
+    def process_array(self, samples: numpy.typing.NDArray[numpy.float64]) -> numpy.typing.NDArray[numpy.float64]:
+        """Process a 1-D array; returns the envelope per sample (stateful)."""
+        ...
+
+    def reset(self) -> None:
+        """Reset the envelope to 0."""
+        ...
+
 
 class SideChainConfig:
     """
@@ -1181,6 +1257,29 @@ class CompressorConfig:
     bus: CompressorConfig
     """Bus compression preset."""
 
+    @staticmethod
+    def default() -> CompressorConfig: ...
+    @property
+    def threshold_db(self) -> float: ...
+    @property
+    def ratio(self) -> float: ...
+    @property
+    def attack_ms(self) -> float: ...
+    @property
+    def release_ms(self) -> float: ...
+    @property
+    def makeup_gain_db(self) -> float: ...
+    @property
+    def knee_type(self) -> KneeType: ...
+    @property
+    def knee_width_db(self) -> float: ...
+    @property
+    def detection_method(self) -> DynamicRangeMethod: ...
+    @property
+    def side_chain(self) -> SideChainConfig: ...
+    @property
+    def lookahead_ms(self) -> float: ...
+
     def validate(self, sample_rate: float) -> None:
         """
         Validate compressor configuration parameters.
@@ -1193,6 +1292,28 @@ class CompressorConfig:
         ...
 
     ...
+
+    def explain(
+        self,
+        sample_rate: Optional[float] = None,
+        *,
+        n_samples: Optional[int] = None,
+        n_channels: Optional[int] = None,
+        f0_range: Optional[tuple[float, float]] = None,
+    ) -> ExplainDoc:
+        """Explain what this compressor configuration will do (see ``audio_samples.explain``).
+
+        Args:
+            sample_rate: Sample rate in Hz of the signal it will be applied to.
+                Without it, quantities that need a sample rate are omitted.
+            n_samples: Signal length in samples per channel.
+            n_channels: Number of channels.
+            f0_range: Expected fundamental-frequency range ``(lowest, highest)`` in Hz.
+
+        Returns:
+            The explanation.
+        """
+        ...
 
 class LimiterConfig:
     """
@@ -1287,6 +1408,28 @@ class LimiterConfig:
         ...
 
     ...
+
+    def explain(
+        self,
+        sample_rate: Optional[float] = None,
+        *,
+        n_samples: Optional[int] = None,
+        n_channels: Optional[int] = None,
+        f0_range: Optional[tuple[float, float]] = None,
+    ) -> ExplainDoc:
+        """Explain what this limiter configuration will do (see ``audio_samples.explain``).
+
+        Args:
+            sample_rate: Sample rate in Hz of the signal it will be applied to.
+                Without it, quantities that need a sample rate are omitted.
+            n_samples: Signal length in samples per channel.
+            n_channels: Number of channels.
+            f0_range: Expected fundamental-frequency range ``(lowest, highest)`` in Hz.
+
+        Returns:
+            The explanation.
+        """
+        ...
 
 class AdaptiveThresholdMethod:
     """
@@ -1635,13 +1778,18 @@ class PeakPickingConfig:
         normalize_onset_strength: bool,
         normalization_method: NormalizationMethod,
     ) -> None: ...
-    @classmethod
-    def music(cls) -> PeakPickingConfig: ...
-    @classmethod
-    def speech(cls) -> PeakPickingConfig: ...
-    @classmethod
-    def drums(cls) -> PeakPickingConfig: ...
-    def set_min_peak_separation(self, value: int) -> None: ...
+    # Presets are class attributes (no parentheses): PeakPickingConfig.music
+    music: PeakPickingConfig
+    speech: PeakPickingConfig
+    drums: PeakPickingConfig
+    @staticmethod
+    def default() -> PeakPickingConfig: ...
+    @property
+    def min_peak_separation(self) -> int:
+        """Minimum separation between detected peaks in frames."""
+        ...
+    @min_peak_separation.setter
+    def min_peak_separation(self, value: int) -> None: ...
     def set_min_peak_separation_ms(self, value: float, sample_rate: float) -> None: ...
     def set_pre_emphasis(self, enabled: bool, coeff: float) -> None: ...
     def set_median_filter(self, enabled: bool, length: int) -> None: ...
@@ -1698,7 +1846,7 @@ class SpectralFluxConfig:
     def __init__(
         self,
         *,
-        cqt_config: CqtParams,
+        cqt_params: CqtParams,
         hop_size: int,
         window_size: Optional[int],
         flux_method: SpectralFluxMethod,
@@ -1717,9 +1865,9 @@ class SpectralFluxConfig:
 
     def validate(self, sample_rate: float) -> SpectralFluxConfig: ...
     @property
-    def cqt_config(self) -> CqtParams: ...
-    @cqt_config.setter
-    def cqt_config(self, value: CqtParams) -> None: ...
+    def cqt_params(self) -> CqtParams: ...
+    @cqt_params.setter
+    def cqt_params(self, value: CqtParams) -> None: ...
     @property
     def hop_size(self) -> int: ...
     @hop_size.setter
@@ -1759,7 +1907,7 @@ class ComplexOnsetConfig:
     def __init__(
         self,
         *,
-        cqt_config: CqtParams,
+        cqt_params: CqtParams,
         hop_size: int,
         window_size: Optional[int],
         peak_picking: PeakPickingConfig,
@@ -1782,9 +1930,9 @@ class ComplexOnsetConfig:
     def set_weights(self, magnitude_weight: float, phase_weight: float) -> None: ...
     def validate(self, sample_rate: float) -> ComplexOnsetConfig: ...
     @property
-    def cqt_config(self) -> CqtParams: ...
-    @cqt_config.setter
-    def cqt_config(self, value: CqtParams) -> None: ...
+    def cqt_params(self) -> CqtParams: ...
+    @cqt_params.setter
+    def cqt_params(self, value: CqtParams) -> None: ...
     @property
     def hop_size(self) -> int: ...
     @hop_size.setter
@@ -1860,6 +2008,28 @@ class OnsetDetectionConfig:
     def hop_size(self, value: int) -> None: ...
 
     ...
+
+    def explain(
+        self,
+        sample_rate: Optional[float] = None,
+        *,
+        n_samples: Optional[int] = None,
+        n_channels: Optional[int] = None,
+        f0_range: Optional[tuple[float, float]] = None,
+    ) -> ExplainDoc:
+        """Explain what this onset-detection configuration will do (see ``audio_samples.explain``).
+
+        Args:
+            sample_rate: Sample rate in Hz of the signal it will be applied to.
+                Without it, quantities that need a sample rate are omitted.
+            n_samples: Signal length in samples per channel.
+            n_channels: Number of channels.
+            f0_range: Expected fundamental-frequency range ``(lowest, highest)`` in Hz.
+
+        Returns:
+            The explanation.
+        """
+        ...
 
 class BeatTrackingConfig:
     """Configuration for beat detection."""

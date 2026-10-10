@@ -1,168 +1,59 @@
-import audio_samples as aus
-import numpy as np
+"""Execute the Python code blocks of README.md so that README drift is caught.
 
-from audio_samples import SampleType
+Every ```python block is run, in order, in one shared namespace (later blocks
+reuse variables from earlier ones, as a reader would). A block is skipped when
+the line right before its opening fence is an HTML comment starting with
+``<!-- readme-test: skip`` (used for blocks that need external files or other
+libraries). The blocks run inside a temporary directory, so files they write
+do not land in the repository.
+"""
 
-# Audio parameters
-duration = 1.0  # seconds
-sample_rate = 44100
+from __future__ import annotations
 
-# Generate audio signals
-sine = aus.generation.sine_wave(440.0, duration, sample_rate)
-cosine = aus.generation.cosine_wave(880.0, duration, sample_rate)
-white_noise = aus.generation.white_noise(duration, sample_rate)
+import re
+from pathlib import Path
 
-# Mix signals with operator overloading
-mixed = sine + cosine * 0.3 + white_noise * 0.05
+import pytest
 
-# Audio analysis (built-in, no external libraries needed)
-print(f"RMS level: {mixed.rms():.4f}")
-print(f"Mean: {mixed.mean():.6f}")
-print(f"Zero crossings: {mixed.zero_crossings()}")
-print(f"Spectral centroid: {mixed.spectral_centroid():.2f} Hz")
-
-### Audio I/O Operations
-sine = aus.sine_wave(440.0, 1.0, 44100)
-aus.io.save("sine.wav", sine)
-
-audio = aus.io.read("sine.wav")
-
-# Apply processing
-audio.normalize(-1.0, 1.0, aus.NormalizationMethod.peak)
-audio.fade_in(0.1, aus.FadeCurve.exponential)
-audio.fade_out(0.1, aus.FadeCurve.logarithmic)
-
-# Save processed audio
-aus.io.save("output.wav", audio)
-
-# Display audio information
-print(repr(audio))
-
-# Create stereo using the proper AudioSamples methods
-left_channel = sine
-right_channel = cosine * 0.7
-stereo = aus.AudioSamples.stack([left_channel, right_channel])
-
-# Channel operations
-stereo.pan(0.3)           # Pan 30% to the right
-stereo.balance(0.2)       # 20% balance adjustment
-stereo.swap_channels(0, 1) # Swap left and right
-
-# Channel extraction and conversion
-mono = stereo.to_mono(aus.MonoConversionMethod.average)
-stereo_from_mono = sine.to_stereo(aus.StereoConversionMethod.duplicate)
-
-print(f"Mono RMS: {mono.rms():.4f}")
-print(f"Stereo from Mono RMS: {stereo_from_mono.rms():.4f}")
-
-# Built-in audio statistics - no external libraries needed
-test_signal = sine + cosine * 0.3 + white_noise * 0.05
-
-stats = {
-    'mean': test_signal.mean(),
-    'rms': test_signal.rms(),
-    'variance': test_signal.variance(),
-    'std_dev': test_signal.std_dev(),
-    'zero_crossings': test_signal.zero_crossings(),
-    'crossing_rate': test_signal.zero_crossing_rate()
-}
-
-# Spectral analysis
-centroid = test_signal.spectral_centroid()
-rolloff = test_signal.spectral_rolloff(0.85)  # 85th percentile
-
-# Correlation analysis
-autocorr = test_signal.autocorrelation(1000)   # 1000 samples max lag
-assert autocorr is not None, "Autocorrelation should return a valid array"
-
-cross_corr = sine.cross_correlation(cosine, 500)  # 500 samples max lag
-
-print("Audio Statistics:")
-for key, value in stats.items():
-    print(f"{key}: {value:.6f}")
-
-print(f"Spectral Centroid: {centroid:.2f} Hz")
-print(f"Spectral Rolloff (85%): {rolloff:.2f} Hz")
-print(f"Autocorrelation (lag 0): {autocorr[0]:.4f}")
-print(f"Cross-correlation (lag 0): {cross_corr[0]:.4f}")
-
-# Non-destructive editing operations
-trimmed = audio.trim(0.2, 0.8)              # Keep 0.2s to 0.8s
-silence_trimmed = audio.trim_silence(-40.0)  # -40dB threshold
-
-# Audio manipulation
-repeated = sine.repeat(3)                    # Repeat 3 times
-padded = sine.pad(0.5, 0.5, 0.0)           # 0.5s padding each side
-
-square = aus.square_wave(220.0, duration, sample_rate)
-triangle = aus.triangle_wave(330.0, duration, sample_rate)
-
-# Concatenation and segmentation
-segments = [sine, square, triangle]
-concatenated = aus.AudioSamples.concatenate(segments)
-split_segments = concatenated.split(0.5)    # 0.5s segments
-
-# Audio processing
-audio.scale(0.5)                            # 50% volume
-audio.normalize(-1.0, 1.0, aus.NormalizationMethod.minmax)        # Normalize range
-audio.remove_dc_offset()                    # Remove DC bias
-audio.clip(-0.8, 0.8)                       # Soft clipping
-
-print(f"Trimmed duration: {trimmed.duration_seconds:.2f} seconds")
-print(f"Silence-trimmed duration: {silence_trimmed.duration_seconds:.2f} seconds")
-print(f"Repeated duration: {repeated.duration_seconds:.2f} seconds")
-print(f"Padded duration: {padded.duration_seconds:.2f} seconds")
-print(f"Concatenated duration: {concatenated.duration_seconds:.2f} seconds")
-print(f"Number of split segments: {len(split_segments)}")
+README = Path(__file__).resolve().parent.parent / "README.md"
+SKIP_MARKER = "<!-- readme-test: skip"
 
 
-# Performant resampling
-original = aus.sine_wave(440.0, 0.5, 44100)
+def _python_blocks() -> list[tuple[int, str, bool]]:
+    """Return ``(line_number, code, skipped)`` for each python block."""
+    lines = README.read_text(encoding="utf-8").splitlines()
+    blocks = []
+    i = 0
+    while i < len(lines):
+        if re.match(r"^```python\s*$", lines[i]):
+            start = i + 1
+            j = start
+            while j < len(lines) and not lines[j].startswith("```"):
+                j += 1
+            prev = lines[i - 1].strip() if i > 0 else ""
+            blocks.append((start + 1, "\n".join(lines[start:j]), prev.startswith(SKIP_MARKER)))
+            i = j + 1
+        else:
+            i += 1
+    return blocks
 
-# Resample to different rates
-upsampled = original.resample(88200, aus.ResamplingQuality.fast)     # 2x upsampling
-downsampled = original.resample(22050, aus.ResamplingQuality.medium)   # 2x downsampling
-ratio_resampled = original.resample_by_ratio(1.5, aus.ResamplingQuality.high)  # 1.5x rate
 
-# Multiple sample format support
-# i16, i32, f32, f64 with type-safe conversions
+BLOCKS = _python_blocks()
+_NAMESPACE: dict = {}
 
-audio_i16 = original.to_format(SampleType.I16)
-audio_i32  = original.to_format(SampleType.I32)
-audio_f32 = original.to_format(SampleType.F32)
-audio_f64 = original.to_format(SampleType.F64)
 
-# Built-in digital filters
-audio = aus.sine_wave(440.0, 0.5, sample_rate)
+def test_readme_has_python_blocks():
+    assert len(BLOCKS) >= 10
+    assert any(not skipped for _, _, skipped in BLOCKS)
 
-# Simple first-order filters return a new AudioSamples
-lp = audio.low_pass_filter(1000.0)         # Low-pass at 1kHz
-hp = audio.high_pass_filter(100.0)         # High-pass at 100Hz
-bp = audio.band_pass_filter(200.0, 2000.0) # Band-pass 200Hz-2kHz
 
-# Higher-order IIR filters (match scipy.signal) are applied in place
-audio.butterworth_highpass(4, 80.0)        # 4th-order Butterworth high-pass
-
-# Designs interoperate with scipy: same SOS coefficients
-design = aus.IirFilterDesign.chebyshev_i("lowpass", 6, 5000.0, 0.5)
-sos = design.sos(sample_rate)              # (n_sections, 6), usable with scipy.signal.sosfilt
-
-left = aus.sine_wave(440.0, duration, sample_rate)
-right = aus.sine_wave(880.0, duration, sample_rate)
-
-# GOOD: Use AudioSamples methods for audio operations
-stereo = aus.AudioSamples.stack([left, right])           # Proper multi-channel
-concatenated = aus.AudioSamples.concatenate([left, right])    # Proper concatenation
-audio.fade_in(0.1, aus.FadeCurve.linear)                            # Built-in audio fades
-resampled = audio.resample(48000, aus.ResamplingQuality.high)                # Proper resampling
-
-# ALSO GOOD: Use NumPy for mathematical operations
-gain_curve = np.linspace(0.1, 1.0, len(audio))
-gained_audio = audio * gain_curve                        # Custom gain curves
-
-window = np.hanning(len(audio))
-windowed_audio = audio * window                          # Windowing
-
-# Custom mathematical transformations
-distortion = np.tanh(audio.to_numpy() * 3.0)            # Custom distortion
-distorted_audio = aus.AudioSamples.new_mono(distortion, sample_rate)
+@pytest.mark.parametrize(
+    "lineno,code,skipped", BLOCKS, ids=[f"README.md:{ln}" for ln, _, _ in BLOCKS]
+)
+def test_readme_block(lineno, code, skipped, tmp_path, monkeypatch):
+    if skipped:
+        pytest.skip(f"README block at line {lineno} is marked readme-test: skip")
+    monkeypatch.chdir(tmp_path)
+    if not _NAMESPACE:
+        exec("import audio_samples as aus\nimport numpy as np", _NAMESPACE)
+    exec(compile(code, f"README.md:{lineno}", "exec"), _NAMESPACE)

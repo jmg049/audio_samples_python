@@ -54,23 +54,31 @@ def info(fp: str) -> AudioInfo:
         AudioInfo: Information about the audio file (sample rate, channels, duration, etc.)
 
     Raises:
-        TypeError: If the file cannot be read or the format is unsupported
+        FileNotFoundError: If the file does not exist (``AudioFileNotFoundError``,
+            a subclass of ``AudioError`` and ``FileNotFoundError``).
+        TypeError: If the file cannot be decoded or the format is unsupported
+            (``AudioDecodeError``, a subclass of ``AudioError`` and ``TypeError``).
     """
     ...
 
-def read(fp: str, as_type: Optional[np.dtype[Any]] = None) -> AudioSamples:
+def read(fp: str, as_type: Optional[SampleType] = None) -> AudioSamples:
     """
     Read an audio file and return AudioSamples.
 
     Args:
-        fp: Path to the audio file
-        as_type: Optional numpy dtype to convert the audio to (default: native format)
+        fp: Path to the audio file (a ``str``; convert ``pathlib.Path`` with ``str(p)``).
+        as_type: Optional ``SampleType`` to convert the audio to, for example
+            ``SampleType.F32`` for floats in [-1, 1] (default: the file's native
+            sample type, so 16-bit files give raw ``int16`` values).
 
     Returns:
         AudioSamples: The loaded audio data
 
     Raises:
-        TypeError: If the file cannot be read or the format is unsupported
+        FileNotFoundError: If the file does not exist (``AudioFileNotFoundError``,
+            a subclass of ``AudioError`` and ``FileNotFoundError``).
+        TypeError: If the file cannot be decoded or the format is unsupported
+            (``AudioDecodeError``, a subclass of ``AudioError`` and ``TypeError``).
     """
     ...
 
@@ -88,7 +96,10 @@ def read_with_info(
         tuple[AudioSamples, AudioInfo]: The loaded audio data and file information
 
     Raises:
-        TypeError: If the file cannot be read or the format is unsupported
+        FileNotFoundError: If the file does not exist (``AudioFileNotFoundError``,
+            a subclass of ``AudioError`` and ``FileNotFoundError``).
+        TypeError: If the file cannot be decoded or the format is unsupported
+            (``AudioDecodeError``, a subclass of ``AudioError`` and ``TypeError``).
     """
     ...
 

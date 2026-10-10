@@ -72,8 +72,8 @@ Audio objects carry properties intrinsically:
 
    # AudioSamples approach - automatic coordination
    audio = aus.io.read('audio.wav')
-   stft_matrix = audio.stft(window_size=2048, hop_size=512)
-   # Time/frequency coordinates computed automatically
+   stft = audio.stft(aus.StftParams(n_fft=2048, hop_size=512, window=aus.WindowType.hanning))
+   freqs = stft.frequencies  # frequency axis from the audio's own sample rate
 
 Coming from librosa?
 --------------------
@@ -89,6 +89,8 @@ Table of Contents
    :maxdepth: 2
    :caption: Documentation
 
+   tutorials/index
+   for_instructors
    examples/index
    librosa_migration
    api/index

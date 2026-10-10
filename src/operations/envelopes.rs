@@ -15,7 +15,7 @@ impl PyAudioSamples {
     ///
     /// Raises:
     ///     AudioError: If envelope computation fails.
-    #[pyo3(signature = (), text_signature = "($self) -> numpy.ndarray")]
+    #[pyo3(signature = ())]
     fn amplitude_envelope<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         dispatch_with_view!(self, py, |audio| {
             let result = audio.amplitude_envelope();
@@ -35,7 +35,7 @@ impl PyAudioSamples {
     /// Raises:
     ///     ValueError: If window_size or hop_size is zero.
     ///     AudioError: If envelope computation fails.
-    #[pyo3(signature = (window_size: "int", hop_size: "int"), text_signature = "($self, window_size: int, hop_size: int) -> numpy.ndarray")]
+    #[pyo3(signature = (window_size: "int", hop_size: "int"))]
     fn rms_envelope<'py>(
         &self,
         py: Python<'py>,
@@ -61,7 +61,7 @@ impl PyAudioSamples {
     ///
     /// Raises:
     ///     AudioError: If envelope computation fails.
-    #[pyo3(signature = (follower: "EnvelopeFollower", method: "DynamicRangeMethod"), text_signature = "($self, follower: EnvelopeFollower, method: DynamicRangeMethod) -> tuple[numpy.ndarray, numpy.ndarray]")]
+    #[pyo3(signature = (follower: "EnvelopeFollower", method: "DynamicRangeMethod"))]
     fn attack_decay_envelope<'py>(
         &self,
         py: Python<'py>,
@@ -81,7 +81,7 @@ impl PyAudioSamples {
     ///
     /// Raises:
     ///     AudioError: If envelope computation fails.
-    #[pyo3(signature = (), text_signature = "($self) -> numpy.ndarray")]
+    #[pyo3(signature = ())]
     fn analytic_envelope<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         dispatch_with_view!(self, py, |audio| {
             let result = audio.analytic_envelope();
@@ -101,7 +101,7 @@ impl PyAudioSamples {
     /// Raises:
     ///     ValueError: If window_size or hop_size is zero.
     ///     AudioError: If envelope computation fails.
-    #[pyo3(signature = (window_size: "int", hop_size: "int"), text_signature = "($self, window_size: int, hop_size: int) -> numpy.ndarray")]
+    #[pyo3(signature = (window_size: "int", hop_size: "int"))]
     fn moving_average_envelope<'py>(
         &self,
         py: Python<'py>,

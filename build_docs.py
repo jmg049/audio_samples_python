@@ -43,6 +43,10 @@ def build_docs():
             ["make", "html"], cwd=docs_dir, capture_output=True, text=True
         )
 
+        # Sphinx reports warnings on stderr even when the build succeeds; show
+        # them so broken cross-references and failed autodoc imports are visible.
+        if result.stderr.strip():
+            print(result.stderr)
         if result.returncode == 0:
             print("Documentation built successfully!")
             html_dir = docs_dir / "build" / "html"
