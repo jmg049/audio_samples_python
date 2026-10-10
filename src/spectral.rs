@@ -352,7 +352,7 @@ pub fn get_window<'py>(
 }
 
 /// Sum-squared window envelope, equivalent to
-/// ``librosa.filters.window_sumsquare(..., dtype=numpy.float64)`` (``norm=None``).
+/// ``librosa.filters.window_sumsquare(..., dtype=numpy.float64)``.
 ///
 /// Args:
 ///     window: Window specification (see ``get_window``).
@@ -360,6 +360,10 @@ pub fn get_window<'py>(
 ///     hop_length (int): Default 512.
 ///     win_length (Optional[int]): ``None`` means ``n_fft``.
 ///     n_fft (int): Default 2048.
+///     norm (Optional[float]): Normalise the window before squaring, as
+///         ``librosa.util.normalize(w, norm=norm)``: ``None`` (default), a
+///         positive number (L-p norm), ``math.inf`` / ``-math.inf`` (max / min
+///         absolute value) or ``0`` (count of non-zeros).
 ///
 /// Returns:
 ///     numpy.ndarray[float64]: shape ``(n_fft + hop_length * (n_frames - 1),)``.
@@ -368,9 +372,10 @@ pub fn get_window<'py>(
 ///     ValueError: For invalid parameters.
 #[pyfunction]
 #[pyo3(
-    signature = (*, window, n_frames, hop_length = Int(512), win_length = None, n_fft = Int(2048)),
-    text_signature = "(*, window, n_frames, hop_length=512, win_length=None, n_fft=2048)"
+    signature = (*, window, n_frames, hop_length = Int(512), win_length = None, n_fft = Int(2048), norm = None),
+    text_signature = "(*, window, n_frames, hop_length=512, win_length=None, n_fft=2048, norm=None)"
 )]
+#[allow(clippy::too_many_arguments)]
 pub fn window_sumsquare<'py>(
     py: Python<'py>,
     window: WindowArg,
@@ -378,13 +383,34 @@ pub fn window_sumsquare<'py>(
     hop_length: Int,
     win_length: Option<Int>,
     n_fft: Int,
+    norm: Option<f64>,
 ) -> PyResult<Bound<'py, PyArray1<f64>>> {
+    let n_fft = positive("n_fft", n_fft)?;
+    let win_length = opt_positive("win_length", win_length)?;
+    // librosa normalises the (periodic) window before squaring; do the same and
+    // hand the result over as a custom window of length win_length.
+    let window = match norm {
+        None => window.0,
+        Some(p) => {
+            let wl = win_length.unwrap_or(n_fft).get();
+            if wl > n_fft.get() {
+                return Err(value_err("win_length", "cannot be longer than n_fft"));
+            }
+            let w = filterbanks::get_window(&window.0, wl, true).map_err(audio_err_to_py)?;
+            let cfg = audio_samples::operations::tonal::NormalizeConfig::new()
+                .with_norm(Some(p))
+                .with_axis(Some(0));
+            let w = audio_samples::operations::tonal::normalize_array(&w, &cfg)
+                .map_err(audio_err_to_py)?;
+            Window::Custom(w.to_vec())
+        }
+    };
     let w = filterbanks::window_sumsquare(
-        &window.0,
+        &window,
         positive("n_frames", n_frames)?.get(),
         positive("hop_length", hop_length)?,
-        opt_positive("win_length", win_length)?,
-        positive("n_fft", n_fft)?,
+        win_length,
+        n_fft,
     )
     .map_err(audio_err_to_py)?;
     Ok(w.into_pyarray(py))

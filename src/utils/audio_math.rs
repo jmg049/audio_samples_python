@@ -578,7 +578,8 @@ pub fn linspace<'py>(
 ///
 /// Args:
 ///     times (float | array_like): Time(s) in seconds.
-///     sample_rate (float): Sampling rate in Hertz (librosa's ``sr``). Default 22050.
+///     sample_rate (Optional[float]): Sampling rate in Hertz. Default 22050.
+///     sr (Optional[float]): librosa's name for ``sample_rate`` (give at most one).
 ///
 /// Returns:
 ///     int | numpy.ndarray[int64]: Sample indices, same shape as the input.
@@ -587,11 +588,13 @@ pub fn linspace<'py>(
 ///     >>> from audio_samples.utils import time_to_samples
 ///     >>> time_to_samples([0.0, 0.5, -0.5], sample_rate=100.0)  # [0, 50, -50]
 #[pyfunction]
-#[pyo3(signature = (times, *, sample_rate = 22050.0), text_signature = "(times, *, sample_rate=22050.0)")]
+#[pyo3(signature = (times, *, sample_rate = None, sr = None), text_signature = "(times, *, sample_rate=None, sr=None)")]
 pub fn time_to_samples<'py>(
     times: &Bound<'py, PyAny>,
-    sample_rate: f64,
+    sample_rate: Option<f64>,
+    sr: Option<f64>,
 ) -> PyResult<Bound<'py, PyAny>> {
+    let sample_rate = sample_rate_or_sr(sample_rate, sr)?;
     map_f64_to_i64(times, "times", |t| {
         audio_math::time_to_samples(t, sample_rate)
     })
@@ -657,7 +660,8 @@ pub fn frames_to_samples<'py>(
 ///
 /// Args:
 ///     times (float | array_like): Time(s) in seconds.
-///     sample_rate (float): Sampling rate in Hertz. Default 22050.
+///     sample_rate (Optional[float]): Sampling rate in Hertz. Default 22050.
+///     sr (Optional[float]): librosa's name for ``sample_rate`` (give at most one).
 ///     hop_length (int): Samples between frames. Default 512.
 ///     n_fft (Optional[int]): Optional frame-length offset.
 ///
@@ -668,13 +672,15 @@ pub fn frames_to_samples<'py>(
 ///     >>> from audio_samples.utils import time_to_frames_floor
 ///     >>> time_to_frames_floor([0.0, 0.1, 0.2])  # [0, 4, 8]
 #[pyfunction]
-#[pyo3(signature = (times, *, sample_rate = 22050.0, hop_length = Int(512), n_fft = None), text_signature = "(times, *, sample_rate=22050.0, hop_length=512, n_fft=None)")]
+#[pyo3(signature = (times, *, sample_rate = None, hop_length = Int(512), n_fft = None, sr = None), text_signature = "(times, *, sample_rate=None, hop_length=512, n_fft=None, sr=None)")]
 pub fn time_to_frames_floor<'py>(
     times: &Bound<'py, PyAny>,
-    sample_rate: f64,
+    sample_rate: Option<f64>,
     hop_length: Int,
     n_fft: Option<Int>,
+    sr: Option<f64>,
 ) -> PyResult<Bound<'py, PyAny>> {
+    let sample_rate = sample_rate_or_sr(sample_rate, sr)?;
     let hop = positive("hop_length", hop_length)?;
     let n_fft = opt_non_negative("n_fft", n_fft)?;
     map_f64_to_i64(times, "times", |t| {
@@ -682,11 +688,22 @@ pub fn time_to_frames_floor<'py>(
     })
 }
 
-/// Number of frames from an int, or from the last axis of an array (librosa's
-/// ``X.shape[-1]``).
-fn frame_count(x: &Bound<'_, PyAny>) -> PyResult<usize> {
+/// `sample_rate` or its librosa spelling `sr` (default 22050).
+fn sample_rate_or_sr(sample_rate: Option<f64>, sr: Option<f64>) -> PyResult<f64> {
+    match (sample_rate, sr) {
+        (Some(_), Some(_)) => Err(pyo3::exceptions::PyTypeError::new_err(
+            "give sample_rate or its alias sr, not both",
+        )),
+        (Some(v), None) | (None, Some(v)) => Ok(v),
+        (None, None) => Ok(22050.0),
+    }
+}
+
+/// Number of frames from an int, or from axis `axis` of an array (librosa's
+/// ``X.shape[axis]``).
+fn frame_count(x: &Bound<'_, PyAny>, axis: Int) -> PyResult<usize> {
     if is_scalar(x)? {
-        let n: i64 = x
+        let n: Int = x
             .extract()
             .map_err(|_| value_err("X", "expected an integer frame count or an array"))?;
         return non_negative("X", n);
@@ -696,58 +713,77 @@ fn frame_count(x: &Bound<'_, PyAny>) -> PyResult<usize> {
         .import("numpy")?
         .call_method1("shape", (x,))?
         .extract()?;
-    shape
-        .last()
-        .copied()
-        .ok_or_else(|| value_err("X", "cannot take the frame count of a 0-d array"))
+    if shape.is_empty() {
+        return Err(value_err("X", "cannot take the frame count of a 0-d array"));
+    }
+    let nd = shape.len() as i64;
+    let ax = if axis.0 < 0 {
+        axis.0.saturating_add(nd)
+    } else {
+        axis.0
+    };
+    if !(0..nd).contains(&ax) {
+        return Err(value_err(
+            "axis",
+            format!("{axis} is out of range for an array with {nd} dimensions"),
+        ));
+    }
+    Ok(shape[ax as usize])
 }
 
 /// Time (seconds) of each frame of a feature matrix, like ``librosa.times_like``.
 ///
 /// Args:
-///     X (int | array_like): Number of frames, or an array whose last axis is time.
-///     sample_rate (float): Sampling rate in Hertz. Default 22050.
+///     X (int | array_like): Number of frames, or an array whose ``axis`` is time.
+///     sample_rate (Optional[float]): Sampling rate in Hertz. Default 22050.
+///     sr (Optional[float]): librosa's name for ``sample_rate`` (give at most one).
 ///     hop_length (int): Samples between frames. Default 512.
 ///     n_fft (Optional[int]): Optional frame-length offset.
+///     axis (int): The time axis of ``X``. Default -1.
 ///
 /// Returns:
 ///     numpy.ndarray[float64]: shape ``(n_frames,)``.
 #[pyfunction]
-#[pyo3(signature = (X, *, sample_rate = 22050.0, hop_length = Int(512), n_fft = None), text_signature = "(X, *, sample_rate=22050.0, hop_length=512, n_fft=None)")]
+#[pyo3(signature = (X, *, sample_rate = None, hop_length = Int(512), n_fft = None, axis = Int(-1), sr = None), text_signature = "(X, *, sample_rate=None, hop_length=512, n_fft=None, axis=-1, sr=None)")]
 #[allow(non_snake_case)]
 pub fn times_like<'py>(
     py: Python<'py>,
     X: &Bound<'py, PyAny>,
-    sample_rate: f64,
+    sample_rate: Option<f64>,
     hop_length: Int,
     n_fft: Option<Int>,
+    axis: Int,
+    sr: Option<f64>,
 ) -> PyResult<Bound<'py, PyArray1<f64>>> {
+    let sample_rate = sample_rate_or_sr(sample_rate, sr)?;
     let hop = positive("hop_length", hop_length)?;
     let n_fft = opt_non_negative("n_fft", n_fft)?;
-    Ok(audio_math::times_like(frame_count(X)?, sample_rate, hop, n_fft).into_pyarray(py))
+    Ok(audio_math::times_like(frame_count(X, axis)?, sample_rate, hop, n_fft).into_pyarray(py))
 }
 
 /// Sample index of each frame of a feature matrix, like ``librosa.samples_like``.
 ///
 /// Args:
-///     X (int | array_like): Number of frames, or an array whose last axis is time.
+///     X (int | array_like): Number of frames, or an array whose ``axis`` is time.
 ///     hop_length (int): Samples between frames. Default 512.
 ///     n_fft (Optional[int]): Optional frame-length offset.
+///     axis (int): The time axis of ``X``. Default -1.
 ///
 /// Returns:
 ///     numpy.ndarray[int64]: shape ``(n_frames,)``.
 #[pyfunction]
-#[pyo3(signature = (X, *, hop_length = Int(512), n_fft = None), text_signature = "(X, *, hop_length=512, n_fft=None)")]
+#[pyo3(signature = (X, *, hop_length = Int(512), n_fft = None, axis = Int(-1)), text_signature = "(X, *, hop_length=512, n_fft=None, axis=-1)")]
 #[allow(non_snake_case)]
 pub fn samples_like<'py>(
     py: Python<'py>,
     X: &Bound<'py, PyAny>,
     hop_length: Int,
     n_fft: Option<Int>,
+    axis: Int,
 ) -> PyResult<Bound<'py, PyArray1<i64>>> {
     let hop = positive("hop_length", hop_length)?;
     let n_fft = opt_non_negative("n_fft", n_fft)?;
-    Ok(audio_math::samples_like(frame_count(X)?, hop, n_fft).into_pyarray(py))
+    Ok(audio_math::samples_like(frame_count(X, axis)?, hop, n_fft).into_pyarray(py))
 }
 
 // =============================================================================

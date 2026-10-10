@@ -489,6 +489,8 @@ def wavelet(
 
     Returns:
         ``(filters, lengths)``: complex128 ``(len(freqs), width)`` and float64 lengths.
+        librosa's explicit ``alpha`` (and ``**kwargs`` passed to the window) are not
+        supported; ``alpha`` is derived from ``freqs`` as librosa does by default.
     """
     ...
 

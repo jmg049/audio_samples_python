@@ -193,9 +193,14 @@ def window_sumsquare(
     hop_length: int = 512,
     win_length: Optional[int] = None,
     n_fft: int = 2048,
+    norm: Optional[float] = None,
 ) -> NDArray[np.float64]:
     """Sum-squared window envelope (``librosa.filters.window_sumsquare`` with
-    ``dtype=float64``, ``norm=None``).
+    ``dtype=float64``).
+
+    ``norm`` normalises the window before squaring as
+    ``librosa.util.normalize(w, norm=norm)``: ``None`` (default), a positive
+    number, ``math.inf`` / ``-math.inf`` or ``0``.
 
     Returns:
         numpy.ndarray[float64], shape ``(n_fft + hop_length * (n_frames - 1),)``.

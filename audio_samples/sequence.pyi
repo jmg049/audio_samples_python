@@ -225,13 +225,20 @@ def cross_similarity(
     """
     ...
 
-def recurrence_to_lag(rec: npt.ArrayLike, *, pad: bool = True) -> NDArray[Any]:
+def recurrence_to_lag(rec: npt.ArrayLike, *, pad: bool = True, axis: int = -1) -> NDArray[Any]:
     """Recurrence to time-lag matrix (``librosa.segment.recurrence_to_lag``):
-    ``(2t, t)`` with ``pad`` else ``(t, t)``; bool in, bool out."""
+    ``(2t, t)`` with ``pad`` else ``(t, t)``; bool in, bool out.
+
+    ``axis`` is the time axis: ``-1``/``1`` (columns, default) or ``0``/``-2``
+    (rows; padded output ``(t, 2t)``). Sparse input is not supported.
+    """
     ...
 
-def lag_to_recurrence(lag: npt.ArrayLike) -> NDArray[Any]:
-    """Time-lag to recurrence matrix (``librosa.segment.lag_to_recurrence``), ``(t, t)``."""
+def lag_to_recurrence(lag: npt.ArrayLike, *, axis: int = -1) -> NDArray[Any]:
+    """Time-lag to recurrence matrix (``librosa.segment.lag_to_recurrence``), ``(t, t)``.
+
+    ``axis`` is the time axis: ``-1``/``1`` (columns, default) or ``0``/``-2`` (rows).
+    """
     ...
 
 def sync(

@@ -106,6 +106,10 @@ fn rows_out<'py>(py: Python<'py>, a: Array2<f64>, squeeze: bool) -> Bound<'py, P
 ///     rate (Optional[float]): Speed-up factor (> 1 is faster / fewer frames).
 ///     t_out (Optional[array_like]): Output frame positions.
 ///     kind (str): Must be ``"linear"``.
+///     hop_length (Optional[int]): Deprecated in librosa 1.0 and unused (the
+///         phase advance cancels); accepted for compatibility with a
+///         ``FutureWarning`` when given, as librosa does.
+///     n_fft (Optional[int]): Deprecated and unused, as ``hop_length``.
 ///
 /// Returns:
 ///     numpy.ndarray[complex128]: shape ``(n_bins, ceil(n_frames / rate))`` (or
@@ -116,8 +120,8 @@ fn rows_out<'py>(py: Python<'py>, a: Array2<f64>, squeeze: bool) -> Bound<'py, P
 ///         value is out of range.
 #[pyfunction]
 #[pyo3(
-    signature = (D, *, rate = None, t_out = None, kind = "linear"),
-    text_signature = "(D, *, rate=None, t_out=None, kind='linear')"
+    signature = (D, *, rate = None, t_out = None, kind = "linear", hop_length = None, n_fft = None),
+    text_signature = "(D, *, rate=None, t_out=None, kind='linear', hop_length=None, n_fft=None)"
 )]
 #[allow(non_snake_case)]
 pub fn phase_vocoder<'py>(
@@ -126,7 +130,27 @@ pub fn phase_vocoder<'py>(
     rate: Option<f64>,
     t_out: Option<&Bound<'py, PyAny>>,
     kind: &str,
+    hop_length: Option<&Bound<'py, PyAny>>,
+    n_fft: Option<&Bound<'py, PyAny>>,
 ) -> PyResult<Bound<'py, PyAny>> {
+    // librosa 1.0 deprecated both (they no longer affect the result) and warns
+    // with FutureWarning whenever they are passed.
+    if hop_length.is_some() {
+        PyErr::warn(
+            py,
+            &py.get_type::<pyo3::exceptions::PyFutureWarning>(),
+            c"The `hop_length` parameter is deprecated as of librosa 1.0 and is unused.",
+            1,
+        )?;
+    }
+    if n_fft.is_some() {
+        PyErr::warn(
+            py,
+            &py.get_type::<pyo3::exceptions::PyFutureWarning>(),
+            c"The `n_fft` parameter is deprecated as of librosa 1.0 and is unused.",
+            1,
+        )?;
+    }
     if kind != "linear" {
         return Err(value_err("kind", "only kind='linear' is supported"));
     }

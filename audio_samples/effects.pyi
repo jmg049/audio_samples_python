@@ -30,6 +30,8 @@ def phase_vocoder(
     rate: Optional[float] = None,
     t_out: Optional[npt.ArrayLike] = None,
     kind: Literal["linear"] = "linear",
+    hop_length: Optional[int] = None,
+    n_fft: Optional[int] = None,
 ) -> NDArray[np.complex128]:
     """Phase-vocoder time stretch of an STFT, ``librosa.phase_vocoder``.
 
@@ -37,6 +39,9 @@ def phase_vocoder(
         D: complex ``(n_bins, n_frames)`` or ``(channels, n_bins, n_frames)``.
         rate: Speed-up factor (exactly one of ``rate`` / ``t_out``).
         t_out: Fractional output frame positions in ``[0, n_frames)``.
+        hop_length: Deprecated in librosa 1.0 and unused; accepted with a
+            ``FutureWarning`` when given, as librosa does.
+        n_fft: Deprecated and unused, as ``hop_length``.
         kind: Must be ``"linear"``.
 
     Returns:

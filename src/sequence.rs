@@ -775,45 +775,90 @@ pub fn cross_similarity<'py>(
 }
 
 /// Convert a recurrence matrix to a time-lag matrix, equivalent to
-/// ``librosa.segment.recurrence_to_lag(rec, pad=pad)`` (dense input, axis=-1).
+/// ``librosa.segment.recurrence_to_lag(rec, pad=pad, axis=axis)`` (dense input).
 ///
 /// Args:
 ///     rec (array_like): ``(t, t)`` recurrence matrix (bool or float).
 ///     pad (bool): Zero-pad to ``(2t, t)`` first. Default True.
+///     axis (int): The time axis: ``-1``/``1`` (columns, default) or
+///         ``0``/``-2`` (rows; the result is then ``(t, 2t)``).
 ///
 /// Returns:
 ///     numpy.ndarray: ``(2t, t)`` or ``(t, t)``; bool if ``rec`` is bool, else float64.
 #[pyfunction]
-#[pyo3(signature = (rec, *, pad = true), text_signature = "(rec, *, pad=True)")]
+#[pyo3(
+    signature = (rec, *, pad = true, axis = Int(-1)),
+    text_signature = "(rec, *, pad=True, axis=-1)"
+)]
 pub fn recurrence_to_lag<'py>(
     py: Python<'py>,
     rec: &Bound<'py, PyAny>,
     pad: bool,
+    axis: Int,
 ) -> PyResult<Bound<'py, PyAny>> {
+    let rows_are_time = lag_axis_is_rows(axis)?;
     let is_bool = is_bool_array(rec)?;
     let m = matrix2(rec, "rec")?;
-    let lag = seq::recurrence_to_lag(m.view(), pad).map_err(audio_err_to_py)?;
-    Ok(bool_or_float(py, lag, is_bool))
+    // axis=0 is the axis=-1 transform of the transpose, transposed back.
+    let lag = if rows_are_time {
+        seq::recurrence_to_lag(m.t(), pad)
+            .map_err(audio_err_to_py)?
+            .reversed_axes()
+    } else {
+        seq::recurrence_to_lag(m.view(), pad).map_err(audio_err_to_py)?
+    };
+    Ok(bool_or_float(
+        py,
+        lag.as_standard_layout().into_owned(),
+        is_bool,
+    ))
 }
 
 /// Convert a time-lag matrix back to a recurrence matrix, equivalent to
-/// ``librosa.segment.lag_to_recurrence(lag)`` (dense input, axis=-1).
+/// ``librosa.segment.lag_to_recurrence(lag, axis=axis)`` (dense input).
 ///
 /// Args:
 ///     lag (array_like): ``(t, t)`` or ``(2t, t)`` lag matrix.
+///     axis (int): The time axis: ``-1``/``1`` (columns, default) or
+///         ``0``/``-2`` (rows; a padded lag matrix is then ``(t, 2t)``).
 ///
 /// Returns:
 ///     numpy.ndarray: ``(t, t)``; bool if ``lag`` is bool, else float64.
 #[pyfunction]
-#[pyo3(signature = (lag), text_signature = "(lag)")]
+#[pyo3(signature = (lag, *, axis = Int(-1)), text_signature = "(lag, *, axis=-1)")]
 pub fn lag_to_recurrence<'py>(
     py: Python<'py>,
     lag: &Bound<'py, PyAny>,
+    axis: Int,
 ) -> PyResult<Bound<'py, PyAny>> {
+    let rows_are_time = lag_axis_is_rows(axis)?;
     let is_bool = is_bool_array(lag)?;
     let m = matrix2(lag, "lag")?;
-    let rec = seq::lag_to_recurrence(m.view()).map_err(audio_err_to_py)?;
-    Ok(bool_or_float(py, rec, is_bool))
+    let rec = if rows_are_time {
+        seq::lag_to_recurrence(m.t())
+            .map_err(audio_err_to_py)?
+            .reversed_axes()
+    } else {
+        seq::lag_to_recurrence(m.view()).map_err(audio_err_to_py)?
+    };
+    Ok(bool_or_float(
+        py,
+        rec.as_standard_layout().into_owned(),
+        is_bool,
+    ))
+}
+
+/// librosa's `axis` for the (2-D) lag transforms: `-1`/`1` (columns are time,
+/// the default) or `0`/`-2` (rows are time). Returns whether rows are time.
+fn lag_axis_is_rows(axis: Int) -> PyResult<bool> {
+    match axis.0 {
+        -1 | 1 => Ok(false),
+        0 | -2 => Ok(true),
+        _ => Err(value_err(
+            "axis",
+            format!("must be -1, 1, 0 or -2 for a 2-D matrix, got {axis}"),
+        )),
+    }
 }
 
 fn is_bool_array(obj: &Bound<'_, PyAny>) -> PyResult<bool> {

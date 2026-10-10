@@ -1,9 +1,9 @@
-"""Robustness of the librosa-style bindings against extreme arguments.
+"""Regression tests for the adversarial review of the librosa-parity bindings.
 
-Regression tests for the adversarial review of the librosa-parity bindings:
-huge or out-of-range integers must raise ``ValueError`` naming the parameter
-(never pyo3's ``OverflowError``, a ``PanicException`` or a process abort on a
-failed allocation).
+Huge or out-of-range integers raise ``ValueError`` naming the parameter (never
+pyo3's ``OverflowError``, a ``PanicException`` or a process abort on a failed
+allocation); the ``hpss(stft_params=)`` alias; stub and
+submodule fixes; librosa keywords that used to raise ``TypeError``.
 """
 
 from __future__ import annotations
@@ -150,3 +150,59 @@ def test_recurrence_matrix_signature_lists_self_and_self_links():
         sequence.recurrence_matrix(X, k=5, self_links=True),
         sequence.recurrence_matrix(X, k=5, **{"self": True}),
     )
+
+
+# ---------------------------------------------------------------------------
+# librosa keywords that used to raise TypeError
+# ---------------------------------------------------------------------------
+
+
+def test_lag_transforms_axis_matches_librosa():
+    librosa = pytest.importorskip("librosa")
+    R = np.random.default_rng(1).random((12, 12)) > 0.6
+    for pad in (True, False):
+        for axis in (0, 1, -1):
+            lag = librosa.segment.recurrence_to_lag(R, pad=pad, axis=axis)
+            np.testing.assert_array_equal(sequence.recurrence_to_lag(R, pad=pad, axis=axis), lag)
+            np.testing.assert_array_equal(
+                sequence.lag_to_recurrence(lag, axis=axis), librosa.segment.lag_to_recurrence(lag, axis=axis)
+            )
+    # -2 is the same axis as 0 for these 2-D matrices.
+    np.testing.assert_array_equal(sequence.recurrence_to_lag(R, axis=-2), sequence.recurrence_to_lag(R, axis=0))
+    with pytest.raises(ValueError, match="axis"):
+        sequence.recurrence_to_lag(R, axis=2)
+
+
+@pytest.mark.parametrize("norm", [None, 1, 2, np.inf, -np.inf, 0, 0.5])
+def test_window_sumsquare_norm_matches_librosa(norm):
+    librosa = pytest.importorskip("librosa")
+    kw = dict(window="hann", n_frames=7, hop_length=128, win_length=400, n_fft=512, norm=norm)
+    ours = spectral.window_sumsquare(**kw)
+    ref = librosa.filters.window_sumsquare(**kw, dtype=np.float64)
+    # Same window, same normalisation; only summation-order round-off.
+    np.testing.assert_allclose(ours, ref, rtol=0, atol=1e-15)
+
+
+def test_phase_vocoder_accepts_deprecated_keywords():
+    D = spectral.stft(Y, n_fft=512)
+    ref = effects.phase_vocoder(D, rate=1.5)
+    with pytest.warns(FutureWarning, match="hop_length"):
+        out = effects.phase_vocoder(D, rate=1.5, hop_length=128)
+    np.testing.assert_array_equal(out, ref)
+    with pytest.warns(FutureWarning, match="n_fft"):
+        effects.phase_vocoder(D, rate=1.5, n_fft=512)
+
+
+def test_times_like_axis_and_sr_alias():
+    librosa = pytest.importorskip("librosa")
+    X = np.zeros((3, 7, 5))
+    np.testing.assert_allclose(U.times_like(X, sr=8000, axis=-2), librosa.times_like(X, sr=8000, axis=-2))
+    np.testing.assert_array_equal(U.samples_like(X, axis=0), librosa.samples_like(X, axis=0))
+    np.testing.assert_allclose(U.times_like(X), librosa.times_like(X))
+    np.testing.assert_array_equal(U.time_to_samples([0.5, 1.25], sr=100), librosa.time_to_samples([0.5, 1.25], sr=100))
+    assert U.time_to_frames_floor(0.5, sr=1000, hop_length=10) == librosa.time_to_frames(0.5, sr=1000, hop_length=10)
+    assert U.time_to_samples(1.0, sample_rate=100) == U.time_to_samples(1.0, sr=100) == 100
+    with pytest.raises(TypeError, match="not both"):
+        U.time_to_samples(1.0, sr=1, sample_rate=2)
+    with pytest.raises(ValueError, match="axis"):
+        U.times_like(X, axis=3)
