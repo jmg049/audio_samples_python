@@ -1,0 +1,193 @@
+//! librosa-compatible tonal analysis on `AudioSamples` (`chroma_stft`,
+//! `piptrack`, `estimate_tuning`), binding the Rust `AudioTonal` trait.
+
+use audio_samples::operations::filterbanks::Window;
+use audio_samples::operations::tonal::{AudioTonal, ChromaStftConfig, TuningConfig};
+use numpy::{IntoPyArray, PyArray3};
+use pyo3::IntoPyObjectExt;
+use pyo3::prelude::*;
+
+use crate::args::{WindowArg, positive, stft_config};
+use crate::{PyAudioSamples, audio_err_to_py, dispatch_with_view};
+
+#[pymethods]
+impl PyAudioSamples {
+    /// Chromagram from the power STFT, equivalent to
+    /// ``librosa.feature.chroma_stft(y=..., sr=self.sample_rate, ..., dtype=numpy.float64)``.
+    ///
+    /// Unlike ``chroma()`` (spectrograms crate), this reproduces librosa's
+    /// filterbank, tuning estimation and normalisation.
+    ///
+    /// Args:
+    ///     norm (Optional[float]): Per-frame normalisation (``numpy.inf`` default,
+    ///         any p-norm, or None for raw energy).
+    ///     n_fft (int): FFT length. Default 2048.
+    ///     hop_length (int): Samples between frames. Default 512.
+    ///     win_length, window, center, pad_mode: STFT parameters (see ``stft_matrix``).
+    ///     tuning (Optional[float]): Tuning offset in fractions of a chroma bin;
+    ///         None (default) estimates it from the signal.
+    ///     n_chroma (int): Number of chroma bins. Default 12.
+    ///     ctroct (float): Centre of the octave weighting (octaves above A0). Default 5.
+    ///     octwidth (Optional[float]): Octave-weighting half-width; None = flat. Default 2.
+    ///     base_c (bool): Row 0 is C (True) or A. Default True.
+    ///
+    /// Returns:
+    ///     numpy.ndarray[float64]: shape ``(channels, n_chroma, n_frames)`` (librosa
+    ///     returns ``(n_chroma, n_frames)`` for 1-D input; index ``[0]``).
+    ///
+    /// Raises:
+    ///     ValueError: For invalid parameters.
+    #[pyo3(
+        signature = (*, norm = Some(f64::INFINITY), n_fft = 2048, hop_length = 512, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", tuning = None, n_chroma = 12, ctroct = 5.0, octwidth = Some(2.0), base_c = true),
+        text_signature = "($self, *, norm=math.inf, n_fft=2048, hop_length=512, win_length=None, window='hann', center=True, pad_mode='constant', tuning=None, n_chroma=12, ctroct=5.0, octwidth=2.0, base_c=True)"
+    )]
+    #[allow(clippy::too_many_arguments)]
+    fn chroma_stft<'py>(
+        &self,
+        py: Python<'py>,
+        norm: Option<f64>,
+        n_fft: i64,
+        hop_length: i64,
+        win_length: Option<i64>,
+        window: WindowArg,
+        center: bool,
+        pad_mode: &str,
+        tuning: Option<f64>,
+        n_chroma: i64,
+        ctroct: f64,
+        octwidth: Option<f64>,
+        base_c: bool,
+    ) -> PyResult<Bound<'py, PyArray3<f64>>> {
+        let cfg = ChromaStftConfig {
+            stft: stft_config(
+                n_fft,
+                Some(hop_length),
+                win_length,
+                window,
+                center,
+                pad_mode,
+            )?,
+            norm,
+            tuning,
+            n_chroma: positive("n_chroma", n_chroma)?,
+            ctroct,
+            octwidth,
+            base_c,
+        };
+        let r = dispatch_with_view!(self, py, |audio| audio.chroma_stft(&cfg))
+            .map_err(audio_err_to_py)?;
+        Ok(r.into_pyarray(py))
+    }
+
+    /// Spectral peak tracking with parabolic interpolation, equivalent to
+    /// ``librosa.piptrack(y=..., sr=self.sample_rate, ...)``.
+    ///
+    /// Args:
+    ///     n_fft (int): FFT length. Default 2048.
+    ///     hop_length (Optional[int]): None = ``win_length // 4``.
+    ///     fmin (float): Lowest reported frequency (Hz). Default 150.
+    ///     fmax (float): Peaks must lie below this frequency (Hz). Default 4000.
+    ///     threshold (float): Relative threshold. Default 0.1.
+    ///     win_length, window, center, pad_mode: STFT parameters.
+    ///     ref (None | float | numpy.max | numpy.mean): Threshold reference; None
+    ///         (default) = per-frame maximum, a number = absolute threshold.
+    ///
+    /// Returns:
+    ///     tuple: ``(pitches, magnitudes)``, each numpy.ndarray[float64] of shape
+    ///     ``(channels, 1 + n_fft // 2, n_frames)``; zero except at detected peaks.
+    ///
+    /// Raises:
+    ///     ValueError: For invalid parameters.
+    #[pyo3(
+        signature = (*, n_fft = 2048, hop_length = None, fmin = 150.0, fmax = 4000.0, threshold = 0.1, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", r#ref = None),
+        text_signature = "($self, *, n_fft=2048, hop_length=None, fmin=150.0, fmax=4000.0, threshold=0.1, win_length=None, window='hann', center=True, pad_mode='constant', ref=None)"
+    )]
+    #[allow(clippy::too_many_arguments)]
+    fn piptrack<'py>(
+        &self,
+        py: Python<'py>,
+        n_fft: i64,
+        hop_length: Option<i64>,
+        fmin: f64,
+        fmax: f64,
+        threshold: f64,
+        win_length: Option<i64>,
+        window: WindowArg,
+        center: bool,
+        pad_mode: &str,
+        r#ref: Option<&Bound<'py, PyAny>>,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        let stft = stft_config(n_fft, hop_length, win_length, window, center, pad_mode)?;
+        let cfg = piptrack_config(stft, fmin, fmax, threshold, r#ref)?;
+        let (p, m) =
+            dispatch_with_view!(self, py, |audio| audio.piptrack(&cfg)).map_err(audio_err_to_py)?;
+        (p.into_pyarray(py), m.into_pyarray(py)).into_bound_py_any(py)
+    }
+
+    /// Tuning offset relative to A440 in fractions of a bin, equivalent to
+    /// ``librosa.estimate_tuning(y=..., sr=self.sample_rate, ...)``.
+    ///
+    /// All channels are pooled (as librosa does for multichannel input).
+    ///
+    /// Args:
+    ///     n_fft (int): FFT length. Default 2048.
+    ///     resolution (float): Resolution in fractions of a bin. Default 0.01.
+    ///     bins_per_octave (int): Bins per octave of the grid. Default 12.
+    ///     hop_length, win_length, window, center, pad_mode, fmin, fmax,
+    ///     threshold, ref: ``piptrack`` parameters (librosa's ``**kwargs``).
+    ///
+    /// Returns:
+    ///     float: tuning in ``[-0.5, 0.5)`` fractions of a bin.
+    ///
+    /// Raises:
+    ///     ValueError: For invalid parameters.
+    #[pyo3(
+        signature = (*, n_fft = 2048, resolution = 0.01, bins_per_octave = 12, hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", fmin = 150.0, fmax = 4000.0, threshold = 0.1, r#ref = None),
+        text_signature = "($self, *, n_fft=2048, resolution=0.01, bins_per_octave=12, hop_length=None, win_length=None, window='hann', center=True, pad_mode='constant', fmin=150.0, fmax=4000.0, threshold=0.1, ref=None)"
+    )]
+    #[allow(clippy::too_many_arguments)]
+    fn estimate_tuning(
+        &self,
+        py: Python<'_>,
+        n_fft: i64,
+        resolution: f64,
+        bins_per_octave: i64,
+        hop_length: Option<i64>,
+        win_length: Option<i64>,
+        window: WindowArg,
+        center: bool,
+        pad_mode: &str,
+        fmin: f64,
+        fmax: f64,
+        threshold: f64,
+        r#ref: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<f64> {
+        let stft = stft_config(n_fft, hop_length, win_length, window, center, pad_mode)?;
+        let cfg = TuningConfig {
+            piptrack: piptrack_config(stft, fmin, fmax, threshold, r#ref)?,
+            resolution,
+            bins_per_octave: positive("bins_per_octave", bins_per_octave)?,
+        };
+        dispatch_with_view!(self, py, |audio| audio.estimate_tuning(&cfg)).map_err(audio_err_to_py)
+    }
+}
+
+fn piptrack_config(
+    stft: audio_samples::operations::spectrum::StftConfig,
+    fmin: f64,
+    fmax: f64,
+    threshold: f64,
+    reference: Option<&Bound<'_, PyAny>>,
+) -> PyResult<audio_samples::operations::tonal::PiptrackConfig> {
+    let reference = match reference {
+        Some(r) => crate::features::args::parse_piptrack_ref(r)?,
+        None => audio_samples::operations::tonal::PiptrackReference::FrameMax,
+    };
+    Ok(audio_samples::operations::tonal::PiptrackConfig {
+        stft,
+        fmin,
+        fmax,
+        threshold,
+        reference,
+    })
+}

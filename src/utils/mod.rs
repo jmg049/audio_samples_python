@@ -2,6 +2,7 @@ pub mod audio_math;
 pub mod comparison;
 pub mod detection;
 pub mod generation;
+pub mod tuning;
 
 use pyo3::prelude::*;
 
@@ -78,6 +79,7 @@ pub fn utils(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     utils_mod.add_function(wrap_pyfunction!(comparison::mse_per_channel, &utils_mod)?)?;
     utils_mod.add_function(wrap_pyfunction!(comparison::snr_per_channel, &utils_mod)?)?;
 
+    tuning::add(&utils_mod)?;
     generation::generation(py, &utils_mod)?;
     detection::detection(py, &utils_mod)?;
     m.add_submodule(&utils_mod)?;

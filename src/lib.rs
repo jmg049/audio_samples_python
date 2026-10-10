@@ -21,6 +21,7 @@
 #![warn(clippy::multiple_unsafe_ops_per_block)]
 
 pub mod args;
+pub mod features;
 pub mod io;
 pub mod io_streaming;
 pub mod operations;
@@ -310,6 +311,7 @@ fn audio_samples_python(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()>
     // librosa-compatible array helpers
     spectral::register(py, m)?;
     sequence::register(py, m)?;
+    features::register(py, m)?;
 
     // Re-exports
     let utils_mod = m.getattr("utils")?;
