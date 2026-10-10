@@ -9,12 +9,12 @@ use audio_samples::operations::features::{
     SpectralContrastConfig, SpectralFlatnessConfig, SpectralRolloffConfig,
 };
 use audio_samples::operations::spectrum::DbConfig;
-use ndarray::{Array2, Array3, ArrayD, Axis, IxDyn};
+use ndarray::{Array2, Array3, ArrayD, Axis, IxDyn, ShapeBuilder};
 use numpy::{IntoPyArray, PyUntypedArrayMethods};
 use pyo3::IntoPyObjectExt;
 use pyo3::prelude::*;
 
-use super::args::{bin_frequencies, f64_vec, parse_weighting, spec3, squeeze_out};
+use super::args::{bin_frequencies, parse_weighting, spec3, squeeze_out};
 use crate::args::{
     DbRefArg, FloatElement, f64_array, float_array_as, is_scalar, positive, precision_of,
     value_err, with_precision,
@@ -466,15 +466,26 @@ fn weighting_map<'py>(
 ) -> PyResult<Bound<'py, PyAny>> {
     let py = frequencies.py();
     let a = f64_array(frequencies, "frequencies")?;
-    let shape = a.shape().to_vec();
-    let vals: Vec<f64> = a.as_array().iter().copied().collect();
-    let w = f(&vals);
+    let v = a.as_array();
+    // C- or Fortran-contiguous input is read in place (no copy) and the output
+    // gets the same memory order; anything else is gathered in logical order.
+    let fortran = !v.is_standard_layout() && v.t().is_standard_layout();
+    let w = match v.as_slice_memory_order() {
+        Some(vals) if v.is_standard_layout() || fortran => f(vals),
+        _ => f(&v.iter().copied().collect::<Vec<f64>>()),
+    };
     if is_scalar(frequencies)?
         && let Some(&v) = w.first()
     {
         return v.into_bound_py_any(py);
     }
-    let arr = ArrayD::from_shape_vec(IxDyn(&shape), w).map_err(|e| value_err("frequencies", e))?;
+    let shape = IxDyn(v.shape());
+    let arr = if fortran {
+        ArrayD::from_shape_vec(shape.f(), w)
+    } else {
+        ArrayD::from_shape_vec(shape, w)
+    }
+    .map_err(|e| value_err("frequencies", e))?;
     Ok(arr.into_pyarray(py).into_any())
 }
 
@@ -587,11 +598,19 @@ pub fn multi_frequency_weighting<'py>(
     let a = f64_array(frequencies, "frequencies")?;
     let mut shape = vec![ks.len()];
     shape.extend_from_slice(a.shape());
-    let vals = f64_vec(frequencies, "frequencies")?;
-    let m = feat::multi_frequency_weighting(&vals, &ks, min_db);
-    let flat: Vec<f64> = m.iter().copied().collect();
-    let arr =
-        ArrayD::from_shape_vec(IxDyn(&shape), flat).map_err(|e| value_err("frequencies", e))?;
+    let v = a.as_array();
+    // C-contiguous input is read in place; the (kinds, n) result is reshaped
+    // without copying.
+    let m = match v.as_slice() {
+        Some(vals) => feat::multi_frequency_weighting(vals, &ks, min_db),
+        None => {
+            let vals: Vec<f64> = v.iter().copied().collect();
+            feat::multi_frequency_weighting(&vals, &ks, min_db)
+        }
+    };
+    let arr = m
+        .into_shape_with_order(IxDyn(&shape))
+        .map_err(|e| value_err("frequencies", e))?;
     Ok(arr.into_pyarray(py).into_any())
 }
 
