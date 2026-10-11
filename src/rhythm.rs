@@ -37,8 +37,8 @@ use pyo3::prelude::*;
 use pyo3::types::{PyBool, PyDict, PyString};
 
 use crate::args::{
-    FloatElement, PyFloat, WindowArg, complex_array_as, f64_array, float_array_as, i64_vec,
-    is_scalar, non_negative, positive, precision_of, value_err, with_precision,
+    FloatElement, PyFloat, WindowArg, complex_array_as, f64_array, float_array_as, is_scalar,
+    non_negative, positive, precision_of, value_err, with_precision,
 };
 use crate::audio_err_to_py;
 
@@ -326,8 +326,22 @@ pub(crate) fn rows<'a, F: FloatElement>(
     }
 }
 
-/// A 1-D float vector.
-pub(crate) fn vec1<F: FloatElement>(obj: &Bound<'_, PyAny>, name: &str) -> PyResult<Vec<F>> {
+/// A 1-D float vector, borrowed from a contiguous NumPy array of element type
+/// `F` (no copy) or converted otherwise.
+pub(crate) fn vec1<'a, F: FloatElement>(
+    obj: &'a Bound<'_, PyAny>,
+    name: &str,
+) -> PyResult<std::borrow::Cow<'a, [F]>> {
+    use numpy::PyArrayMethods;
+    if let Ok(arr) = obj.cast::<numpy::PyArray1<F>>() {
+        // Fails if Rust code holds a mutable borrow of the array.
+        drop(arr.try_readonly()?);
+        // SAFETY: the slice borrows `obj`, which keeps the array alive; no
+        // Rust code holds a mutable borrow of it (checked above).
+        if let Ok(slice) = unsafe { arr.as_slice() } {
+            return Ok(std::borrow::Cow::Borrowed(slice));
+        }
+    }
     let a = float_array_as::<F>(obj, name)?;
     if a.ndim() != 1 {
         return Err(value_err(
@@ -335,7 +349,9 @@ pub(crate) fn vec1<F: FloatElement>(obj: &Bound<'_, PyAny>, name: &str) -> PyRes
             format!("expected a 1-D array, got {} dimensions", a.ndim()),
         ));
     }
-    Ok(a.as_array().iter().copied().collect())
+    Ok(std::borrow::Cow::Owned(
+        a.as_array().iter().copied().collect(),
+    ))
 }
 
 /// A `(F, T)` or `(channels, F, T)` array as 3-D (a view of the NumPy data
@@ -457,10 +473,13 @@ pub(crate) fn require_sparse(sparse: bool) -> PyResult<()> {
 
 /// Non-negative integer events as `usize`.
 fn usize_vec(obj: &Bound<'_, PyAny>, name: &str) -> PyResult<Vec<usize>> {
-    i64_vec(obj, name)?
-        .into_iter()
-        .map(|v| non_negative(name, v))
-        .collect()
+    crate::args::with_i64_view(obj, name, |v| {
+        let mut out = Vec::with_capacity(v.len());
+        for &x in &v {
+            out.push(non_negative(name, x)?);
+        }
+        Ok(out)
+    })
 }
 
 /// A tempogram `norm`: `None` or a number (`numpy.inf` for max-normalisation).

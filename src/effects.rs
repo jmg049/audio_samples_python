@@ -801,7 +801,12 @@ pub fn lpc<'py>(
         }
         let mut out = Array2::<F>::zeros((x.nrows(), order.get() + 1));
         for (c, row) in x.outer_iter().enumerate() {
-            let a = fx::lpc(&row.to_vec(), order).map_err(audio_err_to_py)?;
+            // Contiguous rows are passed in place.
+            let a = match row.as_slice() {
+                Some(r) => fx::lpc(r, order),
+                None => fx::lpc(&row.to_vec(), order),
+            }
+            .map_err(audio_err_to_py)?;
             out.row_mut(c).assign(&ndarray::Array1::from(a));
         }
         Ok(rows_out(py, out, squeeze))
@@ -874,7 +879,7 @@ pub fn clicks<'py>(
     let hop = crate::args::opt_positive("hop_length", hop_length)?;
     let click = click
         .filter(|c| !c.is_none())
-        .map(|c| crate::rhythm::vec1::<f64>(c, "click"))
+        .map(|c| crate::rhythm::vec1::<f64>(c, "click").map(std::borrow::Cow::into_owned))
         .transpose()?;
     let cfg = ClicksConfig::new()
         .with_click_freq(click_freq)

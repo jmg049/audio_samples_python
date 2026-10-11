@@ -1021,17 +1021,24 @@ pub fn sync<'py>(
     pad: bool,
     axis: Int,
 ) -> PyResult<Bound<'py, PyAny>> {
-    let ndim = crate::args::f64_array(data, "data")?.ndim();
+    // The number of dimensions without converting a NumPy array.
+    let ndim = match data.cast::<numpy::PyUntypedArray>() {
+        Ok(a) => a.ndim(),
+        Err(_) => crate::args::f64_array(data, "data")?.ndim(),
+    };
     if axis != Int(-1) && axis != Int(ndim as i64 - 1) {
         return Err(value_err(
             "axis",
             "only the last axis (axis=-1) is supported",
         ));
     }
-    let idx: Vec<usize> = i64_vec(idx, "idx")?
-        .into_iter()
-        .map(|i| usize::try_from(i).map_err(|_| value_err("idx", "indices must be >= 0")))
-        .collect::<PyResult<_>>()?;
+    let idx: Vec<usize> = crate::args::with_i64_view(idx, "idx", |v| {
+        let mut out = Vec::with_capacity(v.len());
+        for &i in &v {
+            out.push(usize::try_from(i).map_err(|_| value_err("idx", "indices must be >= 0"))?);
+        }
+        Ok(out)
+    })?;
     let builtin = match aggregate.filter(|a| !a.is_none()) {
         None => Some(SyncAggregate::Mean),
         Some(a) => builtin_aggregate(a)?,
