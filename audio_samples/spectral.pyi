@@ -249,10 +249,15 @@ def stack_memory(data: npt.ArrayLike, *, n_steps: int = 2, delay: int = 1) -> ND
     ...
 
 def frame(x: npt.ArrayLike, *, frame_length: int, hop_length: int) -> NDArray[np.floating]:
-    """Overlapping frames of a 1-D signal (a copy), equivalent to ``librosa.util.frame``.
+    """Overlapping frames of a 1-D signal, equivalent to ``librosa.util.frame``.
+
+    Like librosa, the result is a read-only strided view into ``x`` (no copy):
+    it keeps ``x`` alive and reflects later changes to it. Input that is not a
+    contiguous float32 / float64 array is converted first, and the view is
+    into the converted array.
 
     Returns:
-        numpy.ndarray[float32 | float64], shape
+        numpy.ndarray[float32 | float64], read-only view of shape
         ``(frame_length, 1 + (len(x) - frame_length) // hop_length)``.
 
     Raises:

@@ -11,7 +11,9 @@ use crate::args::Int;
 use audio_samples::operations::filterbanks::{self, Window};
 use audio_samples::operations::spectrum::{self, DbConfig, DeltaConfig, DeltaMode};
 use ndarray::{ArrayD, Axis, Ix1, Ix2, Ix3};
-use numpy::{IntoPyArray, PyArray1, PyArray2, PyArrayDescrMethods, PyUntypedArrayMethods};
+use numpy::{
+    IntoPyArray, PyArray1, PyArray2, PyArrayDescrMethods, PyArrayMethods, PyUntypedArrayMethods,
+};
 use pyo3::IntoPyObjectExt;
 use pyo3::prelude::*;
 
@@ -569,7 +571,12 @@ pub fn stack_memory<'py>(
 }
 
 /// Slice a 1-D signal into overlapping frames, equivalent to
-/// ``librosa.util.frame(x, frame_length=..., hop_length=...)`` (returns a copy).
+/// ``librosa.util.frame(x, frame_length=..., hop_length=...)``.
+///
+/// Like librosa, the result is a read-only strided view into ``x`` (no copy):
+/// it keeps ``x`` alive and reflects later changes to it. Use ``.copy()`` for
+/// an independent array. Input that is not a contiguous float32 / float64
+/// array is converted first, and the view is into the converted array.
 ///
 /// Args:
 ///     x (array_like): 1-D signal.
@@ -577,7 +584,8 @@ pub fn stack_memory<'py>(
 ///     hop_length (int): Samples between frame starts.
 ///
 /// Returns:
-///     numpy.ndarray[float32 | float64]: shape ``(frame_length, 1 + (len(x) - frame_length) // hop_length)``.
+///     numpy.ndarray[float32 | float64]: read-only view of shape
+///     ``(frame_length, 1 + (len(x) - frame_length) // hop_length)``.
 ///
 /// Raises:
 ///     ValueError: If ``x`` is not 1-D or is shorter than ``frame_length``.
@@ -592,14 +600,53 @@ pub fn frame<'py>(
     let frame_length = positive("frame_length", frame_length)?;
     let hop_length = positive("hop_length", hop_length)?;
     with_precision!(precision_of(x), |F| {
+        // Fast path: a contiguous 1-D array of the right dtype is viewed
+        // directly (no conversion, no borrow bookkeeping).
+        if let Ok(arr) = x.cast::<numpy::PyArray1<F>>() {
+            if arr.is_contiguous() {
+                // SAFETY: the GIL is held for the lifetime of `data`, so no
+                // Python code can resize or free the array meanwhile; the
+                // slice is only read to build the view.
+                let data = unsafe { arr.as_slice() }.expect("contiguous");
+                let view = spectrum::frame_view(data, frame_length, hop_length)
+                    .map_err(audio_err_to_py)?;
+                return Ok(readonly_frames(&view, arr.clone().into_any()));
+            }
+        }
         let a = float_array_as::<F>(x, "x")?;
         if a.ndim() != 1 {
             return Err(value_err("x", "only 1-D input is supported"));
         }
-        let v: Vec<F> = a.as_array().iter().copied().collect();
-        let out = spectrum::frame(&v, frame_length, hop_length).map_err(audio_err_to_py)?;
-        Ok(out.into_pyarray(py).into_any())
+        // The view needs contiguous data: a strided input is copied once.
+        let contiguous = if a.as_slice().is_ok() {
+            a
+        } else {
+            let c = a.as_array().to_owned().into_pyarray(py);
+            c.readonly()
+        };
+        let data = contiguous.as_slice().expect("contiguous");
+        let view = spectrum::frame_view(data, frame_length, hop_length).map_err(audio_err_to_py)?;
+        let base: Bound<'py, PyAny> = (*contiguous).clone().into_any();
+        Ok(readonly_frames(&view, base))
     })
+}
+
+/// A read-only numpy array over `view`, whose data belongs to the numpy array
+/// `base` (kept alive as the result's base object).
+fn readonly_frames<'py, F: numpy::Element>(
+    view: &ndarray::ArrayView2<'_, F>,
+    base: Bound<'py, PyAny>,
+) -> Bound<'py, PyAny> {
+    // SAFETY: `base` holds the data of `view` and becomes the base object of
+    // the result, so the data outlives it; numpy arrays are never
+    // reallocated.
+    let out = unsafe { PyArray2::borrow_from_array(view, base) };
+    // Overlapping frames: read-only, as librosa's view.
+    // SAFETY: `out` is a valid array object created above.
+    unsafe {
+        (*out.as_array_ptr()).flags &= !numpy::npyffi::NPY_ARRAY_WRITEABLE;
+    }
+    out.into_any()
 }
 
 /// Project a spectrogram onto mel bands, equivalent to

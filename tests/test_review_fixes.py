@@ -97,8 +97,10 @@ def test_transition_matrices_at_the_cap_are_value_errors_not_panics():
 
 
 def test_other_rust_side_size_checks():
-    with pytest.raises(ValueError, match="frame_length"):
-        spectral.frame(np.zeros(100_000), frame_length=50_000, hop_length=1)
+    # frame returns a strided view (no copy), so a 50k x 50k frame matrix
+    # needs no memory and is not refused.
+    big = spectral.frame(np.zeros(100_000), frame_length=50_000, hop_length=1)
+    assert big.shape == (50_000, 50_001) and not big.flags.writeable
     with pytest.raises(ValueError, match="sample_rate"):
         features.wavelet(freqs=np.array([100.0, 200.0, 400.0]), sr=1e15)
     with pytest.raises(ValueError, match="frame_rate"):
