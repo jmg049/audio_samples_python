@@ -248,20 +248,25 @@ def stack_memory(data: npt.ArrayLike, *, n_steps: int = 2, delay: int = 1) -> ND
     """
     ...
 
-def frame(x: npt.ArrayLike, *, frame_length: int, hop_length: int) -> NDArray[np.floating]:
+def frame(
+    x: npt.ArrayLike, *, frame_length: int, hop_length: int, copy: bool = True
+) -> NDArray[np.floating]:
     """Overlapping frames of a 1-D signal, equivalent to ``librosa.util.frame``.
 
-    Like librosa, the result is a read-only strided view into ``x`` (no copy):
-    it keeps ``x`` alive and reflects later changes to it. Input that is not a
-    contiguous float32 / float64 array is converted first, and the view is
-    into the converted array.
+    By default the frames are a new, writable array (a copy). With
+    ``copy=False`` the result is a read-only strided view into ``x``, as
+    librosa returns: no data is copied, the view keeps ``x`` alive and
+    reflects later changes to it. Input that is not a contiguous float32 /
+    float64 array is converted first, and the view is into the converted
+    array.
 
     Returns:
-        numpy.ndarray[float32 | float64], read-only view of shape
+        numpy.ndarray[float32 | float64], shape
         ``(frame_length, 1 + (len(x) - frame_length) // hop_length)``.
 
     Raises:
-        ValueError: ``x`` not 1-D or shorter than ``frame_length``.
+        ValueError: ``x`` not 1-D or shorter than ``frame_length``, or (copy
+        only) a frame matrix of more than 2^31 elements.
     """
     ...
 

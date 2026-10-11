@@ -573,51 +573,66 @@ pub fn stack_memory<'py>(
 /// Slice a 1-D signal into overlapping frames, equivalent to
 /// ``librosa.util.frame(x, frame_length=..., hop_length=...)``.
 ///
-/// Like librosa, the result is a read-only strided view into ``x`` (no copy):
-/// it keeps ``x`` alive and reflects later changes to it. Use ``.copy()`` for
-/// an independent array. Input that is not a contiguous float32 / float64
-/// array is converted first, and the view is into the converted array.
+/// By default the frames are a new, writable array (a copy). With
+/// ``copy=False`` the result is instead a read-only strided view into ``x``,
+/// as librosa returns: no data is copied, the view keeps ``x`` alive and
+/// reflects later changes to it. Input that is not a contiguous float32 /
+/// float64 array is converted first, and the view is into the converted
+/// array.
 ///
 /// Args:
 ///     x (array_like): 1-D signal.
 ///     frame_length (int): Samples per frame.
 ///     hop_length (int): Samples between frame starts.
+///     copy (bool): Return a writable copy (default) or, if False, a
+///         read-only view into ``x``.
 ///
 /// Returns:
-///     numpy.ndarray[float32 | float64]: read-only view of shape
+///     numpy.ndarray[float32 | float64]: shape
 ///     ``(frame_length, 1 + (len(x) - frame_length) // hop_length)``.
 ///
 /// Raises:
-///     ValueError: If ``x`` is not 1-D or is shorter than ``frame_length``.
+///     ValueError: If ``x`` is not 1-D or is shorter than ``frame_length``,
+///         or (copy only) the frame matrix would exceed 2^31 elements.
 #[pyfunction]
-#[pyo3(signature = (x, *, frame_length, hop_length), text_signature = "(x, *, frame_length, hop_length)")]
+#[pyo3(
+    signature = (x, *, frame_length, hop_length, copy = true),
+    text_signature = "(x, *, frame_length, hop_length, copy=True)"
+)]
 pub fn frame<'py>(
     py: Python<'py>,
     x: &Bound<'py, PyAny>,
     frame_length: Int,
     hop_length: Int,
+    copy: bool,
 ) -> PyResult<Bound<'py, PyAny>> {
     let frame_length = positive("frame_length", frame_length)?;
     let hop_length = positive("hop_length", hop_length)?;
     with_precision!(precision_of(x), |F| {
-        // Fast path: a contiguous 1-D array of the right dtype is viewed
-        // directly (no conversion, no borrow bookkeeping).
+        // Fast path: a contiguous 1-D array of the right dtype is read in
+        // place (no conversion, no borrow bookkeeping).
         if let Ok(arr) = x.cast::<numpy::PyArray1<F>>() {
             if arr.is_contiguous() {
                 // SAFETY: the GIL is held for the lifetime of `data`, so no
                 // Python code can resize or free the array meanwhile; the
-                // slice is only read to build the view.
+                // slice is only read.
                 let data = unsafe { arr.as_slice() }.expect("contiguous");
-                let view = spectrum::frame_view(data, frame_length, hop_length)
-                    .map_err(audio_err_to_py)?;
-                return Ok(readonly_frames(&view, arr.clone().into_any()));
+                return if copy {
+                    let out =
+                        spectrum::frame(data, frame_length, hop_length).map_err(audio_err_to_py)?;
+                    Ok(out.into_pyarray(py).into_any())
+                } else {
+                    let view = spectrum::frame_view(data, frame_length, hop_length)
+                        .map_err(audio_err_to_py)?;
+                    Ok(readonly_frames(&view, arr.clone().into_any()))
+                };
             }
         }
         let a = float_array_as::<F>(x, "x")?;
         if a.ndim() != 1 {
             return Err(value_err("x", "only 1-D input is supported"));
         }
-        // The view needs contiguous data: a strided input is copied once.
+        // Both paths read contiguous data: a strided input is copied once.
         let contiguous = if a.as_slice().is_ok() {
             a
         } else {
@@ -625,6 +640,10 @@ pub fn frame<'py>(
             c.readonly()
         };
         let data = contiguous.as_slice().expect("contiguous");
+        if copy {
+            let out = spectrum::frame(data, frame_length, hop_length).map_err(audio_err_to_py)?;
+            return Ok(out.into_pyarray(py).into_any());
+        }
         let view = spectrum::frame_view(data, frame_length, hop_length).map_err(audio_err_to_py)?;
         let base: Bound<'py, PyAny> = (*contiguous).clone().into_any();
         Ok(readonly_frames(&view, base))
