@@ -837,8 +837,12 @@ impl PyAudioSamples {
                 init,
                 rng,
             )?;
-            let y = <AudioSamples<'static, T> as AudioEffects>::griffinlim_audio(&s, &cfg, sr)
-                .map_err(audio_err_to_py)?;
+            let y = <AudioSamples<'static, T> as AudioEffects>::griffinlim_audio(
+                &s.into_owned(),
+                &cfg,
+                sr,
+            )
+            .map_err(audio_err_to_py)?;
             Ok(Self::from_audio_samples(y))
         })
     }

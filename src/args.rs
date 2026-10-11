@@ -356,6 +356,27 @@ where
     Ok(arr.readonly())
 }
 
+/// An array argument as a `CowArray` borrowing `obj`'s data when it is a
+/// NumPy array of element type `E` (no copy), or an owned copy of the
+/// converted array (`convert`) otherwise. The borrowed view lives as long as
+/// `obj`.
+pub(crate) fn array_cow<'a, 'py, E: numpy::Element + Clone>(
+    obj: &'a Bound<'py, PyAny>,
+    convert: impl FnOnce(&Bound<'py, PyAny>) -> PyResult<PyReadonlyArrayDyn<'py, E>>,
+) -> PyResult<ndarray::CowArray<'a, E, ndarray::IxDyn>> {
+    if let Ok(arr) = obj.cast::<PyArrayDyn<E>>() {
+        // Fails if Rust code holds a mutable borrow of the array; the read-only
+        // borrow is released at once and the data viewed in place.
+        drop(arr.try_readonly()?);
+        // SAFETY: the array lives as long as `obj` (which the view borrows),
+        // and no Rust code holds a mutable borrow of it (checked above). As
+        // with the read-only borrows used elsewhere, Python code is not
+        // expected to modify the array while the call runs.
+        return Ok(ndarray::CowArray::from(unsafe { arr.as_array() }));
+    }
+    Ok(ndarray::CowArray::from(convert(obj)?.as_array().to_owned()))
+}
+
 /// Converts an array-like to a read-only `float64` array of any dimension
 /// (`numpy.asarray(obj, dtype=numpy.float64)`).
 ///

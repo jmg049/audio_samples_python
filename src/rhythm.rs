@@ -28,7 +28,7 @@ use audio_samples::operations::rhythm::{
     HybridTempogramConfig, OnsetDetectConfig, OnsetStrengthConfig, PeakPickConfig, PeakPickMethod,
     PlpConfig, TempoConfig, TempoLogPrior, TempogramConfig, TempogramRatioConfig,
 };
-use ndarray::{Array2, Array3, Axis, Ix1, Ix2, Ix3};
+use ndarray::{Array2, Array3, Axis, CowArray, Ix2, Ix3};
 use num_complex::Complex;
 use numpy::{IntoPyArray, PyArray1, PyUntypedArrayMethods};
 use pyo3::IntoPyObjectExt;
@@ -304,25 +304,21 @@ pub(crate) fn prior_fn(prior: Option<&Py<PyAny>>) -> Option<TempoLogPrior> {
 // Array helpers
 // =============================================================================
 
-/// A `(n,)` or `(channels, n)` array as `(channels, n)`; the flag is `true` for 1-D input.
-pub(crate) fn rows<F: FloatElement>(
-    obj: &Bound<'_, PyAny>,
+/// A `(n,)` or `(channels, n)` array as `(channels, n)` (a view of the
+/// NumPy data when no conversion is needed); the flag is `true` for 1-D input.
+pub(crate) fn rows<'a, F: FloatElement>(
+    obj: &'a Bound<'_, PyAny>,
     name: &str,
-) -> PyResult<(Array2<F>, bool)> {
-    let a = float_array_as::<F>(obj, name)?;
-    let a = a.as_array();
+) -> PyResult<(CowArray<'a, F, Ix2>, bool)> {
+    let a = crate::args::array_cow(obj, |o| float_array_as::<F>(o, name))?;
     match a.ndim() {
         1 => Ok((
-            a.into_dimensionality::<Ix1>()
-                .expect("1-D")
-                .insert_axis(Axis(0))
-                .to_owned(),
+            a.insert_axis(Axis(0))
+                .into_dimensionality::<Ix2>()
+                .expect("2-D"),
             true,
         )),
-        2 => Ok((
-            a.into_dimensionality::<Ix2>().expect("2-D").to_owned(),
-            false,
-        )),
+        2 => Ok((a.into_dimensionality::<Ix2>().expect("2-D"), false)),
         n => Err(value_err(
             name,
             format!("expected shape (n,) or (channels, n), got {n} dimensions"),
@@ -342,56 +338,41 @@ pub(crate) fn vec1<F: FloatElement>(obj: &Bound<'_, PyAny>, name: &str) -> PyRes
     Ok(a.as_array().iter().copied().collect())
 }
 
-/// A `(F, T)` or `(channels, F, T)` array as 3-D; the flag is `true` for 2-D input.
-pub(crate) fn planes<F: FloatElement>(
-    obj: &Bound<'_, PyAny>,
+/// A `(F, T)` or `(channels, F, T)` array as 3-D (a view of the NumPy data
+/// when no conversion is needed); the flag is `true` for 2-D input.
+pub(crate) fn planes<'a, F: FloatElement>(
+    obj: &'a Bound<'_, PyAny>,
     name: &str,
-) -> PyResult<(Array3<F>, bool)> {
-    let a = float_array_as::<F>(obj, name)?;
-    let a = a.as_array();
-    match a.ndim() {
-        2 => Ok((
-            a.into_dimensionality::<Ix2>()
-                .expect("2-D")
-                .insert_axis(Axis(0))
-                .to_owned(),
-            true,
-        )),
-        3 => Ok((
-            a.into_dimensionality::<Ix3>().expect("3-D").to_owned(),
-            false,
-        )),
-        n => Err(value_err(
-            name,
-            format!(
-                "expected shape (n_bins, n_frames) or (channels, n_bins, n_frames), got {n} dimensions"
-            ),
-        )),
-    }
+) -> PyResult<(CowArray<'a, F, Ix3>, bool)> {
+    let a = crate::args::array_cow(obj, |o| float_array_as::<F>(o, name))?;
+    lift3(a, name)
 }
 
 /// Complex variant of [`planes`].
-pub(crate) fn cplanes<F: FloatElement>(
-    obj: &Bound<'_, PyAny>,
+pub(crate) fn cplanes<'a, F: FloatElement>(
+    obj: &'a Bound<'_, PyAny>,
     name: &str,
-) -> PyResult<(Array3<Complex<F>>, bool)>
+) -> PyResult<(CowArray<'a, Complex<F>, Ix3>, bool)>
 where
     Complex<F>: numpy::Element,
 {
-    let a = complex_array_as::<F>(obj, name)?;
-    let a = a.as_array();
+    let a = crate::args::array_cow(obj, |o| complex_array_as::<F>(o, name))?;
+    lift3(a, name)
+}
+
+/// `(F, T)` -> `(1, F, T)`; `(channels, F, T)` as is.
+fn lift3<'a, T>(
+    a: CowArray<'a, T, ndarray::IxDyn>,
+    name: &str,
+) -> PyResult<(CowArray<'a, T, Ix3>, bool)> {
     match a.ndim() {
         2 => Ok((
-            a.into_dimensionality::<Ix2>()
-                .expect("2-D")
-                .insert_axis(Axis(0))
-                .to_owned(),
+            a.insert_axis(Axis(0))
+                .into_dimensionality::<Ix3>()
+                .expect("3-D"),
             true,
         )),
-        3 => Ok((
-            a.into_dimensionality::<Ix3>().expect("3-D").to_owned(),
-            false,
-        )),
+        3 => Ok((a.into_dimensionality::<Ix3>().expect("3-D"), false)),
         n => Err(value_err(
             name,
             format!(
@@ -1544,7 +1525,10 @@ pub fn tempogram_ratio<'py>(
         } else {
             let (env, squeeze) = rows::<F>(primary, "onset_envelope")?;
             (
-                rh::tempogram_from_envelope(env.view(), &cfg.tempogram).map_err(audio_err_to_py)?,
+                CowArray::from(
+                    rh::tempogram_from_envelope(env.view(), &cfg.tempogram)
+                        .map_err(audio_err_to_py)?,
+                ),
                 squeeze,
             )
         };
