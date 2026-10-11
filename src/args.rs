@@ -592,7 +592,19 @@ const WINDOW_NAMES: &str = "'hann', 'hamming', 'blackman', 'blackmanharris', 'bo
     a number (Kaiser beta, as SciPy), or an array of coefficients";
 
 fn window_from_name(name: &str) -> PyResult<Window> {
-    match name.to_ascii_lowercase().as_str() {
+    // Lower-case short names on the stack (no allocation per call).
+    let mut buf = [0u8; 32];
+    let owned;
+    let lower: &str = if name.len() <= buf.len() {
+        let b = &mut buf[..name.len()];
+        b.copy_from_slice(name.as_bytes());
+        b.make_ascii_lowercase();
+        std::str::from_utf8(b).expect("ASCII lower-casing keeps UTF-8 valid")
+    } else {
+        owned = name.to_ascii_lowercase();
+        &owned
+    };
+    match lower {
         "hann" | "hanning" | "han" => Ok(Window::Hann),
         "hamming" | "hamm" | "ham" => Ok(Window::Hamming),
         "blackman" | "black" | "blk" => Ok(Window::Blackman),
