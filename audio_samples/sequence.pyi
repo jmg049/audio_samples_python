@@ -131,16 +131,20 @@ def viterbi_binary(
     p_init: Optional[Union[float, npt.ArrayLike]] = None,
     return_logp: bool = False,
     transition_min_prob: Optional[float] = None,
+    dtype: Optional[npt.DTypeLike] = None,
 ) -> Any:
     """Independent off/on Viterbi per state (``librosa.sequence.viterbi_binary``).
 
     Args:
         prob: ``(n_states, n_steps)`` activation probabilities (1-D = one state).
         transition: ``(2, 2)`` shared or ``(n_states, 2, 2)``.
+        dtype: dtype of the states: ``numpy.int64`` (default None) or
+            ``numpy.uint16`` (librosa's dtype).
 
     Returns:
-        numpy.ndarray[int64] of 0/1, ``(n_states, n_steps)`` (``(n_steps,)`` for
-        1-D input), or ``(states, logp)`` with ``logp`` ``(n_states,)``.
+        numpy.ndarray[int64 | uint16] of 0/1, ``(n_states, n_steps)``
+        (``(n_steps,)`` for 1-D input), or ``(states, logp)`` with ``logp``
+        ``(n_states,)``.
     """
     ...
 

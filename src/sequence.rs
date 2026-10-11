@@ -258,9 +258,9 @@ pub fn dtw_backtracking<'py>(
 }
 
 /// Return `states` (int64) or `(states, logp)`.
-fn states_out<'py, D: ndarray::Dimension>(
+fn states_out<'py, T: numpy::Element, D: ndarray::Dimension>(
     py: Python<'py>,
-    states: ndarray::Array<i64, D>,
+    states: ndarray::Array<T, D>,
     logp: Bound<'py, PyAny>,
     return_logp: bool,
 ) -> PyResult<Bound<'py, PyAny>> {
@@ -373,15 +373,19 @@ pub fn viterbi_discriminative<'py>(
 ///     p_init (Optional[float | array_like]): Initial P[on] per state; None = 0.5.
 ///     return_logp (bool): Also return per-state log-likelihoods.
 ///     transition_min_prob (Optional[float]): As ``viterbi``.
+///     dtype (Optional[numpy.dtype]): dtype of the states, ``numpy.int64``
+///         (default None) or ``numpy.uint16`` (librosa's dtype, a quarter of
+///         the memory).
 ///
 /// Returns:
-///     numpy.ndarray[int64] ``(n_states, n_steps)`` of 0/1, or
+///     numpy.ndarray[int64 | uint16] ``(n_states, n_steps)`` of 0/1, or
 ///     ``(states, logp)`` with ``logp`` of shape ``(n_states,)``.
 #[pyfunction]
 #[pyo3(
-    signature = (prob, transition, *, p_state = None, p_init = None, return_logp = false, transition_min_prob = None),
-    text_signature = "(prob, transition, *, p_state=None, p_init=None, return_logp=False, transition_min_prob=None)"
+    signature = (prob, transition, *, p_state = None, p_init = None, return_logp = false, transition_min_prob = None, dtype = None),
+    text_signature = "(prob, transition, *, p_state=None, p_init=None, return_logp=False, transition_min_prob=None, dtype=None)"
 )]
+#[allow(clippy::too_many_arguments)]
 pub fn viterbi_binary<'py>(
     py: Python<'py>,
     prob: &Bound<'py, PyAny>,
@@ -390,7 +394,19 @@ pub fn viterbi_binary<'py>(
     p_init: Option<&Bound<'py, PyAny>>,
     return_logp: bool,
     transition_min_prob: Option<f64>,
+    dtype: Option<crate::args::DTypeArg<'py>>,
 ) -> PyResult<Bound<'py, PyAny>> {
+    let as_u16 = match &dtype {
+        None => false,
+        Some(d) if d.0.is_equiv_to(&numpy::dtype::<u16>(py)) => true,
+        Some(d) if d.0.is_equiv_to(&numpy::dtype::<i64>(py)) => false,
+        Some(d) => {
+            return Err(value_err(
+                "dtype",
+                format!("expected numpy.int64 or numpy.uint16, got {}", d.0),
+            ));
+        }
+    };
     with_precision!(precision_of(prob), |F| viterbi_binary_typed::<F>(
         py,
         prob,
@@ -398,7 +414,8 @@ pub fn viterbi_binary<'py>(
         p_state,
         p_init,
         return_logp,
-        transition_min_prob
+        transition_min_prob,
+        as_u16
     ))
 }
 
@@ -411,8 +428,9 @@ fn viterbi_binary_typed<'py, F: PyFloat>(
     p_init: Option<&Bound<'py, PyAny>>,
     return_logp: bool,
     transition_min_prob: Option<f64>,
+    as_u16: bool,
 ) -> PyResult<Bound<'py, PyAny>> {
-    let one_d = f64_array(prob, "prob")?.ndim() == 1;
+    let one_d = is_one_d(prob, "prob")?;
     let prob = matrix::<F>(prob, "prob")?;
     let n_states = prob.view().nrows();
     let t = float_array_as::<F>(transition, "transition")?;
@@ -443,7 +461,9 @@ fn viterbi_binary_typed<'py, F: PyFloat>(
     };
     let p_state = broadcast(opt_vec::<F>(p_state, "p_state")?);
     let p_init = broadcast(opt_vec::<F>(p_init, "p_init")?);
-    let r = seq::viterbi_binary(
+    // The states are 0/1: decoded as u16 (a quarter of usize's memory) and
+    // widened to int64 unless uint16 was asked for.
+    let r = seq::viterbi_binary_u16(
         prob.view(),
         t3.view(),
         p_state.as_ref().map(|a| a.view()),
@@ -451,14 +471,34 @@ fn viterbi_binary_typed<'py, F: PyFloat>(
         transition_min_prob,
     )
     .map_err(audio_err_to_py)?;
-    let states = r.states.mapv(|s| s as i64);
-    if one_d {
-        let s1 = states.index_axis_move(Axis(0), 0);
-        let lp = r.log_prob[0].as_f64().into_bound_py_any(py)?;
-        return states_out(py, s1, lp, return_logp);
+    let lp = if one_d {
+        r.log_prob[0].as_f64().into_bound_py_any(py)?
+    } else {
+        r.log_prob.into_pyarray(py).into_any()
+    };
+    let out = |states: Array2<u16>| -> PyResult<Bound<'py, PyAny>> {
+        match (as_u16, one_d) {
+            (true, true) => states_out(py, states.index_axis_move(Axis(0), 0), lp, return_logp),
+            (true, false) => states_out(py, states, lp, return_logp),
+            (false, true) => states_out(
+                py,
+                states.index_axis_move(Axis(0), 0).mapv(i64::from),
+                lp,
+                return_logp,
+            ),
+            (false, false) => states_out(py, states.mapv(i64::from), lp, return_logp),
+        }
+    };
+    out(r.states)
+}
+
+/// `True` if the array-like `obj` is one-dimensional (no conversion for a
+/// NumPy array).
+fn is_one_d(obj: &Bound<'_, PyAny>, name: &str) -> PyResult<bool> {
+    match obj.cast::<numpy::PyUntypedArray>() {
+        Ok(a) => Ok(a.ndim() == 1),
+        Err(_) => Ok(f64_array(obj, name)?.ndim() == 1),
     }
-    let lp = r.log_prob.into_pyarray(py).into_any();
-    states_out(py, states, lp, return_logp)
 }
 
 /// Uniform transition matrix, equivalent to ``librosa.sequence.transition_uniform``.
@@ -757,6 +797,11 @@ pub fn recurrence_matrix<'py>(
     };
     with_precision!(precision_of(data), |F| {
         let data = matrix::<F>(data, "data")?;
+        if mode == RecurrenceMode::Connectivity {
+            // Built as bool directly (same links as the float matrix).
+            let r = seq::recurrence_matrix_bool(data.view(), &cfg).map_err(audio_err_to_py)?;
+            return Ok(r.into_pyarray(py).into_any());
+        }
         let r = seq::recurrence_matrix(data.view(), &cfg).map_err(audio_err_to_py)?;
         Ok(similarity_out(py, r, mode))
     })
@@ -809,6 +854,12 @@ pub fn cross_similarity<'py>(
     with_precision!(precision_of(data), |F| {
         let data = matrix::<F>(data, "data")?;
         let data_ref = matrix::<F>(data_ref, "data_ref")?;
+        if mode == RecurrenceMode::Connectivity {
+            // Built as bool directly (same links as the float matrix).
+            let r = seq::cross_similarity_bool(data.view(), data_ref.view(), &cfg)
+                .map_err(audio_err_to_py)?;
+            return Ok(r.into_pyarray(py).into_any());
+        }
         let r =
             seq::cross_similarity(data.view(), data_ref.view(), &cfg).map_err(audio_err_to_py)?;
         Ok(similarity_out(py, r, mode))

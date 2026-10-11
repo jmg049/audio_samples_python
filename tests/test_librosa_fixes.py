@@ -117,6 +117,22 @@ def test_clicks_dtype_keyword():
         E.clicks(times=times, sr=22050, dtype=np.int16)
 
 
+def test_viterbi_binary_dtype_keyword():
+    from audio_samples import sequence as Q
+
+    rng = np.random.default_rng(3)
+    prob = rng.random((5, 200))
+    t = np.array([[0.9, 0.1], [0.2, 0.8]])
+    s64 = Q.viterbi_binary(prob, t)
+    s16 = Q.viterbi_binary(prob, t, dtype=np.uint16)
+    assert s64.dtype == np.int64 and s16.dtype == np.uint16
+    assert np.array_equal(s64, s16)
+    one, lp = Q.viterbi_binary(prob[0], t, dtype=np.uint16, return_logp=True)
+    assert one.shape == (200,) and one.dtype == np.uint16 and isinstance(lp, float)
+    with pytest.raises(ValueError, match="dtype"):
+        Q.viterbi_binary(prob, t, dtype=np.float32)
+
+
 def test_generator_dtype_accepts_scalar_types():
     for spec in (np.float64, np.dtype("float64"), "float64"):
         assert aus.sine_wave(440.0, 0.01, dtype=spec).dtype == "f64"
