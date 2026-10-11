@@ -206,15 +206,17 @@ def clicks(
     click_duration: float = 0.1,
     click: Optional[npt.ArrayLike] = None,
     length: Optional[int] = None,
-) -> NDArray[np.float64]:
-    """Click track, ``librosa.clicks`` (float64 output; librosa returns float32).
+    dtype: Optional[npt.DTypeLike] = None,
+) -> NDArray[np.floating]:
+    """Click track, ``librosa.clicks`` (float64 output by default; librosa returns float32).
 
     ``sr`` must be a positive integer (librosa defaults to 22050).
     ``hop_length`` is the hop of the analysis that produced ``frames``; it is
     required with ``frames`` (librosa defaults to 512) and unused with
-    ``times``.
+    ``times``. ``dtype`` selects ``numpy.float32`` (librosa's dtype) or
+    ``numpy.float64`` output; None gives float64.
 
     Returns:
-        numpy.ndarray[float64]: 1-D signal.
+        numpy.ndarray[float64 | float32]: 1-D signal.
     """
     ...

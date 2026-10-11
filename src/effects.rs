@@ -19,7 +19,7 @@ use audio_samples::operations::filterbanks::Window;
 use audio_samples::operations::sequence::RecurrenceConfig;
 use ndarray::{Array2, Array3, Ix2};
 use num_complex::Complex;
-use numpy::{IntoPyArray, PyArray1, PyUntypedArrayMethods};
+use numpy::{IntoPyArray, PyUntypedArrayMethods};
 use pyo3::IntoPyObjectExt;
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
@@ -823,18 +823,21 @@ pub fn lpc<'py>(
 ///     click (Optional[array_like]): Custom 1-D click waveform.
 ///     length (Optional[int]): Output length; clicks starting at or after it
 ///         are dropped. None: up to the end of the last click.
+///     dtype (Optional[numpy.dtype]): Output dtype, ``numpy.float32`` (librosa's
+///         dtype) or ``numpy.float64``. Default None: float64.
 ///
 /// Returns:
-///     numpy.ndarray[float64]: 1-D click signal (librosa returns float32; the
-///     values agree to float32 rounding).
+///     numpy.ndarray[float64 | float32]: 1-D click signal (float64 unless
+///     ``dtype`` says otherwise; librosa returns float32, and the values agree
+///     to float32 rounding).
 ///
 /// Raises:
 ///     ValueError: If neither ``times`` nor ``frames`` is given, a time is
 ///         negative, or parameters are invalid.
 #[pyfunction]
 #[pyo3(
-    signature = (*, times = None, frames = None, sr, hop_length = None, click_freq = 1000.0, click_duration = 0.1, click = None, length = None),
-    text_signature = "(*, times=None, frames=None, sr, hop_length=None, click_freq=1000.0, click_duration=0.1, click=None, length=None)"
+    signature = (*, times = None, frames = None, sr, hop_length = None, click_freq = 1000.0, click_duration = 0.1, click = None, length = None, dtype = None),
+    text_signature = "(*, times=None, frames=None, sr, hop_length=None, click_freq=1000.0, click_duration=0.1, click=None, length=None, dtype=None)"
 )]
 #[allow(clippy::too_many_arguments)]
 pub fn clicks<'py>(
@@ -847,7 +850,20 @@ pub fn clicks<'py>(
     click_duration: f64,
     click: Option<&Bound<'py, PyAny>>,
     length: Option<Int>,
-) -> PyResult<Bound<'py, PyArray1<f64>>> {
+    dtype: Option<crate::args::DTypeArg<'py>>,
+) -> PyResult<Bound<'py, PyAny>> {
+    use numpy::PyArrayDescrMethods;
+    let single = match &dtype {
+        None => false,
+        Some(d) if d.0.is_equiv_to(&numpy::dtype::<f32>(py)) => true,
+        Some(d) if d.0.is_equiv_to(&numpy::dtype::<f64>(py)) => false,
+        Some(d) => {
+            return Err(value_err(
+                "dtype",
+                format!("expected numpy.float32 or numpy.float64, got {}", d.0),
+            ));
+        }
+    };
     if !(sr.is_finite() && sr >= 1.0 && sr.fract() == 0.0 && sr <= f64::from(u32::MAX)) {
         return Err(value_err(
             "sr",
@@ -867,10 +883,10 @@ pub fn clicks<'py>(
         .with_length(crate::args::opt_positive("length", length)?.map(NonZeroUsize::get));
     let times = times.filter(|t| !t.is_none());
     let frames = frames.filter(|f| !f.is_none());
-    let y = match (times, frames) {
+    let (t, f, hop) = match (times, frames) {
         (Some(t), _) => {
             let t: Vec<f64> = f64_array(t, "times")?.as_array().iter().copied().collect();
-            fx::clicks::<f64>(ClickPositions::Times(&t), rate, &cfg)
+            (Some(t), None, None)
         }
         (None, Some(f)) => {
             let Some(hop) = hop else {
@@ -887,14 +903,7 @@ pub fn clicks<'py>(
             if f.iter().any(|&v| v.checked_mul(hop.get()).is_none()) {
                 return Err(value_err("frames", "frame index too large"));
             }
-            fx::clicks::<f64>(
-                ClickPositions::Frames {
-                    frames: &f,
-                    hop_length: hop,
-                },
-                rate,
-                &cfg,
-            )
+            (None, Some(f), Some(hop))
         }
         (None, None) => {
             return Err(value_err(
@@ -902,13 +911,29 @@ pub fn clicks<'py>(
                 "either times or frames must be provided",
             ));
         }
+    };
+    let positions = match (&t, &f, hop) {
+        (Some(t), _, _) => ClickPositions::Times(t),
+        (None, Some(f), Some(hop)) => ClickPositions::Frames {
+            frames: f,
+            hop_length: hop,
+        },
+        _ => unreachable!("positions checked above"),
+    };
+    // The samples are moved out of the result (no copy of the click track).
+    if single {
+        let y = fx::clicks::<f32>(positions, rate, &cfg).map_err(effects_err)?;
+        let data = y
+            .into_array1()
+            .ok_or_else(|| value_err("clicks", "unexpected multi-channel output"))?;
+        Ok(data.into_pyarray(py).into_any())
+    } else {
+        let y = fx::clicks::<f64>(positions, rate, &cfg).map_err(effects_err)?;
+        let data = y
+            .into_array1()
+            .ok_or_else(|| value_err("clicks", "unexpected multi-channel output"))?;
+        Ok(data.into_pyarray(py).into_any())
     }
-    .map_err(effects_err)?;
-    let data = y
-        .as_mono()
-        .map(|m| m.as_view().to_owned())
-        .ok_or_else(|| value_err("clicks", "unexpected multi-channel output"))?;
-    Ok(data.into_pyarray(py))
 }
 
 /// Registers `audio_samples.effects`.

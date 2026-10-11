@@ -104,6 +104,19 @@ def test_conversions_accept_arrays():
         U.midi_to_note([60, 128])
 
 
+def test_clicks_dtype_keyword():
+    from audio_samples import effects as E
+
+    times = [0.1, 0.5, 1.2]
+    y64 = E.clicks(times=times, sr=22050, length=30000)
+    y32 = E.clicks(times=times, sr=22050, length=30000, dtype=np.float32)
+    assert y64.dtype == np.float64 and y32.dtype == np.float32
+    assert np.array_equal(y32, y64.astype(np.float32))
+    assert E.clicks(times=times, sr=22050, dtype="float64").dtype == np.float64
+    with pytest.raises(ValueError, match="dtype"):
+        E.clicks(times=times, sr=22050, dtype=np.int16)
+
+
 def test_generator_dtype_accepts_scalar_types():
     for spec in (np.float64, np.dtype("float64"), "float64"):
         assert aus.sine_wave(440.0, 0.01, dtype=spec).dtype == "f64"
