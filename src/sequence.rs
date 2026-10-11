@@ -890,8 +890,14 @@ pub fn recurrence_to_lag<'py>(
 ) -> PyResult<Bound<'py, PyAny>> {
     let rows_are_time = lag_axis_is_rows(axis)?;
     let is_bool = is_bool_array(rec)?;
-    // Boolean input holds only 0 and 1, exact in float32, and gives boolean
-    // output: compute it in float32 (half the memory traffic of float64).
+    if is_bool && let Ok(a) = rec.cast::<numpy::PyArray2<bool>>() {
+        // Boolean input is sheared as bool (the kernel only moves elements).
+        let r = a.readonly();
+        let lag = shear_rows(r.as_array(), rows_are_time, |m| {
+            seq::recurrence_to_lag(m, pad)
+        })?;
+        return Ok(c_order(lag).into_pyarray(py).into_any());
+    }
     let prec = if is_bool {
         Precision::F32
     } else {
@@ -930,7 +936,12 @@ pub fn lag_to_recurrence<'py>(
 ) -> PyResult<Bound<'py, PyAny>> {
     let rows_are_time = lag_axis_is_rows(axis)?;
     let is_bool = is_bool_array(lag)?;
-    // As in `recurrence_to_lag`: boolean input is computed in float32.
+    if is_bool && let Ok(a) = lag.cast::<numpy::PyArray2<bool>>() {
+        // Boolean input is sheared as bool (the kernel only moves elements).
+        let r = a.readonly();
+        let rec = shear_rows(r.as_array(), rows_are_time, seq::lag_to_recurrence)?;
+        return Ok(c_order(rec).into_pyarray(py).into_any());
+    }
     let prec = if is_bool {
         Precision::F32
     } else {
@@ -951,6 +962,30 @@ pub fn lag_to_recurrence<'py>(
 
 /// librosa's `axis` for the (2-D) lag transforms: `-1`/`1` (columns are time,
 /// the default) or `0`/`-2` (rows are time). Returns whether rows are time.
+/// Runs a lag/recurrence shear on `m` along the time axis: rows when
+/// `rows_are_time` (the transform of the transpose, transposed back), columns
+/// otherwise.
+fn shear_rows<T>(
+    m: ndarray::ArrayView2<'_, T>,
+    rows_are_time: bool,
+    f: impl FnOnce(ndarray::ArrayView2<'_, T>) -> audio_samples::AudioSampleResult<Array2<T>>,
+) -> PyResult<Array2<T>> {
+    if rows_are_time {
+        Ok(f(m.t()).map_err(audio_err_to_py)?.reversed_axes())
+    } else {
+        f(m).map_err(audio_err_to_py)
+    }
+}
+
+/// `m` in C order (copied only when it is not already).
+fn c_order<T: Clone>(m: Array2<T>) -> Array2<T> {
+    if m.is_standard_layout() {
+        m
+    } else {
+        m.as_standard_layout().into_owned()
+    }
+}
+
 fn lag_axis_is_rows(axis: Int) -> PyResult<bool> {
     match axis.0 {
         -1 | 1 => Ok(false),
