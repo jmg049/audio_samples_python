@@ -1363,7 +1363,7 @@ impl PyAudioSamples {
                     .iter()
                     .map(|src| {
                         if let PyAudioDataInner::U8(typed) = &src.inner {
-                            typed.with_view(py, |audio| audio.clone().into_owned())
+                            typed.borrowed(py)
                         } else {
                             unreachable!()
                         }
@@ -1380,7 +1380,7 @@ impl PyAudioSamples {
                     .iter()
                     .map(|src| {
                         if let PyAudioDataInner::I16(typed) = &src.inner {
-                            typed.with_view(py, |audio| audio.clone().into_owned())
+                            typed.borrowed(py)
                         } else {
                             unreachable!()
                         }
@@ -1397,7 +1397,7 @@ impl PyAudioSamples {
                     .iter()
                     .map(|src| {
                         if let PyAudioDataInner::I24(typed) = &src.inner {
-                            typed.with_view(py, |audio| audio.clone().into_owned())
+                            typed.borrowed(py)
                         } else {
                             unreachable!()
                         }
@@ -1414,7 +1414,7 @@ impl PyAudioSamples {
                     .iter()
                     .map(|src| {
                         if let PyAudioDataInner::I32(typed) = &src.inner {
-                            typed.with_view(py, |audio| audio.clone().into_owned())
+                            typed.borrowed(py)
                         } else {
                             unreachable!()
                         }
@@ -1431,7 +1431,7 @@ impl PyAudioSamples {
                     .iter()
                     .map(|src| {
                         if let PyAudioDataInner::F32(typed) = &src.inner {
-                            typed.with_view(py, |audio| audio.clone().into_owned())
+                            typed.borrowed(py)
                         } else {
                             unreachable!()
                         }
@@ -1448,7 +1448,7 @@ impl PyAudioSamples {
                     .iter()
                     .map(|src| {
                         if let PyAudioDataInner::F64(typed) = &src.inner {
-                            typed.with_view(py, |audio| audio.clone().into_owned())
+                            typed.borrowed(py)
                         } else {
                             unreachable!()
                         }
@@ -4014,6 +4014,35 @@ where
                 );
                 f(core)
             }
+        }
+    }
+
+    /// The samples as an `AudioSamples` borrowing this object's data (owned
+    /// or NumPy-backed) for as long as `self` is borrowed, without copying.
+    /// Like [`Self::with_view`], but the result can be held alongside the
+    /// views of other objects (e.g. to stack several sources).
+    pub(crate) fn borrowed<'a>(&'a self, py: Python<'a>) -> AudioSamples<'a, T> {
+        use PyAudioBacking::*;
+        let sr = self.sample_rate;
+        // safety: an instantiated TypedAudioSamples is non-empty; a NumPy view
+        // stays valid while `self` (which holds the array) is borrowed.
+        match &self.backing {
+            OwnedMono(arr) => AudioSamples::new(
+                unsafe { AudioData::from_borrowed_array1_unchecked(arr.view()) },
+                sr,
+            ),
+            OwnedMulti(arr) => AudioSamples::new(
+                unsafe { AudioData::from_borrowed_array2_unchecked(arr.view()) },
+                sr,
+            ),
+            NumpyMono(handle) => AudioSamples::new(
+                unsafe { AudioData::from_borrowed_array1_unchecked(handle.bind(py).as_array()) },
+                sr,
+            ),
+            NumpyMulti(handle) | NumpyInterleaved(handle) => AudioSamples::new(
+                unsafe { AudioData::from_borrowed_array2_unchecked(handle.bind(py).as_array()) },
+                sr,
+            ),
         }
     }
 
