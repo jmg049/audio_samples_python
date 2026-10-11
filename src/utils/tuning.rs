@@ -33,9 +33,12 @@ pub fn hz_to_octs<'py>(
     bins_per_octave: Int,
 ) -> PyResult<Bound<'py, PyAny>> {
     let b = positive("bins_per_octave", bins_per_octave)?;
-    map_f64(frequencies, "frequencies", |f| {
-        audio_math::hz_to_octs(f, tuning, b)
-    })
+    crate::args::map_f64_slice(
+        frequencies,
+        "frequencies",
+        |f| audio_math::hz_to_octs(f, tuning, b),
+        |fs| audio_math::hz_to_octs_slice(fs, tuning, b),
+    )
 }
 
 /// Converts fractional octave numbers to frequencies (Hz), equivalent to
@@ -79,7 +82,12 @@ pub fn a4_to_tuning<'py>(
     bins_per_octave: Int,
 ) -> PyResult<Bound<'py, PyAny>> {
     let b = positive("bins_per_octave", bins_per_octave)?;
-    map_f64(A4, "A4", |a| audio_math::a4_to_tuning(a, b))
+    crate::args::map_f64_slice(
+        A4,
+        "A4",
+        |a| audio_math::a4_to_tuning(a, b),
+        |a4| audio_math::a4_to_tuning_slice(a4, b),
+    )
 }
 
 /// Converts a tuning deviation (fractions of a bin) to the A4 reference

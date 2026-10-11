@@ -9,7 +9,10 @@ use audio_samples::utils::audio_math;
 use numpy::{IntoPyArray, PyArray1};
 use pyo3::prelude::*;
 
-use crate::args::{is_scalar, map_f64, map_f64_to_i64, map_i64, non_negative, positive, value_err};
+use crate::args::{
+    is_scalar, map_f64, map_f64_slice, map_f64_to_i64, map_i64, map_i64_slice, non_negative,
+    positive, value_err,
+};
 use crate::audio_err_to_py;
 
 /// `htk` flag to the Rust mel scale.
@@ -112,7 +115,12 @@ pub fn mel_scale<'py>(
 #[pyfunction]
 #[pyo3(signature = (freq_hz), text_signature = "(freq_hz)")]
 pub fn hz_to_midi<'py>(freq_hz: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
-    map_f64(freq_hz, "freq_hz", audio_math::hz_to_midi)
+    map_f64_slice(
+        freq_hz,
+        "freq_hz",
+        audio_math::hz_to_midi,
+        audio_math::hz_to_midi_slice,
+    )
 }
 
 /// Converts MIDI note numbers (fractional allowed) to Hertz, like
@@ -711,9 +719,12 @@ pub fn time_to_samples<'py>(
     sr: Option<f64>,
 ) -> PyResult<Bound<'py, PyAny>> {
     let sample_rate = sample_rate_or_sr(sample_rate, sr)?;
-    map_f64_to_i64(times, "times", |t| {
-        audio_math::time_to_samples(t, sample_rate)
-    })
+    map_f64_slice(
+        times,
+        "times",
+        |t| audio_math::time_to_samples(t, sample_rate),
+        |ts| audio_math::time_to_samples_slice(ts, sample_rate),
+    )
 }
 
 /// Converts sample indices to frame indices, like ``librosa.samples_to_frames``.
@@ -738,9 +749,12 @@ pub fn samples_to_frames<'py>(
 ) -> PyResult<Bound<'py, PyAny>> {
     let hop = positive("hop_length", hop_length)?;
     let n_fft = opt_non_negative("n_fft", n_fft)?;
-    map_i64(samples, "samples", |s| {
-        audio_math::samples_to_frames(s, hop, n_fft)
-    })
+    map_i64_slice(
+        samples,
+        "samples",
+        |s| audio_math::samples_to_frames(s, hop, n_fft),
+        |ss| audio_math::samples_to_frames_slice(ss, hop, n_fft),
+    )
 }
 
 /// Converts frame indices to sample indices, like ``librosa.frames_to_samples``.
@@ -803,9 +817,12 @@ pub fn time_to_frames_floor<'py>(
     let sample_rate = sample_rate_or_sr(sample_rate, sr)?;
     let hop = positive("hop_length", hop_length)?;
     let n_fft = opt_non_negative("n_fft", n_fft)?;
-    map_f64_to_i64(times, "times", |t| {
-        audio_math::time_to_frames_floor(t, sample_rate, hop, n_fft)
-    })
+    map_f64_slice(
+        times,
+        "times",
+        |t| audio_math::time_to_frames_floor(t, sample_rate, hop, n_fft),
+        |ts| audio_math::time_to_frames_floor_slice(ts, sample_rate, hop, n_fft),
+    )
 }
 
 /// `sample_rate` or its librosa spelling `sr`; exactly one is required.

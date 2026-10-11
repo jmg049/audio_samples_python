@@ -561,6 +561,83 @@ pub(crate) fn map_f64_to_i64<'py>(
     Ok(arr.as_array().mapv(f).into_pyarray(py).into_any())
 }
 
+/// Runs a slice kernel over the elements of `v` and returns the result as a
+/// NumPy array of `v`'s shape. C- or Fortran-contiguous input is passed in
+/// place (the output keeps that memory order); anything else is gathered in
+/// logical order first.
+fn slice_map_out<'py, T: Copy, R: numpy::Element>(
+    py: Python<'py>,
+    v: ndarray::ArrayViewD<'_, T>,
+    name: &str,
+    slice_f: impl FnOnce(&[T]) -> Vec<R>,
+) -> PyResult<Bound<'py, PyAny>> {
+    use ndarray::ShapeBuilder;
+    use numpy::IntoPyArray;
+    let fortran = !v.is_standard_layout() && v.t().is_standard_layout();
+    let (out, fortran) = match v.as_slice_memory_order() {
+        Some(flat) if v.is_standard_layout() || fortran => (slice_f(flat), fortran),
+        _ => (slice_f(&v.iter().copied().collect::<Vec<T>>()), false),
+    };
+    let shape = ndarray::IxDyn(v.shape());
+    let arr = if fortran {
+        ndarray::ArrayD::from_shape_vec(shape.f(), out)
+    } else {
+        ndarray::ArrayD::from_shape_vec(shape, out)
+    }
+    .map_err(|e| value_err(name, e))?;
+    Ok(arr.into_pyarray(py).into_any())
+}
+
+/// [`map_f64`] for conversions with a slice form: a scalar input gives
+/// `scalar_f(x)` as a Python number, an array-like gives `slice_f` over its
+/// elements as an array of the same shape. `slice_f` must agree with
+/// `scalar_f` element by element.
+pub(crate) fn map_f64_slice<'py, R>(
+    obj: &Bound<'py, PyAny>,
+    name: &str,
+    scalar_f: impl Fn(f64) -> R,
+    slice_f: impl FnOnce(&[f64]) -> Vec<R>,
+) -> PyResult<Bound<'py, PyAny>>
+where
+    R: numpy::Element + for<'a> IntoPyObject<'a> + Copy,
+{
+    let py = obj.py();
+    if let Some(v) = python_real(obj) {
+        return scalar_f(v).into_bound_py_any(py);
+    }
+    let arr = f64_array(obj, name)?;
+    if is_scalar(obj)? {
+        let v = *arr
+            .as_array()
+            .iter()
+            .next()
+            .expect("0-d array has one element");
+        return scalar_f(v).into_bound_py_any(py);
+    }
+    slice_map_out(py, arr.as_array(), name, slice_f)
+}
+
+/// [`map_i64`] for conversions with a slice form (see [`map_f64_slice`]).
+pub(crate) fn map_i64_slice<'py, R>(
+    obj: &Bound<'py, PyAny>,
+    name: &str,
+    scalar_f: impl Fn(i64) -> R,
+    slice_f: impl FnOnce(&[i64]) -> Vec<R>,
+) -> PyResult<Bound<'py, PyAny>>
+where
+    R: numpy::Element + for<'a> IntoPyObject<'a> + Copy,
+{
+    let py = obj.py();
+    let scalar = is_scalar(obj)?;
+    with_i64_view(obj, name, |v| {
+        if scalar {
+            let x = *v.iter().next().expect("0-d array has one element");
+            return scalar_f(x).into_bound_py_any(py);
+        }
+        slice_map_out(py, v, name, slice_f)
+    })
+}
+
 /// Integer-in variant of [`map_f64`]: the input must hold integers.
 pub(crate) fn map_i64<'py, R>(
     obj: &Bound<'py, PyAny>,
