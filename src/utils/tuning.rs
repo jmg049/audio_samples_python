@@ -132,13 +132,17 @@ pub fn cqt_frequencies(
     bins_per_octave: Int,
     tuning: f64,
 ) -> PyResult<Bound<'_, PyArray1<f64>>> {
-    let f = audio_math::cqt_frequencies(
-        non_negative("n_bins", n_bins)?,
-        fmin,
-        positive("bins_per_octave", bins_per_octave)?,
-        tuning,
-    );
-    Ok(f.into_pyarray(py))
+    use numpy::{PyArray1, PyArrayMethods};
+    // Computed straight into a NumPy-allocated array (no Rust buffer).
+    let n = non_negative("n_bins", n_bins)?;
+    let bpo = positive("bins_per_octave", bins_per_octave)?;
+    let out = PyArray1::<f64>::zeros(py, n, false);
+    {
+        let mut w = out.readwrite();
+        let slice = w.as_slice_mut().expect("a new array is contiguous");
+        audio_math::cqt_frequencies_into(slice, fmin, bpo, tuning);
+    }
+    Ok(out)
 }
 
 /// Spells the 12 pitch classes for a key, equivalent to ``librosa.key_to_notes``.
@@ -155,8 +159,19 @@ pub fn cqt_frequencies(
 ///     ValueError: For an unparsable key.
 #[pyfunction]
 #[pyo3(signature = (key, *, unicode = true, natural = false), text_signature = "(key, *, unicode=True, natural=False)")]
-pub fn key_to_notes(key: &str, unicode: bool, natural: bool) -> PyResult<Vec<String>> {
-    audio_math::key_to_notes(key, unicode, natural).map_err(audio_err_to_py)
+pub fn key_to_notes<'py>(
+    py: Python<'py>,
+    key: &str,
+    unicode: bool,
+    natural: bool,
+) -> PyResult<Bound<'py, pyo3::types::PyList>> {
+    // The 12 names come from a static table; interned Python strings are
+    // shared between calls instead of allocated anew.
+    let names = audio_math::key_to_notes_static(key, unicode, natural).map_err(audio_err_to_py)?;
+    pyo3::types::PyList::new(
+        py,
+        names.iter().map(|n| pyo3::types::PyString::intern(py, n)),
+    )
 }
 
 /// Pitch classes (0 = C) of the 7 scale degrees of a key, equivalent to

@@ -474,21 +474,26 @@ pub fn note_to_midi<'py>(note_name: &Bound<'py, PyAny>) -> PyResult<Bound<'py, P
 pub fn midi_to_note<'py>(midi_note: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
     use pyo3::IntoPyObjectExt;
     let py = midi_note.py();
-    let one = |m: i64| -> PyResult<String> {
+    let one = |m: i64| -> PyResult<&'static str> {
         let m = u8::try_from(m)
             .ok()
             .filter(|&m| m <= 127)
             .ok_or_else(|| value_err("midi_note", format!("must be in 0..=127, got {}", Int(m))))?;
-        audio_math::midi_to_note(m).map_err(audio_err_to_py)
+        audio_math::midi_to_note_static(m).map_err(audio_err_to_py)
     };
     if !is_sequence_like(midi_note) {
         let m: Int = midi_note.extract()?;
         return one(m.0)?.into_bound_py_any(py);
     }
-    let names = crate::args::with_i64_view(midi_note, "midi_note", |v| {
-        v.iter().map(|&m| one(m)).collect::<PyResult<Vec<String>>>()
+    let mut names = StrCache::default();
+    let list = crate::args::with_i64_view(midi_note, "midi_note", |v| {
+        let items = v
+            .iter()
+            .map(|&m| Ok(names.get(py, one(m)?)))
+            .collect::<PyResult<Vec<_>>>()?;
+        Ok(pyo3::types::PyList::new(py, items)?)
     })?;
-    names.into_bound_py_any(py)
+    Ok(list.into_any())
 }
 
 #[pyfunction]
@@ -553,16 +558,34 @@ pub fn frequency_to_note<'py>(freq_hz: &Bound<'py, PyAny>) -> PyResult<Bound<'py
     }
     let a = crate::args::f64_array(freq_hz, "freq_hz")?;
     let v = a.as_array();
+    let mut cache = StrCache::default();
     let mut names = Vec::with_capacity(v.len());
     let mut cents = Vec::with_capacity(v.len());
     for &f in &v {
-        let (n, c) = audio_math::frequency_to_note(f).map_err(audio_err_to_py)?;
-        names.push(n);
+        let (n, c) = audio_math::frequency_to_note_static(f).map_err(audio_err_to_py)?;
+        names.push(cache.get(py, n));
         cents.push(c);
     }
     let cents =
         ndarray::ArrayD::from_shape_vec(v.raw_dim(), cents).map_err(|e| value_err("freq_hz", e))?;
-    (names, cents.into_pyarray(py)).into_bound_py_any(py)
+    (pyo3::types::PyList::new(py, names)?, cents.into_pyarray(py)).into_bound_py_any(py)
+}
+
+/// One Python `str` per distinct static name: repeated note names in a
+/// result list share a single object, as NumPy/librosa string results share
+/// their few distinct values.
+#[derive(Default)]
+struct StrCache<'py> {
+    by_ptr: std::collections::HashMap<usize, Bound<'py, pyo3::types::PyString>>,
+}
+
+impl<'py> StrCache<'py> {
+    fn get(&mut self, py: Python<'py>, s: &'static str) -> Bound<'py, pyo3::types::PyString> {
+        self.by_ptr
+            .entry(s.as_ptr() as usize)
+            .or_insert_with(|| pyo3::types::PyString::new(py, s))
+            .clone()
+    }
 }
 
 #[pyfunction]
