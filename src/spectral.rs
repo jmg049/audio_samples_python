@@ -404,16 +404,18 @@ pub fn get_window<'py>(
 ///         ``librosa.util.normalize(w, norm=norm)``: ``None`` (default), a
 ///         positive number (L-p norm), ``math.inf`` / ``-math.inf`` (max / min
 ///         absolute value) or ``0`` (count of non-zeros).
+///     dtype (Optional[numpy.dtype]): ``float32`` or ``float64``. ``None``
+///         (default) means ``float64``; librosa's default is ``float32``.
 ///
 /// Returns:
-///     numpy.ndarray[float64]: shape ``(n_fft + hop_length * (n_frames - 1),)``.
+///     numpy.ndarray[float64 | float32]: shape ``(n_fft + hop_length * (n_frames - 1),)``.
 ///
 /// Raises:
 ///     ValueError: For invalid parameters.
 #[pyfunction]
 #[pyo3(
-    signature = (*, window, n_frames, hop_length = Int(512), win_length = None, n_fft = Int(2048), norm = None),
-    text_signature = "(*, window, n_frames, hop_length=512, win_length=None, n_fft=2048, norm=None)"
+    signature = (*, window, n_frames, hop_length = Int(512), win_length = None, n_fft = Int(2048), norm = None, dtype = None),
+    text_signature = "(*, window, n_frames, hop_length=512, win_length=None, n_fft=2048, norm=None, dtype=None)"
 )]
 #[allow(clippy::too_many_arguments)]
 pub fn window_sumsquare<'py>(
@@ -424,7 +426,21 @@ pub fn window_sumsquare<'py>(
     win_length: Option<Int>,
     n_fft: Int,
     norm: Option<f64>,
-) -> PyResult<Bound<'py, PyArray1<f64>>> {
+    dtype: Option<&Bound<'py, PyAny>>,
+) -> PyResult<Bound<'py, PyAny>> {
+    let single = match dtype {
+        None => false,
+        Some(d) => {
+            let d = numpy::PyArrayDescr::new(py, d)?;
+            if d.is_equiv_to(&numpy::dtype::<f32>(py)) {
+                true
+            } else if d.is_equiv_to(&numpy::dtype::<f64>(py)) {
+                false
+            } else {
+                return Err(value_err("dtype", "expected float32 or float64"));
+            }
+        }
+    };
     let n_fft = positive("n_fft", n_fft)?;
     let win_length = opt_positive("win_length", win_length)?;
     // librosa normalises the (periodic) window before squaring; do the same and
@@ -445,15 +461,19 @@ pub fn window_sumsquare<'py>(
             Window::Custom(w.to_vec())
         }
     };
-    let w = filterbanks::window_sumsquare(
-        &window,
-        positive("n_frames", n_frames)?.get(),
-        positive("hop_length", hop_length)?,
-        win_length,
-        n_fft,
-    )
-    .map_err(audio_err_to_py)?;
-    Ok(w.into_pyarray(py))
+    let n_frames = positive("n_frames", n_frames)?.get();
+    let hop_length = positive("hop_length", hop_length)?;
+    Ok(if single {
+        filterbanks::window_sumsquare_as::<f32>(&window, n_frames, hop_length, win_length, n_fft)
+            .map_err(audio_err_to_py)?
+            .into_pyarray(py)
+            .into_any()
+    } else {
+        filterbanks::window_sumsquare(&window, n_frames, hop_length, win_length, n_fft)
+            .map_err(audio_err_to_py)?
+            .into_pyarray(py)
+            .into_any()
+    })
 }
 
 /// Equivalent noise bandwidth of a window in FFT bins:
