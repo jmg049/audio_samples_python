@@ -123,10 +123,11 @@ def test_viterbi_binary_dtype_keyword():
     rng = np.random.default_rng(3)
     prob = rng.random((5, 200))
     t = np.array([[0.9, 0.1], [0.2, 0.8]])
-    s64 = Q.viterbi_binary(prob, t)
+    sb = Q.viterbi_binary(prob, t)
     s16 = Q.viterbi_binary(prob, t, dtype=np.uint16)
-    assert s64.dtype == np.int64 and s16.dtype == np.uint16
-    assert np.array_equal(s64, s16)
+    s64 = Q.viterbi_binary(prob, t, dtype=np.int64)
+    assert sb.dtype == np.bool_ and s16.dtype == np.uint16 and s64.dtype == np.int64
+    assert np.array_equal(sb, s16) and np.array_equal(s16, s64)
     one, lp = Q.viterbi_binary(prob[0], t, dtype=np.uint16, return_logp=True)
     assert one.shape == (200,) and one.dtype == np.uint16 and isinstance(lp, float)
     with pytest.raises(ValueError, match="dtype"):

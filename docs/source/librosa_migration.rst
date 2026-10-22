@@ -1114,8 +1114,9 @@ All in ``audio_samples.sequence``, on ``(n_features, n_frames)`` arrays.
      - As ``viterbi``
    * - ``sequence.viterbi_binary``
      - ``sequence.viterbi_binary``
-     - equivalent
-     - As ``viterbi``
+     - with differences
+     - States are ``bool`` by default (librosa: ``uint16``); pass
+       ``dtype=numpy.uint16`` for librosa's dtype
    * - ``sequence.transition_uniform``
      - ``sequence.transition_uniform``
      - equivalent

@@ -138,13 +138,13 @@ def viterbi_binary(
     Args:
         prob: ``(n_states, n_steps)`` activation probabilities (1-D = one state).
         transition: ``(2, 2)`` shared or ``(n_states, 2, 2)``.
-        dtype: dtype of the states: ``numpy.int64`` (default None) or
-            ``numpy.uint16`` (librosa's dtype).
+        dtype: dtype of the states: ``bool`` (default None, one byte per
+            entry), ``numpy.uint16`` (librosa's dtype) or ``numpy.int64``.
 
     Returns:
-        numpy.ndarray[int64 | uint16] of 0/1, ``(n_states, n_steps)``
-        (``(n_steps,)`` for 1-D input), or ``(states, logp)`` with ``logp``
-        ``(n_states,)``.
+        numpy.ndarray[bool | uint16 | int64] ``(n_states, n_steps)``
+        (``(n_steps,)`` for 1-D input), true or 1 where the state is on, or
+        ``(states, logp)`` with ``logp`` ``(n_states,)``.
     """
     ...
 

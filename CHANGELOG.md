@@ -137,6 +137,9 @@ has the full detail.
 
 ### Changed
 
+- `sequence.viterbi_binary` returns its states as `bool` by default (one byte
+  per entry; librosa returns `uint16`). `dtype=numpy.uint16` or
+  `dtype=numpy.int64` gives an integer array.
 - `AudioSamples.apply_window` multiplies by float64 coefficients and rounds
   integer results to nearest, saturating at the type's range. Integer audio
   used to quantise the window to the sample type, so fractional windows

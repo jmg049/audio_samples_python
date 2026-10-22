@@ -373,13 +373,14 @@ pub fn viterbi_discriminative<'py>(
 ///     p_init (Optional[float | array_like]): Initial P[on] per state; None = 0.5.
 ///     return_logp (bool): Also return per-state log-likelihoods.
 ///     transition_min_prob (Optional[float]): As ``viterbi``.
-///     dtype (Optional[numpy.dtype]): dtype of the states, ``numpy.int64``
-///         (default None) or ``numpy.uint16`` (librosa's dtype, a quarter of
-///         the memory).
+///     dtype (Optional[numpy.dtype]): dtype of the states: ``bool`` (default
+///         None, one byte per entry), ``numpy.uint16`` (librosa's dtype) or
+///         ``numpy.int64``.
 ///
 /// Returns:
-///     numpy.ndarray[int64 | uint16] ``(n_states, n_steps)`` of 0/1, or
-///     ``(states, logp)`` with ``logp`` of shape ``(n_states,)``.
+///     numpy.ndarray[bool | uint16 | int64] ``(n_states, n_steps)``, true or 1
+///     where the state is on, or ``(states, logp)`` with ``logp`` of shape
+///     ``(n_states,)``. librosa returns uint16.
 #[pyfunction]
 #[pyo3(
     signature = (prob, transition, *, p_state = None, p_init = None, return_logp = false, transition_min_prob = None, dtype = None),
@@ -396,14 +397,15 @@ pub fn viterbi_binary<'py>(
     transition_min_prob: Option<f64>,
     dtype: Option<crate::args::DTypeArg<'py>>,
 ) -> PyResult<Bound<'py, PyAny>> {
-    let as_u16 = match &dtype {
-        None => false,
-        Some(d) if d.0.is_equiv_to(&numpy::dtype::<u16>(py)) => true,
-        Some(d) if d.0.is_equiv_to(&numpy::dtype::<i64>(py)) => false,
+    let states_dtype = match &dtype {
+        None => StatesDtype::Bool,
+        Some(d) if d.0.is_equiv_to(&numpy::dtype::<bool>(py)) => StatesDtype::Bool,
+        Some(d) if d.0.is_equiv_to(&numpy::dtype::<u16>(py)) => StatesDtype::U16,
+        Some(d) if d.0.is_equiv_to(&numpy::dtype::<i64>(py)) => StatesDtype::I64,
         Some(d) => {
             return Err(value_err(
                 "dtype",
-                format!("expected numpy.int64 or numpy.uint16, got {}", d.0),
+                format!("expected bool, numpy.uint16 or numpy.int64, got {}", d.0),
             ));
         }
     };
@@ -415,8 +417,16 @@ pub fn viterbi_binary<'py>(
         p_init,
         return_logp,
         transition_min_prob,
-        as_u16
+        states_dtype
     ))
+}
+
+/// Element type of the `viterbi_binary` states.
+#[derive(Clone, Copy)]
+enum StatesDtype {
+    Bool,
+    U16,
+    I64,
 }
 
 /// [`viterbi_binary`] computed in `F`.
@@ -428,7 +438,7 @@ fn viterbi_binary_typed<'py, F: PyFloat>(
     p_init: Option<&Bound<'py, PyAny>>,
     return_logp: bool,
     transition_min_prob: Option<f64>,
-    as_u16: bool,
+    states_dtype: StatesDtype,
 ) -> PyResult<Bound<'py, PyAny>> {
     let one_d = is_one_d(prob, "prob")?;
     let prob = matrix::<F>(prob, "prob")?;
@@ -461,9 +471,9 @@ fn viterbi_binary_typed<'py, F: PyFloat>(
     };
     let p_state = broadcast(opt_vec::<F>(p_state, "p_state")?);
     let p_init = broadcast(opt_vec::<F>(p_init, "p_init")?);
-    // The states are 0/1: decoded as u16 (a quarter of usize's memory) and
-    // widened to int64 unless uint16 was asked for.
-    let r = seq::viterbi_binary_u16(
+    // The states are decoded as bool and converted only if another dtype was
+    // asked for.
+    let r = seq::viterbi_binary(
         prob.view(),
         t3.view(),
         p_state.as_ref().map(|a| a.view()),
@@ -476,20 +486,16 @@ fn viterbi_binary_typed<'py, F: PyFloat>(
     } else {
         r.log_prob.into_pyarray(py).into_any()
     };
-    let out = |states: Array2<u16>| -> PyResult<Bound<'py, PyAny>> {
-        match (as_u16, one_d) {
-            (true, true) => states_out(py, states.index_axis_move(Axis(0), 0), lp, return_logp),
-            (true, false) => states_out(py, states, lp, return_logp),
-            (false, true) => states_out(
-                py,
-                states.index_axis_move(Axis(0), 0).mapv(i64::from),
-                lp,
-                return_logp,
-            ),
-            (false, false) => states_out(py, states.mapv(i64::from), lp, return_logp),
-        }
+    let states = if one_d {
+        r.states.index_axis_move(Axis(0), 0).into_dyn()
+    } else {
+        r.states.into_dyn()
     };
-    out(r.states)
+    match states_dtype {
+        StatesDtype::Bool => states_out(py, states, lp, return_logp),
+        StatesDtype::U16 => states_out(py, states.mapv(u16::from), lp, return_logp),
+        StatesDtype::I64 => states_out(py, states.mapv(i64::from), lp, return_logp),
+    }
 }
 
 /// `True` if the array-like `obj` is one-dimensional (no conversion for a
@@ -798,11 +804,10 @@ pub fn recurrence_matrix<'py>(
     with_precision!(precision_of(data), |F| {
         let data = matrix::<F>(data, "data")?;
         if mode == RecurrenceMode::Connectivity {
-            // Built as bool directly (same links as the float matrix).
-            let r = seq::recurrence_matrix_bool(data.view(), &cfg).map_err(audio_err_to_py)?;
+            let r = seq::recurrence_matrix(data.view(), &cfg).map_err(audio_err_to_py)?;
             return Ok(r.into_pyarray(py).into_any());
         }
-        let r = seq::recurrence_matrix(data.view(), &cfg).map_err(audio_err_to_py)?;
+        let r = seq::recurrence_matrix_weighted(data.view(), &cfg).map_err(audio_err_to_py)?;
         Ok(similarity_out(py, r, mode))
     })
 }
@@ -855,13 +860,12 @@ pub fn cross_similarity<'py>(
         let data = matrix::<F>(data, "data")?;
         let data_ref = matrix::<F>(data_ref, "data_ref")?;
         if mode == RecurrenceMode::Connectivity {
-            // Built as bool directly (same links as the float matrix).
-            let r = seq::cross_similarity_bool(data.view(), data_ref.view(), &cfg)
+            let r = seq::cross_similarity(data.view(), data_ref.view(), &cfg)
                 .map_err(audio_err_to_py)?;
             return Ok(r.into_pyarray(py).into_any());
         }
-        let r =
-            seq::cross_similarity(data.view(), data_ref.view(), &cfg).map_err(audio_err_to_py)?;
+        let r = seq::cross_similarity_weighted(data.view(), data_ref.view(), &cfg)
+            .map_err(audio_err_to_py)?;
         Ok(similarity_out(py, r, mode))
     })
 }
