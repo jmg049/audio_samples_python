@@ -491,8 +491,41 @@ pub fn window_sumsquare<'py>(
 ///     float: Bandwidth in bins (1.0 for boxcar, 1.5 for Hann).
 #[pyfunction]
 #[pyo3(signature = (window, n = Int(1000)), text_signature = "(window, n=1000)")]
-pub fn window_bandwidth(window: WindowArg, n: Int) -> PyResult<f64> {
-    filterbanks::window_bandwidth(&window.0, positive("n", n)?).map_err(audio_err_to_py)
+pub fn window_bandwidth<'py>(
+    py: Python<'py>,
+    window: &Bound<'py, PyAny>,
+    n: Int,
+) -> PyResult<Bound<'py, pyo3::types::PyFloat>> {
+    use pyo3::types::{PyFloat, PyString};
+    // The last result for a window given as a string, keyed by the string
+    // object (immutable, so the same object gives the same value): a repeated
+    // call with the same name returns the same float without parsing the
+    // name or allocating, as librosa returns its table entry.
+    thread_local! {
+        static LAST: std::cell::RefCell<Option<(Py<PyAny>, i64, Py<PyFloat>)>> =
+            const { std::cell::RefCell::new(None) };
+    }
+    let hit = LAST.with(|c| {
+        c.borrow()
+            .as_ref()
+            .filter(|(w, len, _)| *len == n.0 && w.as_ptr() == window.as_ptr())
+            .map(|(_, _, v)| v.clone_ref(py))
+    });
+    if let Some(v) = hit {
+        return Ok(v.into_bound(py));
+    }
+    let w = crate::args::parse_window(window)?;
+    let n = positive("n", n)?;
+    let v = PyFloat::new(
+        py,
+        filterbanks::window_bandwidth(&w, n).map_err(audio_err_to_py)?,
+    );
+    if window.is_instance_of::<PyString>() {
+        LAST.with(|c| {
+            *c.borrow_mut() = Some((window.clone().unbind(), n.get() as i64, v.clone().unbind()));
+        });
+    }
+    Ok(v)
 }
 
 /// Savitzky-Golay delta features, equivalent to ``librosa.feature.delta``.
