@@ -101,13 +101,14 @@ fn parse_steps(obj: Option<&Bound<'_, PyAny>>) -> PyResult<Option<Vec<[usize; 2]
 }
 
 /// A warping path as an `(n, 2)` int64 array.
-fn path_array<'py>(py: Python<'py>, path: &[[usize; 2]]) -> Bound<'py, PyArray2<i64>> {
-    let mut a = Array2::<i64>::zeros((path.len(), 2));
-    for (i, p) in path.iter().enumerate() {
-        a[[i, 0]] = p[0] as i64;
-        a[[i, 1]] = p[1] as i64;
-    }
-    a.into_pyarray(py)
+fn path_array<'py>(py: Python<'py>, path: Vec<[usize; 2]>) -> Bound<'py, PyArray2<i64>> {
+    // Same size and alignment, so the conversion reuses the path's
+    // allocation, and NumPy takes ownership of it: no second buffer.
+    let path: Vec<[i64; 2]> = path
+        .into_iter()
+        .map(|[i, j]| [i as i64, j as i64])
+        .collect();
+    Array2::from(path).into_pyarray(py)
 }
 
 /// Dynamic time warping, equivalent to ``librosa.sequence.dtw``.
@@ -199,7 +200,7 @@ pub fn dtw<'py>(
     let mut out = vec![d];
     if backtrack {
         let path = res_path.unwrap_or_default();
-        out.push(path_array(py, &path).into_any());
+        out.push(path_array(py, path).into_any());
     }
     if return_steps {
         out.push(steps.mapv(|s| s as i64).into_pyarray(py).into_any());
@@ -254,7 +255,7 @@ pub fn dtw_backtracking<'py>(
         })?
     }
     .map_err(audio_err_to_py)?;
-    Ok(path_array(py, &path))
+    Ok(path_array(py, path))
 }
 
 /// Return `states` (int64) or `(states, logp)`.
@@ -651,7 +652,7 @@ pub fn rqa<'py>(
         (r.score.into_pyarray(py).into_any(), r.path)
     });
     if backtrack {
-        let path = path_array(py, &path.unwrap_or_default()).into_any();
+        let path = path_array(py, path.unwrap_or_default()).into_any();
         Ok(PyTuple::new(py, [score, path])?.into_any())
     } else {
         Ok(score)
