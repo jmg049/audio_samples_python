@@ -287,6 +287,21 @@ def test_sync(fx):
     np.testing.assert_allclose(custom[:, 0], np.ptp(data[:, :5], axis=1))
 
 
+def test_sync_index_forms_agree():
+    data = np.arange(60.0).reshape(3, 20)
+    expected = Q.sync(data, np.array([4, 9, 15]))
+    # Lists and tuples of ints are read directly; other forms convert.
+    for idx in ([4, 9, 15], (4, 9, 15), [4.0, 9.0, 15.0], np.array([4, 9, 15], dtype=np.int32),
+                [15, 4, 9, 9], [4, True * 9, 15]):
+        np.testing.assert_array_equal(Q.sync(data, idx), expected)
+    with pytest.raises(ValueError, match=">= 0"):
+        Q.sync(data, [4, -1])
+    with pytest.raises(ValueError, match=">= 0"):
+        Q.sync(data, (4, -1))
+    with pytest.raises(ValueError, match="integer"):
+        Q.sync(data, [4, 2.5])
+
+
 # ---------------------------------------------------------------------------
 # Direct comparison with librosa (when installed)
 # ---------------------------------------------------------------------------

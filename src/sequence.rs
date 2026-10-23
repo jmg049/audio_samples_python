@@ -521,8 +521,24 @@ pub fn transition_uniform(py: Python<'_>, n_states: Int) -> PyResult<Bound<'_, P
 }
 
 /// A float or a sequence of floats as a vector.
-fn float_or_vec(obj: &Bound<'_, PyAny>, name: &str) -> PyResult<Vec<f64>> {
-    Ok(f64_array(obj, name)?.as_array().iter().copied().collect())
+/// Runs `f` on the values of a float or array-like `obj` in logical order: a
+/// Python number as a one-element slice, a contiguous float64 array in place,
+/// anything else converted and copied.
+fn with_float_slice<R>(
+    obj: &Bound<'_, PyAny>,
+    name: &str,
+    f: impl FnOnce(&[f64]) -> PyResult<R>,
+) -> PyResult<R> {
+    use pyo3::types::{PyFloat, PyInt};
+    if obj.is_instance_of::<PyFloat>() || obj.is_instance_of::<PyInt>() {
+        if let Ok(v) = obj.extract::<f64>() {
+            return f(&[v]);
+        }
+    }
+    crate::args::with_float_view::<f64, _>(obj, name, |v| match v.as_slice() {
+        Some(s) => f(s),
+        None => f(&v.iter().copied().collect::<Vec<f64>>()),
+    })
 }
 
 /// Self-loop transition matrix, equivalent to ``librosa.sequence.transition_loop``.
@@ -541,8 +557,9 @@ pub fn transition_loop<'py>(
     prob: &Bound<'py, PyAny>,
 ) -> PyResult<Bound<'py, PyArray2<f64>>> {
     let n = positive("n_states", n_states)?.get();
-    let t =
-        seq::transition_loop::<f64>(n, &float_or_vec(prob, "prob")?).map_err(audio_err_to_py)?;
+    let t = with_float_slice(prob, "prob", |p| {
+        seq::transition_loop::<f64>(n, p).map_err(audio_err_to_py)
+    })?;
     Ok(t.into_pyarray(py))
 }
 
@@ -562,8 +579,9 @@ pub fn transition_cycle<'py>(
     prob: &Bound<'py, PyAny>,
 ) -> PyResult<Bound<'py, PyArray2<f64>>> {
     let n = positive("n_states", n_states)?.get();
-    let t =
-        seq::transition_cycle::<f64>(n, &float_or_vec(prob, "prob")?).map_err(audio_err_to_py)?;
+    let t = with_float_slice(prob, "prob", |p| {
+        seq::transition_cycle::<f64>(n, p).map_err(audio_err_to_py)
+    })?;
     Ok(t.into_pyarray(py))
 }
 
@@ -1072,47 +1090,83 @@ pub fn sync<'py>(
             "only the last axis (axis=-1) is supported",
         ));
     }
-    let idx: Vec<usize> = crate::args::with_i64_view(idx, "idx", |v| {
-        let mut out = Vec::with_capacity(v.len());
-        for &i in &v {
-            out.push(usize::try_from(i).map_err(|_| value_err("idx", "indices must be >= 0"))?);
-        }
-        Ok(out)
-    })?;
+    let idx = sync_indices(idx)?;
     let builtin = match aggregate.filter(|a| !a.is_none()) {
         None => Some(SyncAggregate::Mean),
         Some(a) => builtin_aggregate(a)?,
     };
     with_precision!(precision_of(data), |F| {
+        if let Some(agg) = builtin {
+            let out = crate::args::with_float_view::<F, _>(data, "data", |x| {
+                seq::sync(x, &idx, agg, pad).map_err(audio_err_to_py)
+            })?;
+            return Ok(out.into_pyarray(py).into_any());
+        }
         let x = float_array_as::<F>(data, "data")?;
-        let out = if let Some(agg) = builtin {
-            seq::sync(x.as_array(), &idx, agg, pad).map_err(audio_err_to_py)?
-        } else {
-            let f = aggregate.expect("custom aggregate present");
-            let kwargs = PyDict::new(py);
-            kwargs.set_item("axis", -1)?;
-            let mut first_err: Option<PyErr> = None;
-            let out = seq::sync_with(x.as_array(), &idx, pad, |lane| {
-                if first_err.is_some() {
-                    return F::of(f64::NAN);
-                }
-                let res = (|| -> PyResult<F> {
-                    let arr = lane.to_owned().into_pyarray(py);
-                    // The callable's result is converted to the input's precision.
-                    Ok(F::of(f.call((arr,), Some(&kwargs))?.extract::<f64>()?))
-                })();
-                res.unwrap_or_else(|e| {
-                    first_err = Some(e);
-                    F::of(f64::NAN)
-                })
-            })
-            .map_err(audio_err_to_py)?;
-            if let Some(e) = first_err {
-                return Err(e);
+        let f = aggregate.expect("custom aggregate present");
+        let kwargs = PyDict::new(py);
+        kwargs.set_item("axis", -1)?;
+        let mut first_err: Option<PyErr> = None;
+        let out = seq::sync_with(x.as_array(), &idx, pad, |lane| {
+            if first_err.is_some() {
+                return F::of(f64::NAN);
             }
-            out
-        };
+            let res = (|| -> PyResult<F> {
+                let arr = lane.to_owned().into_pyarray(py);
+                // The callable's result is converted to the input's precision.
+                Ok(F::of(f.call((arr,), Some(&kwargs))?.extract::<f64>()?))
+            })();
+            res.unwrap_or_else(|e| {
+                first_err = Some(e);
+                F::of(f64::NAN)
+            })
+        })
+        .map_err(audio_err_to_py)?;
+        if let Some(e) = first_err {
+            return Err(e);
+        }
         Ok(out.into_pyarray(py).into_any())
+    })
+}
+
+/// The boundary indices of `sync` as `usize`. A list or tuple of Python ints
+/// is read directly; anything else (and a list holding other objects) goes
+/// through the integer-array conversion, with the same errors.
+fn sync_indices(idx: &Bound<'_, PyAny>) -> PyResult<Vec<usize>> {
+    use pyo3::types::{PyInt, PyList, PyTuple};
+    let negative = || value_err("idx", "indices must be >= 0");
+    let items = if let Ok(l) = idx.cast::<PyList>() {
+        Some(l.as_sequence().clone())
+    } else {
+        idx.cast::<PyTuple>().ok().map(|t| t.as_sequence().clone())
+    };
+    if let Some(seq) = items {
+        let n = seq.len()?;
+        let mut out = Vec::with_capacity(n);
+        for k in 0..n {
+            let item = seq.get_item(k)?;
+            if !item.is_exact_instance_of::<PyInt>() {
+                out.clear();
+                break;
+            }
+            match item.extract::<i64>() {
+                Ok(i) => out.push(usize::try_from(i).map_err(|_| negative())?),
+                Err(_) => {
+                    out.clear();
+                    break;
+                }
+            }
+        }
+        if out.len() == n {
+            return Ok(out);
+        }
+    }
+    crate::args::with_i64_view(idx, "idx", |v| {
+        let mut out = Vec::with_capacity(v.len());
+        for &i in &v {
+            out.push(usize::try_from(i).map_err(|_| negative())?);
+        }
+        Ok(out)
     })
 }
 

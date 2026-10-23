@@ -377,6 +377,29 @@ pub(crate) fn array_cow<'a, 'py, E: numpy::Element + Clone>(
     Ok(ndarray::CowArray::from(convert(obj)?.as_array().to_owned()))
 }
 
+/// Runs `f` on a view of [`float_array_as`]`(obj)`.
+///
+/// A NumPy array that already has element type `F` is viewed in place
+/// without taking a rust-numpy borrow: each borrow allocates an entry in
+/// rust-numpy's borrow table (about 180 bytes), which for a small conversion
+/// is a large part of the call's memory. No binding holds a mutable borrow of
+/// an argument while it calls back into Python, so none can be active when a
+/// binding starts. Other inputs are converted as by [`float_array_as`].
+pub(crate) fn with_float_view<F: FloatElement, R>(
+    obj: &Bound<'_, PyAny>,
+    name: &str,
+    f: impl FnOnce(ndarray::ArrayViewD<'_, F>) -> PyResult<R>,
+) -> PyResult<R> {
+    if let Ok(arr) = obj.cast::<PyArrayDyn<F>>() {
+        // SAFETY: the array lives as long as `obj`, which outlives `f`; no Rust
+        // code holds a mutable borrow of it (see above), and `f` does not run
+        // Python code that could create one.
+        return f(unsafe { arr.as_array() });
+    }
+    let arr = float_array_as::<F>(obj, name)?;
+    f(arr.as_array())
+}
+
 /// Converts an array-like to a read-only `float64` array of any dimension
 /// (`numpy.asarray(obj, dtype=numpy.float64)`).
 ///
@@ -479,8 +502,9 @@ pub(crate) fn with_i64_view<R>(
     f: impl FnOnce(ndarray::ArrayViewD<'_, i64>) -> PyResult<R>,
 ) -> PyResult<R> {
     if let Ok(arr) = obj.cast::<PyArrayDyn<i64>>() {
-        let r = arr.readonly();
-        return f(r.as_array());
+        // SAFETY: as in `with_float_view` (viewed without a rust-numpy
+        // borrow); the array lives as long as `obj`, which outlives `f`.
+        return f(unsafe { arr.as_array() });
     }
     if let Ok(a) = obj.cast::<numpy::PyUntypedArray>() {
         let dt = a.dtype();
@@ -495,16 +519,17 @@ pub(crate) fn with_i64_view<R>(
             return f(r.as_array());
         }
     }
-    let arr = f64_array(obj, name)?;
     let mut bad = None;
-    let ints = arr.as_array().mapv(|v| {
-        if v.is_finite() && v.fract() == 0.0 && v.abs() < MAX_EXACT_INT {
-            v as i64
-        } else {
-            bad.get_or_insert(v);
-            0
-        }
-    });
+    let ints = with_float_view::<f64, _>(obj, name, |arr| {
+        Ok(arr.mapv(|v| {
+            if v.is_finite() && v.fract() == 0.0 && v.abs() < MAX_EXACT_INT {
+                v as i64
+            } else {
+                bad.get_or_insert(v);
+                0
+            }
+        }))
+    })?;
     if let Some(v) = bad {
         return Err(value_err(name, format!("expected integer values, got {v}")));
     }
@@ -550,16 +575,13 @@ pub(crate) fn map_f64<'py>(
     if let Some(v) = python_real(obj) {
         return f(v).into_bound_py_any(py);
     }
-    let arr = f64_array(obj, name)?;
-    if is_scalar(obj)? {
-        let v = *arr
-            .as_array()
-            .iter()
-            .next()
-            .expect("0-d array has one element");
-        return f(v).into_bound_py_any(py);
-    }
-    Ok(arr.as_array().mapv(f).into_pyarray(py).into_any())
+    with_float_view::<f64, _>(obj, name, |arr| {
+        if is_scalar(obj)? {
+            let v = *arr.iter().next().expect("0-d array has one element");
+            return f(v).into_bound_py_any(py);
+        }
+        Ok(arr.mapv(f).into_pyarray(py).into_any())
+    })
 }
 
 /// Like [`map_f64`] but producing integers (`int` / `int64` array).
@@ -570,16 +592,13 @@ pub(crate) fn map_f64_to_i64<'py>(
 ) -> PyResult<Bound<'py, PyAny>> {
     use numpy::IntoPyArray;
     let py = obj.py();
-    let arr = f64_array(obj, name)?;
-    if is_scalar(obj)? {
-        let v = *arr
-            .as_array()
-            .iter()
-            .next()
-            .expect("0-d array has one element");
-        return f(v).into_bound_py_any(py);
-    }
-    Ok(arr.as_array().mapv(f).into_pyarray(py).into_any())
+    with_float_view::<f64, _>(obj, name, |arr| {
+        if is_scalar(obj)? {
+            let v = *arr.iter().next().expect("0-d array has one element");
+            return f(v).into_bound_py_any(py);
+        }
+        Ok(arr.mapv(f).into_pyarray(py).into_any())
+    })
 }
 
 /// Runs a slice kernel over the elements of `v` and returns the result as a
@@ -626,16 +645,13 @@ where
     if let Some(v) = python_real(obj) {
         return scalar_f(v).into_bound_py_any(py);
     }
-    let arr = f64_array(obj, name)?;
-    if is_scalar(obj)? {
-        let v = *arr
-            .as_array()
-            .iter()
-            .next()
-            .expect("0-d array has one element");
-        return scalar_f(v).into_bound_py_any(py);
-    }
-    slice_map_out(py, arr.as_array(), name, slice_f)
+    with_float_view::<f64, _>(obj, name, |arr| {
+        if is_scalar(obj)? {
+            let v = *arr.iter().next().expect("0-d array has one element");
+            return scalar_f(v).into_bound_py_any(py);
+        }
+        slice_map_out(py, arr, name, slice_f)
+    })
 }
 
 /// [`map_i64`] for conversions with a slice form (see [`map_f64_slice`]).
