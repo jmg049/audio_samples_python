@@ -5,7 +5,7 @@
 
 use crate::args::Int;
 use audio_samples::utils::audio_math;
-use numpy::{IntoPyArray, PyArray1};
+use numpy::PyArray1;
 use pyo3::prelude::*;
 
 use crate::args::{map_f64, non_negative, positive};
@@ -209,9 +209,17 @@ pub fn key_to_notes<'py>(
 #[pyfunction]
 #[pyo3(signature = (key), text_signature = "(key)")]
 pub fn key_to_degrees<'py>(py: Python<'py>, key: &str) -> PyResult<Bound<'py, PyArray1<i64>>> {
+    use numpy::PyArrayMethods;
     let d = audio_math::key_to_degrees(key).map_err(audio_err_to_py)?;
-    let v: Vec<i64> = d.iter().map(|&x| i64::from(x)).collect();
-    Ok(v.into_pyarray(py))
+    // Written straight into a NumPy-allocated array: no Rust vector and no
+    // owner object per call.
+    let out = PyArray1::<i64>::zeros(py, d.len(), false);
+    // SAFETY: the array was just created and is not shared yet.
+    let slice = unsafe { out.as_slice_mut() }.expect("a new array is contiguous");
+    for (o, &x) in slice.iter_mut().zip(d.iter()) {
+        *o = i64::from(x);
+    }
+    Ok(out)
 }
 
 /// Registers the tuning helpers on `audio_samples.utils`.
