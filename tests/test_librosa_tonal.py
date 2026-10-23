@@ -232,6 +232,11 @@ def test_keys(fx):
         np.testing.assert_array_equal(d, case["degrees"])
     with pytest.raises(ValueError):
         U.key_to_notes("H:maj")
+    # Each call returns a new list (the names are shared, the list is not).
+    a, b = U.key_to_notes("F#:maj"), U.key_to_notes("F#:maj")
+    assert a == b and a is not b
+    a.append("x")
+    assert len(U.key_to_notes("F#:maj")) == 12
 
 
 def test_shapes_and_validation(sr):

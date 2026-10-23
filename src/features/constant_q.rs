@@ -110,10 +110,31 @@ pub fn wavelet_lengths<'py>(
     filter_scale: f64,
     gamma: Option<f64>,
 ) -> PyResult<(Bound<'py, PyArray1<f64>>, f64)> {
-    let f = super::args::f64_vec1(freqs, "freqs")?;
+    use numpy::PyArrayMethods;
     let cfg = wavelet_config(window, filter_scale, gamma, Some(1.0), true);
-    let (lengths, cutoff) = cq::wavelet_lengths(&f, sr, &cfg).map_err(audio_err_to_py)?;
-    Ok((lengths.into_pyarray(py), cutoff))
+    // A contiguous 1-D float64 array is read in place; the lengths are
+    // written straight into a NumPy-allocated array.
+    crate::args::with_float_view::<f64, _>(freqs, "freqs", |v| {
+        if v.ndim() != 1 {
+            return Err(crate::args::value_err(
+                "freqs",
+                format!("expected a 1-D array, got {} dimensions", v.ndim()),
+            ));
+        }
+        let copied;
+        let f = match v.as_slice() {
+            Some(s) => s,
+            None => {
+                copied = v.iter().copied().collect::<Vec<f64>>();
+                &copied
+            }
+        };
+        let out = PyArray1::<f64>::zeros(py, f.len(), false);
+        // SAFETY: the array was just created and is not shared yet.
+        let lengths = unsafe { out.as_slice_mut() }.expect("a new array is contiguous");
+        let cutoff = cq::wavelet_lengths_into(f, sr, &cfg, lengths).map_err(audio_err_to_py)?;
+        Ok((out, cutoff))
+    })
 }
 
 /// Constant-Q / variable-Q wavelet filters, equivalent to
