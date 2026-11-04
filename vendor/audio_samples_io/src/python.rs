@@ -49,7 +49,7 @@ pub fn read_pyarray_native(py: Python<'_>, path: &Path) -> Option<PyResult<Nativ
     // Step 1: open + header (GIL released — pure I/O)
     let parse_result: AudioIOResult<(BaseAudioInfo, BufReader<std::fs::File>)> = py.detach(|| {
         let file = std::fs::File::open(path).map_err(AudioIOError::from)?;
-        let mut reader = BufReader::with_capacity(65536, file);
+        let mut reader = BufReader::with_capacity(4096, file);
         let (info, _) = parse_wav_header_streaming(&mut reader)?;
         Ok((info, reader))
     });
@@ -195,11 +195,11 @@ where
 {
     use std::mem::size_of;
 
-    // Step 1: Parse WAV header with GIL released (I/O).  A 64 KB BufReader reads the header
-    // and the first chunk of audio data in a single syscall, reducing round-trips.
+    // Step 1: Parse WAV header with GIL released (I/O). The payload read below goes straight to
+    // the array, so the buffer only has to hold the header.
     let parse_result: AudioIOResult<(BaseAudioInfo, BufReader<std::fs::File>)> = py.detach(|| {
         let file = std::fs::File::open(path).map_err(AudioIOError::from)?;
-        let mut reader = BufReader::with_capacity(65536, file);
+        let mut reader = BufReader::with_capacity(4096, file);
         let (info, _) = parse_wav_header_streaming(&mut reader)?;
         Ok((info, reader))
     });
@@ -218,9 +218,10 @@ where
         audio_samples::SampleType::F64 => TypeId::of::<T>() == TypeId::of::<f64>(),
         _ => false,
     };
-    if !native_matches {
-        return None;
-    }
+    let file_type = match ValidatedSampleType::try_from(info.sample_type) {
+        Ok(t) => t,
+        Err(_) => return None,
+    };
 
     let channels = info.channels as usize;
     let total_samples = info.total_samples;
@@ -242,6 +243,19 @@ where
 
     let read_result: AudioIOResult<()> = py.detach(|| {
         let mut r = reader;
+        if !native_matches {
+            // Another sample type: convert block by block, through no copy of the whole file.
+            // Safety: as below.
+            let out = unsafe { std::slice::from_raw_parts_mut(data_ptr_usize as *mut T, total_samples) };
+            let read = crate::wav::streaming::read_converted(&mut r, file_type, out)?;
+            if read != total_samples {
+                return Err(AudioIOError::corrupted_data_simple(
+                    "Truncated WAV data",
+                    format!("expected {total_samples} samples, found {read}"),
+                ));
+            }
+            return Ok(());
+        }
         // Safety: pointer was valid when captured (step 2), array is held alive by `array`,
         // CPython does not move objects, no other thread has seen this array.
         let bytes = unsafe { std::slice::from_raw_parts_mut(data_ptr_usize as *mut u8, byte_count) };
@@ -265,17 +279,18 @@ fn read_flac_planar_pyarray<T>(py: Python<'_>, path: &Path) -> Option<PyResult<(
 where
     T: StandardSample + Element + 'static,
 {
-    use crate::flac::FlacFile;
+    use crate::flac::StreamedFlacFile;
 
     if !matches!(FileType::from_path(path), FileType::FLAC) {
         return None;
     }
     let opened = py.detach(|| {
-        let flac = FlacFile::open_with_options(path, OpenOptions::default())?;
+        let file = std::fs::File::open(path).map_err(AudioIOError::from)?;
+        let flac = StreamedFlacFile::new_with_path(file, path.to_path_buf())?.without_seek_index();
         let info = flac.base_info()?;
         Ok::<_, AudioIOError>((flac, info))
     });
-    let (flac, info) = match opened {
+    let (mut flac, info) = match opened {
         Ok(v) => v,
         Err(e) => return Some(Err(PyErr::new::<pyo3::exceptions::PyIOError, _>(e.to_string()))),
     };
@@ -288,16 +303,17 @@ where
 
     let array = unsafe { PyArray2::<T>::new(py, [channels, frames], false) };
     let data_ptr_usize = array.data() as usize;
-    // SAFETY: as in `read_pyarray_direct`: the fresh array is kept alive by `array` and no other
-    // thread has seen it; it holds `channels * frames` values.
-    let decoded = py.detach(|| unsafe { flac.decode_planar_into::<T>(data_ptr_usize as *mut T, frames) });
+    let decoded = py.detach(|| {
+        // SAFETY: as in `read_pyarray_direct`: the fresh array is kept alive by `array` and no
+        // other thread has seen it; it holds `total_samples` values.
+        let out = unsafe { std::slice::from_raw_parts_mut(data_ptr_usize as *mut T, total_samples) };
+        flac.read_planar_into(out)
+    });
     match decoded {
-        Ok(Some(written)) if written == frames => Some(Ok((array.unbind(), info))),
-        // Fewer or more samples than STREAMINFO says.
+        Ok(written) if written == frames => Some(Ok((array.unbind(), info))),
+        // Fewer samples than STREAMINFO says.
         Ok(_) => None,
-        Err(e) => Some(Err(PyErr::new::<pyo3::exceptions::PyIOError, _>(
-            AudioIOError::FlacError(e).to_string(),
-        ))),
+        Err(e) => Some(Err(PyErr::new::<pyo3::exceptions::PyIOError, _>(e.to_string()))),
     }
 }
 

@@ -554,12 +554,7 @@ where
             let bytes = unsafe { std::slice::from_raw_parts_mut(target.as_mut_ptr().cast::<u8>(), bytes_to_read) };
             read_full(&mut self.reader, bytes)?
         } else {
-            if self.byte_buffer.len() < bytes_to_read {
-                self.byte_buffer.resize(bytes_to_read, 0);
-            }
-            let n = read_full(&mut self.reader, &mut self.byte_buffer[..bytes_to_read])?;
-            convert_bytes_into(self.sample_type, &self.byte_buffer[..n], target);
-            n
+            read_converted(&mut self.reader, self.sample_type, target)? * self.bytes_per_frame() / channels
         };
 
         let frames_read = bytes_read / bytes_per_frame;
@@ -840,6 +835,53 @@ fn read_full<R: std::io::Read>(reader: &mut R, buf: &mut [u8]) -> std::io::Resul
         }
     }
     Ok(filled)
+}
+
+/// Fill `out` from little-endian samples of `sample_type` in `reader`, converting block by block
+/// through a buffer on the stack. Returns the samples written.
+pub(crate) fn read_converted<R, T>(
+    reader: &mut R,
+    sample_type: ValidatedSampleType,
+    out: &mut [T],
+) -> std::io::Result<usize>
+where
+    R: std::io::Read,
+    T: StandardSample + 'static,
+{
+    const SMALL: usize = 8192;
+    const LARGE: usize = 65536;
+
+    fn go<R, T, const N: usize>(
+        reader: &mut R,
+        sample_type: ValidatedSampleType,
+        out: &mut [T],
+    ) -> std::io::Result<usize>
+    where
+        R: std::io::Read,
+        T: StandardSample + 'static,
+    {
+        let size = sample_type.bytes_per_sample().get();
+        let block = N / size * size;
+        let mut buf = [0u8; N];
+        let mut written = 0;
+        while written < out.len() {
+            let want = block.min((out.len() - written) * size);
+            let n = read_full(reader, &mut buf[..want])?;
+            let samples = n / size;
+            convert_bytes_into(sample_type, &buf[..samples * size], &mut out[written..written + samples]);
+            written += samples;
+            if n < want {
+                break;
+            }
+        }
+        Ok(written)
+    }
+
+    if out.len() * sample_type.bytes_per_sample().get() > SMALL {
+        go::<R, T, LARGE>(reader, sample_type, out)
+    } else {
+        go::<R, T, SMALL>(reader, sample_type, out)
+    }
 }
 
 /// Convert little-endian samples of `sample_type` into `out`.
