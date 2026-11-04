@@ -86,9 +86,11 @@ crate's `book/ directory <https://github.com/jmg049/audio_samples/tree/main/book
 Coming from librosa
 --------------------
 
-:doc:`librosa_migration` maps every librosa 1.0 function onto its
-``audio_samples`` equivalent, with runnable examples and every documented
-difference.
+:doc:`moving_from_librosa` is for someone who knows librosa and is deciding whether
+to move: measurements on both sides, a pipeline side by side, the differences that
+trip people up, and what is still better in librosa. :doc:`librosa_migration` is the
+lookup table: every librosa 1.0 function, its ``audio_samples`` equivalent and every
+documented difference.
 
 Table of Contents
 -----------------
@@ -97,10 +99,11 @@ Table of Contents
    :maxdepth: 2
    :caption: Documentation
 
+   moving_from_librosa
+   librosa_migration
    tutorials/index
    for_instructors
    examples/index
-   librosa_migration
    api/index
 
 .. toctree::

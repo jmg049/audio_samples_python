@@ -1,8 +1,9 @@
 Coming from librosa
 ===================
 
-This page maps `librosa <https://librosa.org>`_ 1.0 onto the ``audio_samples``
-Python API. It covers every public function of ``librosa`` (the core,
+This page is the lookup table: it maps `librosa <https://librosa.org>`_ 1.0 onto
+the ``audio_samples`` Python API, function by function. If you are deciding whether
+to move, or doing the move, start with :doc:`moving_from_librosa`. This page covers every public function of ``librosa`` (the core,
 including ``librosa.convert``), ``librosa.feature``, ``effects``, ``onset``,
 ``beat``, ``decompose``, ``filters``, ``util``, ``segment``, ``sequence`` and
 ``display``. For each one it gives the Python equivalent and how closely it
@@ -58,6 +59,10 @@ index ``[0]`` to get librosa's mono shape:
 
 .. code-block:: python
 
+   import numpy as np
+   import audio_samples as aus
+
+   audio = aus.generation.sine_wave(440.0, 1.0, 22050, 0.5, dtype=np.float32)
    S = audio.melspectrogram()        # (1, 128, n_frames) for mono audio
    S_mono = S[0]                     # librosa.feature.melspectrogram(y=y, sr=sr).shape
 
@@ -106,9 +111,12 @@ stricter than librosa, which skips the check in a few functions (e.g.
 (``"n_fft: must be a positive integer, got -1"``), wrong types ``TypeError``,
 and failures inside a computation ``RuntimeError``.
 
-**The GIL is released.** The heavy computations (STFT, CQT, features, pitch
-tracking, rhythm, effects, sequence alignment) run without the GIL, so several
-Python threads can analyse different signals in parallel.
+**The GIL is released.** File reads, ``to_mono``, ``resample`` and the heavy
+computations (STFT, CQT, features, pitch tracking, onset envelopes, beat tracking,
+effects, DTW) run without the GIL, so several Python threads can analyse different
+signals in parallel. Exceptions that hold it: a Python callable given as ``aggregate``
+or ``prior``, ``tempo``'s tempo estimate (not its onset envelope),
+``StreamedAudioReader`` and ``save``.
 
 **Older methods keep their behaviour.** Where a librosa name clashed with an
 existing method, the librosa-compatible version takes a new name and the old
@@ -283,7 +291,9 @@ Core: audio
      - ``io.read``, ``io.read_and_resample``
      - with differences
      - No automatic resampling to 22050 Hz or mixing to mono: the file's own
-       rate, channels and sample type are kept (``to_mono``, ``resample``)
+       rate, channels and sample type are kept (``to_mono``, ``resample``).
+       WAV and FLAC only (librosa: every format of libsndfile, also MP3 and Ogg);
+       a path, not a file object
    * - ``loadx``
      - --
      - not provided
@@ -291,8 +301,9 @@ Core: audio
    * - ``stream``
      - ``io.StreamedAudioReader``
      - with differences
-     - Block reader over WAV/FLAC with its own interface (no ``block_length`` /
-       ``frame_length`` framing)
+     - Block reader over WAV/FLAC with its own interface:
+       ``windows(frame_length + (block_length - 1) * hop_length, block_length * hop_length)``
+       gives librosa's blocks; no ``sr``, ``mono`` or ``fill_value`` arguments
    * - ``get_samplerate``
      - ``io.info``
      - with differences
@@ -335,7 +346,7 @@ Core: audio
    * - ``clicks``
      - ``effects.clicks``
      - with differences
-     - float64 output
+     - float64 output unless ``dtype=numpy.float32`` (librosa's default)
    * - ``tone``
      - ``generation.sine_wave``, ``generation.cosine_wave``
      - with differences
@@ -378,7 +389,7 @@ Core: spectral representations
    * - ``magphase``
      - ``AudioSamples.magphase`` (static)
      - with differences
-     - 2-D input; ``power`` is an integer
+     - 2-D complex64 or complex128 input; ``power`` is an integer
    * - ``reassigned_spectrogram``
      - ``AudioSamples.reassigned_spectrogram``
      - equivalent
@@ -531,7 +542,8 @@ The librosa-compatible conversions in ``audio_samples.utils`` are vectorised
 like librosa's: a scalar gives a Python number, an array-like an array of the
 same shape. They take librosa's ``sr`` keyword or the older ``sample_rate``;
 one of them is required (librosa defaults to 22050), and so is ``hop_length``
-where librosa defaults it to 512. The note-name functions are scalar.
+where librosa defaults it to 512. The note-name functions take a scalar or an
+array-like; for an array they return a list of names or an array of values.
 
 .. list-table::
    :header-rows: 1
@@ -959,7 +971,7 @@ type; each has an ``_in_place`` twin (``time_stretch_in_place``, ...).
    * - ``window_sumsquare``
      - ``spectral.window_sumsquare``
      - equivalent
-     - float64 output
+     - float64 output unless ``dtype=numpy.float32`` (librosa's default)
    * - ``diagonal_filter``
      - --
      - not provided
@@ -987,7 +999,8 @@ type; each has an ``_in_place`` twin (``time_stretch_in_place``, ...).
    * - ``frame``
      - ``spectral.frame``
      - with differences
-     - 1-D input, last-axis framing
+     - 1-D input, last-axis framing. A writable copy by default; ``copy=False`` gives
+       librosa's read-only strided view
    * - ``normalize``
      - ``features.normalize``
      - equivalent
@@ -1065,7 +1078,7 @@ All in ``audio_samples.sequence``, on ``(n_features, n_frames)`` arrays.
      - ``sequence.recurrence_matrix``
      - with differences
      - Dense only (``sparse=True`` raises); ``axis=-1`` only; exact
-       neighbour search
+       neighbour search. Connectivity results are ``bool``, as librosa's
    * - ``segment.cross_similarity``
      - ``sequence.cross_similarity``
      - with differences
@@ -1196,15 +1209,17 @@ Shapes and types
     mean square in ``float32``, so for ``float64`` audio a frame within ~1e-6
     dB of ``top_db`` can be classified differently.
 
-  ``clicks``, ``window_sumsquare``, ``cq_to_chroma``, ``wavelet``, the
-  filterbanks and the frequency weightings are tables and return ``float64``;
+  ``clicks`` and ``window_sumsquare`` return ``float64`` unless given
+  ``dtype=numpy.float32``; ``cq_to_chroma``, ``wavelet``, the filterbanks and the
+  frequency weightings are tables and return ``float64``;
   tempo estimates and tuning are always ``float64``. ``yin``, ``pyin``,
   ``tempogram``, ``tempogram_ratio`` and ``hybrid_tempogram`` return
   ``float32`` for ``float32`` input (librosa promotes them to ``float64``).
   ``dtype=`` arguments that select a librosa output precision are accepted and
   ignored where documented (``griffinlim``).
 - **Integer outputs are int64** (librosa: ``uint16`` Viterbi states, ``intp``
-  paths). Event detectors return 1-D ``int64`` frames or samples, or
+  paths). ``viterbi_binary`` states are ``bool`` unless ``dtype=numpy.uint16``
+  (librosa's) or ``numpy.int64`` is asked for. Event detectors return 1-D ``int64`` frames or samples, or
   ``float64`` times, chosen with librosa's ``units=``.
 - **Integer audio scaling.** ``int16`` / ``int32`` audio is converted with this
   library's asymmetric scaling (negative values by ``2**(bits-1)``, positive by
@@ -1314,7 +1329,7 @@ Errors where librosa warns or fails late
    * - ``onset_backtrack`` with no events
      - raises
      - empty array
-   * - ``trim`` on all-silent audio
+   * - ``trim`` with a fixed ``ref`` when every frame is below the threshold
      - empty array
      - ``ValueError`` (an ``AudioSamples`` cannot be empty)
    * - ``onset_detect`` / ``beat_track`` on multichannel audio
@@ -1365,9 +1380,13 @@ Each raises ``ValueError`` or ``TypeError`` instead of being ignored:
 - ``sync``: slice indices (frame indices only);
 - ``nn_filter``: sparse recurrence matrices and aggregates other than mean,
   median or a weighted average;
-- callables: only ``numpy.max`` / ``numpy.mean`` / ``numpy.median`` (and the
-  others named in each docstring) where librosa accepts any callable;
-- ``magphase``: a fractional ``power``.
+- callables: ``trim_db`` / ``split_db`` take only ``numpy.max``, ``numpy.min`` and
+  ``numpy.mean``, and ``nn_filter`` only ``numpy.mean``, ``numpy.median`` and
+  ``numpy.average``, where librosa accepts any callable (``onset_strength`` and
+  ``tempo`` take any callable, which then runs with the GIL held);
+- ``magphase``: a fractional ``power``;
+- ``io.read`` and ``io.StreamedAudioReader``: file objects, and formats other than WAV
+  and FLAC.
 
 Deliberate behavioural differences
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
