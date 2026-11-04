@@ -91,7 +91,7 @@ include = [
     "logo.png",
     { path = "CHANGELOG.md", format = "sdist" },
 ]
-exclude = ["tests/*", "examples/*", "benches/*", "docs/*", "audio_samples/io_benching.ipynb"]
+exclude = ["tests/*", "examples/*", "benches/*", "docs/*"]
 
 [dependency-groups]
 dev = [

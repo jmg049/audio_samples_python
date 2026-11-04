@@ -74,3 +74,8 @@ docs/build/
 *.lock
 *.wav
 *.flac
+
+# Saved benchmark output and the archive made by deploy_docs.sh
+benches/*.txt
+benches/*.json
+docs/audio_samples_docs.zip
