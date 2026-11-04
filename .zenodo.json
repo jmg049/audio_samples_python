@@ -1,0 +1,28 @@
+{
+  "title": "audio_samples: Python bindings for the AudioSamples Rust ecosystem",
+  "description": "Python bindings for the audio_samples and audio_samples_io Rust crates: audio processing, analysis and file input and output on a typed audio object that carries its sample rate and channel layout.",
+  "upload_type": "software",
+  "access_right": "open",
+  "license": "MIT",
+  "creators": [
+    {
+      "name": "Geraghty, Jack"
+    }
+  ],
+  "keywords": [
+    "audio",
+    "signal processing",
+    "dsp",
+    "python",
+    "rust",
+    "bindings"
+  ],
+  "related_identifiers": [
+    {
+      "identifier": "10.1145/3793853.3799811",
+      "scheme": "doi",
+      "relation": "isDescribedBy",
+      "resource_type": "publication-conferencepaper"
+    }
+  ]
+}
