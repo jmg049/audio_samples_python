@@ -11,15 +11,21 @@ has the full detail.
 
 ## [Unreleased]
 
+- **Unary operators.** `-audio`, `+audio` and `abs(audio)` return audio of the same sample type. Integer results saturate,
+  and `uint8` works relative to silence.
 - **Arithmetic keeps the sample type.** `1.0 + audio` returned float64; `audio / other` and `audio / array` returned
   float64 for integer audio, `/=` changed the sample type of the audio it was applied to, and an array of another dtype did the
   same for `+`, `-` and `*`. All of them now keep the sample type of the audio on the left, and audio of another sample
   type is converted to it (this panicked before). Integer results saturate instead of wrapping, `u8` audio respects
   its offset, and an integer divided by zero gives the limit with its sign. On integer audio a float scalar is in the
-  floating-point range, so `audio + 1.0` adds full scale, while an int or NumPy integer scalar is a raw sample value, the
-  stored value for `u8`, so `audio + 1` adds one step; this holds on either side of the operator, and an int too large
-  for the type saturates. `*` and `/` are gains, so `audio * 2` equals `audio * 2.0`. On float audio an int is the same
-  number as the float. A bool scalar raises `TypeError`.
+  floating-point range, so `audio + 1.0` adds full scale, and it must be within -1.0 to 1.0 or `ValueError` is raised. An int
+  or NumPy integer scalar is a number of sample steps relative to silence, so `audio + 1` adds one step on every integer
+  type, on either side of the operator, and `OverflowError` is raised if it does not fit the type (`audio + 40000` on int16,
+  `audio + 200` on uint8, whose range is -128 to 127). A NumPy `uint8` scalar on `uint8` audio is a sample, so
+  `audio + np.uint8(128)` changes nothing. `*` and `/` are gains, so `audio * 2` equals `audio * 2.0`, and only the result
+  saturates. Non-finite scalars raise `ValueError` on integer audio, a non-finite array too, and dividing integer audio
+  by zero raises `ZeroDivisionError`, also for a zero in an array or in other audio. Arithmetic with NumPy on the left
+  (`np.int16(1) + audio`, `array * audio`) now follows the same rules. On float audio an int is the same number as the float. A bool scalar raises `TypeError`.
 - **Type stubs are checked and precise.** `mypy.stubtest`, mypy and pyright run in pre-commit and in CI. `AudioSamples`
   is generic in its sample type (`AudioSamples[numpy.float32]` also works at run time), and overloads give the dtype of
   analysis results from the sample type or the input array, the bool results of `pyin`, `recurrence_matrix` and

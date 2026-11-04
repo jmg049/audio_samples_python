@@ -5138,11 +5138,17 @@ class AudioSamples(Generic[_S_co]):
         """Add AudioSamples with another AudioSamples, numpy array, or scalar.
 
         The result has this audio's sample type. Integer results saturate at the type's limits.
-        On integer audio a float scalar is in the floating-point range, where 1.0 is full scale,
-        and an int or NumPy integer scalar is a raw sample value, the stored value for u8, so
-        ``audio + 1`` on int16 adds one step. ``*`` and ``/`` are gains, so ``audio * 2`` equals
-        ``audio * 2.0``. On float audio an int is the same number as the float. A NumPy array
-        holds raw sample values, and audio of another sample type is converted to this one first.
+        On integer audio a float scalar is in the floating-point range, where 1.0 is full scale, and
+        must be within -1.0 to 1.0, or ``ValueError`` is raised. An int or NumPy integer scalar is a
+        number of sample steps relative to silence, so ``audio + 1`` on int16 adds one step, and
+        ``OverflowError`` is raised if it does not fit the sample type: int16 takes -32768 to 32767,
+        and uint8 takes -128 to 127. A NumPy uint8 scalar on uint8 audio is a sample instead, so
+        adding ``np.uint8(128)`` changes nothing. ``*`` and ``/`` are gains, so ``audio * 2`` equals
+        ``audio * 2.0``, and the result saturates. A scalar must be finite on integer audio, or
+        ``ValueError`` is raised, and dividing integer audio by zero raises ``ZeroDivisionError``,
+        also for a zero in an array or in other audio. On float audio an int is the same number as
+        the float and the usual float rules apply. A NumPy array holds raw sample values, and audio
+        of another sample type is converted to this one first.
         A bool scalar raises ``TypeError``.
 
         Raises:
@@ -5170,6 +5176,20 @@ class AudioSamples(Generic[_S_co]):
         ...
 
     # Reverse arithmetic operators (for scalar on left side)
+    def __neg__(self) -> Self:
+        """``-audio`` in this sample type. Integer results saturate: ``-(-32768)`` is 32767 on int16.
+        uint8 mirrors about silence (128), so a stored 0 gives 255."""
+        ...
+
+    def __pos__(self) -> Self:
+        """``+audio``: a copy of this audio."""
+        ...
+
+    def __abs__(self) -> Self:
+        """``abs(audio)`` in this sample type. Integer results saturate: ``abs(-32768)`` is 32767 on
+        int16. uint8 is measured from silence (128), so a stored 100 gives 156."""
+        ...
+
     def __radd__(self, scalar: _Scalar, /) -> Self:
         """Add scalar to AudioSamples (scalar + audio)."""
         ...

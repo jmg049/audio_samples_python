@@ -2,71 +2,115 @@
 
 NumPy on integer arrays wraps on overflow and promotes when dividing. Here the
 result stays in the sample type and saturates at its limits. ``u8`` samples are
-offset binary, where 128 is silence, so their offset is removed for the sum and
-put back afterwards.
+offset binary, where 128 is silence, so the work is done on the value relative to
+silence and the offset put back afterwards.
 """
 
 from __future__ import annotations
 
 import numpy as np
 
-_OPERATIONS = {"add": np.add, "sub": np.subtract, "mul": np.multiply, "div": np.divide}
-_LIMITS = {
-    "u8": (0.0, 255.0),
-    "i16": (-32768.0, 32767.0),
-    "I24": (-8388608.0, 8388607.0),
-    "i32": (-2147483648.0, 2147483647.0),
+_OPERATIONS = {
+    "add": np.add,
+    "sub": np.subtract,
+    "mul": np.multiply,
+    "div": np.divide,
+    "rsub": lambda left, right: np.subtract(right, left),
+    "rdiv": lambda left, right: np.divide(right, left),
 }
+_LIMITS = {
+    "u8": (0, 255),
+    "i16": (-32768, 32767),
+    "I24": (-8388608, 8388607),
+    "i32": (-2147483648, 2147483647),
+}
+_NAMES = {"u8": "uint8", "i16": "int16", "I24": "int24", "i32": "int32"}
+
+
+def _offset(sample_type: str) -> int:
+    return 128 if sample_type == "u8" else 0
+
+
+def _finish(result: np.ndarray, sample_type: str, dtype: np.dtype) -> np.ndarray:
+    low, high = _LIMITS[sample_type]
+    return np.clip(np.rint(result + _offset(sample_type)), low, high).astype(dtype)
 
 
 def scalar_to_samples(value: float, sample_type: str, dtype: np.dtype) -> np.ndarray:
     """A value in the floating-point range (1.0 is full scale) in integer sample units."""
     low, high = _LIMITS[sample_type]
-    if sample_type == "u8":
-        offset = 128.0
-        scaled = offset + value * (128.0 if value < 0 else 127.0)
-    else:
-        scaled = value * (-low if value < 0 else high)
+    offset = _offset(sample_type)
+    scaled = offset + value * (offset - low if value < 0 else high - offset)
     return np.asarray(np.clip(np.rint(scaled), low, high), dtype=dtype)
 
 
-def with_raw_integer(samples: np.ndarray, value: int, operation: str, sample_type: str) -> np.ndarray:
+def _describe(value: int) -> str:
+    # str() refuses very long ints.
+    return str(value) if value.bit_length() <= 256 else f"an integer of {value.bit_length()} bits"
+
+
+def with_integer(samples: np.ndarray, value, operation: str, sample_type: str) -> np.ndarray:
     """``samples + value``, ``samples - value`` or, for ``rsub``, ``value - samples``.
 
-    ``value`` is in the stored units of the sample type, ``u8`` offset included. An int too large
-    for the sample type saturates the result, so it is first limited to what can reach the limits.
+    ``value`` is a number of sample steps relative to silence. A NumPy integer scalar with the
+    dtype of ``u8`` samples is a sample itself, so its offset comes off first.
     """
-    low, high = (int(limit) for limit in _LIMITS[sample_type])
-    reach = 2 * (high - low)
-    value = max(-reach, min(reach, int(value)))
-    wide = samples.astype(np.int64)
+    low, high = _LIMITS[sample_type]
+    offset = _offset(sample_type)
+    number = int(value)
+    if offset and getattr(value, "dtype", None) == np.uint8:
+        number -= offset
+    if not low - offset <= number <= high - offset:
+        raise OverflowError(
+            f"{_describe(number)} does not fit {_NAMES[sample_type]} audio: an int scalar is a number "
+            f"of sample steps from {low - offset} to {high - offset}"
+        )
+    centred = samples.astype(np.int64) - offset
     if operation == "add":
-        result = wide + value
+        result = centred + number
     elif operation == "sub":
-        result = wide - value
+        result = centred - number
     else:
-        result = value - wide
-    return np.clip(result, low, high).astype(samples.dtype)
+        result = number - centred
+    return np.clip(result + offset, low, high).astype(samples.dtype)
 
 
 def apply(samples: np.ndarray, other, operation: str, sample_type: str) -> np.ndarray:
-    """``samples <operation> other``, with the dtype of ``samples``."""
+    """``samples <operation> other``, with the dtype of ``samples``.
+
+    On integer audio a non-finite value in ``other`` raises ``ValueError`` and a zero divisor
+    raises ``ZeroDivisionError``.
+    """
     function = _OPERATIONS[operation]
     if sample_type in ("f32", "f64"):
         with np.errstate(divide="ignore", invalid="ignore"):
             return function(samples, other).astype(samples.dtype, copy=False)
 
-    low, high = _LIMITS[sample_type]
     other = np.asarray(other)
-    left = samples.astype(np.float64)
+    if other.dtype.kind not in "biuf":
+        raise TypeError(f"integer audio cannot be combined with an array of dtype {other.dtype}")
+    if other.dtype.kind == "f" and not np.isfinite(other).all():
+        raise ValueError("the array has a value that is not finite, which integer audio cannot use")
+    offset = _offset(sample_type)
+    left = samples.astype(np.float64) - offset
     right = other.astype(np.float64)
-    offset = 0.0
-    if sample_type == "u8":
-        offset = 128.0
-        left -= offset
-        if other.dtype == np.uint8:
-            right -= offset
-    with np.errstate(divide="ignore", invalid="ignore"):
-        result = function(left, right)
-    result = np.nan_to_num(result, nan=0.0, posinf=high - offset, neginf=low - offset) + offset
-    return np.clip(np.rint(result), low, high).astype(samples.dtype)
+    if offset and other.dtype == np.uint8:
+        right = right - offset
+    divisor = {"div": right, "rdiv": left}.get(operation)
+    if divisor is not None and not divisor.all():
+        raise ZeroDivisionError("division by zero: a divisor is silence, and integer audio has no result for it")
+    return _finish(function(left, right), sample_type, samples.dtype)
+
+
+def negative(samples: np.ndarray, sample_type: str) -> np.ndarray:
+    """``-samples``, saturating, and mirrored about silence for ``u8``."""
+    if sample_type in ("f32", "f64"):
+        return np.negative(samples)
+    return _finish(-(samples.astype(np.float64) - _offset(sample_type)), sample_type, samples.dtype)
+
+
+def absolute(samples: np.ndarray, sample_type: str) -> np.ndarray:
+    """``abs(samples)``, saturating, and about silence for ``u8``."""
+    if sample_type in ("f32", "f64"):
+        return np.abs(samples)
+    return _finish(np.abs(samples.astype(np.float64) - _offset(sample_type)), sample_type, samples.dtype)
