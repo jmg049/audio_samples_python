@@ -11,6 +11,9 @@ has the full detail.
 
 ## [Unreleased]
 
+- **Migration checker.** `python -m audio_samples.migrate PATH [PATH ...]` lists the librosa calls in Python
+  files and notebooks with the equivalent, how closely it matches and what to watch for in that call. It has
+  JSON output, a summary and an exit status for CI, and it never changes the files.
 - **Example clips.** `generation.example_clip` renders named clips of music and speech with known
   contents at any sample rate, duration and sample type. Nothing is stored or downloaded, and the same
   arguments give the same bytes on any platform with IEEE 754 arithmetic.
