@@ -24,7 +24,8 @@ has the full detail.
   `audio + 200` on uint8, whose range is -128 to 127). A NumPy `uint8` scalar on `uint8` audio is a sample, so
   `audio + np.uint8(128)` changes nothing. `*` and `/` are gains, so `audio * 2` equals `audio * 2.0`, and only the result
   saturates. Non-finite scalars raise `ValueError` on integer audio, a non-finite array too, and dividing integer audio
-  by zero raises `ZeroDivisionError`, also for a zero in an array or in other audio. Arithmetic with NumPy on the left
+  by a zero scalar raises `ZeroDivisionError`. Dividing by an array or other audio works sample by sample: a divisor sample
+  of silence gives the limit with the sign of the dividend, and silence over silence gives silence (128 for `uint8`). Arithmetic with NumPy on the left
   (`np.int16(1) + audio`, `array * audio`) now follows the same rules. On float audio an int is the same number as the float. A bool scalar raises `TypeError`.
 - **Type stubs are checked and precise.** `mypy.stubtest`, mypy and pyright run in pre-commit and in CI. `AudioSamples`
   is generic in its sample type (`AudioSamples[numpy.float32]` also works at run time), and overloads give the dtype of

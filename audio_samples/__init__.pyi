@@ -5145,8 +5145,10 @@ class AudioSamples(Generic[_S_co]):
         and uint8 takes -128 to 127. A NumPy uint8 scalar on uint8 audio is a sample instead, so
         adding ``np.uint8(128)`` changes nothing. ``*`` and ``/`` are gains, so ``audio * 2`` equals
         ``audio * 2.0``, and the result saturates. A scalar must be finite on integer audio, or
-        ``ValueError`` is raised, and dividing integer audio by zero raises ``ZeroDivisionError``,
-        also for a zero in an array or in other audio. On float audio an int is the same number as
+        ``ValueError`` is raised, and dividing integer audio by a zero scalar raises
+        ``ZeroDivisionError``. Dividing by an array or other audio works sample by sample: a divisor
+        sample of silence gives the limit with the sign of the dividend, and silence over silence
+        gives silence, so ``s / s`` is defined. On float audio an int is the same number as
         the float and the usual float rules apply. A NumPy array holds raw sample values, and audio
         of another sample type is converted to this one first.
         A bool scalar raises ``TypeError``.

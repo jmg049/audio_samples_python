@@ -1335,9 +1335,10 @@ impl PyAudioSamples {
     ///   it is that number for every operator;
     /// - a NumPy array of raw sample values.
     ///
-    /// Dividing integer audio by zero raises, also for a zero in an array or in other audio. A bool
-    /// scalar raises `TypeError`: it is almost always a mistake, and neither reading of
-    /// `audio + True` is obvious.
+    /// Dividing integer audio by a zero scalar raises. A divisor sample of silence in an array or
+    /// in other audio gives the limit with the sign of the dividend, or silence for silence over
+    /// silence. A bool scalar raises `TypeError`: it is almost always a mistake, and neither reading
+    /// of `audio + True` is obvious.
     fn arithmetic(
         &self,
         py: Python<'_>,

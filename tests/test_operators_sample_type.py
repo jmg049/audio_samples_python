@@ -485,26 +485,93 @@ def test_scalar_division_by_zero_raises(sample_type, zero):
         x.copy().__itruediv__(zero)
 
 
+# Stored dividends (positive, negative, silence), and the stored result of dividing by a zero divisor.
+ZERO_DIVISOR_CASES = {
+    "u8": ([200, 100, 128], [255, 0, 128]),
+    "i16": ([200, -200, 0], [32767, -32768, 0]),
+    "I24": ([200, -200, 0], [2**23 - 1, -(2**23), 0]),
+    "i32": ([200, -200, 0], [2**31 - 1, -(2**31), 0]),
+}
+
+
+def silent_divisor(sample_type: str) -> aus.AudioSamples:
+    return values([128] * 3 if sample_type == "u8" else [0] * 3, sample_type)
+
+
+def divide_in_place(x, other):
+    y = x.copy()
+    y /= other
+    return y
+
+
 @pytest.mark.parametrize("sample_type", INTEGER_TYPES)
-def test_division_by_a_zero_in_audio_or_array_raises(sample_type):
-    x = nonzero(sample_type)
-    silence = make(sample_type, 0.0)
-    n = x.to_numpy()
-    zeros = np.zeros(n.shape)
-    with_a_zero = np.ones(n.shape)
-    with_a_zero[3] = 0
-    for operation in (
-        lambda: x / silence,
-        lambda: x / zeros,
-        lambda: x / with_a_zero,
-        lambda: silence / silence,
-        lambda: x.copy().__itruediv__(silence),
-        lambda: x.copy().__itruediv__(zeros),
-        lambda: n / silence,
-        lambda: silence.__itruediv__(silence),
-    ):
-        with pytest.raises(ZeroDivisionError):
-            operation()
+@pytest.mark.parametrize("divide", [lambda x, d: x / d, divide_in_place], ids=["binary", "in place"])
+def test_divisor_of_silence_saturates_by_the_sign_of_the_dividend(sample_type, divide):
+    dividends, want = ZERO_DIVISOR_CASES[sample_type]
+    x = values(dividends, sample_type)
+    silence = silent_divisor(sample_type)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        for divisor in (silence, silence.to_numpy()):
+            result = divide(x, divisor)
+            assert result.dtype == sample_type
+            assert stored(result) == want
+
+
+@pytest.mark.parametrize("sample_type", ["i16", "I24", "i32"])
+@pytest.mark.parametrize("divide", [lambda x, d: x / d, divide_in_place], ids=["binary", "in place"])
+def test_float_array_of_zeros_is_a_zero_divisor_on_signed_audio(sample_type, divide):
+    dividends, want = ZERO_DIVISOR_CASES[sample_type]
+    x = values(dividends, sample_type)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        assert stored(divide(x, np.zeros(3))) == want
+        # Negative zero does not flip the sign: the sign is the dividend's.
+        assert stored(divide(x, np.array([-0.0, -0.0, -0.0]))) == want
+
+
+def test_u8_divisor_zero_is_silence_only_for_u8_samples():
+    u = values([200, 100, 128], "u8")
+    # A float array holds plain numbers, so its zero is the zero divisor.
+    assert stored(u / np.zeros(3)) == [255, 0, 128]
+    # A stored 0 is not silence: it is -128 relative to silence.
+    assert stored(u / values([0, 0, 0], "u8")) == [127, 128, 128]
+
+
+@pytest.mark.parametrize("sample_type", INTEGER_TYPES)
+def test_only_the_zero_divisor_samples_saturate(sample_type):
+    silence = 128 if sample_type == "u8" else 0
+    x = values([silence + 100, silence - 100, silence + 100], sample_type)
+    divisor = values([silence + 2, silence, silence - 2], sample_type)
+    low, _ = LIMITS[sample_type]
+    assert stored(x / divisor) == [silence + 50, low, silence - 50]
+
+
+@pytest.mark.parametrize("sample_type", INTEGER_TYPES)
+def test_sine_divided_by_itself(sample_type):
+    s = aus.generation.sine_wave(100.0, 0.05, 8000, 0.5, dtype=np.float64).to_format(SAMPLE_TYPES[sample_type])
+    samples = s.to_numpy()
+    silence = 128 if sample_type == "u8" else 0
+    assert (samples == silence).any()  # a sine starts at zero
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        result = s / s
+        y = s.copy()
+        y /= y
+    assert result.dtype == sample_type
+    assert_same(y, result)
+    assert np.all(result.to_numpy()[samples == silence] == silence)
+    assert np.all(result.to_numpy()[samples != silence] == silence + 1)
+
+
+@pytest.mark.parametrize("sample_type", INTEGER_TYPES)
+def test_numpy_on_the_left_with_a_divisor_of_silence(sample_type):
+    dividends, want = ZERO_DIVISOR_CASES[sample_type]
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        result = np.array(dividends, dtype=values([0], sample_type).to_numpy().dtype) / silent_divisor(sample_type)
+    assert result.dtype == sample_type
+    assert stored(result) == want
 
 
 @pytest.mark.parametrize("sample_type", INTEGER_TYPES)

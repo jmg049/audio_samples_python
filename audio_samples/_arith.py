@@ -80,8 +80,8 @@ def with_integer(samples: np.ndarray, value, operation: str, sample_type: str) -
 def apply(samples: np.ndarray, other, operation: str, sample_type: str) -> np.ndarray:
     """``samples <operation> other``, with the dtype of ``samples``.
 
-    On integer audio a non-finite value in ``other`` raises ``ValueError`` and a zero divisor
-    raises ``ZeroDivisionError``.
+    On integer audio a non-finite value in ``other`` raises ``ValueError``. A divisor sample of
+    silence gives the limit with the sign of the dividend, and silence when the dividend is silence.
     """
     function = _OPERATIONS[operation]
     if sample_type in ("f32", "f64"):
@@ -98,10 +98,13 @@ def apply(samples: np.ndarray, other, operation: str, sample_type: str) -> np.nd
     right = other.astype(np.float64)
     if offset and other.dtype == np.uint8:
         right = right - offset
-    divisor = {"div": right, "rdiv": left}.get(operation)
-    if divisor is not None and not divisor.all():
-        raise ZeroDivisionError("division by zero: a divisor is silence, and integer audio has no result for it")
-    return _finish(function(left, right), sample_type, samples.dtype)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        result = function(left, right)
+    if operation in ("div", "rdiv"):
+        dividend, divisor = (left, right) if operation == "div" else (right, left)
+        low, high = _LIMITS[sample_type]
+        result = np.where(divisor == 0, np.sign(dividend) * (high - low + 1), result)
+    return _finish(result, sample_type, samples.dtype)
 
 
 def negative(samples: np.ndarray, sample_type: str) -> np.ndarray:

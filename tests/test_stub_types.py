@@ -179,6 +179,7 @@ CASES += [
     ("(i16 + 1.0).to_numpy()", "int16"),
     ("(1.0 + i16).to_numpy()", "int16"),
     ("(i16 / np.full(22050, 2)).to_numpy()", "int16"),
+    ("(i16 / i16).to_numpy()", "int16"),
     ("(-i16).to_numpy()", "int16"),
     ("(+f32).to_numpy()", "float32"),
     ("abs(i32).to_numpy()", "int32"),
