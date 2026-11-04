@@ -1,4 +1,4 @@
-"""Usability polish: apply_filter, dtype-like generator args, conversion docs,
+"""apply_filter, dtype-like generator args, conversion docs,
 two-signal sample-rate checks, stub/runtime agreement and documented
 conventions (mel, MFCC, autocorrelation, FFT, presets, memory sharing)."""
 
@@ -358,7 +358,7 @@ def test_onset_detection_function_returns_times_first():
 
 
 # --------------------------------------------------------------------------
-# lead extras: presets, getters, copies, memory sharing, EnvelopeFollower
+# presets, getters, copies, memory sharing, EnvelopeFollower
 # --------------------------------------------------------------------------
 
 

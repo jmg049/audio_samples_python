@@ -1,4 +1,4 @@
-"""Usability regressions from the educational UX audit (ux_python.md).
+"""Usability regressions.
 
 Covers NumPy interop, the spectrogram parameter classes, sample-rate checks,
 panic-free construction, the exception hierarchy, introspectable signatures,
@@ -202,7 +202,7 @@ def test_spectrogram_params_sample_rate_must_match(mono):
 
 
 # ---------------------------------------------------------------------------
-# 4. No Rust panics for the audit reproducers
+# 4. No Rust panics on invalid arguments
 # ---------------------------------------------------------------------------
 
 EMPTY_CONSTRUCTORS = [

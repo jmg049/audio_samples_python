@@ -1,4 +1,4 @@
-"""Regression tests for the adversarial review of the librosa-parity bindings.
+"""Argument validation of the librosa-compatible bindings.
 
 Huge or out-of-range integers raise ``ValueError`` naming the parameter (never
 pyo3's ``OverflowError``, a ``PanicException`` or a process abort on a failed

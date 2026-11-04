@@ -1,5 +1,5 @@
-"""Regression tests for Rust bug fixes seen through the bindings, and for the
-binding/stub fixes listed in the librosa-parity audit (PY_BINDING_ISSUES).
+"""Regression tests for analysis results seen through the bindings, and for
+argument handling, type stubs and exported names of the librosa-compatible API.
 
 Golden fixture: ``analysis_fixes.json`` (librosa 1.0.0).
 """
