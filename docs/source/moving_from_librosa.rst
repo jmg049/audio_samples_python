@@ -44,7 +44,135 @@ only on x86-64 Linux, on CPython 3.13.
 Evidence
 --------
 
-@@EVIDENCE@@
+Every comparison below gives both libraries' numbers: "ours" is ``audio_samples``, "librosa" is
+librosa. All of it was measured on @@WHEN@@ on one machine, so treat absolute times as that
+machine's, and the ratios as what to expect, not as a promise for yours. A ratio is ours divided by
+librosa: below 1 means ours is faster or smaller.
+
+.. list-table::
+   :widths: 24 76
+
+   * - Machine
+     - Intel i7-13700KF, Linux 7.2.0-1-cachyos, x86-64
+   * - librosa side
+     - librosa 1.0.0, CPython 3.13.11, NumPy 2.5.3, SciPy 1.18.1, soxr 1.1.0, soundfile 0.14.0
+       (libsndfile 1.2.2), numba 0.68.0
+   * - Our side
+     - ``audio_samples`` commit @@RUST@@, bindings commit @@PY@@, with ``audio_samples_io`` 0.3.3 and
+       the fixes in the bindings' ``vendor/`` directory, rustc 1.96.0, release build with thin LTO
+
+**Method.** Each case calls one librosa function and its equivalent on the same samples. Single-core
+runs are pinned to one performance core with every thread count set to 1; each row is the median of
+repeated calls after warm-up, at least 0.3 s and 5 calls. Rows within 3 % are timed again in one
+process with the two libraries alternating, so that they share clock and cache state. Memory is the
+peak allocated per call under memray, counting NumPy and Rust alike, and the exact peak resident
+growth per call in fresh processes. "Native" is the Rust library called directly.
+
+**What depends on matched settings.** Every row calls both libraries with librosa 1.0's settings,
+passing them explicitly where this library's default differs (see `changed defaults`_). So a row
+compares the same work; it does not compare the two default calls. Where those differ in work
+(``mfcc_frames()`` without an 80 dB floor, ``io.read`` that does not resample) the table says so.
+
+Reproduce it from the two checkouts, with librosa, memray and the bindings in the bindings' virtual
+environment:
+
+.. code-block:: bash
+
+   cd audio_samples
+   OUT=/path/to/results
+   R=benches/librosa_compare/run.sh
+   $R $OUT build signals
+   for g in spectrum features tonal constant_q pitch effects rhythm sequence convert; do
+     SEL="--groups $g" $R $OUT rust py mem
+   done
+   $R $OUT default
+   JOBS=6 REPEATS=5 $R $OUT rss
+   $R $OUT report ties report load startup guide
+
+Whole benchmark
+~~~~~~~~~~~~~~~
+
+Every librosa function with an equivalent here: 176 cases, several inputs each (1, 10 and 60 s, 16000
+and 22050 Hz, float32 and float64, mono and stereo).
+
+@@COUNTS@@
+
+Over all rows: @@OVERALL@@. "Equal" rows allocate the same single array on both sides (a matrix, a
+view of the input, a table from NumPy's small-block cache), so there is nothing left to take out. The
+ratios by area, ours / librosa, one core:
+
+@@AREAS@@
+
+Common functions on 10 s of mono float32 at 22050 Hz, one core:
+
+@@COMMON@@
+
+The weakest rows by time. They are functions where both sides do one allocation and a copy, or the
+resampler at float64:
+
+@@WEAK@@
+
+Reading files
+~~~~~~~~~~~~~
+
+``librosa.load`` and ``librosa.stream`` against the read path, with the same work on both sides. One
+core; ``read`` and ``load`` stand for ``aus.io.read`` and ``librosa.load``:
+
+@@LOAD@@
+
+Over all 91 rows (WAV 16-bit, 24-bit and float; FLAC 16-bit and 24-bit; 10, 60 and 600 s; also float64,
+header-only and mono streams): @@LOADCOUNTS@@. Each library's plain default is different work: on the
+60 s WAV ``aus.io.read(p)`` returns the 16-bit stereo samples, and ``librosa.load(p)`` also mixes down,
+converts and resamples.
+
+WAV against other readers and writers, with 48 combinations of type (int16, int32, float32), channels
+and length (1 to 600 s), the libraries alternating in one process. This is the harness behind the
+article `Working with WAV files <https://jmgsoftware.org/writing/working-with-wav-files/>`_, re-run on
+this code with ``librosa.load`` added; the article's figures are from May 2026 and from older code.
+Files are on tmpfs, so this measures the libraries, not a disk.
+
+@@WAV@@
+
+The rows above 1 are long files, where almost all the time is the kernel's copy, and are at most a few
+percent apart.
+
+Start-up
+~~~~~~~~
+
+librosa loads its submodules on first use, then compiles numba functions and imports SciPy and
+scikit-learn. So its import is short and its first call is long. Fresh processes, one core:
+
+@@IMPORT@@
+
+The first call in a fresh process, on 10 s of float32 at 22050 Hz, in milliseconds. Medians and ranges
+of 7 processes. ``audio_samples`` has nothing to compile, so its first call is close to its third:
+
+@@FIRST@@
+
+The whole process, from start to exit: import, read the file, compute MFCCs with librosa's settings.
+Medians and ranges of 30 processes, one core:
+
+@@MFCCPROC@@
+
+Threads
+~~~~~~~
+
+MFCCs of a directory, each library's own default threading, in milliseconds for all files (see
+`Batch processing a directory, with threads`_):
+
+@@BATCH@@
+
+Install
+~~~~~~~
+
+See `When to stay on librosa`_ for the wheel. @@FOOTPRINTSHORT@@
+
+Agreement with librosa
+~~~~~~~~~~~~~~~~~~~~~~
+
+See `Getting librosa's exact results`_. In short: given the same samples, most results agree to round-off
+of the type in use and discrete results (onset and beat frames, tempo, paths) are identical; anything
+that goes through soxr agrees less closely.
 
 A complete pipeline, side by side
 ---------------------------------
@@ -407,7 +535,7 @@ Resampling is not soxr
 ``librosa.resample`` uses soxr. This library has its own delay-free Kaiser-windowed sinc
 resampler. ``"high"`` is designed after ``soxr_hq``'s passband and attenuation but does not
 reproduce it, so anything downstream of resampling agrees less closely than everything
-else on this page. Measured against librosa from 22050 Hz to 11025, 16000 and 44100 Hz: 129
+else on this page. Measured against librosa 1.0.0 (soxr 1.1.0) from 22050 Hz to 11025, 16000 and 44100 Hz: 129
 to 135 dB SNR in the middle of a band-limited signal, 59 to 104 dB at its abrupt edges, 50
 to 58 dB on white noise. There is no ``res_type`` choice of filter design (``soxr_vhq``,
 ``kaiser_best``, ``scipy`` and so on), and fractional rates are not accepted.
@@ -744,7 +872,7 @@ audio_samples`` loads only its extension, so adding it costs little until it is 
 taking it back do not copy. Audio produced by a method (``resample``, ``to_mono``,
 ``time_stretch``) is held by Rust: ``to_numpy()`` then copies on each call, and
 ``numpy.asarray`` keeps one shared array. Feature methods return NumPy arrays that nothing
-else refers to. Measured for 60 s of float32 (one machine, one core):
+else refers to. Measured for 60 s of float32 on the machine and date under `Evidence`_, one core:
 
 @@INTEROP@@
 
