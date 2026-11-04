@@ -31,9 +31,8 @@ jobs:
         working-directory: audio_samples_python
         run: |
           python -m venv .venv
-          .venv/bin/python -m pip install maturin numpy "mypy>=1.18" "pyright>=1.1.400" pytest matplotlib
-          .venv/bin/maturin develop --skip-install
-          .venv/bin/python -c "import site; print(site.getsitepackages()[0])" | xargs -I{} sh -c 'pwd > {}/audio_samples_dev.pth'
+          .venv/bin/python -m pip install maturin
+          .venv/bin/maturin develop --group test
       - name: Check the stubs
         working-directory: audio_samples_python
         run: tests/hooks/check_stubs.sh

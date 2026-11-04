@@ -9,6 +9,21 @@ welcome. For pull requests, please consider:
 * Ensure cargo fmt is run.
 * Documentation and tests are required.
 
+## Development setup
+
+With this repository and `audio_samples` checked out side by side:
+
+```bash
+python -m venv .venv && source .venv/bin/activate
+pip install maturin
+maturin develop --release --group test
+```
+
+This builds the extension into the environment and installs what the tests and hooks need, along with the
+`dev` dependency group, which `maturin develop` always installs. `pytest` then runs the tests and
+`pre-commit run --all-files` runs the hooks. The `heavy` group (PyTorch and Qt) is needed only by
+`audio_samples/io_benchmark.py` and interactive plotting: add it with `--group test,heavy`.
+
 ## Usage of AI Tools
 
 > Copied from the [Rust audio_samples](https://github.com/jmg049/audio_samples/blob/main/CONTRIBUTING.md) contribution guidelines.

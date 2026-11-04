@@ -136,18 +136,21 @@ dev = [
     "ipywidgets>=8.1.8",
     "matplotlib>=3.7.5",
     "pandas>=2.0.3",
-    "pyqt6>=6.7.1",
     "rich>=14.3.3",
     "scikit-learn>=1.3.2",
     "seaborn>=0.13.2",
     "soundfile>=0.13.1",
-    "torchaudio>=2.5.1",
-    "torchcodec>=0.9.1",
     "tqdm>=4.67.1",
     "py-spy>=0.4.1",
     "pyspy>=0.1.1",
     "resampy>=0.4.3",
     "samplerate>=0.2.3",
+]
+# Large downloads that only audio_samples/io_benchmark.py and interactive plotting use.
+heavy = [
+    "pyqt6>=6.7.1",
+    "torchaudio>=2.5.1",
+    "torchcodec>=0.9.1",
 ]
 test = [
     "pytest>=7.4.0",
