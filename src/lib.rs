@@ -1333,8 +1333,12 @@ impl PyAudioSamples {
         other: &Bound<'_, PyAny>,
         operation: Arithmetic,
     ) -> PyResult<Self> {
-        if let Ok(other_audio) = other.extract::<PyRef<Self>>() {
-            return self.arithmetic_with_audio(py, &other_audio, operation);
+        if other.is_instance_of::<Self>() {
+            return match other.extract::<PyRef<Self>>() {
+                Ok(other_audio) => self.arithmetic_with_audio(py, &other_audio, operation),
+                // Only an in-place operator's own receiver is borrowed mutably here: `a *= a`.
+                Err(_) => self.arithmetic_with_audio(py, self, operation),
+            };
         }
         if let Ok(scalar) = other.extract::<f64>() {
             return self.arithmetic_with_scalar(py, scalar, operation);

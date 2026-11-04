@@ -1,7 +1,7 @@
 """Every arithmetic operator, reflected and in-place ones included, on every sample type.
 
 The sample type never changes, integer results saturate instead of wrapping, and an in-place
-operator gives the same result as its binary form.
+operator gives the same result as its binary form, also when the operand is the audio itself.
 """
 
 from __future__ import annotations
@@ -84,6 +84,10 @@ IN_PLACE = {
     "-= array": lambda y, x, n: y.__isub__(n),
     "*= array": lambda y, x, n: y.__imul__(n),
     "/= array": lambda y, x, n: y.__itruediv__(n),
+    "+= itself": lambda y, x, n: y.__iadd__(y),
+    "-= itself": lambda y, x, n: y.__isub__(y),
+    "*= itself": lambda y, x, n: y.__imul__(y),
+    "/= itself": lambda y, x, n: y.__itruediv__(y),
 }
 BINARY_OF_IN_PLACE = {
     "+= scalar": lambda x, n: x + 0.25,
@@ -98,6 +102,10 @@ BINARY_OF_IN_PLACE = {
     "-= array": lambda x, n: x - n,
     "*= array": lambda x, n: x * n,
     "/= array": lambda x, n: x / n,
+    "+= itself": lambda x, n: x + x,
+    "-= itself": lambda x, n: x - x,
+    "*= itself": lambda x, n: x * x,
+    "/= itself": lambda x, n: x / x,
 }
 
 
@@ -118,12 +126,15 @@ def test_in_place_operator_matches_the_binary_one(sample_type, operator):
 def test_in_place_statements(sample_type):
     y = make(sample_type)
     identity = y
-    y += 0.25
+    y += y
     y -= 0.0
     y *= 1.0
     y /= 1.0
     assert y is identity
     assert y.dtype == sample_type
+    y *= y
+    y /= y
+    assert y is identity and y.dtype == sample_type
 
 
 @pytest.mark.parametrize("sample_type", TYPES)
@@ -202,7 +213,7 @@ def test_multi_channel_keeps_type_and_shape(sample_type):
         assert result.dtype == sample_type
         assert result.shape == stereo.shape
     y = stereo.copy()
-    y *= stereo
+    y *= y
     assert y.dtype == sample_type and y.shape == stereo.shape
 
 
