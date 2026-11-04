@@ -11,113 +11,127 @@
      - librosa peak
    * - Whole file as float32
      - WAV
-     - 2.9
-     - 7.5
-     - 0.39
+     - 3.14
+     - 6.82
+     - 0.46
      - 20.2 MB
      - 20.2 MB
    * - Whole file as float32
      - FLAC
-     - 30.2
-     - 34.5
-     - 0.88
+     - 29.9
+     - 33.5
+     - 0.89
      - 20.3 MB
      - 20.3 MB
    * - Whole file as int16
      - WAV
-     - 0.411
-     - 0.67
-     - 0.61
+     - 0.371
+     - 0.507
+     - 0.73
      - 10.1 MB
      - 10.1 MB
    * - Whole file as int16
      - FLAC
-     - 29.3
-     - 33.9
-     - 0.86
+     - 29.2
+     - 33.4
+     - 0.87
      - 10.2 MB
      - 10.2 MB
    * - Mono float32
      - WAV
-     - 6.06
-     - 40
-     - 0.15
+     - 6.47
+     - 38.8
+     - 0.17
      - 30.3 MB
      - 40.5 MB
    * - Mono float32
      - FLAC
-     - 31.7
-     - 66.6
+     - 31.3
+     - 65.3
      - 0.48
      - 30.3 MB
      - 40.5 MB
    * - Mono float32 at 22050 Hz
      - WAV
-     - 8.16
-     - 51.7
-     - 0.16
+     - 8.9
+     - 43.3
+     - 0.21
      - 30.3 MB
      - 40.5 MB
    * - Mono float32 at 22050 Hz
      - FLAC
-     - 34.3
-     - 80.1
-     - 0.43
+     - 35.2
+     - 70.6
+     - 0.50
      - 30.3 MB
      - 40.5 MB
    * - Stereo float32 at 22050 Hz
      - WAV
-     - 11.7
-     - 32.2
-     - 0.36
+     - 12.5
+     - 25.3
+     - 0.50
      - 40.4 MB
      - 51.1 MB
    * - Stereo float32 at 22050 Hz
      - FLAC
-     - 35
-     - 57.8
-     - 0.60
+     - 35.8
+     - 52.9
+     - 0.68
      - 30.3 MB
      - 51.1 MB
    * - 2 s from 5 s in
      - WAV
      - 0.0788
-     - 0.237
-     - 0.33
+     - 0.23
+     - 0.34
      - 697 KB
      - 700 KB
    * - 2 s from 5 s in
      - FLAC
      - 1.08
-     - 1.37
-     - 0.79
+     - 1.34
+     - 0.81
      - 794 KB
      - 1.3 MB
    * - Stream, overlapping blocks
      - WAV
-     - 2.45
-     - 10.7
-     - 0.23
+     - 2.76
+     - 10.1
+     - 0.27
      - 2.0 MB
      - 7.0 MB
    * - Stream, overlapping blocks
      - FLAC
-     - 30
-     - 41.8
-     - 0.72
+     - 30.1
+     - 41.6
+     - 0.73
      - 2.1 MB
      - 7.6 MB
    * - Stream, 4096 frames
      - WAV
-     - 3.03
-     - 11.9
-     - 0.26
+     - 3.11
+     - 11.3
+     - 0.28
      - 72 KB
      - 236 KB
    * - Stream, 4096 frames
      - FLAC
-     - 30.1
-     - 40.7
-     - 0.74
+     - 30
+     - 40.1
+     - 0.75
      - 152 KB
      - 828 KB
+   * - Save, against ``soundfile.write``
+     - WAV
+     - 1.24
+     - 1.3
+     - 0.96
+     - 0 KB
+     - 9 KB
+   * - Save, against ``soundfile.write``
+     - FLAC
+     - 30.2
+     - 46.7
+     - 0.65
+     - 24.2 MB
+     - 437 KB

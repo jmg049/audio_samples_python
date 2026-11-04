@@ -135,8 +135,8 @@ so this measures the libraries, not a disk. Peak allocation is lower or equal on
 
 .. include:: _guide_tables/wav.txt
 
-The rows above 1 are long files, where almost all the time is the kernel's copy, and are at most a few
-percent apart.
+Rows above 1 are bound by the copy between the kernel and user memory, and the spread of one such row
+over repeated calls is larger than the difference between the libraries.
 
 Start-up
 ~~~~~~~~
@@ -958,6 +958,11 @@ level, this library's encoder is slower than libFLAC, by the ratios below; decod
 every other decoder measured. If you encode a lot of FLAC at high levels, use libFLAC.
 
 .. include:: _guide_tables/flacwrite.txt
+
+**Saving 24-bit stereo WAV and FLAC.** ``io.save`` of 24-bit multichannel audio to WAV is slower and
+uses more memory than ``soundfile.write``, and saving FLAC holds a copy of the samples, so its peak
+allocation is much higher than ``soundfile.write``'s. See the save rows under `Evidence`_ for 16-bit;
+both are in the file library this package uses, and have not been changed yet.
 
 **One silent type change.** ``io.save`` of float64 audio to a ``.wav`` file writes float32, also
 with ``as_type=SampleType.F64``. It is the one place this library changes a sample type without
