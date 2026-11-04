@@ -196,7 +196,7 @@ _SR = _Y
 _NOT_METHOD = Absorbed("not used by this method.")
 _LAYOUT = Absorbed("an AudioSamples knows its layout.")
 _AUDIO: dict[str, Option] = {"y": _Y, "sr": _SR}
-_DTYPE = Unsupported("the output precision follows the sample type; convert the audio with as_type or to_format first.")
+_DTYPE = Unsupported("the output precision follows the sample type; convert the audio with as_f32, as_f64 or to_format first.")
 _OUT = Unsupported("there is no output-buffer argument; the result is a new array.")
 _ARRAY_SR = Default(22050, "a required sr", "Pass sr=...")
 _ARRAY_HOP = Default(512, "a required hop_length", "Pass hop_length=...")
@@ -247,7 +247,7 @@ _e(
         "dtype": Default(
             _Named("numpy.float32"),
             "the file's own sample type",
-            "librosa converts to float32 here; io.read does not. Use io.read(fp, as_type=numpy.float32) to do the same.",
+            "librosa converts to float32 here; io.read does not. Use io.read(fp, as_type=SampleType.F32) to do the same.",
             value_note="io.read keeps the file's sample type unless as_type= is given.",
         ),
         "res_type": Renamed("quality", "An argument of io.read_and_resample; see the guide's section on resampling."),
@@ -1603,7 +1603,7 @@ ALIASES: dict[str, str] = {
 REMOVED: dict[str, str] = {
     "librosa.beat.tempo": "librosa.feature.tempo",
     "librosa.feature.rmse": "librosa.feature.rms",
-    "librosa.output.write_wav": "write the audio with io.write.",
+    "librosa.output.write_wav": "write the audio with io.save.",
     "librosa.util.example_audio_file": "librosa.util.example",
     "librosa.display.waveplot": "librosa.display.waveshow",
 }

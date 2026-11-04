@@ -252,6 +252,34 @@ def test_every_equivalent_exists_in_audio_samples():
                 assert _resolve_ours(ours) is not None, f"{name}: {ours}"
 
 
+def _table_text():
+    for entry in TABLE.values():
+        yield entry.note
+        yield entry.shape or ""
+        yield from entry.behaviour
+        groups = [entry.options, *(form.options for form in entry.forms)]
+        for form in entry.forms:
+            yield form.note or ""
+            yield form.shape or ""
+            yield from form.behaviour
+        for options in groups:
+            for option in options.values():
+                for name in ("note", "reason", "advice", "value_note"):
+                    yield str(getattr(option, name, ""))
+
+
+def test_names_in_the_advice_exist_in_audio_samples():
+    pattern = re.compile(r"(?<![\w.])(AudioSamples|io|spectral|features|rhythm|effects|sequence|utils|generation)\.([A-Za-z_]\w*)")
+    missing = set()
+    for text in _table_text():
+        for head, attribute in pattern.findall(text):
+            try:
+                _resolve_ours(f"{head}.{attribute}")
+            except AttributeError:
+                missing.add(f"{head}.{attribute}")
+    assert missing == set()
+
+
 def test_not_provided_entries_have_a_reason_and_no_equivalent():
     for name, entry in TABLE.items():
         if entry.match == NOT_PROVIDED:
@@ -516,7 +544,7 @@ def test_old_names_map_to_the_current_function():
     assert finding.equivalent[0] == "AudioSamples.tempo"
     old = _single("librosa.output.write_wav('a.wav', y, sr)")
     assert old.match == NOT_PROVIDED
-    assert "io.write" in old.note
+    assert "io.save" in old.note
 
 
 def test_unknown_attribute_is_reported_as_unknown():
