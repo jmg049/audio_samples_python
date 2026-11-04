@@ -110,7 +110,7 @@ impl PyAudioSamples {
         dispatch_with_view!(self, py, |audio| audio.zero_crossings())
     }
 
-    #[pyo3(signature = (), text_signature = "($self) -> float")]
+    #[pyo3(signature = (), text_signature = "($self)")]
     /// Calculate the zero-crossing rate of the signal, in crossings per second.
     ///
     /// ``zero_crossing_rate = zero_crossings() / (channels * duration_seconds)``,
