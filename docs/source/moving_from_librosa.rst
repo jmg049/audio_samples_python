@@ -853,8 +853,10 @@ To NumPy, PyTorch and scikit-learn
 
    import torch
 
-   tensor = torch.from_numpy(a_mfcc.copy())
+   tensor = torch.from_numpy(a_mfcc)                               # shares memory with the array
    assert tensor.dtype == torch.float32 and tuple(tensor.shape) == a_mfcc.shape
+   waveform = a.to_tensor(None)                                    # None: the default device
+   assert waveform.dtype == torch.float32 and tuple(waveform.shape) == (a.samples_per_channel(),)
 
 .. code-block:: python
 
