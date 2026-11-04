@@ -16,7 +16,6 @@ include = [
     "Cargo.toml",
     "README.md",
     "LICENSE",
-    "*.pyi",
     "audio_samples/*.pyi",
     "audio_samples/utils/*.pyi",
     "audio_samples/mpl/*.pyi",
