@@ -95,7 +95,7 @@ environment:
 Whole benchmark
 ~~~~~~~~~~~~~~~
 
-Every librosa function with an equivalent here: 176 cases, several inputs each (1, 10 and 60 s, 16000
+Every librosa function with an equivalent here: |cases| cases and |rows| rows, several inputs each (1, 10 and 60 s, 16000
 and 22050 Hz, float32 and float64, mono and stereo).
 
 .. include:: _guide_tables/counts.txt
@@ -123,8 +123,8 @@ core; ``read`` and ``load`` stand for ``aus.io.read`` and ``librosa.load``:
 
 .. include:: _guide_tables/load.txt
 
-Over all 91 rows (WAV 16-bit, 24-bit and float; FLAC 16-bit and 24-bit; 10, 60 and 600 s; also float64,
-header-only and mono streams): |loadcounts|. Each library's plain default is different work: on the
+Over all |loadrows| rows (WAV 16-bit, 24-bit and float; FLAC 16-bit and 24-bit; 10, 60 and 600 s; also float64,
+header-only, mono streams and saves against ``soundfile.write``): |loadcounts|. Each library's plain default is different work: on the
 60 s WAV ``aus.io.read(p)`` returns the 16-bit stereo samples, and ``librosa.load(p)`` also mixes down,
 converts and resamples.
 
