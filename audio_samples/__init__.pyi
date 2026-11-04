@@ -5175,7 +5175,7 @@ class AudioSamples(Generic[_S_co]):
         """Raise AudioSamples to a power (float types only)."""
         ...
 
-    # Reverse arithmetic operators (for scalar on left side)
+    # Unary operators
     def __neg__(self) -> Self:
         """``-audio`` in this sample type. Integer results saturate: ``-(-32768)`` is 32767 on int16.
         uint8 mirrors about silence (128), so a stored 0 gives 255."""
@@ -5190,6 +5190,7 @@ class AudioSamples(Generic[_S_co]):
         int16. uint8 is measured from silence (128), so a stored 100 gives 156."""
         ...
 
+    # Reverse arithmetic operators (for scalar on left side)
     def __radd__(self, scalar: _Scalar, /) -> Self:
         """Add scalar to AudioSamples (scalar + audio)."""
         ...

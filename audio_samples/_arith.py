@@ -8,9 +8,11 @@ silence and the offset put back afterwards.
 
 from __future__ import annotations
 
+from typing import Callable
+
 import numpy as np
 
-_OPERATIONS = {
+_OPERATIONS: dict[str, Callable[..., np.ndarray]] = {
     "add": np.add,
     "sub": np.subtract,
     "mul": np.multiply,
