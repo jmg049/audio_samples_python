@@ -378,33 +378,68 @@ class TestDtypeSupport:
         )
         assert sf_data.shape[1] == 2, "soundfile should read 2 channels"
 
-    def test_f64_auto_converts_to_f32_for_wav(self, sine_wave_mono, temp_wav_file):
-        """Test that f64 audio is automatically converted to f32 for WAV files."""
-        aus_audio, np_data, params = sine_wave_mono
+    @pytest.mark.parametrize("as_type", [None, "F64"])
+    @pytest.mark.parametrize("channels", [1, 2, 6])
+    def test_f64_is_written_as_f64(self, temp_wav_file, as_type, channels):
+        """float64 audio reaches the file as 64-bit float, bit for bit, in every reader."""
+        import scipy.io.wavfile as wavfile
 
-        assert aus_audio.to_numpy().dtype == np.float64
+        rng = np.random.default_rng(11)
+        # Values float32 cannot hold.
+        data = rng.uniform(-1.0, 1.0, size=(channels, 5000))
+        if channels == 1:
+            audio = aus.AudioSamples.new_mono(data[0], sample_rate=44100)
+        else:
+            audio = aus.AudioSamples.new_multi(data, sample_rate=44100)
+        kwargs = {} if as_type is None else {"as_type": getattr(aus.SampleType, as_type)}
+        aus.io.save(str(temp_wav_file), audio, **kwargs)
 
-        # Save to WAV (should auto-convert to f32)
-        aus.io.save(str(temp_wav_file), aus_audio)
+        sf_data, sf_rate = sf.read(temp_wav_file, dtype="float64", always_2d=True)
+        assert sf_rate == 44100
+        np.testing.assert_array_equal(sf_data.T, data)
+        assert sf.info(temp_wav_file).subtype == "DOUBLE"
 
-        try:
-            sf_data, sf_sr = sf.read(temp_wav_file, dtype="float32")
-            assert sf_sr == params["sample_rate"]
-        except Exception as e:
-            pytest.fail(f"soundfile must be able to read f64 audio saved as WAV: {e}")
+        scipy_rate, scipy_data = wavfile.read(temp_wav_file)
+        assert scipy_rate == 44100
+        assert scipy_data.dtype == np.float64
+        np.testing.assert_array_equal(scipy_data.reshape(5000, channels).T, data)
 
-        # Read back with audio_samples
-        audio_read = aus.io.read(str(temp_wav_file))
-        assert audio_read.sample_rate == params["sample_rate"]
+        back = aus.io.read(str(temp_wav_file))
+        assert back.to_numpy().dtype == np.float64
+        np.testing.assert_array_equal(np.atleast_2d(back.to_numpy()), data)
 
-        # Data should be very close (within f32 precision)
-        assert_arrays_close(
-            audio_read.to_numpy(),
-            np_data,
-            rtol=1e-6,  # f32 precision
-            atol=1e-7,
-            msg="f64->f32 conversion should preserve data within f32 precision",
-        )
+    @pytest.mark.parametrize("dtype", [np.float32, np.float64, np.int32, np.uint8])
+    def test_flac_requires_an_explicit_conversion(self, tmp_path, dtype):
+        """FLAC stores 16 and 24-bit integers; other types must not change silently."""
+        data = (np.linspace(-0.5, 0.5, 2000) * (1 if dtype in (np.float32, np.float64) else 100)).astype(dtype)
+        audio = aus.AudioSamples.new_mono(data, sample_rate=44100)
+        path = tmp_path / "x.flac"
+        with pytest.raises(ValueError, match="as_type"):
+            aus.io.save(str(path), audio)
+        with pytest.raises(ValueError, match="as_type"):
+            aus.io.save(str(path), audio, as_type=aus.SampleType.F64)
+        aus.io.save(str(path), audio, as_type=aus.SampleType.I24)
+        assert sf.info(path).subtype == "PCM_24"
+        aus.io.save(str(path), audio, as_type=aus.SampleType.I16)
+        assert sf.info(path).subtype == "PCM_16"
+
+    @pytest.mark.parametrize("subtype,dtype", [("PCM_16", np.int16), ("PCM_24", np.int32)])
+    @pytest.mark.parametrize("channels", [1, 2, 6])
+    def test_flac_keeps_integer_samples(self, tmp_path, subtype, dtype, channels):
+        """16 and 24-bit audio round-trip exactly through FLAC, read by soundfile."""
+        rng = np.random.default_rng(5)
+        wav = tmp_path / "in.wav"
+        high = 2**15 if subtype == "PCM_16" else 2**23
+        data = rng.integers(-high, high, size=(channels, 12000), dtype=np.int32)
+        scale = 16 if subtype == "PCM_16" else 8
+        sf.write(wav, (data << scale).T, 44100, subtype=subtype)
+        audio = aus.io.read(str(wav))
+        path = tmp_path / "out.flac"
+        aus.io.save(str(path), audio)
+        decoded, rate = sf.read(path, dtype="int32", always_2d=True)
+        assert rate == 44100
+        assert sf.info(path).subtype == subtype
+        np.testing.assert_array_equal(decoded.T >> scale, data)
 
     def test_all_supported_dtypes_roundtrip(self, temp_wav_file):
         """Test roundtrip for all supported dtypes."""
@@ -417,7 +452,7 @@ class TestDtypeSupport:
             (np.int16, lambda x: (x * 32767).astype(np.int16)),
             (np.int32, lambda x: (x * 2147483647).astype(np.int32)),
             (np.float32, lambda x: x.astype(np.float32)),
-            (np.float64, lambda x: x.astype(np.float64)),  # Will auto-convert to f32
+            (np.float64, lambda x: x.astype(np.float64)),
         ]
 
         for dtype, converter in dtypes_to_test:
@@ -475,7 +510,7 @@ class TestSoundfileCompatibility:
             (np.array([0.1, 0.5, -0.3], dtype=np.float32), "f32 mono"),
             (
                 np.array([0.1, 0.5, -0.3], dtype=np.float64),
-                "f64 mono (converts to f32)",
+                "f64 mono",
             ),
             (np.array([[128, 100], [200, 150]], dtype=np.uint8), "u8 stereo"),
             (np.array([[1000, 2000], [-1000, -2000]], dtype=np.int16), "i16 stereo"),

@@ -271,14 +271,7 @@ pub fn save(
     let fp = fp.to_string_lossy();
     let fp: &str = &fp;
     let is_wav = fp.to_lowercase().ends_with(".wav");
-    let as_type = match as_type {
-        // float64 is written to WAV as float32 for compatibility with other readers.
-        Some(PySampleType::F64) if is_wav => Some(PySampleType::F32),
-        None if is_wav && matches!(samples.inner(), crate::PyAudioDataInner::F64(_)) => {
-            Some(PySampleType::F32)
-        }
-        other => other,
-    };
+    check_flac_sample_type(fp, samples, as_type)?;
 
     macro_rules! write_as {
         ($audio:ident, $T:ty) => {{
@@ -299,6 +292,34 @@ pub fn save(
         }
     })
     .map_err(audio_io_err_to_py)
+}
+
+/// FLAC holds 16-bit and 24-bit integers. Anything else would change the samples, so the conversion
+/// has to be asked for: `as_type=SampleType.I16` or `as_type=SampleType.I24`.
+fn check_flac_sample_type(
+    fp: &str,
+    samples: &PyAudioSamples,
+    as_type: Option<PySampleType>,
+) -> PyResult<()> {
+    if !fp.to_lowercase().ends_with(".flac") {
+        return Ok(());
+    }
+    let name = match (as_type, samples.inner()) {
+        (Some(PySampleType::I16 | PySampleType::I24), _) => return Ok(()),
+        (Some(PySampleType::U8), _) => "u8",
+        (Some(PySampleType::I32), _) => "i32",
+        (Some(PySampleType::F32), _) => "f32",
+        (Some(PySampleType::F64), _) => "f64",
+        (None, crate::PyAudioDataInner::I16(_) | crate::PyAudioDataInner::I24(_)) => return Ok(()),
+        (None, crate::PyAudioDataInner::U8(_)) => "u8",
+        (None, crate::PyAudioDataInner::I32(_)) => "i32",
+        (None, crate::PyAudioDataInner::F32(_)) => "f32",
+        (None, crate::PyAudioDataInner::F64(_)) => "f64",
+    };
+    Err(pyo3::exceptions::PyValueError::new_err(format!(
+        "FLAC stores 16-bit or 24-bit integers, so {name} samples cannot be written unchanged. \
+         Convert explicitly with as_type=SampleType.I16 or as_type=SampleType.I24."
+    )))
 }
 
 /// Write `audio` in its own sample type. For WAV the samples go straight to the file, so the
@@ -786,7 +807,8 @@ impl_py_wrapper_core!(PyStreamInfo, StreamInfo);
 ///         the audio's native type.
 ///
 /// Raises:
-///     ValueError: If the format is unsupported.
+///     ValueError: If the format is unsupported, or the file is FLAC and the sample type to
+///         write is not I16 or I24. FLAC stores integers of those widths only.
 ///     OSError: If the file cannot be written.
 #[pyfunction]
 #[pyo3(signature = (fp: "str | Path", samples: "AudioSamples", options: "WriteOptions" = None, as_type: "SampleType" = None))]
@@ -799,6 +821,7 @@ pub fn write_with_options(
 ) -> PyResult<()> {
     let fp = fp.to_string_lossy();
     let fp: &str = &fp;
+    check_flac_sample_type(fp, samples, as_type)?;
     let opts = options.map_or_else(WriteOptions::default, |o| o.inner);
 
     macro_rules! write_as {

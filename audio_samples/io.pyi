@@ -115,9 +115,9 @@ def save(
     saved using its native sample type; pass ``as_type`` to convert it to a
     specific sample type before writing.
 
-    Note: For WAV files, f64 (float64) samples are automatically converted
-    to f32 (float32) for maximum compatibility with audio software, as f64
-    WAV files use WAVE_FORMAT_EXTENSIBLE which is not widely supported.
+    WAV keeps every sample type, float64 included. FLAC stores 16-bit and 24-bit
+    integers only, so any other sample type raises ``ValueError`` unless ``as_type``
+    asks for ``SampleType.I16`` or ``SampleType.I24``.
 
     Args:
         fp: Path to save the audio file
