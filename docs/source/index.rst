@@ -80,8 +80,8 @@ Learning guide
 
 :doc:`tutorials/index` is a short course in speech and audio processing: fourteen
 notebooks that check every number they state. The same course exists for the
-Rust crate as an illustrated book with figures computed by the library (see the
-crate's `book/ directory <https://github.com/jmg049/audio_samples/tree/main/book>`_).
+Rust crate as an `illustrated book <https://jmg049.github.io/audio_samples/>`_ with figures computed by
+the library.
 
 Coming from librosa
 --------------------

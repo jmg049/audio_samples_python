@@ -151,7 +151,7 @@ The [librosa migration guide](docs/source/librosa_migration.rst) maps every libr
 `docs/source/tutorials/` holds a short course in speech and audio processing:
 fourteen notebooks that assert every number they state. The same course exists
 for the Rust crate as an illustrated
-[book](https://github.com/jmg049/audio_samples/tree/main/book) whose figures
+[book](https://jmg049.github.io/audio_samples/) whose figures
 are computed by the library.
 
 ## Performance Benchmarks

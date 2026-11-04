@@ -49,7 +49,7 @@ pattern:
 
 The same course exists in Rust (the crate's `guide` module, its
 `examples/tutorial_NN_*.rs` labs and an illustrated
-[book](https://github.com/jmg049/audio_samples/tree/main/book) with figures
+[book](https://jmg049.github.io/audio_samples/) with figures
 computed by the library), with the same numbers wherever the two APIs
 cover the same function. Where the Python bindings lack a function (LPC, Bark,
 ERB, threshold of hearing, codecs, cepstrum, FIR design), the notebook computes
