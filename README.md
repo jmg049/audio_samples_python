@@ -132,6 +132,8 @@ print(repr(audio))
 
 ## Coming from librosa
 
+**[Moving from librosa](docs/source/moving_from_librosa.rst)** is the guide if you are deciding whether to switch: measurements on both sides, a pipeline in both libraries, the differences that catch people out, recipes, and what is worse here. The API it describes is not on PyPI yet.
+
 The `AudioSamples` methods and the `spectral`, `features`, `rhythm`, `effects` and `sequence` submodules reproduce librosa 1.0 with its keyword names, tested against librosa's own output. The audio carries its sample rate, and methods return `(channels, F, T)` arrays (index `[0]` for librosa's mono shape). Outputs are float32 for uint8, int16, int24 and float32 audio and float64 for int32 and float64 audio. A few defaults differ from librosa's where librosa's default changes the data (an 80 dB floor in `power_to_db`, tuning estimation, beat trimming, unseeded Griffin-Lim), and the free functions require `sr`; pass librosa's value to reproduce a librosa call:
 
 ```python

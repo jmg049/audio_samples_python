@@ -129,10 +129,9 @@ header-only, mono streams and saves against ``soundfile.write``): |loadcounts|. 
 converts and resamples.
 
 WAV against other readers and writers, with 48 combinations of type (int16, int32, float32), channels
-and length (1 to 600 s), the libraries alternating in one process. This is the harness behind the
-article `Working with WAV files <https://jmgsoftware.org/writing/working-with-wav-files/>`_, re-run on
-this code with ``librosa.load`` added; the article's figures are from May 2026 and from older code.
-Files are on tmpfs, so this measures the libraries, not a disk.
+and length (1 to 600 s), the libraries alternating in one process. This is the harness of the article
+`Working with WAV files <https://jmgsoftware.org/writing/working-with-wav-files/>`_. Files are on tmpfs,
+so this measures the libraries, not a disk. Peak allocation is lower or equal on |wavmem| rows.
 
 .. include:: _guide_tables/wav.txt
 
