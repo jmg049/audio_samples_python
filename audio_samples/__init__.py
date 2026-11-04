@@ -33,28 +33,35 @@ built-in exception (``ValueError``, ``TypeError``, ...).
 # The native extension is compiled as audio_samples.cpython-*.so
 # When placed in the audio_samples/ directory, Python can import it
 # but we need to use the correct module name for the PyInit function
-import importlib.util as _importlib_util
+import importlib.machinery as _machinery
+import os as _os
 import sys as _sys
-import sysconfig as _sysconfig
-from pathlib import Path as _Path
+
+# Importing this package loads the extension and nothing else: NumPy, matplotlib
+# and package metadata are loaded when first used.
 
 # Find and load the .so file directly. Prefer the exact build for this
 # interpreter/platform (multiple cpython-3XX builds can coexist in this
 # directory); fall back to any match only if that exact one is missing.
-_package_dir = _Path(__file__).parent
-_exact_so = _package_dir / f"audio_samples{_sysconfig.get_config_var('EXT_SUFFIX')}"
-if _exact_so.exists():
+_package_dir = _os.path.dirname(__file__)
+_exact_so = _os.path.join(_package_dir, f"audio_samples{_machinery.EXTENSION_SUFFIXES[0]}")
+if _os.path.exists(_exact_so):
     _so_files = [_exact_so]
 else:
-    _so_files = list(_package_dir.glob("audio_samples.cpython-*.so"))
+    _so_files = [
+        _os.path.join(_package_dir, _f)
+        for _f in sorted(_os.listdir(_package_dir))
+        if _f.startswith("audio_samples.cpython-") and _f.endswith(".so")
+    ]
 if _so_files:
     # The module init function is PyInit_audio_samples, so we must use "audio_samples" as name
-    _spec = _importlib_util.spec_from_file_location("audio_samples", _so_files[0])
-    _ext = _importlib_util.module_from_spec(_spec)
+    _loader = _machinery.ExtensionFileLoader("audio_samples", _so_files[0])
+    _spec = _machinery.ModuleSpec("audio_samples", _loader, origin=_so_files[0])
+    _ext = _loader.create_module(_spec)
     # Store the original module in sys.modules temporarily
     _old_module = _sys.modules.get("audio_samples")
     try:
-        _spec.loader.exec_module(_ext)
+        _loader.exec_module(_ext)
     finally:
         # Restore ourselves as the audio_samples module
         if _old_module is not None:
@@ -126,12 +133,6 @@ if _so_files:
     except AttributeError:
         plotting = None  # Plotting module not available in this build
 
-    # Matplotlib visualisation extension (pure Python)
-    try:
-        from audio_samples import mpl as mpl
-    except ImportError:
-        mpl = None
-
     # Also make available the main class and config types
     AudioSamples = _ext.AudioSamples
     IirFilterDesign = _ext.IirFilterDesign
@@ -163,16 +164,33 @@ if _so_files:
 else:
     raise ImportError("Could not find the audio_samples native extension (.so file)")
 
-try:
-    from importlib.metadata import PackageNotFoundError as _PNF
-    from importlib.metadata import version as _version
 
-    try:
-        __version__ = _version("audio_samples")
-    except _PNF:  # pragma: no cover - running from a source tree
-        __version__ = "unknown"
-except ImportError:  # pragma: no cover
-    __version__ = "unknown"
+def __getattr__(name):
+    if name == "mpl":
+        # Matplotlib visualisation extension (pure Python), None without matplotlib.
+        import importlib
+
+        try:
+            module = importlib.import_module("audio_samples.mpl")
+        except ImportError:
+            module = None
+        globals()["mpl"] = module
+        return module
+    if name == "__version__":
+        from importlib.metadata import PackageNotFoundError, version
+
+        try:
+            value = version("audio_samples")
+        except PackageNotFoundError:  # pragma: no cover - running from a source tree
+            value = "unknown"
+        globals()["__version__"] = value
+        return value
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def __dir__():
+    return sorted({*globals(), "mpl", "__version__"})
+
 
 __all__ = [
     # Main class

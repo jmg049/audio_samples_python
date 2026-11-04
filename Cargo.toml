@@ -63,6 +63,7 @@ flac-parallel = ["audio_samples_io/flac-parallel"]
 [profile.release]
 opt-level = 3
 debug = false
+strip = "symbols"
 lto = "thin"
 codegen-units = 1
 panic = "unwind"

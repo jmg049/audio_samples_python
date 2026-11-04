@@ -446,3 +446,27 @@ def test_adaptive_threshold_bounds_are_readable_properties():
     cfg.max_threshold = 0.8
     assert cfg.min_threshold == 0.2
     assert cfg.max_threshold == 0.8
+
+
+# --------------------------------------------------------------------------
+# importing the package
+# --------------------------------------------------------------------------
+
+
+def test_import_loads_only_the_extension():
+    import subprocess
+    import sys
+
+    code = (
+        "import sys, audio_samples\n"
+        "heavy = {'numpy', 'matplotlib', 'pathlib', 'email', 'importlib.metadata'} & set(sys.modules)\n"
+        "assert not heavy, heavy\n"
+        "assert 'mpl' in dir(audio_samples) and '__version__' in dir(audio_samples)\n"
+        "assert isinstance(audio_samples.__version__, str)\n"
+    )
+    subprocess.run([sys.executable, "-c", code], check=True)
+
+
+def test_mpl_is_available_on_first_access():
+    pytest.importorskip("matplotlib")
+    assert aus.mpl.__name__ == "audio_samples.mpl"
