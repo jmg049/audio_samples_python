@@ -522,3 +522,88 @@ class TestSoundfileCompatibility:
                     )
             except Exception as e:
                 pytest.fail(f"soundfile must read {num_channels}-channel WAV: {e}")
+
+
+# ---------------------------------------------------------------------------
+# FLAC and WAV against libsndfile: whole files, seeks and streams
+# ---------------------------------------------------------------------------
+
+
+def _notes(sr, seconds, channels):
+    """Decaying notes with abrupt attacks after digital silence: the attacks give
+    FLAC residuals with long unary codes."""
+    t = np.arange(sr * seconds) / sr
+    out = []
+    for c in range(channels):
+        rng = np.random.default_rng(12345 + c)
+        seg = np.floor(t / 0.5)
+        f = (110.0 * (1.5 if c else 1.0)) * 2.0 ** (((seg.astype(np.uint64) * 7) % 24) / 12.0)
+        x = np.exp(-3.0 * (t - seg * 0.5)) * 0.5 * np.sin(2 * np.pi * f * t) + 0.02 * rng.uniform(-1, 1, t.size)
+        x[(t < 0.5) | (t >= seconds - 0.5)] = 0.0
+        out.append(x)
+    return np.stack(out, axis=1)
+
+
+@pytest.mark.parametrize("subtype,dtype,shift", [("PCM_16", "int16", 0), ("PCM_24", "int32", 8)])
+@pytest.mark.parametrize("channels", [1, 2])
+def test_flac_decodes_like_libsndfile(tmp_path, subtype, dtype, shift, channels):
+    path = str(tmp_path / "x.flac")
+    sf.write(path, _notes(44100, 10, channels), 44100, format="FLAC", subtype=subtype)
+    expected, _ = sf.read(path, dtype=dtype, always_2d=True)
+    got = aus.io.read(path).to_numpy()
+    got = got[None] if got.ndim == 1 else got
+    assert np.array_equal(np.asarray(got, dtype=np.int64).T, expected.astype(np.int64) >> shift)
+
+
+@pytest.mark.parametrize(
+    "name,fmt,subtype",
+    [("x.flac", "FLAC", "PCM_16"), ("x.wav", "WAV", "PCM_16"), ("y.wav", "WAV", "FLOAT"), ("z.wav", "WAV", "PCM_24")],
+)
+@pytest.mark.parametrize("channels", [1, 2])
+def test_streamed_reads_match_a_whole_read(tmp_path, name, fmt, subtype, channels):
+    path = str(tmp_path / name)
+    sf.write(path, _notes(44100, 10, channels), 44100, format=fmt, subtype=subtype)
+    f32 = aus.SampleType.F32
+    full = aus.io.read(path, as_type=f32).to_numpy()
+
+    with aus.io.StreamedAudioReader(path) as r:
+        total = r.total_frames
+        assert total == full.shape[-1]
+
+        # Chunks in order.
+        parts = [b.to_numpy() for b in r.frames(4099, f32)]
+        assert np.array_equal(np.concatenate(parts, axis=-1), full)
+
+        # Seeks to anywhere, forwards and backwards, in a file partly read or not.
+        rng = np.random.default_rng(0)
+        for pos in [*map(int, rng.integers(0, total - 3000, 30)), 0, total - 3000, total - 1]:
+            r.seek_to_frame(pos)
+            assert r.current_frame == pos
+            got = r.read_frames(3000, f32).to_numpy()
+            assert np.array_equal(got, full[..., pos : pos + 3000])
+            assert r.current_frame == min(pos + 3000, total)
+
+        # Overlapping windows.
+        r.reset()
+        for k, w in enumerate(r.windows(9000, 4000, f32)):
+            start = k * 4000
+            assert np.array_equal(w.to_numpy(), full[..., start : start + 9000])
+
+    # A far seek in a reader that has not decoded anything yet.
+    with aus.io.StreamedAudioReader(path) as r:
+        r.seek_to_frame(8 * 44100)
+        assert np.array_equal(r.read_frames(100, f32).to_numpy(), full[..., 8 * 44100 : 8 * 44100 + 100])
+
+
+def test_stream_native_type_is_the_file_data(tmp_path):
+    path = str(tmp_path / "x.wav")
+    x = (np.arange(2000).reshape(1000, 2) - 1000).astype(np.int16)
+    sf.write(path, x, 8000, subtype="PCM_16")
+    with aus.io.StreamedAudioReader(path) as r:
+        got = r.read_frames(600, aus.SampleType.I16)
+        assert got.to_numpy().dtype == np.int16
+        assert np.array_equal(got.to_numpy(), x[:600].T)
+        assert got.sample_rate == 8000
+        # Asking for more than is left gives what is left, then None.
+        assert r.read_frames(600, aus.SampleType.I16).to_numpy().shape == (2, 400)
+        assert r.read_frames(600, aus.SampleType.I16) is None

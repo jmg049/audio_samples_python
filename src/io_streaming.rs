@@ -14,10 +14,8 @@ use std::io::{BufReader, BufWriter};
 use std::num::NonZeroU32;
 use std::path::Path;
 
-use audio_samples::{AudioSamples, ConvertFrom, ConvertTo, I24, traits::StandardSample};
-use audio_samples_io::traits::{
-    AudioStreamRead, AudioStreamReader, AudioStreamWrite, AudioStreamWriter,
-};
+use audio_samples::{I24, traits::StandardSample};
+use audio_samples_io::traits::{AudioStreamReader, AudioStreamWrite, AudioStreamWriter};
 use audio_samples_io::wav::{StreamedWavFile, StreamedWavWriter, WavSink};
 use audio_samples_io::{
     StreamedFlacFile, StreamedFlacWriter, create_streamed_sink, create_streamed_writer,
@@ -45,58 +43,74 @@ type FileReader = BufReader<File>;
 /// The writer backing used by the path-based streaming constructors.
 type FileWriter = BufWriter<File>;
 
-/// Build a fresh `AudioSamples<T>` of the right shape for `channels`, fill it from the
-/// reader via `read_frames_into`, and return `(numpy_array, frames_read)`.
+/// Read up to `frame_count` frames into a new NumPy array, which becomes the array of the
+/// returned audio. WAV frames stay interleaved on disk order in a Fortran-layout
+/// `(channels, frames)` array, as `read` gives; FLAC frames decode to a C-order one.
 ///
 /// Returns `Ok(None)` at end-of-stream (zero frames read).
-fn read_into_new_array<T, S>(
+///
+/// The streaming readers are !Send (they hold non-Send buffers), so we cannot release the
+/// GIL across the decode the way the bulk resample path does. Decode inline.
+fn read_into_new_array<T>(
     py: Python<'_>,
-    reader: &mut S,
+    inner: &mut ReaderInner,
     channels: u16,
     sample_rate: NonZeroU32,
     frame_count: std::num::NonZeroUsize,
 ) -> PyResult<Option<PyAudioSamples>>
 where
-    T: StandardSample + Element + ConvertTo<T> + ConvertFrom<T> + 'static,
-    S: AudioStreamRead,
+    T: StandardSample + Element + 'static,
 {
-    let mut buffer = if channels == 1 {
-        AudioSamples::<T>::zeros_mono(frame_count, sample_rate)
-    } else {
-        // SAFETY: channels validated > 0 by the reader during construction.
-        let ch = NonZeroU32::new(u32::from(channels)).expect("channels must be non-zero");
-        AudioSamples::<T>::zeros_multi(ch, frame_count, sample_rate)
-    };
+    use numpy::{PyArray2, PyArrayMethods};
 
-    // The streaming readers are !Send (they hold non-Send buffers), so we cannot release the
-    // GIL across the decode the way the bulk resample path does. Decode inline.
-    let _ = py;
-    let frames_read = reader
-        .read_frames_into::<T>(&mut buffer, frame_count)
-        .map_err(audio_io_err_to_py)?;
+    let channels = usize::from(channels);
+    let remaining = match inner {
+        ReaderInner::Wav(r) => AudioStreamReader::remaining_frames(r),
+        ReaderInner::Flac(r) => AudioStreamReader::remaining_frames(r),
+    };
+    let frames = frame_count.get().min(remaining);
+    if frames == 0 {
+        return Ok(None);
+    }
+
+    let interleaved = matches!(inner, ReaderInner::Wav(_));
+    let array = unsafe { PyArray2::<T>::new(py, [channels, frames], interleaved) };
+    // SAFETY: the fresh array is contiguous and no other reference to it exists; its values
+    // are written before they are read.
+    let slice = unsafe { array.as_slice_mut() }.map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+    let frames_read = match inner {
+        ReaderInner::Wav(r) => r.read_interleaved_into(slice),
+        ReaderInner::Flac(r) => r.read_planar_into(slice),
+    }
+    .map_err(audio_io_err_to_py)?;
 
     if frames_read == 0 {
         return Ok(None);
     }
 
-    // Trim the buffer to the frames actually read, then materialise a numpy-backed
-    // PyAudioSamples via the owned-array constructors.
-    let py_samples = if channels == 1 {
-        let arr = buffer
-            .into_array1()
-            .ok_or_else(|| PyRuntimeError::new_err("expected mono buffer"))?;
-        let arr = arr.slice_move(numpy::ndarray::s![..frames_read]);
-        PyAudioSamples::new_mono(arr, sample_rate)
+    let array = if frames_read < frames {
+        // Fewer frames than the header says: a truncated file.
+        let order = if interleaved { "F" } else { "C" };
+        let view = array.call_method1(
+            "__getitem__",
+            ((
+                py.eval(c"slice(None)", None, None)?,
+                pyo3::types::PySlice::new(py, 0, frames_read as isize, 1),
+            ),),
+        )?;
+        view.call_method1("copy", (order,))?.cast_into::<PyArray2<T>>()?
     } else {
-        let arr = buffer
-            .into_array2()
-            .ok_or_else(|| PyRuntimeError::new_err("expected multi-channel buffer"))?;
-        let arr = arr
-            .slice_move(numpy::ndarray::s![.., ..frames_read])
-            .to_owned();
-        PyAudioSamples::new_multi(arr, sample_rate)
+        array
     };
-    Ok(Some(py_samples))
+
+    Ok(Some(if channels == 1 {
+        let mono = array.reshape([frames_read])?;
+        PyAudioSamples::new_mono_from_python(mono, sample_rate)
+    } else if interleaved {
+        PyAudioSamples::new_multi_from_python_interleaved(array, sample_rate)
+    } else {
+        PyAudioSamples::new_multi_from_python(array, sample_rate)
+    }))
 }
 
 // ============================================================================
@@ -258,15 +272,13 @@ impl PyStreamedAudioReader {
         let channels = self.num_channels()?;
         let sample_rate = nzu32_sr(self.sample_rate()?)?;
 
+        let inner = self
+            .inner
+            .as_mut()
+            .ok_or_else(|| PyRuntimeError::new_err("streaming reader is closed"))?;
         macro_rules! go {
             ($T:ty) => {
-                reader_dispatch!(self, |r| read_into_new_array::<$T, _>(
-                    py,
-                    r,
-                    channels,
-                    sample_rate,
-                    frame_count
-                ))
+                read_into_new_array::<$T>(py, inner, channels, sample_rate, frame_count)
             };
         }
         match dtype {

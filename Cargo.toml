@@ -49,6 +49,10 @@ miette = { version = "7", default-features = false }
 # fixes. Remove once the matching audio_samples release is on crates.io.
 [patch.crates-io]
 audio_samples = { path = "../audio_samples" }
+# audio_samples_io 0.3.3 with the fix for FLAC frames that a large Rice quotient
+# desynchronises (vendor/audio_samples_io/src/flac/bitstream.rs). Remove with the
+# release that contains it.
+audio_samples_io = { path = "vendor/audio_samples_io" }
 
 [features]
 default = []

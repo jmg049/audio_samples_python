@@ -239,11 +239,17 @@ where
             sample_rate,
         ))
     } else {
-        // Multi-channel: use Fortran-layout (interleaved) array directly
-        Ok(PyAudioSamples::new_multi_from_python_interleaved(
-            pyarray.bind(py).to_owned(),
-            sample_rate,
-        ))
+        let bound = pyarray.bind(py).to_owned();
+        if numpy::PyUntypedArrayMethods::is_c_contiguous(&bound) {
+            // FLAC decodes to planar samples, a C-order (channels, frames) array.
+            Ok(PyAudioSamples::new_multi_from_python(bound, sample_rate))
+        } else {
+            // WAV: a Fortran-layout (interleaved) array, used directly.
+            Ok(PyAudioSamples::new_multi_from_python_interleaved(
+                bound,
+                sample_rate,
+            ))
+        }
     }
 }
 
