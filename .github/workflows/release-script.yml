@@ -1,0 +1,34 @@
+# The release jobs in this repository use .github/release/release_meta.py for the
+# changelog section and the version check. This runs its tests and checks that the
+# changelog parses for the version in Cargo.toml, as a warning until it is released.
+name: Release script
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/release/**"
+      - ".github/workflows/release-script.yml"
+      - "CHANGELOG.md"
+  pull_request:
+    paths:
+      - ".github/release/**"
+      - ".github/workflows/release-script.yml"
+      - "CHANGELOG.md"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: python3 -m unittest discover -s .github/release
+      - name: Look for this version in the changelog
+        run: |
+          version="$(python3 .github/release/release_meta.py version)"
+          python3 .github/release/release_meta.py notes "$version" > /dev/null \
+            || echo "::warning file=CHANGELOG.md::a release of $version needs a section for it"
