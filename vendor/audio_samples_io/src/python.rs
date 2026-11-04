@@ -153,12 +153,10 @@ where
     // Eliminates the intermediate Vec allocation and the extra mmap(MAP_ANONYMOUS) zero-fill
     // overhead that Vec::with_capacity triggers for large allocations.
     #[cfg(target_endian = "little")]
-    if TypeId::of::<T>() != TypeId::of::<I24>() {
-        if let Some(result) = read_pyarray_direct::<T>(py, path) {
-            return result;
-        }
-        // Falls through to the Vec path below if direct path is not applicable.
+    if let Some(result) = read_pyarray_direct::<T>(py, path) {
+        return result;
     }
+    // Falls through to the Vec path below if direct path is not applicable.
 
     #[cfg(feature = "flac")]
     if let Some(result) = read_flac_planar_pyarray::<T>(py, path) {

@@ -1,5 +1,6 @@
 use crate::{
     PyAudioSamples, audio_err_to_py, audio_io_err_to_py, audio_read_err_to_py, dispatch_with_view,
+    dispatch_with_view_detached,
     impl_py_repr, impl_py_wrapper_core, nzu32_or_err, reexport, types::PySampleType,
 };
 use audio_samples::operations::ResamplingQuality;
@@ -269,61 +270,57 @@ pub fn save(
 ) -> PyResult<()> {
     let fp = fp.to_string_lossy();
     let fp: &str = &fp;
-    // Check if this is a WAV file
     let is_wav = fp.to_lowercase().ends_with(".wav");
-
-    // Use a custom dispatch to handle f64->f32 conversion for WAV files
-    use crate::PyAudioDataInner;
-    match samples.inner() {
-        PyAudioDataInner::F64(a) if is_wav && as_type.is_none() => {
-            // Automatically convert f64 to f32 for WAV files for maximum compatibility
-            a.with_view(py, |audio| {
-                let audio = audio.to_format::<f32>();
-                audio_samples_io::write(&fp, &audio).map_err(audio_io_err_to_py)
-            })
+    let as_type = match as_type {
+        // float64 is written to WAV as float32 for compatibility with other readers.
+        Some(PySampleType::F64) if is_wav => Some(PySampleType::F32),
+        None if is_wav && matches!(samples.inner(), crate::PyAudioDataInner::F64(_)) => {
+            Some(PySampleType::F32)
         }
-        _ => {
-            dispatch_with_view!(samples, py, |audio| {
-                if let Some(t) = as_type {
-                    // If f64 is explicitly requested for a WAV file, convert to f32 for compatibility
-                    let target_type = if is_wav && t == PySampleType::F64 {
-                        PySampleType::F32
-                    } else {
-                        t
-                    };
+        other => other,
+    };
 
-                    match target_type {
-                        PySampleType::U8 => {
-                            let audio = audio.to_format::<u8>();
-                            audio_samples_io::write(&fp, &audio).map_err(audio_io_err_to_py)
-                        }
-                        PySampleType::I16 => {
-                            let audio = audio.to_format::<i16>();
-                            audio_samples_io::write(&fp, &audio).map_err(audio_io_err_to_py)
-                        }
-                        PySampleType::I24 => {
-                            let audio = audio.to_format::<I24>();
-                            audio_samples_io::write(&fp, &audio).map_err(audio_io_err_to_py)
-                        }
-                        PySampleType::I32 => {
-                            let audio = audio.to_format::<i32>();
-                            audio_samples_io::write(&fp, &audio).map_err(audio_io_err_to_py)
-                        }
-                        PySampleType::F32 => {
-                            let audio = audio.to_format::<f32>();
-                            audio_samples_io::write(&fp, &audio).map_err(audio_io_err_to_py)
-                        }
-                        PySampleType::F64 => {
-                            let audio = audio.to_format::<f64>();
-                            audio_samples_io::write(&fp, &audio).map_err(audio_io_err_to_py)
-                        }
-                    }
-                } else {
-                    audio_samples_io::write(&fp, &audio).map_err(audio_io_err_to_py)
-                }
-            })
-        }
+    macro_rules! write_as {
+        ($audio:ident, $T:ty) => {{
+            let audio = $audio.to_format::<$T>();
+            write_native(fp, &audio, is_wav)
+        }};
     }
+    // No Python objects are touched while the file is written.
+    dispatch_with_view_detached!(samples, py, |audio| {
+        match as_type {
+            Some(PySampleType::U8) => write_as!(audio, u8),
+            Some(PySampleType::I16) => write_as!(audio, i16),
+            Some(PySampleType::I24) => write_as!(audio, I24),
+            Some(PySampleType::I32) => write_as!(audio, i32),
+            Some(PySampleType::F32) => write_as!(audio, f32),
+            Some(PySampleType::F64) => write_as!(audio, f64),
+            None => write_native(fp, &audio, is_wav),
+        }
+    })
+    .map_err(audio_io_err_to_py)
+}
+
+/// Write `audio` in its own sample type. For WAV the samples go straight to the file, so the
+/// buffer only has to hold the header; a larger one would copy files smaller than it. 24-bit
+/// samples are written through the default buffer.
+fn write_native<T: StandardSample + 'static>(
+    fp: &str,
+    audio: &audio_samples::AudioSamples<'_, T>,
+    is_wav: bool,
+) -> Result<(), audio_samples_io::AudioIOError> {
+    let capacity = if is_wav && std::any::TypeId::of::<T>() != std::any::TypeId::of::<I24>() {
+        4096
+    } else {
+        WriteOptions::default().write_buf_capacity
+    };
+    audio_samples_io::write_with_options(
+        fp,
+        audio,
+        WriteOptions {
+            write_buf_capacity: capacity,
+        },
+    )
 }
 
 // =============================================================================
@@ -366,43 +363,11 @@ pub fn read_and_resample(
     let quality: ResamplingQuality = quality.map_or(ResamplingQuality::High, |q| q.inner);
     let as_type = as_type.unwrap_or(PySampleType::F32);
 
-    macro_rules! go {
-        ($T:ty) => {{
-            let signal: audio_samples::AudioSamples<'static, $T> =
-                audio_samples_io::read::<_, $T>(fp).map_err(audio_io_err_to_py)?;
-            let resampled = py
-                .detach(|| resample::<$T>(&signal, target, quality))
-                .map_err(audio_err_to_py)?;
-            Ok::<PyAudioSamples, pyo3::PyErr>(resampled_to_py(py, resampled))
-        }};
-    }
-    let result = match as_type {
-        PySampleType::U8 => go!(u8),
-        PySampleType::I16 => go!(i16),
-        PySampleType::I24 => go!(I24),
-        PySampleType::I32 => go!(i32),
-        PySampleType::F32 => go!(f32),
-        PySampleType::F64 => go!(f64),
-    };
-    result
-}
-
-/// Convert an owned `AudioSamples` into a `PyAudioSamples` (mono → 1-D, multi → 2-D).
-fn resampled_to_py<T>(
-    _py: Python<'_>,
-    audio: audio_samples::AudioSamples<'static, T>,
-) -> PyAudioSamples
-where
-    T: StandardSample + Element + 'static,
-{
-    let sample_rate = audio.sample_rate();
-    if audio.is_mono() {
-        let arr = audio.into_array1().expect("mono checked");
-        PyAudioSamples::new_mono(arr, sample_rate)
-    } else {
-        let arr = audio.into_array2().expect("multi checked");
-        PyAudioSamples::new_multi(arr, sample_rate)
-    }
+    // Read as `read` does (no second copy of the file), then resample without the GIL.
+    let audio = read_typed(py, fp, as_type)?;
+    dispatch_with_view_detached!(audio, py, |signal| resample(&signal, target, quality)
+        .map(PyAudioSamples::from_audio_samples))
+    .map_err(audio_err_to_py)
 }
 
 /// Peek at the native sample type of an audio file with minimal I/O.
