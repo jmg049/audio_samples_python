@@ -755,7 +755,9 @@ pub fn griffinlim<'py>(
             rng,
         )?;
         let view = s.view();
-        let y = py.detach(|| fx::griffinlim(view, &cfg)).map_err(audio_err_to_py)?;
+        let y = py
+            .detach(|| fx::griffinlim(view, &cfg))
+            .map_err(audio_err_to_py)?;
         Ok(rows_out(py, y, squeeze))
     })
 }

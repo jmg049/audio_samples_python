@@ -215,7 +215,9 @@ pub fn power_to_db<'py>(
     with_precision!(precision_of(S), |F| {
         let s = float_array_as::<F>(S, "S")?;
         let view = s.as_array();
-        let out = py.detach(|| spectrum::power_to_db(&view, &cfg)).map_err(audio_err_to_py)?;
+        let out = py
+            .detach(|| spectrum::power_to_db(&view, &cfg))
+            .map_err(audio_err_to_py)?;
         dyn_out(py, out, scalar)
     })
 }
