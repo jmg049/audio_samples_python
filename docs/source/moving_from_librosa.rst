@@ -27,14 +27,15 @@ Install it from source for now
    0.2.4 (checked 2026-11-04), which has no ``stft_matrix``, ``mfcc_frames``,
    ``spectral``, ``features``, ``rhythm``, ``effects`` or ``sequence``. That release has
    one wheel, CPython 3.12 on x86-64 Linux; on anything else pip tries to build the
-   source distribution. Until a release includes this API, build from two checkouts side
-   by side, which needs a Rust toolchain (1.87 or newer):
+   source distribution, which needs a Rust toolchain. Until a release includes this API,
+   build from two checkouts side by side that contain it. This was built with rustc 1.96.0:
 
 .. code-block:: bash
 
    git clone https://github.com/jmg049/audio_samples
    git clone https://github.com/jmg049/audio_samples_python
    cd audio_samples_python
+   python -m venv .venv && source .venv/bin/activate
    pip install maturin
    maturin develop --release
 
@@ -687,8 +688,8 @@ Batch processing a directory, with threads
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 File reads, ``to_mono``, ``resample`` and the analysis methods release the GIL, so a thread
-pool scales without the pickling and start-up of a process pool. librosa's load and
-numba-compiled and NumPy steps also run in threads. See the batch table under `Evidence`_.
+pool scales without the pickling and start-up of a process pool. librosa also speeds up with
+threads. See the batch table under `Evidence`_.
 ``tempo``'s estimate, a Python callable given as ``aggregate`` and ``StreamedAudioReader`` hold
 the GIL.
 
@@ -931,13 +932,13 @@ versions under `Evidence`_.
 
 **Availability.** The API described here is unreleased, and has only been run on x86-64
 Linux with CPython 3.13. The current PyPI release lacks it. There are no wheels for macOS or
-Windows, and no continuous integration on those platforms in the repository. librosa is pure
-Python with wheels for its compiled dependencies on all three.
+Windows, so those need a Rust toolchain, and none of this has been tried there. librosa is pure
+Python, and its compiled dependencies publish wheels for Linux, macOS and Windows.
 
-**Maturity and breadth.** ``audio_samples`` is at version 0.2.4, classified as beta. It has
-one main author. librosa has years of published use, a citation record, an example gallery
-and many answers online. If you need a result your field will recognise as "computed with
-librosa", that counts for more than speed.
+**Maturity and breadth.** ``audio_samples`` is at version 0.2.4, classified as beta, with one
+listed author. librosa is at 1.0.0, has a citation helper (``librosa.cite``), example data and
+plotting helpers. If you need a result your field will recognise as "computed with librosa", that
+counts for more than speed.
 
 **Install size of the wheel.** librosa's own wheel is pure Python, so it is smaller than this
 library's compiled one. The dependencies it pulls in are a different matter.
