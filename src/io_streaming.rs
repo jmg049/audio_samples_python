@@ -188,7 +188,9 @@ impl PyStreamedAudioReader {
     ///     ValueError: If the format is unsupported or the header is corrupt.
     #[new]
     #[pyo3(signature = (fp: "str | Path"))]
-    fn new(fp: &str) -> PyResult<Self> {
+    fn new(fp: std::path::PathBuf) -> PyResult<Self> {
+        let fp = fp.to_string_lossy();
+        let fp: &str = &fp;
         Self::open_path(fp)
     }
 
@@ -534,11 +536,13 @@ impl PyStreamedAudioWriter {
     #[new]
     #[pyo3(signature = (fp: "str | Path", channels: "int", sample_rate: "int", dtype: "SampleType" = None))]
     fn new(
-        fp: &str,
+        fp: std::path::PathBuf,
         channels: u16,
         sample_rate: u32,
         dtype: Option<PySampleType>,
     ) -> PyResult<Self> {
+        let fp = fp.to_string_lossy();
+        let fp: &str = &fp;
         let dtype = dtype.unwrap_or(PySampleType::F32);
         let path = Path::new(fp);
         let file = File::create(path).map_err(|e| audio_io_err_to_py(e.into()))?;
@@ -580,12 +584,14 @@ impl PyStreamedAudioWriter {
     #[staticmethod]
     #[pyo3(signature = (fp: "str | Path", channels: "int", sample_rate: "int", compression: "CompressionLevel" = None, dtype: "SampleType" = None))]
     fn create_flac(
-        fp: &str,
+        fp: std::path::PathBuf,
         channels: u16,
         sample_rate: u32,
         compression: Option<PyCompressionLevel>,
         dtype: Option<PySampleType>,
     ) -> PyResult<Self> {
+        let fp = fp.to_string_lossy();
+        let fp: &str = &fp;
         let dtype = dtype.unwrap_or(PySampleType::I16);
         let path = Path::new(fp);
         if audio_samples_io::types::FileType::from_path(path)
@@ -787,12 +793,14 @@ impl PyWavSink {
     #[new]
     #[pyo3(signature = (fp: "str | Path", channels: "int", sample_rate: "int", dtype: "SampleType" = None, total_frames: "int" = None))]
     fn new(
-        fp: &str,
+        fp: std::path::PathBuf,
         channels: u16,
         sample_rate: u32,
         dtype: Option<PySampleType>,
         total_frames: Option<usize>,
     ) -> PyResult<Self> {
+        let fp = fp.to_string_lossy();
+        let fp: &str = &fp;
         let dtype = dtype.unwrap_or(PySampleType::I16);
         let sample_type = match dtype {
             PySampleType::U8 => audio_samples_io::ValidatedSampleType::U8,

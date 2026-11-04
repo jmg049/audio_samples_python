@@ -159,8 +159,8 @@ pub(crate) enum Precision {
 }
 
 /// Precision a free function computes in for the array-like `obj`: [`Precision::F32`]
-/// for a numpy array of dtype `float32` or `complex64`, [`Precision::F64`] for
-/// everything else (other dtypes, lists and scalars are converted to `float64`).
+/// for a numpy array of dtype `float32` or `complex64` and for `float32` audio,
+/// [`Precision::F64`] for everything else (other dtypes, lists and scalars are converted to `float64`).
 pub(crate) fn precision_of(obj: &Bound<'_, PyAny>) -> Precision {
     let py = obj.py();
     if let Ok(arr) = obj.cast::<numpy::PyUntypedArray>() {
@@ -168,6 +168,11 @@ pub(crate) fn precision_of(obj: &Bound<'_, PyAny>) -> Precision {
         if dt.is_equiv_to(&numpy::dtype::<f32>(py))
             || dt.is_equiv_to(&numpy::dtype::<Complex<f32>>(py))
         {
+            return Precision::F32;
+        }
+    } else if let Ok(audio) = obj.cast::<crate::PyAudioSamples>() {
+        // Passed as an array: float32 audio keeps its precision.
+        if matches!(audio.borrow().inner(), crate::PyAudioDataInner::F32(_)) {
             return Precision::F32;
         }
     }

@@ -111,7 +111,9 @@ where
 ///     TypeError: If the file cannot be decoded (``AudioDecodeError``).
 #[pyfunction]
 #[pyo3(signature = (fp: "str|Path", as_type:"SampleType"=None))]
-pub fn read(py: Python<'_>, fp: &str, as_type: Option<PySampleType>) -> PyResult<PyAudioSamples> {
+pub fn read(py: Python<'_>, fp: std::path::PathBuf, as_type: Option<PySampleType>) -> PyResult<PyAudioSamples> {
+    let fp = fp.to_string_lossy();
+    let fp: &str = &fp;
     crate::ensure_file_exists(fp)?;
     // Fast path: no type conversion requested → single-pass (one open, one header parse, one read).
     // This eliminates the extra File::open + header parse that peek_native_type() would add.
@@ -142,9 +144,11 @@ pub fn read(py: Python<'_>, fp: &str, as_type: Option<PySampleType>) -> PyResult
 #[pyo3(signature = (fp: "str|Path", as_type: "SampleType" = None))]
 pub fn read_with_info(
     py: Python<'_>,
-    fp: &str,
+    fp: std::path::PathBuf,
     as_type: Option<Bound<'_, PyArrayDescr>>,
 ) -> PyResult<(PyAudioSamples, PyAudioInfo)> {
+    let fp = fp.to_string_lossy();
+    let fp: &str = &fp;
     crate::ensure_file_exists(fp)?;
     let info = audio_samples_io::info(fp)
         .map_err(|e| audio_read_err_to_py(e, fp, "Failed to get audio info"))?;
@@ -213,7 +217,9 @@ impl_py_repr!(PyAudioInfo);
 
 #[pyfunction]
 #[pyo3(signature = (fp: "str|Path"))]
-pub fn info(fp: &str) -> PyResult<PyAudioInfo> {
+pub fn info(fp: std::path::PathBuf) -> PyResult<PyAudioInfo> {
+    let fp = fp.to_string_lossy();
+    let fp: &str = &fp;
     crate::ensure_file_exists(fp)?;
     let info = audio_samples_io::info(fp)
         .map_err(|e| audio_read_err_to_py(e, fp, "Failed to get audio info"))?;
@@ -257,10 +263,12 @@ where
 #[pyo3(signature = (fp: "str|Path", samples: "AudioSamples", as_type: "SampleType" = None))]
 pub fn save(
     py: Python<'_>,
-    fp: &str,
+    fp: std::path::PathBuf,
     samples: &PyAudioSamples,
     as_type: Option<PySampleType>,
 ) -> PyResult<()> {
+    let fp = fp.to_string_lossy();
+    let fp: &str = &fp;
     // Check if this is a WAV file
     let is_wav = fp.to_lowercase().ends_with(".wav");
 
@@ -346,11 +354,13 @@ pub fn save(
 #[pyo3(signature = (fp: "str | Path", target_sr: "int", quality: "ResamplingQuality" = None, as_type: "SampleType" = None))]
 pub fn read_and_resample(
     py: Python<'_>,
-    fp: &str,
+    fp: std::path::PathBuf,
     target_sr: u32,
     quality: Option<crate::types::PyResamplingQuality>,
     as_type: Option<PySampleType>,
 ) -> PyResult<PyAudioSamples> {
+    let fp = fp.to_string_lossy();
+    let fp: &str = &fp;
     crate::ensure_file_exists(fp)?;
     let target = nzu32_or_err(target_sr)?;
     let quality: ResamplingQuality = quality.map_or(ResamplingQuality::High, |q| q.inner);
@@ -411,7 +421,9 @@ where
 ///     OSError: If the file cannot be opened.
 #[pyfunction]
 #[pyo3(signature = (fp: "str | Path"))]
-pub fn peek_native_type(fp: &str) -> PyResult<&'static str> {
+pub fn peek_native_type(fp: std::path::PathBuf) -> PyResult<&'static str> {
+    let fp = fp.to_string_lossy();
+    let fp: &str = &fp;
     crate::ensure_file_exists(fp)?;
     let validated = audio_samples_io::peek_native_type(fp).map_err(audio_io_err_to_py)?;
     let st: audio_samples::SampleType = validated.into();
@@ -815,11 +827,13 @@ impl_py_wrapper_core!(PyStreamInfo, StreamInfo);
 #[pyo3(signature = (fp: "str | Path", samples: "AudioSamples", options: "WriteOptions" = None, as_type: "SampleType" = None))]
 pub fn write_with_options(
     py: Python<'_>,
-    fp: &str,
+    fp: std::path::PathBuf,
     samples: &PyAudioSamples,
     options: Option<PyWriteOptions>,
     as_type: Option<PySampleType>,
 ) -> PyResult<()> {
+    let fp = fp.to_string_lossy();
+    let fp: &str = &fp;
     let opts = options.map_or_else(WriteOptions::default, |o| o.inner);
 
     macro_rules! write_as {
@@ -860,10 +874,12 @@ pub fn write_with_options(
 #[pyo3(signature = (fp: "str | Path", samples: "AudioSamples", metadata: "WavMetadata"))]
 pub fn write_with_metadata(
     py: Python<'_>,
-    fp: &str,
+    fp: std::path::PathBuf,
     samples: &PyAudioSamples,
     metadata: &PyWavMetadata,
 ) -> PyResult<()> {
+    let fp = fp.to_string_lossy();
+    let fp: &str = &fp;
     dispatch_with_view!(samples, py, |audio| {
         audio_samples_io::write_with_metadata(&fp, &audio, &metadata.inner)
             .map_err(audio_io_err_to_py)
@@ -887,7 +903,9 @@ pub fn write_with_metadata(
 ///     ValueError: If the file is not a WAV file or the chunk is malformed.
 #[pyfunction]
 #[pyo3(signature = (fp: "str | Path"))]
-pub fn read_wav_info_tags(fp: &str) -> PyResult<Option<PyInfoMetadata>> {
+pub fn read_wav_info_tags(fp: std::path::PathBuf) -> PyResult<Option<PyInfoMetadata>> {
+    let fp = fp.to_string_lossy();
+    let fp: &str = &fp;
     use audio_samples_io::traits::AudioFileMetadata;
     use audio_samples_io::wav::wav_file::WavFile;
     let path = std::path::Path::new(fp);
@@ -921,7 +939,9 @@ pub fn read_wav_info_tags(fp: &str) -> PyResult<Option<PyInfoMetadata>> {
 ///     ValueError: If the file is not a WAV file or the chunk is malformed.
 #[pyfunction]
 #[pyo3(signature = (fp: "str | Path"))]
-pub fn read_wav_cue_points(fp: &str) -> PyResult<Vec<PyCuePoint>> {
+pub fn read_wav_cue_points(fp: std::path::PathBuf) -> PyResult<Vec<PyCuePoint>> {
+    let fp = fp.to_string_lossy();
+    let fp: &str = &fp;
     use audio_samples_io::traits::AudioFileMetadata;
     use audio_samples_io::wav::wav_file::WavFile;
     let path = std::path::Path::new(fp);
@@ -959,7 +979,9 @@ pub fn read_wav_cue_points(fp: &str) -> PyResult<Vec<PyCuePoint>> {
 ///     ValueError: If the file is not a FLAC file.
 #[pyfunction]
 #[pyo3(signature = (fp: "str | Path"))]
-pub fn read_flac_stream_info(fp: &str) -> PyResult<PyStreamInfo> {
+pub fn read_flac_stream_info(fp: std::path::PathBuf) -> PyResult<PyStreamInfo> {
+    let fp = fp.to_string_lossy();
+    let fp: &str = &fp;
     use audio_samples_io::flac::FlacFile;
     use audio_samples_io::traits::AudioFileMetadata;
     let path = std::path::Path::new(fp);

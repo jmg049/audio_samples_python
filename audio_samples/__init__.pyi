@@ -2311,7 +2311,7 @@ class AudioSamples:
     @staticmethod
     def magphase(
         complex_spect: NDArray[np.complexfloating], power: Optional[int] = None
-    ) -> tuple[NDArray[np.float64], NDArray[np.complexfloating]]:
+    ) -> tuple[NDArray[np.floating], NDArray[np.complexfloating]]:
         """Decompose a complex spectrogram into magnitude and phase.
 
         Given a complex matrix ``D``, returns ``(magnitude, phase)`` such that

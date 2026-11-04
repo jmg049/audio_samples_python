@@ -607,3 +607,17 @@ def test_stream_native_type_is_the_file_data(tmp_path):
         # Asking for more than is left gives what is left, then None.
         assert r.read_frames(600, aus.SampleType.I16).to_numpy().shape == (2, 400)
         assert r.read_frames(600, aus.SampleType.I16) is None
+
+
+def test_paths_are_accepted_wherever_a_file_name_is(tmp_path):
+    p = tmp_path / "x.wav"
+    audio = aus.AudioSamples.new_mono(np.zeros(1000, dtype=np.float32), 8000)
+    aus.io.save(p, audio)
+    assert aus.io.read(p).samples_per_channel() == 1000
+    assert aus.io.info(p).sample_rate == 8000
+    assert aus.io.read_and_resample(p, 4000).sample_rate == 4000
+    assert aus.io.peek_native_type(p) == aus.io.peek_native_type(str(p))
+    with aus.io.StreamedAudioReader(p) as r:
+        assert r.total_frames == 1000
+    with pytest.raises(TypeError):
+        aus.io.read(3.5)

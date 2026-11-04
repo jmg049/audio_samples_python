@@ -453,17 +453,24 @@ impl PyAudioSamples {
     #[pyo3(signature = (complex_spect: "numpy.ndarray", power: "Optional[int]" = None))]
     fn magphase<'py>(
         py: Python<'py>,
-        complex_spect: PyReadonlyArray2<'py, Complex<f64>>,
+        complex_spect: &Bound<'py, PyAny>,
         power: Option<usize>,
-    ) -> PyResult<(
-        Bound<'py, PyArray2<f64>>,
-        Bound<'py, PyArray2<Complex<f64>>>,
-    )> {
+    ) -> PyResult<(Bound<'py, PyAny>, Bound<'py, PyAny>)> {
+        use audio_samples::operations::transforms::magphase;
         let power = power.map(nzu_or_err).transpose()?;
         // On the borrowed numpy data: no copy of the input.
-        let (mag, phase) =
-            audio_samples::operations::transforms::magphase(complex_spect.as_array(), power);
-        Ok((mag.into_pyarray(py), phase.into_pyarray(py)))
+        if let Ok(d) = complex_spect.extract::<PyReadonlyArray2<'py, Complex<f64>>>() {
+            let (mag, phase) = magphase(d.as_array(), power);
+            return Ok((mag.into_pyarray(py).into_any(), phase.into_pyarray(py).into_any()));
+        }
+        if let Ok(d) = complex_spect.extract::<PyReadonlyArray2<'py, Complex<f32>>>() {
+            let (mag, phase) = magphase(d.as_array(), power);
+            return Ok((mag.into_pyarray(py).into_any(), phase.into_pyarray(py).into_any()));
+        }
+        Err(pyo3::exceptions::PyTypeError::new_err(
+            "complex_spect: expected a 2-D complex64 or complex128 array \
+(index [0] for the first channel of stft_matrix)",
+        ))
     }
 }
 

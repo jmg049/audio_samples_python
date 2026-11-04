@@ -203,3 +203,27 @@ def test_mu_law_top_level():
     assert aus.mu_law_encode(0.0) == 0
     np.testing.assert_array_equal(aus.mu_law_encode([[-1.0, 1.0]]), [[-128, 127]])
     assert aus.mu_law_decode(0) == 0.0
+
+
+def test_magphase_accepts_complex64_and_complex128():
+    librosa = pytest.importorskip("librosa")
+    rng = np.random.default_rng(0)
+    d = (rng.standard_normal((16, 8)) + 1j * rng.standard_normal((16, 8))).astype(np.complex64)
+    d[0, 0] = 0
+    for matrix, real in ((d, np.float32), (d.astype(np.complex128), np.float64)):
+        mag, phase = aus.AudioSamples.magphase(matrix)
+        assert mag.dtype == real and phase.dtype == matrix.dtype
+        lm, lp = librosa.magphase(matrix)
+        assert np.allclose(mag, lm, rtol=1e-6) and np.allclose(phase, lp, rtol=1e-5)
+    with pytest.raises(TypeError, match="complex64 or complex128"):
+        aus.AudioSamples.magphase(np.zeros((4, 4)))
+    with pytest.raises(TypeError, match=r"index \[0\]"):
+        aus.AudioSamples.magphase(np.zeros((1, 4, 4), dtype=np.complex64))
+
+
+def test_free_functions_keep_the_precision_of_float32_audio():
+    y = np.random.default_rng(0).standard_normal(4096).astype(np.float32)
+    audio = aus.AudioSamples.new_mono(y, 22050)
+    assert aus.spectral.stft(audio).dtype == np.complex64
+    assert aus.spectral.stft(y).dtype == np.complex64
+    assert aus.spectral.stft(aus.AudioSamples.new_mono(y.astype(np.float64), 22050)).dtype == np.complex128
