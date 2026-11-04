@@ -4,9 +4,7 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
 import os
-import sys
 
-sys.path.insert(0, os.path.abspath("../.."))
 # -- Project information -----------------------------------------------------
 project = "AudioSamples Python"
 copyright = "2025, Jack Geraghty"
@@ -66,7 +64,6 @@ html_static_path = []
 html_theme_options = {
     "canonical_url": "",
     "logo_only": False,
-    "display_version": True,
     "prev_next_buttons_location": "bottom",
     "style_external_links": False,
     "style_nav_header_background": "#009E73",

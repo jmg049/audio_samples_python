@@ -12,7 +12,7 @@ Example Overview
 Examples of typical usage will be added here.
 
 Running Examples
----------------
+----------------
 
 All examples are designed to be self-contained and runnable. To execute them:
 
