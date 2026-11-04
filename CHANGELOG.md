@@ -11,6 +11,14 @@ has the full detail.
 
 ## [Unreleased]
 
+- **Free-threaded Python.** The module now states `gil_used = false` after an audit and
+  a ThreadSanitizer run; on `python3.14t` the GIL stays off. A read that meets a concurrent
+  `SosFilter.process_samples_in_place` on the same array raises `TypeError` instead of
+  a `PanicException`. See the "Threads and free-threaded Python" page.
+- **Example gallery.** The docs have a gallery by task (`docs/gallery`, built with
+  sphinx-gallery): each entry runs during the docs build, and a failure stops it.
+- `AudioSamples.apply_compressor` and `apply_limiter` stubs match the methods, which take a
+  config object.
 - **librosa parity.** A librosa 1.0-compatible API alongside the existing one:
   librosa-style methods on `AudioSamples` and the new submodules
   `audio_samples.spectral`, `features`, `sequence`, `rhythm` and `effects`.
