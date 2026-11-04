@@ -1,9 +1,9 @@
 use std::time::Duration;
 
 use audio_samples::I24;
-use audio_samples::utils::generation::ToneComponent;
+use audio_samples::utils::generation::{ExampleClip, ToneComponent};
 use non_empty_slice::NonEmptyVec;
-use numpy::{PyArrayDescr, PyArrayDescrMethods};
+use numpy::{PyArray1, PyArrayDescr, PyArrayDescrMethods};
 use pyo3::{
     exceptions::{PyTypeError, PyValueError},
     prelude::*,
@@ -181,6 +181,16 @@ pub fn generation(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     generation_mod.add_function(wrap_pyfunction!(stereo_chirp, &generation_mod)?)?;
     generation_mod.add_function(wrap_pyfunction!(stereo_silence, &generation_mod)?)?;
 
+    // Example clips
+    generation_mod.add_function(wrap_pyfunction!(example_clip, &generation_mod)?)?;
+    generation_mod.add_function(wrap_pyfunction!(example_clip_names, &generation_mod)?)?;
+    generation_mod.add_function(wrap_pyfunction!(example_speech_f0, &generation_mod)?)?;
+    generation_mod.add("EXAMPLE_TEMPO_BPM", audio_samples::utils::generation::EXAMPLE_TEMPO_BPM)?;
+    generation_mod.add(
+        "EXAMPLE_NOISY_SNR_DB",
+        audio_samples::utils::generation::EXAMPLE_NOISY_SNR_DB,
+    )?;
+
     reexport!(
         m,
         generation_mod,
@@ -209,6 +219,89 @@ pub fn generation(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     );
     m.add_submodule(&generation_mod)?;
     Ok(())
+}
+
+/// Render a named example clip of realistic audio.
+///
+/// The clip is synthesised on each call: nothing is stored or downloaded. The same arguments
+/// give the same samples on any platform, and a shorter clip is a prefix of a longer one.
+///
+/// ======================  ==================================================================
+/// Name                    Contents
+/// ======================  ==================================================================
+/// ``"chords"``            C, G, Am, F in equal temperament (A4 = 440 Hz), one chord per four
+///                         beats at ``EXAMPLE_TEMPO_BPM``, soft attacks
+/// ``"drum_loop"``         Kick on beats 1 and 3, snare on 2 and 4, hi-hat on every eighth
+///                         note at ``EXAMPLE_TEMPO_BPM``, first kick at time zero
+/// ``"chords_and_drums"``  ``0.5 * chords + 0.5 * drum_loop``
+/// ``"speech"``            Voiced speech-like signal with formants, following
+///                         ``example_speech_f0``; a 2.4 s phrase every 3 s, pauses between
+/// ``"noisy_recording"``   ``speech`` with low-passed noise and 50 Hz mains hum, at
+///                         ``EXAMPLE_NOISY_SNR_DB`` over the voiced parts
+/// ======================  ==================================================================
+///
+/// Args:
+///     name: The clip, one of the names above (see ``example_clip_names``)
+///     duration_secs: Duration in seconds (default: 8.0); the pattern repeats for as long as
+///         requested
+///     sample_rate: Sample rate in samples per second (default: 44100)
+///     dtype: Output sample type as a NumPy dtype, scalar type (``np.float64``)
+///         or string (``"float64"``). Default: float32
+///
+/// Returns:
+///     AudioSamples: Mono audio of the given sample type at the given sample rate
+///
+/// Raises:
+///     ValueError: Unknown name, or a duration that gives no samples
+#[pyfunction]
+#[pyo3(signature = (name, duration_secs=8.0, sample_rate=44100, dtype=None))]
+fn example_clip(
+    py: Python<'_>,
+    name: &str,
+    duration_secs: f64,
+    sample_rate: u32,
+    dtype: Option<Bound<'_, PyAny>>,
+) -> PyResult<PyAudioSamples> {
+    let clip = ExampleClip::from_name(name).ok_or_else(|| {
+        let names = ExampleClip::ALL.map(ExampleClip::name).join(", ");
+        PyValueError::new_err(format!("name: unknown example clip {name:?}; the clips are {names}"))
+    })?;
+    let sample_rate = nzu32_or_err(sample_rate)?;
+    if !duration_secs.is_finite() || duration_secs * f64::from(sample_rate.get()) < 1.0 {
+        return Err(PyValueError::new_err(format!(
+            "duration_secs: must give at least one sample at {sample_rate} Hz, got {duration_secs}"
+        )));
+    }
+    let duration = Duration::from_secs_f64(duration_secs);
+    dispatch_audio!(py, dtype, |T| {
+        let audio = audio_samples::example_clip::<T>(clip, duration, sample_rate);
+        Ok(PyAudioSamples::from_audio_samples(audio))
+    })
+}
+
+/// The names ``example_clip`` accepts.
+///
+/// Returns:
+///     list[str]: The clip names
+#[pyfunction]
+fn example_clip_names() -> Vec<&'static str> {
+    ExampleClip::ALL.map(ExampleClip::name).to_vec()
+}
+
+/// The F0 of the ``"speech"`` and ``"noisy_recording"`` clips at the given times.
+///
+/// Args:
+///     times: Times in seconds from the start of the clip
+///
+/// Returns:
+///     numpy.ndarray: F0 in Hz as 1-D float64, NaN during pauses
+#[pyfunction]
+fn example_speech_f0<'py>(py: Python<'py>, times: Vec<f64>) -> Bound<'py, PyArray1<f64>> {
+    let f0: Vec<f64> = times
+        .into_iter()
+        .map(|t| audio_samples::utils::generation::example_speech_f0(t).unwrap_or(f64::NAN))
+        .collect();
+    PyArray1::from_vec(py, f0)
 }
 
 /// Generate a sine wave audio signal.

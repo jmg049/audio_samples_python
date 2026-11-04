@@ -4,8 +4,15 @@ Type stubs for audio_python.generation - Audio signal generation functions.
 This module provides functions to generate various audio waveforms and noise types.
 """
 
-from typing import Optional, Any
-from . import AudioSamples
+from typing import Any, Literal, Optional, Sequence
+
+import numpy as np
+from numpy.typing import NDArray
+from typing_extensions import TypeAlias
+
+from audio_samples import AudioSamples
+
+_ExampleClipName: TypeAlias = Literal["chords", "drum_loop", "chords_and_drums", "speech", "noisy_recording"]
 
 def sine_wave(
     frequency: float,
@@ -175,6 +182,7 @@ def pink_noise(
     sample_rate: int = 44100,
     amplitude: float = 1.0,
     dtype: Optional[Any] = None,
+    seed: Optional[int] = None,
 ) -> AudioSamples:
     """
     Generate pink noise audio signal.
@@ -185,6 +193,8 @@ def pink_noise(
         amplitude: Peak amplitude of the noise (default: 1.0)
         dtype: Output sample type as a NumPy dtype, scalar type (``np.float64``)
             or string (``"float64"``). Default: float32
+
+        seed: Seed for reproducible noise; None uses entropy
 
     Returns:
         AudioSamples: Generated pink noise audio data
@@ -197,6 +207,7 @@ def brown_noise(
     step: float = 0.01,
     amplitude: float = 1.0,
     dtype: Optional[Any] = None,
+    seed: Optional[int] = None,
 ) -> AudioSamples:
     """
     Generate brown noise (Brownian/red noise) audio signal.
@@ -208,6 +219,8 @@ def brown_noise(
         amplitude: Peak amplitude of the noise (default: 1.0)
         dtype: Output sample type as a NumPy dtype, scalar type (``np.float64``)
             or string (``"float64"``). Default: float32
+
+        seed: Seed for reproducible noise; None uses entropy
 
     Returns:
         AudioSamples: Generated brown noise audio data
@@ -542,3 +555,98 @@ def stereo_silence(
         AudioSamples: Generated stereo silence audio data (2 channels)
     """
     ...
+
+EXAMPLE_TEMPO_BPM: float
+"""Tempo of the ``"chords"``, ``"drum_loop"`` and ``"chords_and_drums"`` clips in beats per minute."""
+
+EXAMPLE_NOISY_SNR_DB: float
+"""Signal-to-noise ratio of the ``"noisy_recording"`` clip in dB, over the voiced parts of the speech."""
+
+def example_clip(
+    name: _ExampleClipName,
+    duration_secs: float = 8.0,
+    sample_rate: int = 44100,
+    dtype: Optional[Any] = None,
+) -> AudioSamples:
+    """
+    Render a named example clip of realistic audio.
+
+    The clip is synthesised on each call: nothing is stored or downloaded. The same arguments
+    give the same samples on any platform, and a shorter clip is a prefix of a longer one.
+
+    - ``"chords"``: C, G, Am, F in equal temperament (A4 = 440 Hz), one chord per four beats at
+      ``EXAMPLE_TEMPO_BPM``, soft attacks.
+    - ``"drum_loop"``: kick on beats 1 and 3, snare on 2 and 4, hi-hat on every eighth note at
+      ``EXAMPLE_TEMPO_BPM``, first kick at time zero.
+    - ``"chords_and_drums"``: ``0.5 * chords + 0.5 * drum_loop``.
+    - ``"speech"``: voiced speech-like signal with formants, following ``example_speech_f0``;
+      a 2.4 s phrase every 3 s, pauses between.
+    - ``"noisy_recording"``: ``speech`` with low-passed noise and 50 Hz mains hum, at
+      ``EXAMPLE_NOISY_SNR_DB`` over the voiced parts.
+
+    Args:
+        name: The clip, one of the names above (see ``example_clip_names``)
+        duration_secs: Duration in seconds (default: 8.0); the pattern repeats for as long as
+            requested
+        sample_rate: Sample rate in samples per second (default: 44100)
+        dtype: Output sample type as a NumPy dtype, scalar type (``np.float64``)
+            or string (``"float64"``). Default: float32
+
+    Returns:
+        AudioSamples: Mono audio of the given sample type at the given sample rate
+
+    Raises:
+        ValueError: Unknown name, or a duration that gives no samples
+    """
+    ...
+
+def example_clip_names() -> list[str]:
+    """
+    The names ``example_clip`` accepts.
+
+    Returns:
+        list[str]: The clip names
+    """
+    ...
+
+def example_speech_f0(times: Sequence[float] | NDArray[np.floating]) -> NDArray[np.float64]:
+    """
+    The F0 of the ``"speech"`` and ``"noisy_recording"`` clips at the given times.
+
+    Args:
+        times: Times in seconds from the start of the clip
+
+    Returns:
+        numpy.ndarray: F0 in Hz as 1-D float64, NaN during pauses
+    """
+    ...
+
+__all__ = [
+    "EXAMPLE_NOISY_SNR_DB",
+    "EXAMPLE_TEMPO_BPM",
+    "am_signal",
+    "brown_noise",
+    "chirp",
+    "compound_tone",
+    "cosine_wave",
+    "example_clip",
+    "example_clip_names",
+    "example_speech_f0",
+    "exponential_bursts",
+    "exponential_chirp",
+    "fm_signal",
+    "impulse",
+    "pink_noise",
+    "sawtooth_wave",
+    "sawtooth_wave_bandlimited",
+    "silence",
+    "sine_wave",
+    "square_wave",
+    "square_wave_bandlimited",
+    "stereo_chirp",
+    "stereo_silence",
+    "stereo_sine_wave",
+    "triangle_wave",
+    "triangle_wave_bandlimited",
+    "white_noise",
+]

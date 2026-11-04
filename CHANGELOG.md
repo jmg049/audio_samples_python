@@ -11,6 +11,9 @@ has the full detail.
 
 ## [Unreleased]
 
+- **Example clips.** `generation.example_clip` renders named clips of music and speech with known
+  contents at any sample rate, duration and sample type. Nothing is stored or downloaded, and the same
+  arguments give the same bytes on any platform with IEEE 754 arithmetic.
 - **librosa parity.** A librosa 1.0-compatible API alongside the existing one:
   librosa-style methods on `AudioSamples` and the new submodules
   `audio_samples.spectral`, `features`, `sequence`, `rhythm` and `effects`.
