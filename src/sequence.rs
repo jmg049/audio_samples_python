@@ -185,11 +185,13 @@ pub fn dtw<'py>(
             (Some(x), Some(y), None) => {
                 let x = matrix::<F>(x, "X")?;
                 let y = matrix::<F>(y, "Y")?;
-                seq::dtw(x.view(), y.view(), &cfg)
+                let (xv, yv) = (x.view(), y.view());
+                py.detach(|| seq::dtw(xv, yv, &cfg))
             }
             (_, _, Some(c)) => {
                 let c = matrix2::<F>(c, "C")?;
-                seq::dtw_with_cost(c.view(), &cfg)
+                let cv = c.view();
+                py.detach(|| seq::dtw_with_cost(cv, &cfg))
             }
             _ => unreachable!("argument combination checked above"),
         }

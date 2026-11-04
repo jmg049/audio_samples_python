@@ -4,7 +4,7 @@ use numpy::PyArrayDescrMethods;
 use pyo3::{exceptions::PyValueError, prelude::*, types::PyList};
 
 use crate::{
-    PyAudioDataInner, PyAudioSamples, audio_err_to_py, dispatch_with_view, dispatch_with_view_mut,
+    PyAudioDataInner, PyAudioSamples, audio_err_to_py, dispatch_with_view, dispatch_with_view_detached, dispatch_with_view_mut,
     types::{PyMonoConversionMethod, PyStereoConversionMethod},
 };
 
@@ -22,12 +22,11 @@ impl PyAudioSamples {
     /// Raises:
     ///     AudioError: If channel conversion fails.
     fn to_mono(&self, py: Python<'_>, method: Option<PyMonoConversionMethod>) -> PyResult<Self> {
-        dispatch_with_view!(self, py, |audio| {
-            audio
-                .to_mono(method.unwrap_or_default().inner)
-                .map_err(audio_err_to_py)
-                .map(Self::from_audio_samples)
-        })
+        let method = method.unwrap_or_default().inner;
+        dispatch_with_view_detached!(self, py, |audio| audio
+            .to_mono(method)
+            .map(Self::from_audio_samples))
+        .map_err(audio_err_to_py)
     }
 
     #[pyo3(signature = (method: "StereoConversionMethod" = PyStereoConversionMethod::default()))]

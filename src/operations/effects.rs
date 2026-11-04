@@ -418,7 +418,7 @@ impl PyAudioSamples {
         aggregate: Option<&Bound<'py, PyAny>>,
     ) -> PyResult<(Self, Bound<'py, PyArray1<i64>>)> {
         let cfg = silence_config(py, top_db, r#ref, frame_length, hop_length, aggregate)?;
-        let (audio, bounds) = dispatch_with_view!(self, py, |audio| audio
+        let (audio, bounds) = dispatch_with_view_detached!(self, py, |audio| audio
             .trim_db(&cfg)
             .map(|(a, b)| (Self::from_audio_samples(a), b)))
         .map_err(|e| {
@@ -474,7 +474,7 @@ impl PyAudioSamples {
     ) -> PyResult<Bound<'py, PyArray2<i64>>> {
         let cfg = silence_config(py, top_db, r#ref, frame_length, hop_length, aggregate)?;
         let iv =
-            dispatch_with_view!(self, py, |audio| audio.split_db(&cfg)).map_err(audio_err_to_py)?;
+            dispatch_with_view_detached!(self, py, |audio| audio.split_db(&cfg)).map_err(audio_err_to_py)?;
         let flat: Vec<i64> = iv.iter().flat_map(|&(a, b)| [a as i64, b as i64]).collect();
         Ok(Array2::from_shape_vec((iv.len(), 2), flat)
             .expect("two values per interval")

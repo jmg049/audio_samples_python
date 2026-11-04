@@ -7,7 +7,7 @@ use pyo3::{exceptions::PyValueError, prelude::*, types::IntoPyDict};
 use pyo3::types::PyAnyMethods;
 
 use crate::{
-    PyAudioSamples, audio_err_to_py, dispatch_with_view,
+    PyAudioSamples, audio_err_to_py, dispatch_with_view, dispatch_with_view_detached,
     types::{PyNormalizationMethod, PyResamplingQuality},
 };
 
@@ -305,13 +305,11 @@ impl PyAudioSamples {
                     "target_sample_rate: must be a positive integer, got {target_sample_rate}"
                 ))
             })?;
-        let quality = quality.0;
-        dispatch_with_view!(self, py, |audio| {
-            let resampled = audio
-                .resample(target_sample_rate, *quality)
-                .map_err(audio_err_to_py)?;
-            return Ok(PyAudioSamples::from_audio_samples(resampled));
-        })
+        let quality = *quality.0;
+        dispatch_with_view_detached!(self, py, |audio| audio
+            .resample(target_sample_rate, quality)
+            .map(PyAudioSamples::from_audio_samples))
+        .map_err(audio_err_to_py)
     }
 
     /// Resample the audio by a ratio of sample rates.

@@ -224,6 +224,12 @@ impl PyAudioSamples {
             htk,
             norm,
         )?;
+        if agg.callable().is_none() {
+            // Pure Rust: the GIL is released. A Python callable needs it.
+            return dispatch_typed_detached!(self, py, |audio| audio.onset_strength(&cfg), |r| r
+                .map_err(audio_err_to_py)
+                .map(|env| env.into_pyarray(py).into_any()));
+        }
         let scope = CallbackScope::install(agg.callable(), None, py);
         dispatch_typed!(self, py, |audio| audio.onset_strength(&cfg), |r| scope
             .finish(r)
