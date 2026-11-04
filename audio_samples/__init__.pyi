@@ -1620,23 +1620,11 @@ class AudioSamples:
         ...
 
     # Dynamic range processing (in-place)
-    def apply_compressor(
-        self,
-        threshold_db: float,
-        ratio: float,
-        attack_ms: float,
-        release_ms: float,
-        makeup_gain_db: float,
-    ) -> None:
+    def apply_compressor(self, compressor_config: CompressorConfig) -> None:
         """Apply compression (in-place)."""
         ...
 
-    def apply_limiter(
-        self,
-        ceiling_db: float,
-        release_ms: float,
-        lookahead_ms: float,
-    ) -> None:
+    def apply_limiter(self, config: LimiterConfig) -> None:
         """Apply limiting (in-place)."""
         ...
 
