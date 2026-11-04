@@ -4,7 +4,7 @@
 
 ## Fast, simple, and expressive audio processing and IO in Python
 
-<img src="logo.png" title="AudioSamples Logo -- Ferrous' Mustachioed Cousin From East Berlin, Eisenhaltig" width="200"/>
+<img src="https://raw.githubusercontent.com/jmg049/audio_samples_python/main/logo.png" title="AudioSamples Logo -- Ferrous' Mustachioed Cousin From East Berlin, Eisenhaltig" width="200"/>
 
 [![PyPI][pypi-img]][pypi] [![Docs][docs-img]][docs] [![License: MIT][license-img]][license]
 </div>
@@ -144,7 +144,7 @@ S_db = aus.spectral.power_to_db(S, ref=np.max, top_db=80.0)  # librosa.power_to_
 tempo, beats = y.beat_track(units="time", trim=True)         # librosa.beat.beat_track(y=y, sr=sr, units="time")
 ```
 
-The [librosa migration guide](docs/source/librosa_migration.rst) maps every librosa function to its equivalent and lists every difference.
+The [librosa migration guide](https://github.com/jmg049/audio_samples_python/blob/main/docs/source/librosa_migration.rst) maps every librosa function to its equivalent and lists every difference.
 
 ## Learning guide
 
@@ -398,7 +398,7 @@ want to keep the original array unchanged.
 
 ## Changelog
 
-See [CHANGELOG.md](CHANGELOG.md) for the changes in each release.
+See [CHANGELOG.md](https://github.com/jmg049/audio_samples_python/blob/main/CHANGELOG.md) for the changes in each release.
 
 ## License
 
@@ -412,7 +412,7 @@ Contributions are welcome. This package is part of the AudioSamples family of cr
 - [`audio_samples_io`](https://github.com/jmg049/audio_samples_io) - Audio I/O for Rust
 - [`audio_samples_python`](https://github.com/jmg049/audio_samples_python) - This package
 
-Read [Contributing](CONTRIBUTING.md) for more details.
+Read [Contributing](https://github.com/jmg049/audio_samples_python/blob/main/CONTRIBUTING.md) for more details.
 
 ## Citing
 

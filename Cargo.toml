@@ -19,7 +19,6 @@ include = [
     "*.pyi",
     "audio_samples/*.pyi",
     "audio_samples/py.typed",
-    "logo.png",
 ]
 
 [lib]

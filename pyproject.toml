@@ -88,7 +88,6 @@ include = [
     "*.pyi",
     "audio_samples/*.pyi",
     "audio_samples/py.typed",
-    "logo.png",
     { path = "CHANGELOG.md", format = "sdist" },
 ]
 exclude = ["tests/*", "examples/*", "benches/*", "docs/*"]
