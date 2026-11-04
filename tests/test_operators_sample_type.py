@@ -6,6 +6,9 @@ operator gives the same result as its binary form, also when the operand is the 
 
 from __future__ import annotations
 
+import subprocess
+import sys
+
 import numpy as np
 import pytest
 
@@ -239,3 +242,8 @@ def test_incompatible_operands_raise_rather_than_panic(operator):
         getattr(x.copy(), operator)(aus.generation.sine_wave(100.0, 0.1, 8000))
     with pytest.raises(ValueError):
         getattr(x.copy(), operator)(aus.generation.sine_wave(100.0, 0.05, 16000))
+
+
+def test_import_does_not_load_the_arithmetic_helper():
+    code = "import sys, audio_samples; assert 'audio_samples._arith' not in sys.modules; assert 'numpy' not in sys.modules"
+    subprocess.run([sys.executable, "-c", code], check=True)
