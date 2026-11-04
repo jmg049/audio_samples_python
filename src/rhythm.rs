@@ -49,8 +49,8 @@ use crate::audio_err_to_py;
 // The Rust configs take `fn` pointers (`Aggregate::Custom(fn(&[f64]) -> f64)`,
 // `TempoLogPrior(fn(f64) -> f64)`), which cannot capture a Python object. The
 // binding stores the callable in a thread-local slot for the duration of one
-// call (the GIL is held throughout and the Rust code does not spawn threads)
-// and passes trampolines that call it. The first Python exception raised by a
+// call (the Rust code runs the callbacks on the calling thread, so calls on other
+// threads have their own slots) and passes trampolines that call it. The first Python exception raised by a
 // callback is kept and re-raised when the call returns.
 
 thread_local! {
@@ -332,12 +332,16 @@ pub(crate) fn vec1<'a, F: FloatElement>(
     obj: &'a Bound<'_, PyAny>,
     name: &str,
 ) -> PyResult<std::borrow::Cow<'a, [F]>> {
-    use numpy::PyArrayMethods;
+    // A free-threaded build copies, under a borrow: the slice would outlive any
+    // borrow taken here, and another thread could then write the array.
+    #[cfg(not(Py_GIL_DISABLED))]
     if let Ok(arr) = obj.cast::<numpy::PyArray1<F>>() {
+        use numpy::PyArrayMethods;
         // Fails if Rust code holds a mutable borrow of the array.
         drop(arr.try_readonly()?);
         // SAFETY: the slice borrows `obj`, which keeps the array alive; no
-        // Rust code holds a mutable borrow of it (checked above).
+        // Rust code holds a mutable borrow of it (checked above, and the only
+        // such borrow is taken with the GIL held).
         if let Ok(slice) = unsafe { arr.as_slice() } {
             return Ok(std::borrow::Cow::Borrowed(slice));
         }

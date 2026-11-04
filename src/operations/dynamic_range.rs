@@ -220,7 +220,7 @@ impl PyAudioSamples {
         config: PyCompressorConfig,
         input_levels_db: &Bound<'py, PyArray1<f64>>,
     ) -> PyResult<Bound<'py, PyArray1<f64>>> {
-        let levels = input_levels_db.readonly().as_array().to_vec();
+        let levels = input_levels_db.try_readonly()?.as_array().to_vec();
         let levels = NonEmptySlice::new(&levels)
             .ok_or_else(|| PyValueError::new_err("input_levels_db must be non-empty"))?;
         let curve = dispatch_with_view!(self, py, |audio| {

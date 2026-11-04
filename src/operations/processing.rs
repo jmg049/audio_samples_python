@@ -365,7 +365,7 @@ impl PyAudioSamples {
     #[pyo3(signature = (window: "np.typing.NDArray[np.floating]"))]
     pub fn apply_window(&self, py: Python<'_>, window: &Bound<'_, PyAny>) -> PyResult<Self> {
         let window = as_f64_vector(py, window, "window")?;
-        let window_data = window.readonly().as_array().to_owned();
+        let window_data = window.try_readonly()?.as_array().to_owned();
         if window_data.len() != self.len(py) {
             return Err(PyValueError::new_err(format!(
                 "Window length {} does not match audio length {}",
@@ -430,7 +430,7 @@ impl PyAudioSamples {
     #[pyo3(signature = (coefficients: "np.typing.NDArray[np.floating]"))]
     pub fn apply_filter(&self, py: Python<'_>, coefficients: &Bound<'_, PyAny>) -> PyResult<Self> {
         let coefficients = as_f64_vector(py, coefficients, "coefficients")?;
-        let coeffs = coefficients.readonly().as_array().to_vec();
+        let coeffs = coefficients.try_readonly()?.as_array().to_vec();
         if coeffs.is_empty() {
             return Err(PyValueError::new_err(
                 "apply_filter requires at least one filter coefficient",

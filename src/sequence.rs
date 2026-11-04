@@ -245,10 +245,10 @@ pub fn dtw_backtracking<'py>(
     // librosa's int32 (or an int64) step matrix is read in place: backtracking
     // only visits the cells on the path.
     let path = if let Ok(a) = steps.cast::<numpy::PyArray2<i32>>() {
-        let r = a.readonly();
+        let r = a.try_readonly()?;
         seq::dtw_backtracking(r.as_array(), custom.as_deref(), subseq, start)
     } else if let Ok(a) = steps.cast::<numpy::PyArray2<i64>>() {
-        let r = a.readonly();
+        let r = a.try_readonly()?;
         seq::dtw_backtracking(r.as_array(), custom.as_deref(), subseq, start)
     } else {
         crate::args::with_i64_view(steps, "steps", |v| {
@@ -917,7 +917,7 @@ pub fn recurrence_to_lag<'py>(
     let is_bool = is_bool_array(rec)?;
     if is_bool && let Ok(a) = rec.cast::<numpy::PyArray2<bool>>() {
         // Boolean input is sheared as bool (the kernel only moves elements).
-        let r = a.readonly();
+        let r = a.try_readonly()?;
         let lag = shear_rows(r.as_array(), rows_are_time, |m| {
             seq::recurrence_to_lag(m, pad)
         })?;
@@ -963,7 +963,7 @@ pub fn lag_to_recurrence<'py>(
     let is_bool = is_bool_array(lag)?;
     if is_bool && let Ok(a) = lag.cast::<numpy::PyArray2<bool>>() {
         // Boolean input is sheared as bool (the kernel only moves elements).
-        let r = a.readonly();
+        let r = a.try_readonly()?;
         let rec = shear_rows(r.as_array(), rows_are_time, seq::lag_to_recurrence)?;
         return Ok(c_order(rec).into_pyarray(py).into_any());
     }

@@ -896,7 +896,7 @@ impl PySosFilter {
     #[staticmethod]
     #[pyo3(signature = (sos: "np.typing.NDArray[np.float64]", sample_rate: "float"))]
     fn from_sos(sos: &Bound<'_, PyArray2<f64>>, sample_rate: f64) -> PyResult<Self> {
-        let arr = sos.readonly();
+        let arr = sos.try_readonly()?;
         let view = arr.as_array();
         if view.ncols() != 6 {
             return Err(PyValueError::new_err(format!(
@@ -941,7 +941,7 @@ impl PySosFilter {
         py: Python<'py>,
         samples: &Bound<'py, PyArray1<f64>>,
     ) -> PyResult<Bound<'py, PyArray1<f64>>> {
-        let mut buf = samples.readonly().as_array().to_vec();
+        let mut buf = samples.try_readonly()?.as_array().to_vec();
         self.inner
             .filtfilt_in_place(&mut buf)
             .map_err(audio_err_to_py)?;
@@ -977,10 +977,10 @@ impl PySosFilter {
         &mut self,
         py: Python<'py>,
         samples: &Bound<'py, PyArray1<f64>>,
-    ) -> Bound<'py, PyArray1<f64>> {
-        let input = samples.readonly().as_array().to_vec();
+    ) -> PyResult<Bound<'py, PyArray1<f64>>> {
+        let input = samples.try_readonly()?.as_array().to_vec();
         let output = self.inner.process_samples(&input);
-        output.into_pyarray(py)
+        Ok(output.into_pyarray(py))
     }
 
     /// Process an array of samples in place.
@@ -1041,14 +1041,15 @@ impl PySosFilter {
     ///     Magnitude and phase (radians) arrays, each the same length as
     ///     ``frequencies``.
     #[pyo3(signature = (frequencies: "np.typing.NDArray[np.float64]"))]
+    #[allow(clippy::type_complexity)]
     fn frequency_response<'py>(
         &self,
         py: Python<'py>,
         frequencies: &Bound<'py, PyArray1<f64>>,
-    ) -> (Bound<'py, PyArray1<f64>>, Bound<'py, PyArray1<f64>>) {
-        let freqs = frequencies.readonly().as_array().to_vec();
+    ) -> PyResult<(Bound<'py, PyArray1<f64>>, Bound<'py, PyArray1<f64>>)> {
+        let freqs = frequencies.try_readonly()?.as_array().to_vec();
         let (mag, phase) = self.inner.frequency_response(&freqs, self.sample_rate);
-        (mag.into_pyarray(py), phase.into_pyarray(py))
+        Ok((mag.into_pyarray(py), phase.into_pyarray(py)))
     }
 }
 

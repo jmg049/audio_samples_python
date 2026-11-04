@@ -699,7 +699,10 @@ pub(crate) fn audio_read_err_to_py(e: AudioIOError, path: &str, context: &str) -
     }
 }
 
-#[pymodule(name = "audio_samples")]
+// Marked as not needing the GIL: every cache is per thread or behind a lock,
+// `tests/test_threads.py` checks concurrent use, and docs/source/free_threading.rst
+// states what callers must not do.
+#[pymodule(name = "audio_samples", gil_used = false)]
 fn audio_samples_python(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Exception hierarchy (audio_samples.exceptions), re-exported at top level.
     let exceptions_mod = exceptions_module(py)?;

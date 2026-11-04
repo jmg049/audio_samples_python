@@ -167,6 +167,7 @@ pub fn key_to_notes<'py>(
 ) -> PyResult<Bound<'py, pyo3::types::PyList>> {
     use pyo3::types::{PyList, PySequenceMethods, PyString, PyTuple};
     use std::collections::HashMap;
+    use pyo3::sync::MutexExt;
     use std::sync::{LazyLock, Mutex, PoisonError};
     // The 12 names come from a static table. Each table's Python strings are
     // made once and kept in a tuple; a call returns a new list copied from
@@ -175,7 +176,7 @@ pub fn key_to_notes<'py>(
     let names = audio_math::key_to_notes_static(key, unicode, natural).map_err(audio_err_to_py)?;
     let id = std::ptr::from_ref(names) as usize;
     let cached = TUPLES
-        .lock()
+        .lock_py_attached(py)
         .unwrap_or_else(PoisonError::into_inner)
         .get(&id)
         .map(|t| t.clone_ref(py));
@@ -184,7 +185,7 @@ pub fn key_to_notes<'py>(
         None => {
             let t = PyTuple::new(py, names.iter().map(|n| PyString::intern(py, n)))?;
             TUPLES
-                .lock()
+                .lock_py_attached(py)
                 .unwrap_or_else(PoisonError::into_inner)
                 .entry(id)
                 .or_insert_with(|| t.clone().unbind());

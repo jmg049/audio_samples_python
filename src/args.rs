@@ -288,7 +288,7 @@ pub(crate) fn float_array_as<'py, F: FloatElement>(
     name: &str,
 ) -> PyResult<PyReadonlyArrayDyn<'py, F>> {
     if let Ok(arr) = obj.cast::<PyArrayDyn<F>>() {
-        return Ok(arr.readonly());
+        return Ok(arr.try_readonly()?);
     }
     let py = obj.py();
     let complex_err = || {
@@ -321,7 +321,7 @@ pub(crate) fn float_array_as<'py, F: FloatElement>(
             .map_err(|e| conv_err(&e))?
     };
     let arr = arr.cast_into::<PyArrayDyn<F>>().map_err(|e| conv_err(&e))?;
-    Ok(arr.readonly())
+    Ok(arr.try_readonly()?)
 }
 
 /// Converts an array-like to a read-only complex array of element type
@@ -337,7 +337,7 @@ where
     Complex<F>: numpy::Element,
 {
     if let Ok(arr) = obj.cast::<PyArrayDyn<Complex<F>>>() {
-        return Ok(arr.readonly());
+        return Ok(arr.try_readonly()?);
     }
     let py = obj.py();
     let conv_err = |e: &dyn std::fmt::Display| {
@@ -358,25 +358,31 @@ where
     let arr = arr
         .cast_into::<PyArrayDyn<Complex<F>>>()
         .map_err(|e| conv_err(&e))?;
-    Ok(arr.readonly())
+    Ok(arr.try_readonly()?)
 }
 
 /// An array argument as a `CowArray` borrowing `obj`'s data when it is a
 /// NumPy array of element type `E` (no copy), or an owned copy of the
 /// converted array (`convert`) otherwise. The borrowed view lives as long as
 /// `obj`.
+///
+/// On a free-threaded build the result is always a copy, made under a
+/// rust-numpy borrow: another thread can start writing the array as soon as a
+/// borrow is released, and this function's result outlives any borrow it takes.
 pub(crate) fn array_cow<'a, 'py, E: numpy::Element + Clone>(
     obj: &'a Bound<'py, PyAny>,
     convert: impl FnOnce(&Bound<'py, PyAny>) -> PyResult<PyReadonlyArrayDyn<'py, E>>,
 ) -> PyResult<ndarray::CowArray<'a, E, ndarray::IxDyn>> {
+    #[cfg(not(Py_GIL_DISABLED))]
     if let Ok(arr) = obj.cast::<PyArrayDyn<E>>() {
         // Fails if Rust code holds a mutable borrow of the array; the read-only
         // borrow is released at once and the data viewed in place.
         drop(arr.try_readonly()?);
         // SAFETY: the array lives as long as `obj` (which the view borrows),
-        // and no Rust code holds a mutable borrow of it (checked above). As
-        // with the read-only borrows used elsewhere, Python code is not
-        // expected to modify the array while the call runs.
+        // and no Rust code holds a mutable borrow of it (checked above, and the
+        // only such borrow is taken with the GIL held). As with the read-only
+        // borrows used elsewhere, Python code is not expected to modify the
+        // array while the call runs.
         return Ok(ndarray::CowArray::from(unsafe { arr.as_array() }));
     }
     Ok(ndarray::CowArray::from(convert(obj)?.as_array().to_owned()))
@@ -384,17 +390,22 @@ pub(crate) fn array_cow<'a, 'py, E: numpy::Element + Clone>(
 
 /// Runs `f` on a view of [`float_array_as`]`(obj)`.
 ///
-/// A NumPy array that already has element type `F` is viewed in place
-/// without taking a rust-numpy borrow: each borrow allocates an entry in
+/// With the GIL, a NumPy array that already has element type `F` is viewed in
+/// place without taking a rust-numpy borrow: each borrow allocates an entry in
 /// rust-numpy's borrow table (about 180 bytes), which for a small conversion
 /// is a large part of the call's memory. No binding holds a mutable borrow of
 /// an argument while it calls back into Python, so none can be active when a
-/// binding starts. Other inputs are converted as by [`float_array_as`].
+/// binding starts.
+///
+/// On a free-threaded build a mutable borrow can be active on another thread,
+/// so `f` runs under a real borrow, and the call raises `TypeError` if the array
+/// is being written. Other inputs are converted as by [`float_array_as`].
 pub(crate) fn with_float_view<F: FloatElement, R>(
     obj: &Bound<'_, PyAny>,
     name: &str,
     f: impl FnOnce(ndarray::ArrayViewD<'_, F>) -> PyResult<R>,
 ) -> PyResult<R> {
+    #[cfg(not(Py_GIL_DISABLED))]
     if let Ok(arr) = obj.cast::<PyArrayDyn<F>>() {
         // SAFETY: the array lives as long as `obj`, which outlives `f`; no Rust
         // code holds a mutable borrow of it (see above), and `f` does not run
@@ -507,8 +518,11 @@ pub(crate) fn with_i64_view<R>(
     f: impl FnOnce(ndarray::ArrayViewD<'_, i64>) -> PyResult<R>,
 ) -> PyResult<R> {
     if let Ok(arr) = obj.cast::<PyArrayDyn<i64>>() {
+        #[cfg(Py_GIL_DISABLED)]
+        return f(arr.try_readonly()?.as_array());
         // SAFETY: as in `with_float_view` (viewed without a rust-numpy
         // borrow); the array lives as long as `obj`, which outlives `f`.
+        #[cfg(not(Py_GIL_DISABLED))]
         return f(unsafe { arr.as_array() });
     }
     if let Ok(a) = obj.cast::<numpy::PyUntypedArray>() {
