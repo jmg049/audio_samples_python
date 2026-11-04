@@ -30,6 +30,25 @@ def scalar_to_samples(value: float, sample_type: str, dtype: np.dtype) -> np.nda
     return np.asarray(np.clip(np.rint(scaled), low, high), dtype=dtype)
 
 
+def with_raw_integer(samples: np.ndarray, value: int, operation: str, sample_type: str) -> np.ndarray:
+    """``samples + value``, ``samples - value`` or, for ``rsub``, ``value - samples``.
+
+    ``value`` is in the stored units of the sample type, ``u8`` offset included. An int too large
+    for the sample type saturates the result, so it is first limited to what can reach the limits.
+    """
+    low, high = (int(limit) for limit in _LIMITS[sample_type])
+    reach = 2 * (high - low)
+    value = max(-reach, min(reach, int(value)))
+    wide = samples.astype(np.int64)
+    if operation == "add":
+        result = wide + value
+    elif operation == "sub":
+        result = wide - value
+    else:
+        result = value - wide
+    return np.clip(result, low, high).astype(samples.dtype)
+
+
 def apply(samples: np.ndarray, other, operation: str, sample_type: str) -> np.ndarray:
     """``samples <operation> other``, with the dtype of ``samples``."""
     function = _OPERATIONS[operation]

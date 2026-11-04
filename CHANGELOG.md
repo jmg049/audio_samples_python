@@ -15,8 +15,11 @@ has the full detail.
   float64 for integer audio, `/=` changed the sample type of the audio it was applied to, and an array of another dtype did the
   same for `+`, `-` and `*`. All of them now keep the sample type of the audio on the left, and audio of another sample
   type is converted to it (this panicked before). Integer results saturate instead of wrapping, `u8` audio respects
-  its offset, and an integer divided by zero gives the limit with its sign. A scalar is in the floating-point range, so
-  `audio + 1.0` on integer audio adds full scale, on either side of the `+`.
+  its offset, and an integer divided by zero gives the limit with its sign. On integer audio a float scalar is in the
+  floating-point range, so `audio + 1.0` adds full scale, while an int or NumPy integer scalar is a raw sample value, the
+  stored value for `u8`, so `audio + 1` adds one step; this holds on either side of the operator, and an int too large
+  for the type saturates. `*` and `/` are gains, so `audio * 2` equals `audio * 2.0`. On float audio an int is the same
+  number as the float. A bool scalar raises `TypeError`.
 - **Type stubs are checked and precise.** `mypy.stubtest`, mypy and pyright run in pre-commit and in CI. `AudioSamples`
   is generic in its sample type (`AudioSamples[numpy.float32]` also works at run time), and overloads give the dtype of
   analysis results from the sample type or the input array, the bool results of `pyin`, `recurrence_matrix` and

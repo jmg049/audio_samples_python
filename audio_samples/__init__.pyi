@@ -155,6 +155,8 @@ __version__: str
 _S = TypeVar("_S", bound=np.generic)
 #: The sample type of an AudioSamples. Unknown (Any) for audio read from a file and for int24 audio,
 #: which has no NumPy dtype.
+#: A scalar operand. A bool is an int to a type checker but raises TypeError at run time.
+_Scalar: TypeAlias = float | np.integer | np.floating
 _S_co = TypeVar("_S_co", bound=np.generic, covariant=True, default=Any)
 #: Sample types whose analysis results are float32 / complex64.
 _SingleSample: TypeAlias = np.uint8 | np.int16 | np.float32
@@ -5132,12 +5134,16 @@ class AudioSamples(Generic[_S_co]):
         """
 
     # Arithmetic operators
-    def __add__(self, other: AudioSamples | NDArray[Any] | float, /) -> Self:
+    def __add__(self, other: AudioSamples | NDArray[Any] | _Scalar, /) -> Self:
         """Add AudioSamples with another AudioSamples, numpy array, or scalar.
 
         The result has this audio's sample type. Integer results saturate at the type's limits.
-        A scalar is in the floating-point range, where 1.0 is full scale; a NumPy array holds raw
-        sample values; other audio of another sample type is converted to this one first.
+        On integer audio a float scalar is in the floating-point range, where 1.0 is full scale,
+        and an int or NumPy integer scalar is a raw sample value, the stored value for u8, so
+        ``audio + 1`` on int16 adds one step. ``*`` and ``/`` are gains, so ``audio * 2`` equals
+        ``audio * 2.0``. On float audio an int is the same number as the float. A NumPy array
+        holds raw sample values, and audio of another sample type is converted to this one first.
+        A bool scalar raises ``TypeError``.
 
         Raises:
             AudioParameterError: (a ``ValueError``) if two AudioSamples have
@@ -5146,15 +5152,15 @@ class AudioSamples(Generic[_S_co]):
         """
         ...
 
-    def __sub__(self, other: AudioSamples | NDArray[Any] | float, /) -> Self:
+    def __sub__(self, other: AudioSamples | NDArray[Any] | _Scalar, /) -> Self:
         """Subtract AudioSamples, numpy array, or scalar from AudioSamples."""
         ...
 
-    def __mul__(self, other: NDArray[Any] | float | AudioSamples, /) -> Self:
+    def __mul__(self, other: AudioSamples | NDArray[Any] | _Scalar, /) -> Self:
         """Multiply AudioSamples by a numpy array or scalar."""
         ...
 
-    def __truediv__(self, other: AudioSamples | NDArray[Any] | float, /) -> Self:
+    def __truediv__(self, other: AudioSamples | NDArray[Any] | _Scalar, /) -> Self:
         """Divide AudioSamples element-wise by another AudioSamples (same sample
         rate and length), a numpy array, or a scalar."""
         ...
@@ -5164,15 +5170,15 @@ class AudioSamples(Generic[_S_co]):
         ...
 
     # Reverse arithmetic operators (for scalar on left side)
-    def __radd__(self, scalar: float, /) -> Self:
+    def __radd__(self, scalar: _Scalar, /) -> Self:
         """Add scalar to AudioSamples (scalar + audio)."""
         ...
 
-    def __rmul__(self, scalar: float, /) -> Self:
+    def __rmul__(self, scalar: _Scalar, /) -> Self:
         """Multiply scalar with AudioSamples (scalar * audio)."""
         ...
 
-    def __rsub__(self, scalar: float, /) -> Self:
+    def __rsub__(self, scalar: _Scalar, /) -> Self:
         """Subtract AudioSamples from scalar (scalar - audio)."""
         ...
 
@@ -5181,19 +5187,19 @@ class AudioSamples(Generic[_S_co]):
         ...
 
     # In-place arithmetic operators
-    def __iadd__(self, other: AudioSamples | NDArray[Any] | float, /) -> Self:
+    def __iadd__(self, other: AudioSamples | NDArray[Any] | _Scalar, /) -> Self:
         """In-place addition with AudioSamples, numpy array, or scalar."""
         ...
 
-    def __isub__(self, other: AudioSamples | NDArray[Any] | float, /) -> Self:
+    def __isub__(self, other: AudioSamples | NDArray[Any] | _Scalar, /) -> Self:
         """In-place subtraction with AudioSamples, numpy array, or scalar."""
         ...
 
-    def __imul__(self, other: AudioSamples | NDArray[Any] | float, /) -> Self:
+    def __imul__(self, other: AudioSamples | NDArray[Any] | _Scalar, /) -> Self:
         """In-place multiplication with AudioSamples, numpy array, or scalar."""
         ...
 
-    def __itruediv__(self, other: AudioSamples | NDArray[Any] | float, /) -> Self:
+    def __itruediv__(self, other: AudioSamples | NDArray[Any] | _Scalar, /) -> Self:
         """In-place division by AudioSamples, numpy array, or scalar."""
         ...
 

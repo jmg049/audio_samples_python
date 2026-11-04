@@ -180,6 +180,11 @@ CASES += [
     ("(1.0 + i16).to_numpy()", "int16"),
     ("(i16 / i16).to_numpy()", "int16"),
     ("(1.0 - i16).to_numpy()", "int16"),
+    ("(1 + i16).to_numpy()", "int16"),
+    ("(i16 + 1).to_numpy()", "int16"),
+    ("(i16 + np.int16(1)).to_numpy()", "int16"),
+    ("(1 - i32).to_numpy()", "int32"),
+    ("(f32 * 2).to_numpy()", "float32"),
     ("f32.harmonic_percussive()[0].to_numpy()", "float32"),
 ]
 

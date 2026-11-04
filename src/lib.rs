@@ -45,7 +45,7 @@ use numpy::{
 };
 use pyo3::IntoPyObjectExt;
 use pyo3::exceptions::{PyTypeError, PyValueError};
-use pyo3::types::{PyAnyMethods, PyDict, PyInt, PyList, PyTuple};
+use pyo3::types::{PyAnyMethods, PyBool, PyDict, PyFloat, PyInt, PyList, PyTuple};
 use std::num::{NonZeroU32, NonZeroUsize};
 use std::ops::{Add, Mul, Sub};
 use std::{any::TypeId, fmt::Display};
@@ -1324,9 +1324,17 @@ impl PyAudioSamples {
     }
 
     /// `self <operation> other` for the operators, in-place ones included. The result has this
-    /// audio's sample type and integer results saturate. `other` is audio (converted to this
-    /// sample type if it differs), a number in the floating-point range (1.0 is full scale) or a
-    /// NumPy array of raw sample values.
+    /// audio's sample type and integer results saturate. `other` is one of:
+    ///
+    /// - audio, converted to this sample type if it differs;
+    /// - a float scalar, in the floating-point range (1.0 is full scale);
+    /// - an integer scalar. `+` and `-` on integer audio take it as a raw sample value, and the
+    ///   gains `*` and `/` take it as the same number as the float. On float audio it is that
+    ///   number for every operator;
+    /// - a NumPy array of raw sample values.
+    ///
+    /// A bool scalar raises `TypeError`: it is almost always a mistake, and neither reading of
+    /// `audio + True` is obvious.
     fn arithmetic(
         &self,
         py: Python<'_>,
@@ -1340,8 +1348,20 @@ impl PyAudioSamples {
                 Err(_) => self.arithmetic_with_audio(py, self, operation),
             };
         }
-        if let Ok(scalar) = other.extract::<f64>() {
-            return self.arithmetic_with_scalar(py, scalar, operation);
+        match classify_scalar(other)? {
+            Some(Scalar::Integer(value)) => {
+                return if self.is_float_samples()
+                    || matches!(operation, Arithmetic::Mul | Arithmetic::Div)
+                {
+                    self.arithmetic_with_scalar(py, integer_as_f64(&value)?, operation)
+                } else {
+                    self.arithmetic_with_integer(py, &value, operation.name())
+                };
+            }
+            Some(Scalar::Float(value)) => {
+                return self.arithmetic_with_scalar(py, value, operation);
+            }
+            None => {}
         }
         if let Ok(numpy_array) = other.cast::<PyUntypedArray>() {
             return self.arithmetic_with_array(py, numpy_array.as_any(), operation);
@@ -1350,6 +1370,20 @@ impl PyAudioSamples {
             "AudioSamples can only be {} another AudioSamples, a numeric scalar, or numpy array",
             operation.phrase()
         )))
+    }
+
+    /// `+`, `-` or reflected `-` of integer audio with a raw sample value.
+    fn arithmetic_with_integer(
+        &self,
+        py: Python<'_>,
+        value: &Bound<'_, PyAny>,
+        operation: &str,
+    ) -> PyResult<Self> {
+        let result = py
+            .import("audio_samples._arith")?
+            .getattr("with_raw_integer")?
+            .call1((self.to_numpy(py)?, value, operation, self.dtype_py()))?;
+        self.audio_from_samples(py, &result)
     }
 
     fn arithmetic_with_audio(
@@ -1426,12 +1460,17 @@ impl PyAudioSamples {
             .import("audio_samples._arith")?
             .getattr("apply")?
             .call1((self.to_numpy(py)?, other, operation.name(), self.dtype_py()))?;
-        let result = result.cast::<PyUntypedArray>()?.clone();
+        self.audio_from_samples(py, &result)
+    }
+
+    /// Audio with this audio's sample rate, layout and sample type, from an array of samples.
+    fn audio_from_samples(&self, py: Python<'_>, samples: &Bound<'_, PyAny>) -> PyResult<Self> {
+        let samples = samples.cast::<PyUntypedArray>()?.clone();
         let sample_rate = self.sample_rate(py);
         let audio = if self.channels(py) == 1 {
-            Self::py_new_mono(py, result, sample_rate)?
+            Self::py_new_mono(py, samples, sample_rate)?
         } else {
-            Self::py_new_multi(py, result, sample_rate)?
+            Self::py_new_multi(py, samples, sample_rate)?
         };
         // 24-bit samples travel through NumPy as int32.
         Ok(if self.dtype_py() == audio.dtype_py() {
@@ -2476,24 +2515,31 @@ impl PyAudioSamples {
     }
 
     // Reverse operations for scalar operands on the left
-    fn __radd__(&self, py: Python<'_>, scalar: f64) -> PyResult<Self> {
+    fn __radd__(&self, py: Python<'_>, scalar: &Bound<'_, PyAny>) -> PyResult<Self> {
         // scalar + audio is the same as audio + scalar
-        let scalar_bound = scalar.into_pyobject(py)?;
-        self.__add__(py, &scalar_bound)
+        self.__add__(py, scalar)
     }
 
-    fn __rmul__(&self, py: Python<'_>, scalar: f64) -> PyResult<Self> {
+    fn __rmul__(&self, py: Python<'_>, scalar: &Bound<'_, PyAny>) -> PyResult<Self> {
         // scalar * audio is the same as audio * scalar
-        let scalar_bound = scalar.into_pyobject(py)?;
-        self.__mul__(py, &scalar_bound)
+        self.__mul__(py, scalar)
     }
 
-    fn __rsub__(&self, py: Python<'_>, scalar: f64) -> PyResult<Self> {
-        // scalar - audio = -(audio - scalar) = -audio + scalar
-        let neg_one = (-1.0f64).into_pyobject(py)?;
-        let negated = self.__mul__(py, &neg_one)?;
-        let scalar_bound = scalar.into_pyobject(py)?;
-        negated.__add__(py, &scalar_bound)
+    fn __rsub__(&self, py: Python<'_>, scalar: &Bound<'_, PyAny>) -> PyResult<Self> {
+        match classify_scalar(scalar)? {
+            Some(Scalar::Integer(value)) if !self.is_float_samples() => {
+                self.arithmetic_with_integer(py, &value, "rsub")
+            }
+            Some(_) => {
+                // scalar - audio = -(audio - scalar) = -audio + scalar
+                let neg_one = (-1.0f64).into_pyobject(py)?;
+                let negated = self.__mul__(py, &neg_one)?;
+                negated.__add__(py, scalar)
+            }
+            None => Err(PyTypeError::new_err(
+                "only a numeric scalar can have AudioSamples subtracted from it",
+            )),
+        }
     }
 
     fn __rtruediv__(&self, _py: Python<'_>, _scalar: f64) -> PyResult<Self> {
@@ -3471,6 +3517,57 @@ it needs at least one sample per channel",
 
 /// Raise `AudioParameterError` (a `ValueError`) when two buffers combined in
 /// one operation have different sample rates.
+/// A scalar operand of an arithmetic operator.
+enum Scalar<'py> {
+    /// A Python int or NumPy integer scalar, as a Python int.
+    Integer(Bound<'py, PyAny>),
+    /// A Python float or NumPy float scalar.
+    Float(f64),
+}
+
+/// Sorts a scalar operand from anything else, which gives `None`. A bool raises `TypeError`.
+fn classify_scalar<'py>(value: &Bound<'py, PyAny>) -> PyResult<Option<Scalar<'py>>> {
+    if let Ok(float) = value.cast::<PyFloat>() {
+        return Ok(Some(Scalar::Float(float.value())));
+    }
+    if is_bool_scalar(value)? {
+        return Err(PyTypeError::new_err(
+            "AudioSamples arithmetic does not take a bool; use an int or a float",
+        ));
+    }
+    // Python ints and NumPy integer scalars. An integer array other than a 0-d one raises here.
+    if let Ok(index) = value.call_method0("__index__") {
+        return Ok(Some(Scalar::Integer(index)));
+    }
+    Ok(value.extract::<f64>().ok().map(Scalar::Float))
+}
+
+/// A Python bool, a NumPy bool scalar or a 0-d bool array.
+fn is_bool_scalar(value: &Bound<'_, PyAny>) -> PyResult<bool> {
+    if value.is_instance_of::<PyBool>() {
+        return Ok(true);
+    }
+    let Ok(dtype) = value.getattr("dtype") else {
+        return Ok(false);
+    };
+    Ok(dtype
+        .getattr("kind")
+        .is_ok_and(|kind| kind.eq("b").unwrap_or(false))
+        && value.getattr("ndim")?.extract::<usize>()? == 0)
+}
+
+/// An int as an `f64`. One beyond the range of `f64` becomes the largest `f64` with its sign, so a
+/// gain or an offset that large saturates like any other.
+fn integer_as_f64(value: &Bound<'_, PyAny>) -> PyResult<f64> {
+    Ok(value.extract::<f64>().unwrap_or_else(|_| {
+        if value.lt(0).unwrap_or(false) {
+            f64::MIN
+        } else {
+            f64::MAX
+        }
+    }))
+}
+
 /// The element-wise operators.
 #[derive(Clone, Copy)]
 enum Arithmetic {
