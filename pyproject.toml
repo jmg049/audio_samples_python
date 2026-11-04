@@ -163,6 +163,7 @@ test = [
     "soundfile>=0.13.1",
     "mypy>=1.18",
     "pyright>=1.1.400",
+    "pre-commit>=4",
 ]
 
 [tool.pyright]
