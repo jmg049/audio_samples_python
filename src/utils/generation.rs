@@ -185,7 +185,10 @@ pub fn generation(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     generation_mod.add_function(wrap_pyfunction!(example_clip, &generation_mod)?)?;
     generation_mod.add_function(wrap_pyfunction!(example_clip_names, &generation_mod)?)?;
     generation_mod.add_function(wrap_pyfunction!(example_speech_f0, &generation_mod)?)?;
-    generation_mod.add("EXAMPLE_TEMPO_BPM", audio_samples::utils::generation::EXAMPLE_TEMPO_BPM)?;
+    generation_mod.add(
+        "EXAMPLE_TEMPO_BPM",
+        audio_samples::utils::generation::EXAMPLE_TEMPO_BPM,
+    )?;
     generation_mod.add(
         "EXAMPLE_NOISY_SNR_DB",
         audio_samples::utils::generation::EXAMPLE_NOISY_SNR_DB,
@@ -264,7 +267,9 @@ fn example_clip(
 ) -> PyResult<PyAudioSamples> {
     let clip = ExampleClip::from_name(name).ok_or_else(|| {
         let names = ExampleClip::ALL.map(ExampleClip::name).join(", ");
-        PyValueError::new_err(format!("name: unknown example clip {name:?}; the clips are {names}"))
+        PyValueError::new_err(format!(
+            "name: unknown example clip {name:?}; the clips are {names}"
+        ))
     })?;
     let sample_rate = nzu32_or_err(sample_rate)?;
     if !duration_secs.is_finite() || duration_secs * f64::from(sample_rate.get()) < 1.0 {
