@@ -115,8 +115,8 @@ and failures inside a computation ``RuntimeError``.
 computations (STFT, CQT, features, pitch tracking, onset envelopes, beat tracking,
 effects, DTW) run without the GIL, so several Python threads can analyse different
 signals in parallel. Exceptions that hold it: a Python callable given as ``aggregate``
-or ``prior``, ``tempo``'s tempo estimate (not its onset envelope),
-``StreamedAudioReader`` and ``save``.
+or ``prior``, ``tempo``'s tempo estimate (not its onset envelope) and
+``StreamedAudioReader``.
 
 **Older methods keep their behaviour.** Where a librosa name clashed with an
 existing method, the librosa-compatible version takes a new name and the old

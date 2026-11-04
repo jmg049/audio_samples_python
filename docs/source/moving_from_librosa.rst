@@ -561,8 +561,8 @@ Batch processing a directory, with threads
 File reads, ``to_mono``, ``resample`` and the analysis methods release the GIL, so a thread
 pool scales without the pickling and start-up of a process pool. librosa's load and
 numba-compiled and NumPy steps also run in threads. See the batch table under `Evidence`_.
-``tempo``'s estimate, a Python callable given as ``aggregate``, ``save`` and
-``StreamedAudioReader`` hold the GIL.
+``tempo``'s estimate, a Python callable given as ``aggregate`` and ``StreamedAudioReader`` hold
+the GIL.
 
 .. code-block:: python
 
@@ -817,8 +817,11 @@ library's compiled one. The dependencies it pulls in are a different matter.
 @@FOOTPRINT@@
 
 **File formats and sources.** WAV and FLAC only: no MP3, Ogg Vorbis, Opus or AIFF, and no file
-objects. ``librosa.load`` takes all of these. The workaround is under `Other file formats`_. Its
-decoder dispatches on content; ``io.save`` of float64 audio to WAV writes float32.
+objects. ``librosa.load`` takes all of these. The workaround is under `Other file formats`_.
+
+**One silent type change.** ``io.save`` of float64 audio to a ``.wav`` file writes float32, also
+with ``as_type=SampleType.F64``. It is the one place this library changes a sample type without
+being asked. To keep float64 samples on disk, use another format or ``soundfile.write``.
 
 **Functions with no equivalent:**
 
