@@ -12,12 +12,15 @@
 #   - the Python versions are in one place (the `config` job). Adding a
 #     free-threaded build is one entry there, for example "3.14t".
 #
-# Run it without publishing: Actions > Wheels > Run workflow. A manual run never
-# reaches the publish job.
+# Run it without publishing: Actions > Wheels > Run workflow, or push a branch
+# named wheels-test (a manual run needs this file on the default branch; a push
+# does not). Neither reaches the publish job.
 name: Wheels
 
 on:
   push:
+    branches:
+      - wheels-test
     tags:
       - "v*"
   workflow_dispatch:
