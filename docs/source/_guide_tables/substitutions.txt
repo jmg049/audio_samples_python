@@ -1,5 +1,5 @@
 .. |overall| replace:: median time ratio 0.30 (90th percentile 0.64, worst 0.995), median memory ratio 0.38 (worst 1.00)
-.. |loadcounts| replace:: time 90 lower, 2 higher; peak allocation 88 lower, 0 equal, 4 higher; peak resident growth 35 lower, 2 equal, 1 higher
+.. |loadcounts| replace:: time 91 lower, 1 higher; peak allocation 88 lower, 0 equal, 4 higher; peak resident growth 35 lower, 2 equal, 1 higher
 .. |wavmem| replace:: 302 of 304
 .. |rows| replace:: 1157
 .. |cases| replace:: 176
