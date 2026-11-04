@@ -1,0 +1,39 @@
+.. list-table::
+   :header-rows: 1
+   :widths: 20 14 11 11 11 11 11
+
+   * - 16 files of 60 s
+     - Library
+     - 1 thread
+     - 2 threads
+     - 4 threads
+     - 8 threads
+     - 16 threads
+   * - WAV
+     - librosa
+     - 1138
+     - 632
+     - 436
+     - 354
+     - 296
+   * - WAV
+     - ours
+     - 272
+     - 161
+     - 112
+     - 99
+     - 102
+   * - FLAC
+     - librosa
+     - 1642
+     - 916
+     - 541
+     - 370
+     - 357
+   * - FLAC
+     - ours
+     - 724
+     - 388
+     - 213
+     - 135
+     - 119

@@ -1,0 +1,123 @@
+.. list-table::
+   :header-rows: 1
+   :widths: 40 8 10 10 8 12 12
+
+   * - Work (60 s, stereo, 16-bit, 44100 Hz)
+     - File
+     - Ours ms
+     - librosa ms
+     - Ratio
+     - Ours peak
+     - librosa peak
+   * - Whole file as float32
+     - WAV
+     - 2.9
+     - 7.5
+     - 0.39
+     - 20.2 MB
+     - 20.2 MB
+   * - Whole file as float32
+     - FLAC
+     - 30.2
+     - 34.5
+     - 0.88
+     - 20.3 MB
+     - 20.3 MB
+   * - Whole file as int16
+     - WAV
+     - 0.411
+     - 0.67
+     - 0.61
+     - 10.1 MB
+     - 10.1 MB
+   * - Whole file as int16
+     - FLAC
+     - 29.3
+     - 33.9
+     - 0.86
+     - 10.2 MB
+     - 10.2 MB
+   * - Mono float32
+     - WAV
+     - 6.06
+     - 40
+     - 0.15
+     - 30.3 MB
+     - 40.5 MB
+   * - Mono float32
+     - FLAC
+     - 31.7
+     - 66.6
+     - 0.48
+     - 30.3 MB
+     - 40.5 MB
+   * - Mono float32 at 22050 Hz
+     - WAV
+     - 8.16
+     - 51.7
+     - 0.16
+     - 30.3 MB
+     - 40.5 MB
+   * - Mono float32 at 22050 Hz
+     - FLAC
+     - 34.3
+     - 80.1
+     - 0.43
+     - 30.3 MB
+     - 40.5 MB
+   * - Stereo float32 at 22050 Hz
+     - WAV
+     - 11.7
+     - 32.2
+     - 0.36
+     - 40.4 MB
+     - 51.1 MB
+   * - Stereo float32 at 22050 Hz
+     - FLAC
+     - 35
+     - 57.8
+     - 0.60
+     - 30.3 MB
+     - 51.1 MB
+   * - 2 s from 5 s in
+     - WAV
+     - 0.0788
+     - 0.237
+     - 0.33
+     - 697 KB
+     - 700 KB
+   * - 2 s from 5 s in
+     - FLAC
+     - 1.08
+     - 1.37
+     - 0.79
+     - 794 KB
+     - 1.3 MB
+   * - Stream, overlapping blocks
+     - WAV
+     - 2.45
+     - 10.7
+     - 0.23
+     - 2.0 MB
+     - 7.0 MB
+   * - Stream, overlapping blocks
+     - FLAC
+     - 30
+     - 41.8
+     - 0.72
+     - 2.1 MB
+     - 7.6 MB
+   * - Stream, 4096 frames
+     - WAV
+     - 3.03
+     - 11.9
+     - 0.26
+     - 72 KB
+     - 236 KB
+   * - Stream, 4096 frames
+     - FLAC
+     - 30.1
+     - 40.7
+     - 0.74
+     - 152 KB
+     - 828 KB

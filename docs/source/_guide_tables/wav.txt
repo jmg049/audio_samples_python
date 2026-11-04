@@ -1,0 +1,52 @@
+.. list-table::
+   :header-rows: 1
+   :widths: 30 14 10 14 16 16
+
+   * - Against
+     - Operation
+     - Rows
+     - Ours slower
+     - Median ratio
+     - Worst ratio
+   * - ``librosa`` (``load``)
+     - read
+     - 48
+     - 2
+     - 0.92
+     - 1.004
+   * - ``soundfile``
+     - read
+     - 48
+     - 2
+     - 0.92
+     - 1.007
+   * - ``soundfile``
+     - write
+     - 48
+     - 2
+     - 0.86
+     - 1.005
+   * - ``scipy``
+     - read
+     - 48
+     - 4
+     - 0.97
+     - 1.009
+   * - ``scipy``
+     - write
+     - 48
+     - 7
+     - 0.98
+     - 1.021
+   * - ``wave``
+     - read
+     - 32
+     - 0
+     - 0.96
+     - 0.993
+   * - ``wave``
+     - write
+     - 32
+     - 7
+     - 0.96
+     - 1.059

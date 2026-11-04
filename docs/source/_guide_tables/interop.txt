@@ -1,0 +1,18 @@
+.. list-table::
+   :header-rows: 1
+   :widths: 70 30
+
+   * - Operation
+     - Microseconds (median)
+   * - new_mono (wrap a NumPy array)
+     - 0.155
+   * - new_multi (wrap a NumPy array)
+     - 0.183
+   * - to_numpy, audio wrapping a NumPy array
+     - 0.057
+   * - numpy.asarray, audio wrapping a NumPy array
+     - 0.539
+   * - to_numpy, audio made by a method (copy)
+     - 134.91
+   * - numpy.asarray, audio made by a method
+     - 0.499

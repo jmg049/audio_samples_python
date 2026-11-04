@@ -1,0 +1,16 @@
+.. list-table::
+   :header-rows: 1
+   :widths: 50 25 25
+
+   * - 
+     - Ours
+     - librosa 1.0.0
+   * - Own wheel
+     - 7.9 MB
+     - 0.3 MB
+   * - Fresh environment, with dependencies
+     - 90 MB
+     - 486 MB
+   * - Packages installed
+     - 2
+     - 26

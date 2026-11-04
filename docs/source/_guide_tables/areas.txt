@@ -1,0 +1,81 @@
+.. list-table::
+   :header-rows: 1
+   :widths: 34 8 10 10 12 12 10
+
+   * - Area
+     - Rows
+     - Time, median
+     - Time, worst
+     - Native time, median
+     - Memory, median
+     - Memory, worst
+   * - STFT, dB, mel, MFCC, windows
+     - 113
+     - 0.40
+     - 1.00
+     - 0.39
+     - 0.53
+     - 1.00
+   * - Spectral features
+     - 166
+     - 0.32
+     - 0.86
+     - 0.31
+     - 0.22
+     - 0.67
+   * - Chroma, tuning
+     - 56
+     - 0.26
+     - 0.80
+     - 0.26
+     - 0.41
+     - 0.42
+   * - Constant-Q
+     - 143
+     - 0.30
+     - 0.86
+     - 0.30
+     - 0.42
+     - 0.94
+   * - YIN, pYIN, harmonics
+     - 36
+     - 0.24
+     - 0.65
+     - 0.24
+     - 0.12
+     - 0.92
+   * - Onsets, tempo, beats
+     - 190
+     - 0.27
+     - 0.86
+     - 0.27
+     - 0.32
+     - 0.87
+   * - Effects, HPSS, resampling
+     - 356
+     - 0.40
+     - 0.96
+     - 0.41
+     - 0.50
+     - 1.00
+   * - DTW, Viterbi, recurrence
+     - 70
+     - 0.10
+     - 0.96
+     - 0.09
+     - 0.60
+     - 1.00
+   * - Unit conversions
+     - 27
+     - 0.29
+     - 0.73
+     - 0.31
+     - 0.50
+     - 1.00
+   * - **All rows**
+     - 1157
+     - 0.30
+     - 1.00
+     - 0.30
+     - 0.38
+     - 1.00

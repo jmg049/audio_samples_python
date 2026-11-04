@@ -1,0 +1,44 @@
+.. list-table::
+   :header-rows: 1
+   :widths: 46 10 14 10 14
+
+   * - Measure
+     - Rows
+     - Ours lower
+     - Equal
+     - Ours higher
+   * - Time through Python, one core
+     - 1157
+     - 1157
+     - 0
+     - 0
+   * - Time, native Rust, one core
+     - 1157
+     - 1157
+     - 0
+     - 0
+   * - Time through Python, default threading
+     - 326
+     - 321
+     - 0
+     - 5
+   * - Time, native Rust, default threading
+     - 326
+     - 326
+     - 0
+     - 0
+   * - Peak allocation per call through Python
+     - 1157
+     - 1123
+     - 34
+     - 0
+   * - Peak allocation per call, native
+     - 1157
+     - 1123
+     - 34
+     - 0
+   * - Peak resident growth per call
+     - 461
+     - 437
+     - 24
+     - 0

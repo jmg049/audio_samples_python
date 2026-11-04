@@ -1,3 +1,5 @@
+.. include:: _guide_tables/substitutions.txt
+
 Moving from librosa
 ===================
 
@@ -46,7 +48,7 @@ Evidence
 --------
 
 Every comparison below gives both libraries' numbers: "ours" is ``audio_samples``, "librosa" is
-librosa. All of it was measured on @@WHEN@@ on one machine, so treat absolute times as that
+librosa. All of it was measured on |when| on one machine, so treat absolute times as that
 machine's, and the ratios as what to expect, not as a promise for yours. A ratio is ours divided by
 librosa: below 1 means ours is faster or smaller.
 
@@ -59,7 +61,7 @@ librosa: below 1 means ours is faster or smaller.
      - librosa 1.0.0, CPython 3.13.11, NumPy 2.5.3, SciPy 1.18.1, soxr 1.1.0, soundfile 0.14.0
        (libsndfile 1.2.2), numba 0.68.0
    * - Our side
-     - ``audio_samples`` commit @@RUST@@, bindings commit @@PY@@, with ``audio_samples_io`` 0.3.3 and
+     - ``audio_samples`` commit |rust|, bindings commit |py|, with ``audio_samples_io`` 0.3.3 and
        the fixes in the bindings' ``vendor/`` directory, rustc 1.96.0, release build with thin LTO
 
 **Method.** Each case calls one librosa function and its equivalent on the same samples. Single-core
@@ -96,22 +98,22 @@ Whole benchmark
 Every librosa function with an equivalent here: 176 cases, several inputs each (1, 10 and 60 s, 16000
 and 22050 Hz, float32 and float64, mono and stereo).
 
-@@COUNTS@@
+.. include:: _guide_tables/counts.txt
 
-Over all rows: @@OVERALL@@. "Equal" rows allocate the same single array on both sides (a matrix, a
+Over all rows: |overall|. "Equal" rows allocate the same single array on both sides (a matrix, a
 view of the input, a table from NumPy's small-block cache), so there is nothing left to take out. The
 ratios by area, ours / librosa, one core:
 
-@@AREAS@@
+.. include:: _guide_tables/areas.txt
 
 Common functions on 10 s of mono float32 at 22050 Hz, one core:
 
-@@COMMON@@
+.. include:: _guide_tables/common.txt
 
 The weakest rows by time. They are functions where both sides do one allocation and a copy, or the
 resampler at float64:
 
-@@WEAK@@
+.. include:: _guide_tables/weak.txt
 
 Reading files
 ~~~~~~~~~~~~~
@@ -119,10 +121,10 @@ Reading files
 ``librosa.load`` and ``librosa.stream`` against the read path, with the same work on both sides. One
 core; ``read`` and ``load`` stand for ``aus.io.read`` and ``librosa.load``:
 
-@@LOAD@@
+.. include:: _guide_tables/load.txt
 
 Over all 91 rows (WAV 16-bit, 24-bit and float; FLAC 16-bit and 24-bit; 10, 60 and 600 s; also float64,
-header-only and mono streams): @@LOADCOUNTS@@. Each library's plain default is different work: on the
+header-only and mono streams): |loadcounts|. Each library's plain default is different work: on the
 60 s WAV ``aus.io.read(p)`` returns the 16-bit stereo samples, and ``librosa.load(p)`` also mixes down,
 converts and resamples.
 
@@ -132,7 +134,7 @@ article `Working with WAV files <https://jmgsoftware.org/writing/working-with-wa
 this code with ``librosa.load`` added; the article's figures are from May 2026 and from older code.
 Files are on tmpfs, so this measures the libraries, not a disk.
 
-@@WAV@@
+.. include:: _guide_tables/wav.txt
 
 The rows above 1 are long files, where almost all the time is the kernel's copy, and are at most a few
 percent apart.
@@ -143,17 +145,17 @@ Start-up
 librosa loads its submodules on first use, then compiles numba functions and imports SciPy and
 scikit-learn. So its import is short and its first call is long. Fresh processes, one core:
 
-@@IMPORT@@
+.. include:: _guide_tables/import.txt
 
 The first call in a fresh process, on 10 s of float32 at 22050 Hz, in milliseconds. Medians and ranges
 of 7 processes. ``audio_samples`` has nothing to compile, so its first call is close to its third:
 
-@@FIRST@@
+.. include:: _guide_tables/first.txt
 
 The whole process, from start to exit: import, read the file, compute MFCCs with librosa's settings.
 Medians and ranges of 30 processes, one core:
 
-@@MFCCPROC@@
+.. include:: _guide_tables/mfccproc.txt
 
 Threads
 ~~~~~~~
@@ -161,12 +163,13 @@ Threads
 MFCCs of a directory, each library's own default threading, in milliseconds for all files (see
 `Batch processing a directory, with threads`_):
 
-@@BATCH@@
+.. include:: _guide_tables/batch.txt
 
 Install
 ~~~~~~~
 
-See `When to stay on librosa`_ for the wheel. @@FOOTPRINTSHORT@@
+See the table under `When to stay on librosa`_: the compiled wheel is larger than librosa's own, and the
+whole environment is smaller.
 
 Agreement with librosa
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -877,7 +880,7 @@ taking it back do not copy. Audio produced by a method (``resample``, ``to_mono`
 ``numpy.asarray`` keeps one shared array. Feature methods return NumPy arrays that nothing
 else refers to. Measured for 60 s of float32 on the machine and date under `Evidence`_, one core:
 
-@@INTEROP@@
+.. include:: _guide_tables/interop.txt
 
 .. code-block:: python
 
@@ -945,7 +948,7 @@ counts for more than speed.
 **Install size of the wheel.** librosa's own wheel is pure Python, so it is smaller than this
 library's compiled one. The dependencies it pulls in are a different matter.
 
-@@FOOTPRINT@@
+.. include:: _guide_tables/footprint.txt
 
 **File formats and sources.** WAV and FLAC only: no MP3, Ogg Vorbis, Opus or AIFF, and no file
 objects. ``librosa.load`` takes all of these. The workaround is under `Other file formats`_.
