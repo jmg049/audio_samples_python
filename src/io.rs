@@ -310,7 +310,7 @@ fn write_native<T: StandardSample + 'static>(
     is_wav: bool,
 ) -> Result<(), audio_samples_io::AudioIOError> {
     let capacity = if is_wav && std::any::TypeId::of::<T>() != std::any::TypeId::of::<I24>() {
-        4096
+        256
     } else {
         WriteOptions::default().write_buf_capacity
     };
