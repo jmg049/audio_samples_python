@@ -461,11 +461,17 @@ impl PyAudioSamples {
         // On the borrowed numpy data: no copy of the input.
         if let Ok(d) = complex_spect.extract::<PyReadonlyArray2<'py, Complex<f64>>>() {
             let (mag, phase) = magphase(d.as_array(), power);
-            return Ok((mag.into_pyarray(py).into_any(), phase.into_pyarray(py).into_any()));
+            return Ok((
+                mag.into_pyarray(py).into_any(),
+                phase.into_pyarray(py).into_any(),
+            ));
         }
         if let Ok(d) = complex_spect.extract::<PyReadonlyArray2<'py, Complex<f32>>>() {
             let (mag, phase) = magphase(d.as_array(), power);
-            return Ok((mag.into_pyarray(py).into_any(), phase.into_pyarray(py).into_any()));
+            return Ok((
+                mag.into_pyarray(py).into_any(),
+                phase.into_pyarray(py).into_any(),
+            ));
         }
         Err(pyo3::exceptions::PyTypeError::new_err(
             "complex_spect: expected a 2-D complex64 or complex128 array \
