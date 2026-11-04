@@ -453,17 +453,39 @@ def test_adaptive_threshold_bounds_are_readable_properties():
 # --------------------------------------------------------------------------
 
 
-def test_import_loads_only_the_extension():
+def test_import_loads_nothing():
     import subprocess
     import sys
 
     code = (
         "import sys, audio_samples\n"
-        "heavy = {'numpy', 'matplotlib', 'pathlib', 'email', 'importlib.metadata'} & set(sys.modules)\n"
+        "heavy = {'numpy', 'matplotlib', 'pathlib', 'email', 'importlib.metadata', 'audio_samples.io'} & set(sys.modules)\n"
         "assert not heavy, heavy\n"
         "assert 'mpl' in dir(audio_samples) and '__version__' in dir(audio_samples)\n"
         "assert isinstance(audio_samples.__version__, str)\n"
     )
+    subprocess.run([sys.executable, "-c", code], check=True)
+
+
+@pytest.mark.parametrize(
+    "code",
+    [
+        "from audio_samples import AudioSamples, StftParams, sine_wave, mu_law_encode",
+        "import audio_samples.io as io; io.read",
+        "from audio_samples.spectrograms import StftParams",
+        "from audio_samples.utils.generation import sine_wave",
+        "import audio_samples.exceptions as e; e.AudioError",
+        "from audio_samples import *; sine_wave, AudioError",
+        "import audio_samples as a; a.generation, a.exceptions.AudioParameterError",
+        "import pickle, audio_samples as a; pickle.loads(pickle.dumps(a.AudioParameterError('m')))",
+        "import pickle; pickle.loads(b'\\x80\\x04c' + b'audio_samples.exceptions\\nAudioError\\n.')",
+        "import audio_samples as a\ntry:\n    a.no_such_name\nexcept AttributeError:\n    pass\nelse:\n    raise SystemExit(1)",
+    ],
+)
+def test_names_resolve_in_a_fresh_process(code):
+    import subprocess
+    import sys
+
     subprocess.run([sys.executable, "-c", code], check=True)
 
 

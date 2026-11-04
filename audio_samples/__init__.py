@@ -30,30 +30,69 @@ Errors raised from the Rust core derive from :class:`AudioError` (see
 built-in exception (``ValueError``, ``TypeError``, ...).
 """
 
-# The native extension is compiled as audio_samples.cpython-*.so
-# When placed in the audio_samples/ directory, Python can import it
-# but we need to use the correct module name for the PyInit function
-import importlib.machinery as _machinery
-import os as _os
 import sys as _sys
+from _thread import RLock as _RLock
 
-# Importing this package loads the extension and nothing else: NumPy, matplotlib
-# and package metadata are loaded when first used.
+# Importing this package runs this file and nothing else. The extension, NumPy,
+# matplotlib and package metadata are loaded when first used: the extension on
+# the first access to any of its names (``_load``).
 
-# Find and load the .so file directly. Prefer the exact build for this
-# interpreter/platform (multiple cpython-3XX builds can coexist in this
-# directory); fall back to any match only if that exact one is missing.
-_package_dir = _os.path.dirname(__file__)
-_exact_so = _os.path.join(_package_dir, f"audio_samples{_machinery.EXTENSION_SUFFIXES[0]}")
-if _os.path.exists(_exact_so):
-    _so_files = [_exact_so]
-else:
-    _so_files = [
-        _os.path.join(_package_dir, _f)
-        for _f in sorted(_os.listdir(_package_dir))
-        if _f.startswith("audio_samples.cpython-") and _f.endswith(".so")
-    ]
-if _so_files:
+_NATIVE_SUBMODULES = (
+    "io",
+    "utils",
+    "utils.generation",
+    "utils.detection",
+    "generation",
+    "types",
+    "spectrograms",
+    "exceptions",
+    "explain",
+    "spectral",
+    "sequence",
+    "features",
+    "rhythm",
+    "effects",
+)
+
+_load_lock = _RLock()
+_loaded = False
+
+
+def _load():
+    """Load the native extension and publish its names in this module."""
+    global _loaded
+    if _loaded:
+        return
+    with _load_lock:
+        if _loaded:
+            return
+        _load_extension()
+        _loaded = True
+
+
+def _load_extension():
+    # The native extension is compiled as audio_samples.cpython-*.so
+    # When placed in the audio_samples/ directory, Python can import it
+    # but we need to use the correct module name for the PyInit function
+    import importlib.machinery as _machinery
+    import os as _os
+
+    # Find the .so file. Prefer the exact build for this interpreter/platform
+    # (multiple cpython-3XX builds can coexist in this directory); fall back to
+    # any match only if that exact one is missing.
+    _package_dir = _os.path.dirname(__file__)
+    _exact_so = _os.path.join(_package_dir, f"audio_samples{_machinery.EXTENSION_SUFFIXES[0]}")
+    if _os.path.exists(_exact_so):
+        _so_files = [_exact_so]
+    else:
+        _so_files = [
+            _os.path.join(_package_dir, _f)
+            for _f in sorted(_os.listdir(_package_dir))
+            if _f.startswith("audio_samples.cpython-") and _f.endswith(".so")
+        ]
+    if not _so_files:
+        raise ImportError("Could not find the audio_samples native extension (.so file)")
+
     # The module init function is PyInit_audio_samples, so we must use "audio_samples" as name
     _loader = _machinery.ExtensionFileLoader("audio_samples", _so_files[0])
     _spec = _machinery.ModuleSpec("audio_samples", _loader, origin=_so_files[0])
@@ -67,27 +106,15 @@ if _so_files:
         if _old_module is not None:
             _sys.modules["audio_samples"] = _old_module
 
+    _names = globals()
+
     # Import everything from the native extension
     for _name in dir(_ext):
         if not _name.startswith("_"):
-            globals()[_name] = getattr(_ext, _name)
+            _names[_name] = getattr(_ext, _name)
 
-    # Re-export submodules for proper namespace access
     # Note: generation is a submodule of utils
-    generation = _ext.utils.generation
-    io = _ext.io
-    utils = _ext.utils
-    spectrograms = _ext.spectrograms
-    exceptions = _ext.exceptions
-    explain = _ext.explain
-    # librosa-compatible array helpers
-    spectral = _ext.spectral
-    sequence = _ext.sequence
-    features = _ext.features
-    rhythm = _ext.rhythm
-    effects = _ext.effects
-    mu_law_encode = _ext.mu_law_encode
-    mu_law_decode = _ext.mu_law_decode
+    _names["generation"] = _ext.utils.generation
 
     # Register the native submodules in sys.modules so that
     # ``from audio_samples.spectrograms import StftParams`` (and the same for
@@ -109,41 +136,37 @@ if _so_files:
         "effects": _ext.effects,
     }.items():
         _sys.modules.setdefault(f"audio_samples.{_subname}", _submod)
+        # ``exceptions`` is compiled from source text and has a spec naming a
+        # file that does not exist. The import system reloads through that
+        # spec, so point it at the finder below.
+        if getattr(_submod, "__spec__", None) is not None:
+            _submod.__spec__ = _machinery.ModuleSpec(f"audio_samples.{_subname}", _NativeSubmoduleFinder)
 
     # Spectrogram / mel / MFCC parameter classes, re-exported at top level.
     # ``WindowType`` is the spectrograms window class: it is the one accepted
     # by ``StftParams`` and by every method taking a window. The older
     # ``audio_samples.types.WindowType`` class (not accepted by any function)
     # stays available under that path for backwards compatibility.
-    StftParams = _ext.spectrograms.StftParams
-    SpectrogramParams = _ext.spectrograms.SpectrogramParams
-    MelParams = _ext.spectrograms.MelParams
-    MfccParams = _ext.spectrograms.MfccParams
-    LogParams = _ext.spectrograms.LogParams
-    ChromaParams = _ext.spectrograms.ChromaParams
-    CqtParams = _ext.spectrograms.CqtParams
-    ErbParams = _ext.spectrograms.ErbParams
-    MelNorm = _ext.spectrograms.MelNorm
-    StftResult = _ext.spectrograms.StftResult
-    WindowType = _ext.spectrograms.WindowType
+    for _name in (
+        "StftParams",
+        "SpectrogramParams",
+        "MelParams",
+        "MfccParams",
+        "LogParams",
+        "ChromaParams",
+        "CqtParams",
+        "ErbParams",
+        "MelNorm",
+        "StftResult",
+        "WindowType",
+    ):
+        _names[_name] = getattr(_ext.spectrograms, _name)
 
     # Plotting module (if available - currently not registered in Rust)
-    try:
-        plotting = _ext.plotting
-    except AttributeError:
-        plotting = None  # Plotting module not available in this build
-
-    # Also make available the main class and config types
-    AudioSamples = _ext.AudioSamples
-    IirFilterDesign = _ext.IirFilterDesign
-    EqBand = _ext.EqBand
-    ParametricEq = _ext.ParametricEq
-
-    # Explanations: ``audio_samples.explain`` (submodule) and its result type.
-    ExplainDoc = _ext.ExplainDoc
+    _names["plotting"] = getattr(_ext, "plotting", None)
 
     # Expose generation functions at the top level for convenience
-    _generation_functions = [
+    for _fname in (
         "sine_wave",
         "cosine_wave",
         "sawtooth_wave",
@@ -158,11 +181,34 @@ if _so_files:
         "stereo_sine_wave",
         "stereo_chirp",
         "stereo_silence",
-    ]
-    for _fname in _generation_functions:
-        globals()[_fname] = getattr(generation, _fname)
-else:
-    raise ImportError("Could not find the audio_samples native extension (.so file)")
+    ):
+        _names[_fname] = getattr(_ext.utils.generation, _fname)
+
+
+class _NativeSubmoduleFinder:
+    """Resolves ``import audio_samples.io`` and friends: those modules live in
+    the extension, which may not be loaded yet."""
+
+    @staticmethod
+    def find_spec(fullname, path=None, target=None):
+        prefix, _, rest = fullname.partition(".")
+        if prefix != "audio_samples" or rest not in _NATIVE_SUBMODULES:
+            return None
+        import importlib.machinery as _machinery
+
+        _load()
+        return _machinery.ModuleSpec(fullname, _NativeSubmoduleFinder)
+
+    @staticmethod
+    def create_module(spec):
+        return _sys.modules[spec.name]
+
+    @staticmethod
+    def exec_module(module):
+        return None
+
+
+_sys.meta_path.append(_NativeSubmoduleFinder)
 
 
 def __getattr__(name):
@@ -185,10 +231,15 @@ def __getattr__(name):
             value = "unknown"
         globals()["__version__"] = value
         return value
+    if not name.startswith("__") and not _loaded:
+        _load()
+        if name in globals():
+            return globals()[name]
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def __dir__():
+    _load()
     return sorted({*globals(), "mpl", "__version__"})
 
 
