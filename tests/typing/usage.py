@@ -46,6 +46,7 @@ def audio_keeps_its_sample_type() -> None:
     assert_type(converted, aus.AudioSamples[np.int16])
     check(converted.to_numpy(), np.int16)
     assert_type(f64 + 1.0, aus.AudioSamples[np.float64])
+    assert_type(1.0 + f64, aus.AudioSamples[np.float64])
 
     # The sample type comes from the dtype argument, which a string does not state statically.
     named = generation.sine_wave(440.0, 0.5, 22050, dtype="float64")

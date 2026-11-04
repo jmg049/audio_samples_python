@@ -177,7 +177,8 @@ CASES += [
     ("i16.resample(11025).to_numpy()", "int16"),
     ("i16.time_stretch(2.0).to_numpy()", "int16"),
     ("(i16 + 1.0).to_numpy()", "int16"),
-    ("(1.0 + i16).to_numpy()", "float64"),
+    ("(1.0 + i16).to_numpy()", "int16"),
+    ("(i16 / i16).to_numpy()", "int16"),
     ("(1.0 - i16).to_numpy()", "int16"),
     ("f32.harmonic_percussive()[0].to_numpy()", "float32"),
 ]
