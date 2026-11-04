@@ -117,6 +117,13 @@ jobs:
         with:
           path: audio_samples_python
           persist-credentials: false
+      - uses: actions/checkout@v7
+        if: matrix.python == '3.13'
+        with:
+          repository: jmg049/audio_samples
+          ref: ${{ env.AUDIO_SAMPLES_REF }}
+          path: audio_samples
+          persist-credentials: false
       - uses: actions/download-artifact@v8
         with:
           name: wheel-2_28-${{ matrix.platform.target }}-py${{ matrix.python }}
@@ -135,6 +142,8 @@ jobs:
       - name: Test suite
         if: matrix.python == '3.13'
         shell: bash
+        env:
+          AUDIO_SAMPLES_REQUIRE_FIXTURES: "1"
         run: |
           venv/bin/python -m pip install pytest pytest-timeout scipy librosa soundfile matplotlib
           cd "$RUNNER_TEMP"
@@ -235,6 +244,8 @@ jobs:
       - name: Test suite
         if: matrix.python == '3.13'
         shell: bash
+        env:
+          AUDIO_SAMPLES_REQUIRE_FIXTURES: "1"
         run: |
           if [ -d venv/Scripts ]; then bin=venv/Scripts; else bin=venv/bin; fi
           "$bin/python" -m pip install pytest pytest-timeout scipy librosa soundfile matplotlib
@@ -310,7 +321,7 @@ jobs:
         run: |
           version="${GITHUB_REF_NAME#v}"
           ls artifacts
-          ls artifacts/*.tar.gz | grep -F "audio_samples-${version}.tar.gz"
+          test -f "artifacts/audio_samples-${version}.tar.gz"
       - uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: artifacts
