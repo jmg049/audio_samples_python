@@ -953,6 +953,13 @@ library's compiled one. The dependencies it pulls in are a different matter.
 **File formats and sources.** WAV and FLAC only: no MP3, Ogg Vorbis, Opus or AIFF, and no file
 objects. ``librosa.load`` takes all of these. The workaround is under `Other file formats`_.
 
+**Writing FLAC from Rust.** Through Python, ``io.save`` to FLAC at its default level is faster than
+``soundfile.write`` at its default, as the save rows under `Evidence`_ show. At the same compression
+level, this library's encoder is slower than libFLAC, by the ratios below; decoding is faster than
+every other decoder measured. If you encode a lot of FLAC at high levels, use libFLAC.
+
+.. include:: _guide_tables/flacwrite.txt
+
 **One silent type change.** ``io.save`` of float64 audio to a ``.wav`` file writes float32, also
 with ``as_type=SampleType.F64``. It is the one place this library changes a sample type without
 being asked. To keep float64 samples on disk, use another format or ``soundfile.write``.

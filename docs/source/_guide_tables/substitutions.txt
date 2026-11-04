@@ -2,5 +2,5 @@
 .. |loadcounts| replace:: time 85 lower, 0 higher; peak allocation 84 lower, 0 equal, 1 higher; peak resident growth 35 lower, 0 equal, 0 higher
 .. |wavmem| replace:: 224 of 304
 .. |when| replace:: 2026-11-04
-.. |rust| replace:: 26be766
-.. |py| replace:: f4791ca
+.. |rust| replace:: d784622
+.. |py| replace:: 1eb64f8
