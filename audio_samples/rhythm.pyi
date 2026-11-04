@@ -34,17 +34,58 @@ from typing import Any, Callable, Literal, Optional, Sequence, Union
 import numpy as np
 import numpy.typing as npt
 from numpy.typing import NDArray
+from typing import Any, overload, type_check_only
+from typing_extensions import TypeAlias
+
+#: Matches only an array whose dtype is unknown to the type checker (Any). The overloads use it so that
+#: such an array gives a result of unknown precision instead of the first overload's.
+@type_check_only
+class _UnknownDtype(np.generic):
+    def __new__(cls) -> _UnknownDtype: ...
+
+#: float32 and complex64 arrays are processed in float32. Anything else is converted to float64.
+_SingleArray: TypeAlias = NDArray[np.float32] | NDArray[np.complex64]
+
 
 #: Window specification: a SciPy window name, ``(name, parameter)``, a number
 #: (Kaiser beta) or an array of coefficients.
-WindowSpec = Union[str, tuple[str, float], float, npt.ArrayLike]
+_WindowSpec = Union[str, tuple[str, float], float, npt.ArrayLike]
 #: Reduction: a NumPy reduction, its name, or a callable ``f(x, axis=-1)``.
-AggregateSpec = Union[Callable[..., Any], Literal["mean", "median", "max", "min", "sum"]]
+_AggregateSpec = Union[Callable[..., Any], Literal["mean", "median", "max", "min", "sum"]]
 #: Tempo prior: a ``scipy.stats`` distribution (``.logpdf`` used) or a callable of the BPM.
-PriorSpec = Union[Any, Callable[[float], float], None]
+_PriorSpec = Union[Any, Callable[[float], float], None]
 #: Event units.
-Units = Literal["frames", "samples", "time"]
+_Units = Literal["frames", "samples", "time"]
 
+@overload
+def onset_strength(
+    *,
+    S: NDArray[_UnknownDtype],
+    sr: float,
+    lag: int = 1,
+    max_size: int = 1,
+    ref: Optional[npt.ArrayLike] = None,
+    detrend: bool = False,
+    center: bool = True,
+    aggregate: Union[_AggregateSpec, Literal[False], None] = None,
+    n_fft: int = 2048,
+    hop_length: int = 512,
+) -> NDArray[Any]: ...
+@overload
+def onset_strength(  # type: ignore[overload-overlap]
+    *,
+    S: _SingleArray,
+    sr: float,
+    lag: int = 1,
+    max_size: int = 1,
+    ref: Optional[npt.ArrayLike] = None,
+    detrend: bool = False,
+    center: bool = True,
+    aggregate: Union[_AggregateSpec, Literal[False], None] = None,
+    n_fft: int = 2048,
+    hop_length: int = 512,
+) -> NDArray[np.float32]: ...
+@overload
 def onset_strength(
     *,
     S: npt.ArrayLike,
@@ -54,10 +95,10 @@ def onset_strength(
     ref: Optional[npt.ArrayLike] = None,
     detrend: bool = False,
     center: bool = True,
-    aggregate: Union[AggregateSpec, Literal[False], None] = None,
+    aggregate: Union[_AggregateSpec, Literal[False], None] = None,
     n_fft: int = 2048,
     hop_length: int = 512,
-) -> NDArray[np.floating]:
+) -> NDArray[np.float64]:
     """Onset strength of a log-power spectrogram, ``librosa.onset.onset_strength(S=S)``.
 
     ``S`` is used as given (compute it with ``spectral.power_to_db`` of a mel
@@ -85,6 +126,37 @@ def onset_strength(
     """
     ...
 
+@overload
+def onset_strength_multi(
+    *,
+    S: NDArray[_UnknownDtype],
+    sr: float,
+    n_fft: int = 2048,
+    hop_length: int = 512,
+    lag: int = 1,
+    max_size: int = 1,
+    ref: Optional[npt.ArrayLike] = None,
+    detrend: bool = False,
+    center: bool = True,
+    aggregate: Union[_AggregateSpec, Literal[False], None] = None,
+    channels: Optional[Sequence[int]] = None,
+) -> NDArray[Any]: ...
+@overload
+def onset_strength_multi(  # type: ignore[overload-overlap]
+    *,
+    S: _SingleArray,
+    sr: float,
+    n_fft: int = 2048,
+    hop_length: int = 512,
+    lag: int = 1,
+    max_size: int = 1,
+    ref: Optional[npt.ArrayLike] = None,
+    detrend: bool = False,
+    center: bool = True,
+    aggregate: Union[_AggregateSpec, Literal[False], None] = None,
+    channels: Optional[Sequence[int]] = None,
+) -> NDArray[np.float32]: ...
+@overload
 def onset_strength_multi(
     *,
     S: npt.ArrayLike,
@@ -96,9 +168,9 @@ def onset_strength_multi(
     ref: Optional[npt.ArrayLike] = None,
     detrend: bool = False,
     center: bool = True,
-    aggregate: Union[AggregateSpec, Literal[False], None] = None,
+    aggregate: Union[_AggregateSpec, Literal[False], None] = None,
     channels: Optional[Sequence[int]] = None,
-) -> NDArray[np.floating]:
+) -> NDArray[np.float64]:
     """Multi-band onset strength, ``librosa.onset.onset_strength_multi(S=S)``.
 
     Args:
@@ -147,6 +219,7 @@ def onset_backtrack(events: npt.ArrayLike, energy: npt.ArrayLike) -> NDArray[np.
     """
     ...
 
+@overload
 def onset_detect(
     *,
     onset_envelope: npt.ArrayLike,
@@ -154,7 +227,7 @@ def onset_detect(
     hop_length: int = 512,
     backtrack: bool = False,
     energy: Optional[npt.ArrayLike] = None,
-    units: Units = "frames",
+    units: Literal['time'],
     normalize: bool = True,
     sparse: bool = True,
     pre_max: Optional[int] = None,
@@ -163,8 +236,27 @@ def onset_detect(
     post_avg: Optional[int] = None,
     delta: Optional[float] = None,
     wait: Optional[int] = None,
-    method: Literal["greedy", "dp_count", "dp_value"] = "greedy",
-) -> NDArray[Any]:
+    method: Literal['greedy', 'dp_count', 'dp_value'] = 'greedy',
+) -> NDArray[np.float64]: ...
+@overload
+def onset_detect(
+    *,
+    onset_envelope: npt.ArrayLike,
+    sr: float,
+    hop_length: int = 512,
+    backtrack: bool = False,
+    energy: Optional[npt.ArrayLike] = None,
+    units: Literal['frames', 'samples'] = 'frames',
+    normalize: bool = True,
+    sparse: bool = True,
+    pre_max: Optional[int] = None,
+    post_max: Optional[int] = None,
+    pre_avg: Optional[int] = None,
+    post_avg: Optional[int] = None,
+    delta: Optional[float] = None,
+    wait: Optional[int] = None,
+    method: Literal['greedy', 'dp_count', 'dp_value'] = 'greedy',
+) -> NDArray[np.int64]:
     """Onset detection on an envelope, ``librosa.onset.onset_detect(onset_envelope=...)``.
 
     Peak-picking parameters left as None get librosa's frame-rate defaults
@@ -190,6 +282,29 @@ def fourier_tempo_frequencies(
     Shape ``(win_length // 2 + 1,)``."""
     ...
 
+@overload
+def tempogram(
+    *,
+    onset_envelope: NDArray[_UnknownDtype],
+    sr: float,
+    hop_length: int = 512,
+    win_length: int = 384,
+    center: bool = True,
+    window: _WindowSpec = 'hann',
+    norm: Optional[float] = np.inf,
+) -> NDArray[Any]: ...
+@overload
+def tempogram(  # type: ignore[overload-overlap]
+    *,
+    onset_envelope: _SingleArray,
+    sr: float,
+    hop_length: int = 512,
+    win_length: int = 384,
+    center: bool = True,
+    window: _WindowSpec = 'hann',
+    norm: Optional[float] = np.inf,
+) -> NDArray[np.float32]: ...
+@overload
 def tempogram(
     *,
     onset_envelope: npt.ArrayLike,
@@ -197,9 +312,9 @@ def tempogram(
     hop_length: int = 512,
     win_length: int = 384,
     center: bool = True,
-    window: WindowSpec = "hann",
+    window: _WindowSpec = 'hann',
     norm: Optional[float] = np.inf,
-) -> NDArray[np.floating]:
+) -> NDArray[np.float64]:
     """Autocorrelation tempogram, ``librosa.feature.tempogram(onset_envelope=...)``.
 
     Args:
@@ -216,6 +331,27 @@ def tempogram(
     """
     ...
 
+@overload
+def fourier_tempogram(
+    *,
+    onset_envelope: NDArray[_UnknownDtype],
+    sr: float,
+    hop_length: int = 512,
+    win_length: int = 384,
+    center: bool = True,
+    window: _WindowSpec = 'hann',
+) -> NDArray[Any]: ...
+@overload
+def fourier_tempogram(  # type: ignore[overload-overlap]
+    *,
+    onset_envelope: _SingleArray,
+    sr: float,
+    hop_length: int = 512,
+    win_length: int = 384,
+    center: bool = True,
+    window: _WindowSpec = 'hann',
+) -> NDArray[np.complex64]: ...
+@overload
 def fourier_tempogram(
     *,
     onset_envelope: npt.ArrayLike,
@@ -223,8 +359,8 @@ def fourier_tempogram(
     hop_length: int = 512,
     win_length: int = 384,
     center: bool = True,
-    window: WindowSpec = "hann",
-) -> NDArray[np.complexfloating]:
+    window: _WindowSpec = 'hann',
+) -> NDArray[np.complex128]:
     """Fourier tempogram, ``librosa.feature.fourier_tempogram(onset_envelope=...)``.
 
     Returns:
@@ -243,8 +379,8 @@ def tempo(
     std_bpm: float = 1.0,
     ac_size: float = 8.0,
     max_tempo: Optional[float] = 320.0,
-    aggregate: Optional[AggregateSpec] = "mean",
-    prior: PriorSpec = None,
+    aggregate: Optional[_AggregateSpec] = "mean",
+    prior: _PriorSpec = None,
 ) -> NDArray[np.float64]:
     """Tempo estimate, ``librosa.feature.tempo(onset_envelope=... | tg=...)``.
 
@@ -262,6 +398,7 @@ def tempo(
     """
     ...
 
+@overload
 def beat_track(
     *,
     onset_envelope: npt.ArrayLike,
@@ -271,10 +408,24 @@ def beat_track(
     tightness: float = 100,
     trim: bool = False,
     bpm: Optional[Union[float, npt.ArrayLike]] = None,
-    prior: PriorSpec = None,
-    units: Units = "frames",
+    prior: _PriorSpec = None,
+    units: Literal['time'],
     sparse: bool = True,
-) -> tuple[Any, NDArray[Any]]:
+) -> tuple[NDArray[np.float64], NDArray[np.float64]]: ...
+@overload
+def beat_track(
+    *,
+    onset_envelope: npt.ArrayLike,
+    sr: float,
+    hop_length: int = 512,
+    start_bpm: float = 120.0,
+    tightness: float = 100,
+    trim: bool = False,
+    bpm: Optional[Union[float, npt.ArrayLike]] = None,
+    prior: _PriorSpec = None,
+    units: Literal['frames', 'samples'] = 'frames',
+    sparse: bool = True,
+) -> tuple[NDArray[np.float64], NDArray[np.int64]]:
     """Dynamic-programming beat tracker, ``librosa.beat.beat_track(onset_envelope=...)``.
 
     Returns:
@@ -300,6 +451,29 @@ def beat_track_with_bpm(
     internal ``__beat_tracker``. Returns ascending int64 beat frames."""
     ...
 
+@overload
+def plp(
+    *,
+    onset_envelope: NDArray[_UnknownDtype],
+    sr: float,
+    hop_length: int = 512,
+    win_length: int = 384,
+    tempo_min: Optional[float] = 30,
+    tempo_max: Optional[float] = 300,
+    prior: _PriorSpec = None,
+) -> NDArray[Any]: ...
+@overload
+def plp(  # type: ignore[overload-overlap]
+    *,
+    onset_envelope: _SingleArray,
+    sr: float,
+    hop_length: int = 512,
+    win_length: int = 384,
+    tempo_min: Optional[float] = 30,
+    tempo_max: Optional[float] = 300,
+    prior: _PriorSpec = None,
+) -> NDArray[np.float32]: ...
+@overload
 def plp(
     *,
     onset_envelope: npt.ArrayLike,
@@ -308,8 +482,8 @@ def plp(
     win_length: int = 384,
     tempo_min: Optional[float] = 30,
     tempo_max: Optional[float] = 300,
-    prior: PriorSpec = None,
-) -> NDArray[np.floating]:
+    prior: _PriorSpec = None,
+) -> NDArray[np.float64]:
     """Predominant local pulse, ``librosa.beat.plp(onset_envelope=...)``.
 
     Returns:
@@ -317,6 +491,95 @@ def plp(
     """
     ...
 
+@overload
+def tempogram_ratio(
+    *,
+    onset_envelope: NDArray[_UnknownDtype],
+    tg: None = None,
+    bpm: Optional[npt.ArrayLike] = None,
+    sr: float,
+    hop_length: int = 512,
+    win_length: int = 384,
+    start_bpm: float = 120,
+    std_bpm: float = 1.0,
+    max_tempo: Optional[float] = 320.0,
+    freqs: None = None,
+    factors: Optional[npt.ArrayLike] = None,
+    aggregate: Optional[_AggregateSpec] = None,
+    prior: _PriorSpec = None,
+    center: bool = True,
+    window: _WindowSpec = 'hann',
+    kind: Literal['linear'] = 'linear',
+    fill_value: float = 0,
+    norm: Optional[float] = np.inf,
+) -> NDArray[Any]: ...
+@overload
+def tempogram_ratio(
+    *,
+    onset_envelope: None = None,
+    tg: NDArray[_UnknownDtype],
+    bpm: Optional[npt.ArrayLike] = None,
+    sr: float,
+    hop_length: int = 512,
+    win_length: int = 384,
+    start_bpm: float = 120,
+    std_bpm: float = 1.0,
+    max_tempo: Optional[float] = 320.0,
+    freqs: None = None,
+    factors: Optional[npt.ArrayLike] = None,
+    aggregate: Optional[_AggregateSpec] = None,
+    prior: _PriorSpec = None,
+    center: bool = True,
+    window: _WindowSpec = 'hann',
+    kind: Literal['linear'] = 'linear',
+    fill_value: float = 0,
+    norm: Optional[float] = np.inf,
+) -> NDArray[Any]: ...
+@overload
+def tempogram_ratio(  # type: ignore[overload-overlap]
+    *,
+    onset_envelope: _SingleArray,
+    tg: None = None,
+    bpm: Optional[npt.ArrayLike] = None,
+    sr: float,
+    hop_length: int = 512,
+    win_length: int = 384,
+    start_bpm: float = 120,
+    std_bpm: float = 1.0,
+    max_tempo: Optional[float] = 320.0,
+    freqs: None = None,
+    factors: Optional[npt.ArrayLike] = None,
+    aggregate: Optional[_AggregateSpec] = None,
+    prior: _PriorSpec = None,
+    center: bool = True,
+    window: _WindowSpec = 'hann',
+    kind: Literal['linear'] = 'linear',
+    fill_value: float = 0,
+    norm: Optional[float] = np.inf,
+) -> NDArray[np.float32]: ...
+@overload
+def tempogram_ratio(  # type: ignore[overload-overlap]
+    *,
+    onset_envelope: None = None,
+    tg: _SingleArray,
+    bpm: Optional[npt.ArrayLike] = None,
+    sr: float,
+    hop_length: int = 512,
+    win_length: int = 384,
+    start_bpm: float = 120,
+    std_bpm: float = 1.0,
+    max_tempo: Optional[float] = 320.0,
+    freqs: None = None,
+    factors: Optional[npt.ArrayLike] = None,
+    aggregate: Optional[_AggregateSpec] = None,
+    prior: _PriorSpec = None,
+    center: bool = True,
+    window: _WindowSpec = 'hann',
+    kind: Literal['linear'] = 'linear',
+    fill_value: float = 0,
+    norm: Optional[float] = np.inf,
+) -> NDArray[np.float32]: ...
+@overload
 def tempogram_ratio(
     *,
     onset_envelope: Optional[npt.ArrayLike] = None,
@@ -330,14 +593,14 @@ def tempogram_ratio(
     max_tempo: Optional[float] = 320.0,
     freqs: None = None,
     factors: Optional[npt.ArrayLike] = None,
-    aggregate: Optional[AggregateSpec] = None,
-    prior: PriorSpec = None,
+    aggregate: Optional[_AggregateSpec] = None,
+    prior: _PriorSpec = None,
     center: bool = True,
-    window: WindowSpec = "hann",
-    kind: Literal["linear"] = "linear",
+    window: _WindowSpec = 'hann',
+    kind: Literal['linear'] = 'linear',
     fill_value: float = 0,
     norm: Optional[float] = np.inf,
-) -> NDArray[np.floating]:
+) -> NDArray[np.float64]:
     """Tempogram ratio features, ``librosa.feature.tempogram_ratio``.
 
     ``freqs`` must be None and ``kind`` ``"linear"``.
@@ -348,6 +611,27 @@ def tempogram_ratio(
     """
     ...
 
+@overload
+def hybrid_tempogram(
+    *,
+    onset_envelope: NDArray[_UnknownDtype],
+    sr: float,
+    hop_length: int = 512,
+    win_length: int = 384,
+    center: bool = True,
+    window: _WindowSpec = 'hann',
+) -> NDArray[Any]: ...
+@overload
+def hybrid_tempogram(  # type: ignore[overload-overlap]
+    *,
+    onset_envelope: _SingleArray,
+    sr: float,
+    hop_length: int = 512,
+    win_length: int = 384,
+    center: bool = True,
+    window: _WindowSpec = 'hann',
+) -> NDArray[np.float32]: ...
+@overload
 def hybrid_tempogram(
     *,
     onset_envelope: npt.ArrayLike,
@@ -355,8 +639,8 @@ def hybrid_tempogram(
     hop_length: int = 512,
     win_length: int = 384,
     center: bool = True,
-    window: WindowSpec = "hann",
-) -> NDArray[np.floating]:
+    window: _WindowSpec = 'hann',
+) -> NDArray[np.float64]:
     """Hybrid tempogram, ``librosa.feature.hybrid_tempogram(onset_envelope=...)``.
 
     Returns:
@@ -365,15 +649,36 @@ def hybrid_tempogram(
     """
     ...
 
+@overload
+def metrogram(
+    *,
+    tg: NDArray[_UnknownDtype],
+    freqs: npt.ArrayLike,
+    factors: Optional[npt.ArrayLike] = None,
+    aggregate: _AggregateSpec = 'sum',
+    kind: Literal['linear'] = 'linear',
+    fill_value: float = 0,
+) -> NDArray[Any]: ...
+@overload
+def metrogram(  # type: ignore[overload-overlap]
+    *,
+    tg: _SingleArray,
+    freqs: npt.ArrayLike,
+    factors: Optional[npt.ArrayLike] = None,
+    aggregate: _AggregateSpec = 'sum',
+    kind: Literal['linear'] = 'linear',
+    fill_value: float = 0,
+) -> NDArray[np.float32]: ...
+@overload
 def metrogram(
     *,
     tg: npt.ArrayLike,
     freqs: npt.ArrayLike,
     factors: Optional[npt.ArrayLike] = None,
-    aggregate: AggregateSpec = "sum",
-    kind: Literal["linear"] = "linear",
+    aggregate: _AggregateSpec = 'sum',
+    kind: Literal['linear'] = 'linear',
     fill_value: float = 0,
-) -> NDArray[np.floating]:
+) -> NDArray[np.float64]:
     """Metrogram, ``librosa.feature.metrogram``. ``aggregate=None`` (librosa's
     per-bin 4-D output) is not supported.
 
@@ -382,3 +687,23 @@ def metrogram(
         for 3-D ``tg``).
     """
     ...
+
+__all__ = [
+    "__doc__",
+    "beat_track",
+    "beat_track_with_bpm",
+    "fourier_tempo_frequencies",
+    "fourier_tempogram",
+    "hybrid_tempogram",
+    "metrogram",
+    "onset_backtrack",
+    "onset_detect",
+    "onset_strength",
+    "onset_strength_multi",
+    "peak_pick",
+    "plp",
+    "tempo",
+    "tempo_frequencies",
+    "tempogram",
+    "tempogram_ratio",
+]

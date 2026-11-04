@@ -24,29 +24,64 @@ from typing import Any, Callable, Literal, Optional, Union
 import numpy as np
 import numpy.typing as npt
 from numpy.typing import NDArray
+from typing import Any, overload, type_check_only
+from typing_extensions import TypeAlias
+
+#: Matches only an array whose dtype is unknown to the type checker (Any). The overloads use it so that
+#: such an array gives a result of unknown precision instead of the first overload's.
+@type_check_only
+class _UnknownDtype(np.generic):
+    def __new__(cls) -> _UnknownDtype: ...
+
+#: float32 and complex64 arrays are processed in float32. Anything else is converted to float64.
+_SingleArray: TypeAlias = NDArray[np.float32] | NDArray[np.complex64]
+
 
 #: Window specification: a SciPy window name (``"hann"``, ``"hamming"``,
 #: ``"blackman"``, ``"blackmanharris"``, ``"boxcar"``/``"rectangular"``,
 #: ``"bartlett"``, ``"triang"``), ``("kaiser", beta)`` / ``("gaussian", std)``,
 #: a number (Kaiser beta, as SciPy) or an array of coefficients.
-WindowSpec = Union[str, tuple[str, float], float, npt.ArrayLike]
+_WindowSpec = Union[str, tuple[str, float], float, npt.ArrayLike]
 #: STFT padding mode used when ``center=True``.
-PadMode = Literal["constant", "reflect", "edge", "symmetric"]
+_PadMode = Literal["constant", "reflect", "edge", "symmetric"]
 #: Mel filter normalisation: ``"slaney"``, None, or a p-norm exponent (``numpy.inf`` allowed).
-MelNorm = Union[Literal["slaney"], float, None]
+_MelNorm = Union[Literal["slaney"], float, None]
 #: dB reference: a number, ``"max"`` or ``numpy.max``.
-DbRef = Union[float, Literal["max"], Callable[..., Any]]
+_DbRef = Union[float, Literal["max"], Callable[..., Any]]
 
+@overload
+def stft(
+    y: NDArray[_UnknownDtype],
+    *,
+    n_fft: int = 2048,
+    hop_length: Optional[int] = None,
+    win_length: Optional[int] = None,
+    window: _WindowSpec = 'hann',
+    center: bool = True,
+    pad_mode: _PadMode = 'constant',
+) -> NDArray[Any]: ...
+@overload
+def stft(  # type: ignore[overload-overlap]
+    y: _SingleArray,
+    *,
+    n_fft: int = 2048,
+    hop_length: Optional[int] = None,
+    win_length: Optional[int] = None,
+    window: _WindowSpec = 'hann',
+    center: bool = True,
+    pad_mode: _PadMode = 'constant',
+) -> NDArray[np.complex64]: ...
+@overload
 def stft(
     y: npt.ArrayLike,
     *,
     n_fft: int = 2048,
     hop_length: Optional[int] = None,
     win_length: Optional[int] = None,
-    window: WindowSpec = "hann",
+    window: _WindowSpec = 'hann',
     center: bool = True,
-    pad_mode: PadMode = "constant",
-) -> NDArray[np.complexfloating]:
+    pad_mode: _PadMode = 'constant',
+) -> NDArray[np.complex128]:
     """Short-time Fourier transform, equivalent to ``librosa.stft``.
 
     Args:
@@ -67,16 +102,39 @@ def stft(
     """
     ...
 
+@overload
+def istft(
+    stft_matrix: NDArray[_UnknownDtype],
+    *,
+    hop_length: Optional[int] = None,
+    win_length: Optional[int] = None,
+    n_fft: Optional[int] = None,
+    window: _WindowSpec = 'hann',
+    center: bool = True,
+    length: Optional[int] = None,
+) -> NDArray[Any]: ...
+@overload
+def istft(  # type: ignore[overload-overlap]
+    stft_matrix: _SingleArray,
+    *,
+    hop_length: Optional[int] = None,
+    win_length: Optional[int] = None,
+    n_fft: Optional[int] = None,
+    window: _WindowSpec = 'hann',
+    center: bool = True,
+    length: Optional[int] = None,
+) -> NDArray[np.float32]: ...
+@overload
 def istft(
     stft_matrix: npt.ArrayLike,
     *,
     hop_length: Optional[int] = None,
     win_length: Optional[int] = None,
     n_fft: Optional[int] = None,
-    window: WindowSpec = "hann",
+    window: _WindowSpec = 'hann',
     center: bool = True,
     length: Optional[int] = None,
-) -> NDArray[np.floating]:
+) -> NDArray[np.float64]:
     """Inverse STFT, equivalent to ``librosa.istft``.
 
     Args:
@@ -97,10 +155,42 @@ def istft(
     """
     ...
 
+@overload
 def power_to_db(
-    S: npt.ArrayLike, *, ref: DbRef = 1.0, amin: float = 1e-10, top_db: Optional[float] = None,
-    axes: Optional[Literal["auto"]] = "auto",
-) -> Any:
+    S: NDArray[_UnknownDtype],
+    *,
+    ref: _DbRef = 1.0,
+    amin: float = 1e-10,
+    top_db: Optional[float] = None,
+    axes: Optional[Literal['auto']] = 'auto',
+) -> NDArray[Any]: ...
+@overload
+def power_to_db(
+    S: float,
+    *,
+    ref: _DbRef = 1.0,
+    amin: float = 1e-10,
+    top_db: Optional[float] = None,
+    axes: Optional[Literal['auto']] = 'auto',
+) -> float: ...
+@overload
+def power_to_db(  # type: ignore[overload-overlap]
+    S: _SingleArray,
+    *,
+    ref: _DbRef = 1.0,
+    amin: float = 1e-10,
+    top_db: Optional[float] = None,
+    axes: Optional[Literal['auto']] = 'auto',
+) -> NDArray[np.float32]: ...
+@overload
+def power_to_db(
+    S: npt.ArrayLike,
+    *,
+    ref: _DbRef = 1.0,
+    amin: float = 1e-10,
+    top_db: Optional[float] = None,
+    axes: Optional[Literal['auto']] = 'auto',
+) -> NDArray[np.float64]:
     """Power to decibels, equivalent to ``librosa.power_to_db``.
 
     ``10 * log10(max(amin, S)) - 10 * log10(max(amin, |ref|))``, floored at
@@ -124,10 +214,42 @@ def power_to_db(
     """
     ...
 
+@overload
 def amplitude_to_db(
-    S: npt.ArrayLike, *, ref: DbRef = 1.0, amin: float = 1e-5, top_db: Optional[float] = None,
-    axes: Optional[Literal["auto"]] = "auto",
-) -> Any:
+    S: NDArray[_UnknownDtype],
+    *,
+    ref: _DbRef = 1.0,
+    amin: float = 1e-05,
+    top_db: Optional[float] = None,
+    axes: Optional[Literal['auto']] = 'auto',
+) -> NDArray[Any]: ...
+@overload
+def amplitude_to_db(
+    S: float,
+    *,
+    ref: _DbRef = 1.0,
+    amin: float = 1e-05,
+    top_db: Optional[float] = None,
+    axes: Optional[Literal['auto']] = 'auto',
+) -> float: ...
+@overload
+def amplitude_to_db(  # type: ignore[overload-overlap]
+    S: _SingleArray,
+    *,
+    ref: _DbRef = 1.0,
+    amin: float = 1e-05,
+    top_db: Optional[float] = None,
+    axes: Optional[Literal['auto']] = 'auto',
+) -> NDArray[np.float32]: ...
+@overload
+def amplitude_to_db(
+    S: npt.ArrayLike,
+    *,
+    ref: _DbRef = 1.0,
+    amin: float = 1e-05,
+    top_db: Optional[float] = None,
+    axes: Optional[Literal['auto']] = 'auto',
+) -> NDArray[np.float64]:
     """Amplitude to decibels, equivalent to ``librosa.amplitude_to_db``.
 
     ``20 * log10(max(amin, |S|) / max(amin, |ref|))``, floored at ``max - top_db``.
@@ -141,12 +263,34 @@ def amplitude_to_db(
     """
     ...
 
-def db_to_power(S_db: npt.ArrayLike, *, ref: float = 1.0) -> Any:
+@overload
+def db_to_power(S_db: NDArray[_UnknownDtype], *, ref: float=1.0) -> NDArray[Any]: ...
+@overload
+def db_to_power(S_db: float, *, ref: float=1.0) -> float: ...
+@overload
+def db_to_power(  # type: ignore[overload-overlap]
+    S_db: _SingleArray,
+    *,
+    ref: float = 1.0,
+) -> NDArray[np.float32]: ...
+@overload
+def db_to_power(S_db: npt.ArrayLike, *, ref: float=1.0) -> NDArray[np.float64]:
     """``ref * 10 ** (S_db / 10)`` (``librosa.db_to_power``); float for scalar
     input, otherwise numpy.ndarray[float32 | float64] of the same shape."""
     ...
 
-def db_to_amplitude(S_db: npt.ArrayLike, *, ref: float = 1.0) -> Any:
+@overload
+def db_to_amplitude(S_db: NDArray[_UnknownDtype], *, ref: float=1.0) -> NDArray[Any]: ...
+@overload
+def db_to_amplitude(S_db: float, *, ref: float=1.0) -> float: ...
+@overload
+def db_to_amplitude(  # type: ignore[overload-overlap]
+    S_db: _SingleArray,
+    *,
+    ref: float = 1.0,
+) -> NDArray[np.float32]: ...
+@overload
+def db_to_amplitude(S_db: npt.ArrayLike, *, ref: float=1.0) -> NDArray[np.float64]:
     """``sqrt(ref ** 2 * 10 ** (S_db / 10))`` (``librosa.db_to_amplitude``);
     float for scalar input, otherwise numpy.ndarray[float32 | float64] of the same shape."""
     ...
@@ -159,7 +303,7 @@ def mel_filterbank(
     fmin: float = 0.0,
     fmax: Optional[float] = None,
     htk: bool = False,
-    norm: MelNorm = "slaney",
+    norm: _MelNorm = "slaney",
 ) -> NDArray[np.float64]:
     """Mel filterbank, equivalent to ``librosa.filters.mel(..., dtype=numpy.float64)``.
 
@@ -171,7 +315,7 @@ def mel_filterbank(
     """
     ...
 
-def get_window(window: WindowSpec, Nx: int, *, fftbins: bool = True) -> NDArray[np.float64]:
+def get_window(window: _WindowSpec, Nx: int, *, fftbins: bool = True) -> NDArray[np.float64]:
     """Window coefficients, equivalent to ``scipy.signal.get_window`` /
     ``librosa.filters.get_window``.
 
@@ -189,16 +333,28 @@ def get_window(window: WindowSpec, Nx: int, *, fftbins: bool = True) -> NDArray[
     """
     ...
 
-def window_sumsquare(
+@overload
+def window_sumsquare(  # type: ignore[overload-overlap]
     *,
-    window: WindowSpec,
+    window: _WindowSpec,
     n_frames: int,
     hop_length: int = 512,
     win_length: Optional[int] = None,
     n_fft: int = 2048,
     norm: Optional[float] = None,
-    dtype: Optional[npt.DTypeLike] = None,
-) -> NDArray[np.floating]:
+    dtype: type[np.float32],
+) -> NDArray[np.float32]: ...
+@overload
+def window_sumsquare(
+    *,
+    window: _WindowSpec,
+    n_frames: int,
+    hop_length: int = 512,
+    win_length: Optional[int] = None,
+    n_fft: int = 2048,
+    norm: Optional[float] = None,
+    dtype: None | type[np.float64] = None,
+) -> NDArray[np.float64]:
     """Sum-squared window envelope (``librosa.filters.window_sumsquare``).
 
     ``norm`` normalises the window before squaring as
@@ -213,20 +369,39 @@ def window_sumsquare(
     """
     ...
 
-def window_bandwidth(window: WindowSpec, n: int = 1000) -> float:
+def window_bandwidth(window: _WindowSpec, n: int = 1000) -> float:
     """Equivalent noise bandwidth ``n * sum(w**2) / sum(w)**2`` in FFT bins of the
     periodic window of length ``n`` (librosa returns a pre-computed table value for
     named windows; they agree to ~1e-4)."""
     ...
 
+@overload
+def delta(
+    data: NDArray[_UnknownDtype],
+    *,
+    width: int = 9,
+    order: int = 1,
+    axis: int = -1,
+    mode: Literal['interp', 'nearest', 'mirror', 'constant', 'wrap'] = 'interp',
+) -> NDArray[Any]: ...
+@overload
+def delta(  # type: ignore[overload-overlap]
+    data: _SingleArray,
+    *,
+    width: int = 9,
+    order: int = 1,
+    axis: int = -1,
+    mode: Literal['interp', 'nearest', 'mirror', 'constant', 'wrap'] = 'interp',
+) -> NDArray[np.float32]: ...
+@overload
 def delta(
     data: npt.ArrayLike,
     *,
     width: int = 9,
     order: int = 1,
     axis: int = -1,
-    mode: Literal["interp", "nearest", "mirror", "constant", "wrap"] = "interp",
-) -> NDArray[np.floating]:
+    mode: Literal['interp', 'nearest', 'mirror', 'constant', 'wrap'] = 'interp',
+) -> NDArray[np.float64]:
     """Savitzky-Golay delta features, equivalent to ``librosa.feature.delta``.
 
     Returns:
@@ -238,7 +413,17 @@ def delta(
     """
     ...
 
-def stack_memory(data: npt.ArrayLike, *, n_steps: int = 2, delay: int = 1) -> NDArray[np.floating]:
+@overload
+def stack_memory(data: NDArray[_UnknownDtype], *, n_steps: int=2, delay: int=1) -> NDArray[Any]: ...
+@overload
+def stack_memory(  # type: ignore[overload-overlap]
+    data: _SingleArray,
+    *,
+    n_steps: int = 2,
+    delay: int = 1,
+) -> NDArray[np.float32]: ...
+@overload
+def stack_memory(data: npt.ArrayLike, *, n_steps: int=2, delay: int=1) -> NDArray[np.float64]:
     """Stack delayed copies (zero padded), equivalent to ``librosa.feature.stack_memory``.
 
     Args:
@@ -251,9 +436,30 @@ def stack_memory(data: npt.ArrayLike, *, n_steps: int = 2, delay: int = 1) -> ND
     """
     ...
 
+@overload
 def frame(
-    x: npt.ArrayLike, *, frame_length: int, hop_length: int, copy: bool = True
-) -> NDArray[np.floating]:
+    x: NDArray[_UnknownDtype],
+    *,
+    frame_length: int,
+    hop_length: int,
+    copy: bool = True,
+) -> NDArray[Any]: ...
+@overload
+def frame(  # type: ignore[overload-overlap]
+    x: _SingleArray,
+    *,
+    frame_length: int,
+    hop_length: int,
+    copy: bool = True,
+) -> NDArray[np.float32]: ...
+@overload
+def frame(
+    x: npt.ArrayLike,
+    *,
+    frame_length: int,
+    hop_length: int,
+    copy: bool = True,
+) -> NDArray[np.float64]:
     """Overlapping frames of a 1-D signal, equivalent to ``librosa.util.frame``.
 
     By default the frames are a new, writable array (a copy). With
@@ -273,6 +479,31 @@ def frame(
     """
     ...
 
+@overload
+def melspectrogram_from_spectrogram(
+    S: NDArray[_UnknownDtype],
+    *,
+    sr: float,
+    n_fft: Optional[int] = None,
+    n_mels: int = 128,
+    fmin: float = 0.0,
+    fmax: Optional[float] = None,
+    htk: bool = False,
+    norm: _MelNorm = 'slaney',
+) -> NDArray[Any]: ...
+@overload
+def melspectrogram_from_spectrogram(  # type: ignore[overload-overlap]
+    S: _SingleArray,
+    *,
+    sr: float,
+    n_fft: Optional[int] = None,
+    n_mels: int = 128,
+    fmin: float = 0.0,
+    fmax: Optional[float] = None,
+    htk: bool = False,
+    norm: _MelNorm = 'slaney',
+) -> NDArray[np.float32]: ...
+@overload
 def melspectrogram_from_spectrogram(
     S: npt.ArrayLike,
     *,
@@ -282,8 +513,8 @@ def melspectrogram_from_spectrogram(
     fmin: float = 0.0,
     fmax: Optional[float] = None,
     htk: bool = False,
-    norm: MelNorm = "slaney",
-) -> NDArray[np.floating]:
+    norm: _MelNorm = 'slaney',
+) -> NDArray[np.float64]:
     """Mel projection of a spectrogram, equivalent to
     ``librosa.feature.melspectrogram(S=S, sr=sr, n_fft=n_fft, ...)``.
 
@@ -296,14 +527,33 @@ def melspectrogram_from_spectrogram(
     """
     ...
 
+@overload
+def mfcc_from_mel_db(
+    S: NDArray[_UnknownDtype],
+    *,
+    n_mfcc: int = 20,
+    dct_type: Literal[1, 2, 3] = 2,
+    norm: Optional[Literal['ortho']] = 'ortho',
+    lifter: float = 0.0,
+) -> NDArray[Any]: ...
+@overload
+def mfcc_from_mel_db(  # type: ignore[overload-overlap]
+    S: _SingleArray,
+    *,
+    n_mfcc: int = 20,
+    dct_type: Literal[1, 2, 3] = 2,
+    norm: Optional[Literal['ortho']] = 'ortho',
+    lifter: float = 0.0,
+) -> NDArray[np.float32]: ...
+@overload
 def mfcc_from_mel_db(
     S: npt.ArrayLike,
     *,
     n_mfcc: int = 20,
     dct_type: Literal[1, 2, 3] = 2,
-    norm: Optional[Literal["ortho"]] = "ortho",
+    norm: Optional[Literal['ortho']] = 'ortho',
     lifter: float = 0.0,
-) -> NDArray[np.floating]:
+) -> NDArray[np.float64]:
     """MFCCs of a dB mel spectrogram, equivalent to ``librosa.feature.mfcc(S=S, ...)``.
 
     Args:
@@ -317,3 +567,22 @@ def mfcc_from_mel_db(
             parameters.
     """
     ...
+
+__all__ = [
+    "__doc__",
+    "amplitude_to_db",
+    "db_to_amplitude",
+    "db_to_power",
+    "delta",
+    "frame",
+    "get_window",
+    "istft",
+    "mel_filterbank",
+    "melspectrogram_from_spectrogram",
+    "mfcc_from_mel_db",
+    "power_to_db",
+    "stack_memory",
+    "stft",
+    "window_bandwidth",
+    "window_sumsquare",
+]

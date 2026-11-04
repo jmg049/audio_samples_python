@@ -471,7 +471,8 @@ def test_top_level_stub_lists_every_runtime_name():
             names.update(a.asname or a.name for a in node.names)
         elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
             names.add(node.target.id)
-    runtime = {n for n in dir(aus) if not n.startswith("_")}
+    # audio_samples.migrate is a command and appears as an attribute only once it has been imported.
+    runtime = {n for n in dir(aus) if not n.startswith("_")} - {"migrate"}
     assert not runtime - names, sorted(runtime - names)
 
 

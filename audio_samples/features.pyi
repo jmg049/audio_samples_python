@@ -66,24 +66,54 @@ from typing import Any, Callable, Literal, Optional, Sequence, Union
 import numpy as np
 import numpy.typing as npt
 from numpy.typing import NDArray
+from typing import Any, overload, type_check_only
+from typing_extensions import TypeAlias
+
+#: Matches only an array whose dtype is unknown to the type checker (Any). The overloads use it so that
+#: such an array gives a result of unknown precision instead of the first overload's.
+@type_check_only
+class _UnknownDtype(np.generic):
+    def __new__(cls) -> _UnknownDtype: ...
+
+#: float32 and complex64 arrays are processed in float32. Anything else is converted to float64.
+_SingleArray: TypeAlias = NDArray[np.float32] | NDArray[np.complex64]
+
 
 #: Window specification: a SciPy window name, ``(name, param)`` tuple, a
 #: number (Kaiser beta) or an array of coefficients.
-WindowSpec = Union[str, tuple[str, float], float, npt.ArrayLike]
+_WindowSpec = Union[str, tuple[str, float], float, npt.ArrayLike]
 #: Padding mode used when ``center=True``.
-PadMode = Literal["constant", "reflect", "edge", "symmetric"]
+_PadMode = Literal["constant", "reflect", "edge", "symmetric"]
 #: dB reference: a number, ``"max"`` or ``numpy.max``.
-DbRef = Union[float, Literal["max"], Callable[..., Any]]
+_DbRef = Union[float, Literal["max"], Callable[..., Any]]
 #: Weighting curve name.
-WeightingKind = Literal["A", "B", "C", "D", "Z", "a", "b", "c", "d", "z"]
+_WeightingKind = Literal["A", "B", "C", "D", "Z", "a", "b", "c", "d", "z"]
 
 # ---------------------------------------------------------------------------
 # Spectral descriptors from a spectrogram (librosa.feature.*(S=...))
 # ---------------------------------------------------------------------------
 
+@overload
 def spectral_centroid_from_spectrogram(
-    S: npt.ArrayLike, *, sr: float, freq: Optional[npt.ArrayLike] = None
-) -> NDArray[np.floating]:
+    S: NDArray[_UnknownDtype],
+    *,
+    sr: float,
+    freq: Optional[npt.ArrayLike] = None,
+) -> NDArray[Any]: ...
+@overload
+def spectral_centroid_from_spectrogram(  # type: ignore[overload-overlap]
+    S: _SingleArray,
+    *,
+    sr: float,
+    freq: Optional[npt.ArrayLike] = None,
+) -> NDArray[np.float32]: ...
+@overload
+def spectral_centroid_from_spectrogram(
+    S: npt.ArrayLike,
+    *,
+    sr: float,
+    freq: Optional[npt.ArrayLike] = None,
+) -> NDArray[np.float64]:
     """Spectral centroid per frame, ``librosa.feature.spectral_centroid(S=S, sr=sr, freq=freq)``.
 
     Args:
@@ -100,6 +130,27 @@ def spectral_centroid_from_spectrogram(
     """
     ...
 
+@overload
+def spectral_bandwidth_from_spectrogram(
+    S: NDArray[_UnknownDtype],
+    *,
+    sr: float,
+    freq: Optional[npt.ArrayLike] = None,
+    centroid: Optional[npt.ArrayLike] = None,
+    norm: bool = True,
+    p: float = 2.0,
+) -> NDArray[Any]: ...
+@overload
+def spectral_bandwidth_from_spectrogram(  # type: ignore[overload-overlap]
+    S: _SingleArray,
+    *,
+    sr: float,
+    freq: Optional[npt.ArrayLike] = None,
+    centroid: Optional[npt.ArrayLike] = None,
+    norm: bool = True,
+    p: float = 2.0,
+) -> NDArray[np.float32]: ...
+@overload
 def spectral_bandwidth_from_spectrogram(
     S: npt.ArrayLike,
     *,
@@ -108,7 +159,7 @@ def spectral_bandwidth_from_spectrogram(
     centroid: Optional[npt.ArrayLike] = None,
     norm: bool = True,
     p: float = 2.0,
-) -> NDArray[np.floating]:
+) -> NDArray[np.float64]:
     """Order-``p`` spectral bandwidth per frame, ``librosa.feature.spectral_bandwidth(S=S, ...)``.
 
     Args:
@@ -124,9 +175,30 @@ def spectral_bandwidth_from_spectrogram(
     """
     ...
 
+@overload
 def spectral_rolloff_from_spectrogram(
-    S: npt.ArrayLike, *, sr: float, freq: Optional[npt.ArrayLike] = None, roll_percent: float = 0.85
-) -> NDArray[np.floating]:
+    S: NDArray[_UnknownDtype],
+    *,
+    sr: float,
+    freq: Optional[npt.ArrayLike] = None,
+    roll_percent: float = 0.85,
+) -> NDArray[Any]: ...
+@overload
+def spectral_rolloff_from_spectrogram(  # type: ignore[overload-overlap]
+    S: _SingleArray,
+    *,
+    sr: float,
+    freq: Optional[npt.ArrayLike] = None,
+    roll_percent: float = 0.85,
+) -> NDArray[np.float32]: ...
+@overload
+def spectral_rolloff_from_spectrogram(
+    S: npt.ArrayLike,
+    *,
+    sr: float,
+    freq: Optional[npt.ArrayLike] = None,
+    roll_percent: float = 0.85,
+) -> NDArray[np.float64]:
     """Roll-off frequency per frame, ``librosa.feature.spectral_rolloff(S=S, ...)``.
 
     Returns:
@@ -137,9 +209,27 @@ def spectral_rolloff_from_spectrogram(
     """
     ...
 
+@overload
 def spectral_flatness_from_spectrogram(
-    S: npt.ArrayLike, *, amin: float = 1e-10, power: float = 2.0
-) -> NDArray[np.floating]:
+    S: NDArray[_UnknownDtype],
+    *,
+    amin: float = 1e-10,
+    power: float = 2.0,
+) -> NDArray[Any]: ...
+@overload
+def spectral_flatness_from_spectrogram(  # type: ignore[overload-overlap]
+    S: _SingleArray,
+    *,
+    amin: float = 1e-10,
+    power: float = 2.0,
+) -> NDArray[np.float32]: ...
+@overload
+def spectral_flatness_from_spectrogram(
+    S: npt.ArrayLike,
+    *,
+    amin: float = 1e-10,
+    power: float = 2.0,
+) -> NDArray[np.float64]:
     """Spectral flatness per frame, ``librosa.feature.spectral_flatness(S=S, amin=amin, power=power)``.
 
     Args:
@@ -152,6 +242,29 @@ def spectral_flatness_from_spectrogram(
     """
     ...
 
+@overload
+def spectral_contrast_from_spectrogram(
+    S: NDArray[_UnknownDtype],
+    *,
+    sr: float,
+    freq: Optional[npt.ArrayLike] = None,
+    fmin: float = 200.0,
+    n_bands: int = 6,
+    quantile: float = 0.02,
+    linear: bool = False,
+) -> NDArray[Any]: ...
+@overload
+def spectral_contrast_from_spectrogram(  # type: ignore[overload-overlap]
+    S: _SingleArray,
+    *,
+    sr: float,
+    freq: Optional[npt.ArrayLike] = None,
+    fmin: float = 200.0,
+    n_bands: int = 6,
+    quantile: float = 0.02,
+    linear: bool = False,
+) -> NDArray[np.float32]: ...
+@overload
 def spectral_contrast_from_spectrogram(
     S: npt.ArrayLike,
     *,
@@ -161,7 +274,7 @@ def spectral_contrast_from_spectrogram(
     n_bands: int = 6,
     quantile: float = 0.02,
     linear: bool = False,
-) -> NDArray[np.floating]:
+) -> NDArray[np.float64]:
     """Octave-band spectral contrast, ``librosa.feature.spectral_contrast(S=S, ...)``.
 
     Returns:
@@ -173,9 +286,30 @@ def spectral_contrast_from_spectrogram(
     """
     ...
 
+@overload
 def poly_features_from_spectrogram(
-    S: npt.ArrayLike, *, sr: float, freq: Optional[npt.ArrayLike] = None, order: int = 1
-) -> NDArray[np.floating]:
+    S: NDArray[_UnknownDtype],
+    *,
+    sr: float,
+    freq: Optional[npt.ArrayLike] = None,
+    order: int = 1,
+) -> NDArray[Any]: ...
+@overload
+def poly_features_from_spectrogram(  # type: ignore[overload-overlap]
+    S: _SingleArray,
+    *,
+    sr: float,
+    freq: Optional[npt.ArrayLike] = None,
+    order: int = 1,
+) -> NDArray[np.float32]: ...
+@overload
+def poly_features_from_spectrogram(
+    S: npt.ArrayLike,
+    *,
+    sr: float,
+    freq: Optional[npt.ArrayLike] = None,
+    order: int = 1,
+) -> NDArray[np.float64]:
     """Polynomial fit per frame, ``librosa.feature.poly_features(S=S, ...)``.
 
     Returns:
@@ -184,7 +318,16 @@ def poly_features_from_spectrogram(
     """
     ...
 
-def rms_from_spectrogram(S: npt.ArrayLike, *, frame_length: int = 2048) -> NDArray[np.floating]:
+@overload
+def rms_from_spectrogram(S: NDArray[_UnknownDtype], *, frame_length: int=2048) -> NDArray[Any]: ...
+@overload
+def rms_from_spectrogram(  # type: ignore[overload-overlap]
+    S: _SingleArray,
+    *,
+    frame_length: int = 2048,
+) -> NDArray[np.float32]: ...
+@overload
+def rms_from_spectrogram(S: npt.ArrayLike, *, frame_length: int=2048) -> NDArray[np.float64]:
     """RMS per frame from STFT magnitudes (Parseval), ``librosa.feature.rms(S=S, frame_length=...)``.
 
     Args:
@@ -197,6 +340,83 @@ def rms_from_spectrogram(S: npt.ArrayLike, *, frame_length: int = 2048) -> NDArr
     """
     ...
 
+@overload
+def pcen(
+    S: NDArray[_UnknownDtype],
+    *,
+    sr: float,
+    hop_length: int,
+    gain: float = 0.98,
+    bias: float = 2.0,
+    power: float = 0.5,
+    time_constant: float = 0.4,
+    eps: float = 1e-06,
+    b: Optional[float] = None,
+    max_size: int = 1,
+    ref: Optional[npt.ArrayLike] = None,
+    axis: int = -1,
+    max_axis: Optional[int] = None,
+    zi: Optional[npt.ArrayLike] = None,
+    return_zf: Literal[False] = False,
+) -> NDArray[Any]: ...
+@overload
+def pcen(
+    S: NDArray[_UnknownDtype],
+    *,
+    sr: float,
+    hop_length: int,
+    gain: float = 0.98,
+    bias: float = 2.0,
+    power: float = 0.5,
+    time_constant: float = 0.4,
+    eps: float = 1e-06,
+    b: Optional[float] = None,
+    max_size: int = 1,
+    ref: Optional[npt.ArrayLike] = None,
+    axis: int = -1,
+    max_axis: Optional[int] = None,
+    zi: Optional[npt.ArrayLike] = None,
+    return_zf: Literal[True],
+) -> tuple[NDArray[Any], NDArray[Any]]: ...
+@overload
+def pcen(  # type: ignore[overload-overlap]
+    S: _SingleArray,
+    *,
+    sr: float,
+    hop_length: int,
+    gain: float = 0.98,
+    bias: float = 2.0,
+    power: float = 0.5,
+    time_constant: float = 0.4,
+    eps: float = 1e-06,
+    b: Optional[float] = None,
+    max_size: int = 1,
+    ref: Optional[npt.ArrayLike] = None,
+    axis: int = -1,
+    max_axis: Optional[int] = None,
+    zi: Optional[npt.ArrayLike] = None,
+    return_zf: Literal[False] = False,
+) -> NDArray[np.float32]: ...
+@overload
+def pcen(  # type: ignore[overload-overlap]
+    S: _SingleArray,
+    *,
+    sr: float,
+    hop_length: int,
+    gain: float = 0.98,
+    bias: float = 2.0,
+    power: float = 0.5,
+    time_constant: float = 0.4,
+    eps: float = 1e-06,
+    b: Optional[float] = None,
+    max_size: int = 1,
+    ref: Optional[npt.ArrayLike] = None,
+    axis: int = -1,
+    max_axis: Optional[int] = None,
+    zi: Optional[npt.ArrayLike] = None,
+    return_zf: Literal[True],
+) -> tuple[NDArray[np.float32], NDArray[np.float32]]: ...
+@overload
 def pcen(
     S: npt.ArrayLike,
     *,
@@ -206,15 +426,34 @@ def pcen(
     bias: float = 2.0,
     power: float = 0.5,
     time_constant: float = 0.4,
-    eps: float = 1e-6,
+    eps: float = 1e-06,
     b: Optional[float] = None,
     max_size: int = 1,
     ref: Optional[npt.ArrayLike] = None,
     axis: int = -1,
     max_axis: Optional[int] = None,
     zi: Optional[npt.ArrayLike] = None,
-    return_zf: bool = False,
-) -> Any:
+    return_zf: Literal[False] = False,
+) -> NDArray[np.float64]: ...
+@overload
+def pcen(
+    S: npt.ArrayLike,
+    *,
+    sr: float,
+    hop_length: int,
+    gain: float = 0.98,
+    bias: float = 2.0,
+    power: float = 0.5,
+    time_constant: float = 0.4,
+    eps: float = 1e-06,
+    b: Optional[float] = None,
+    max_size: int = 1,
+    ref: Optional[npt.ArrayLike] = None,
+    axis: int = -1,
+    max_axis: Optional[int] = None,
+    zi: Optional[npt.ArrayLike] = None,
+    return_zf: Literal[True],
+) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
     """Per-channel energy normalisation, ``librosa.pcen``.
 
     Time is the last axis and the max filter runs along frequency (axis -2); other
@@ -235,30 +474,76 @@ def pcen(
     """
     ...
 
-def a_weighting(frequencies: npt.ArrayLike, *, min_db: Optional[float] = -80.0) -> Any:
+@overload
+def a_weighting(frequencies: float, *, min_db: Optional[float]=-80.0) -> float: ...
+@overload
+def a_weighting(
+    frequencies: npt.ArrayLike,
+    *,
+    min_db: Optional[float] = -80.0,
+) -> NDArray[np.float64]:
     """A-weighting in dB, ``librosa.A_weighting``. Returns a float for scalar input,
     otherwise numpy.ndarray[float64] of the input's shape."""
     ...
 
-def b_weighting(frequencies: npt.ArrayLike, *, min_db: Optional[float] = -80.0) -> Any:
+@overload
+def b_weighting(frequencies: float, *, min_db: Optional[float]=-80.0) -> float: ...
+@overload
+def b_weighting(
+    frequencies: npt.ArrayLike,
+    *,
+    min_db: Optional[float] = -80.0,
+) -> NDArray[np.float64]:
     """B-weighting in dB, ``librosa.B_weighting`` (float or array, like the input)."""
     ...
 
-def c_weighting(frequencies: npt.ArrayLike, *, min_db: Optional[float] = -80.0) -> Any:
+@overload
+def c_weighting(frequencies: float, *, min_db: Optional[float]=-80.0) -> float: ...
+@overload
+def c_weighting(
+    frequencies: npt.ArrayLike,
+    *,
+    min_db: Optional[float] = -80.0,
+) -> NDArray[np.float64]:
     """C-weighting in dB, ``librosa.C_weighting`` (float or array, like the input)."""
     ...
 
-def d_weighting(frequencies: npt.ArrayLike, *, min_db: Optional[float] = -80.0) -> Any:
+@overload
+def d_weighting(frequencies: float, *, min_db: Optional[float]=-80.0) -> float: ...
+@overload
+def d_weighting(
+    frequencies: npt.ArrayLike,
+    *,
+    min_db: Optional[float] = -80.0,
+) -> NDArray[np.float64]:
     """D-weighting in dB, ``librosa.D_weighting`` (float or array, like the input)."""
     ...
 
-def z_weighting(frequencies: npt.ArrayLike, *, min_db: Optional[float] = -80.0) -> Any:
+@overload
+def z_weighting(frequencies: float, *, min_db: Optional[float]=-80.0) -> float: ...
+@overload
+def z_weighting(
+    frequencies: npt.ArrayLike,
+    *,
+    min_db: Optional[float] = -80.0,
+) -> NDArray[np.float64]:
     """Z-weighting (flat, 0 dB), ``librosa.Z_weighting`` (float or array, like the input)."""
     ...
 
+@overload
 def frequency_weighting(
-    frequencies: npt.ArrayLike, *, kind: WeightingKind = "A", min_db: Optional[float] = None
-) -> Any:
+    frequencies: float,
+    *,
+    kind: _WeightingKind = 'A',
+    min_db: Optional[float] = None,
+) -> float: ...
+@overload
+def frequency_weighting(
+    frequencies: npt.ArrayLike,
+    *,
+    kind: _WeightingKind = 'A',
+    min_db: Optional[float] = None,
+) -> NDArray[np.float64]:
     """Weighting curve by name, ``librosa.frequency_weighting``.
 
     Returns:
@@ -282,15 +567,36 @@ def multi_frequency_weighting(
     """
     ...
 
+@overload
+def perceptual_weighting(
+    S: NDArray[_UnknownDtype],
+    frequencies: npt.ArrayLike,
+    *,
+    kind: _WeightingKind = 'A',
+    ref: _DbRef = 1.0,
+    amin: float = 1e-10,
+    top_db: Optional[float] = None,
+) -> NDArray[Any]: ...
+@overload
+def perceptual_weighting(  # type: ignore[overload-overlap]
+    S: _SingleArray,
+    frequencies: npt.ArrayLike,
+    *,
+    kind: _WeightingKind = 'A',
+    ref: _DbRef = 1.0,
+    amin: float = 1e-10,
+    top_db: Optional[float] = None,
+) -> NDArray[np.float32]: ...
+@overload
 def perceptual_weighting(
     S: npt.ArrayLike,
     frequencies: npt.ArrayLike,
     *,
-    kind: WeightingKind = "A",
-    ref: DbRef = 1.0,
+    kind: _WeightingKind = 'A',
+    ref: _DbRef = 1.0,
     amin: float = 1e-10,
     top_db: Optional[float] = None,
-) -> NDArray[np.floating]:
+) -> NDArray[np.float64]:
     """``power_to_db(S, ref, amin, top_db) + weighting(frequencies)``, ``librosa.perceptual_weighting``.
 
     Args:
@@ -324,6 +630,25 @@ def chroma_filterbank(
     """
     ...
 
+@overload
+def normalize(
+    S: NDArray[_UnknownDtype],
+    *,
+    norm: Optional[float] = np.inf,
+    axis: Optional[int] = 0,
+    threshold: Optional[float] = None,
+    fill: Optional[bool] = None,
+) -> NDArray[Any]: ...
+@overload
+def normalize(  # type: ignore[overload-overlap]
+    S: _SingleArray,
+    *,
+    norm: Optional[float] = np.inf,
+    axis: Optional[int] = 0,
+    threshold: Optional[float] = None,
+    fill: Optional[bool] = None,
+) -> NDArray[np.float32]: ...
+@overload
 def normalize(
     S: npt.ArrayLike,
     *,
@@ -331,7 +656,7 @@ def normalize(
     axis: Optional[int] = 0,
     threshold: Optional[float] = None,
     fill: Optional[bool] = None,
-) -> NDArray[np.floating]:
+) -> NDArray[np.float64]:
     """Unit-norm slices along an axis, ``librosa.util.normalize``.
 
     Args:
@@ -350,7 +675,12 @@ def normalize(
     """
     ...
 
-def pitch_tuning(frequencies: npt.ArrayLike, *, resolution: float = 0.01, bins_per_octave: int = 12) -> float:
+def pitch_tuning(
+    frequencies: npt.ArrayLike,
+    *,
+    resolution: float  =  0.01,
+    bins_per_octave: int  =  12,
+) -> float:
     """Tuning offset of a set of frequencies, ``librosa.pitch_tuning``.
 
     Returns:
@@ -358,6 +688,33 @@ def pitch_tuning(frequencies: npt.ArrayLike, *, resolution: float = 0.01, bins_p
     """
     ...
 
+@overload
+def chroma_stft_from_spectrogram(
+    S: NDArray[_UnknownDtype],
+    *,
+    sr: float,
+    norm: Optional[float] = np.inf,
+    n_fft: Optional[int] = None,
+    tuning: Optional[float] = 0.0,
+    n_chroma: int = 12,
+    ctroct: float = 5.0,
+    octwidth: Optional[float] = 2.0,
+    base_c: bool = True,
+) -> NDArray[Any]: ...
+@overload
+def chroma_stft_from_spectrogram(  # type: ignore[overload-overlap]
+    S: _SingleArray,
+    *,
+    sr: float,
+    norm: Optional[float] = np.inf,
+    n_fft: Optional[int] = None,
+    tuning: Optional[float] = 0.0,
+    n_chroma: int = 12,
+    ctroct: float = 5.0,
+    octwidth: Optional[float] = 2.0,
+    base_c: bool = True,
+) -> NDArray[np.float32]: ...
+@overload
 def chroma_stft_from_spectrogram(
     S: npt.ArrayLike,
     *,
@@ -369,7 +726,7 @@ def chroma_stft_from_spectrogram(
     ctroct: float = 5.0,
     octwidth: Optional[float] = 2.0,
     base_c: bool = True,
-) -> NDArray[np.floating]:
+) -> NDArray[np.float64]:
     """Chromagram of a (power) spectrogram, ``librosa.feature.chroma_stft(S=S, ...)``.
 
     Args:
@@ -383,6 +740,29 @@ def chroma_stft_from_spectrogram(
     """
     ...
 
+@overload
+def piptrack_from_spectrogram(
+    S: NDArray[_UnknownDtype],
+    *,
+    sr: float,
+    n_fft: Optional[int] = None,
+    fmin: float = 150.0,
+    fmax: float = 4000.0,
+    threshold: float = 0.1,
+    ref: Union[None, float, Callable[..., Any], Literal['max', 'mean']] = None,
+) -> tuple[NDArray[Any], NDArray[Any]]: ...
+@overload
+def piptrack_from_spectrogram(  # type: ignore[overload-overlap]
+    S: _SingleArray,
+    *,
+    sr: float,
+    n_fft: Optional[int] = None,
+    fmin: float = 150.0,
+    fmax: float = 4000.0,
+    threshold: float = 0.1,
+    ref: Union[None, float, Callable[..., Any], Literal['max', 'mean']] = None,
+) -> tuple[NDArray[np.float32], NDArray[np.float32]]: ...
+@overload
 def piptrack_from_spectrogram(
     S: npt.ArrayLike,
     *,
@@ -391,8 +771,8 @@ def piptrack_from_spectrogram(
     fmin: float = 150.0,
     fmax: float = 4000.0,
     threshold: float = 0.1,
-    ref: Union[None, float, Callable[..., Any], Literal["max", "mean"]] = None,
-) -> tuple[NDArray[np.floating], NDArray[np.floating]]:
+    ref: Union[None, float, Callable[..., Any], Literal['max', 'mean']] = None,
+) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
     """Spectral peak tracking, ``librosa.piptrack(S=S, ...)``.
 
     Args:
@@ -433,9 +813,9 @@ def estimate_tuning_from_signal(
     bins_per_octave: int = 12,
     hop_length: Optional[int] = None,
     win_length: Optional[int] = None,
-    window: WindowSpec = "hann",
+    window: _WindowSpec = "hann",
     center: bool = True,
-    pad_mode: PadMode = "constant",
+    pad_mode: _PadMode = "constant",
     fmin: float = 150.0,
     fmax: float = 4000.0,
     threshold: float = 0.1,
@@ -474,7 +854,7 @@ def wavelet_lengths(
     *,
     freqs: npt.ArrayLike,
     sr: float,
-    window: WindowSpec = "hann",
+    window: _WindowSpec = "hann",
     filter_scale: float = 1.0,
     gamma: Optional[float] = 0.0,
 ) -> tuple[NDArray[np.float64], float]:
@@ -490,7 +870,7 @@ def wavelet(
     *,
     freqs: npt.ArrayLike,
     sr: float,
-    window: WindowSpec = "hann",
+    window: _WindowSpec = "hann",
     filter_scale: float = 1.0,
     pad_fft: bool = True,
     norm: Optional[float] = 1.0,
@@ -505,13 +885,30 @@ def wavelet(
     """
     ...
 
+@overload
+def chroma_cens_from_chroma(
+    chroma: NDArray[_UnknownDtype],
+    *,
+    norm: Optional[float] = 2.0,
+    win_len_smooth: Optional[int] = 41,
+    smoothing_window: _WindowSpec = 'hann',
+) -> NDArray[Any]: ...
+@overload
+def chroma_cens_from_chroma(  # type: ignore[overload-overlap]
+    chroma: _SingleArray,
+    *,
+    norm: Optional[float] = 2.0,
+    win_len_smooth: Optional[int] = 41,
+    smoothing_window: _WindowSpec = 'hann',
+) -> NDArray[np.float32]: ...
+@overload
 def chroma_cens_from_chroma(
     chroma: npt.ArrayLike,
     *,
     norm: Optional[float] = 2.0,
     win_len_smooth: Optional[int] = 41,
-    smoothing_window: WindowSpec = "hann",
-) -> NDArray[np.floating]:
+    smoothing_window: _WindowSpec = 'hann',
+) -> NDArray[np.float64]:
     """CENS post-processing of a chromagram (the second half of ``librosa.feature.chroma_cens``).
 
     Args:
@@ -523,7 +920,14 @@ def chroma_cens_from_chroma(
     """
     ...
 
-def tonnetz_from_chroma(chroma: npt.ArrayLike) -> NDArray[np.floating]:
+@overload
+def tonnetz_from_chroma(chroma: NDArray[_UnknownDtype]) -> NDArray[Any]: ...
+@overload
+def tonnetz_from_chroma(  # type: ignore[overload-overlap]
+    chroma: _SingleArray,
+) -> NDArray[np.float32]: ...
+@overload
+def tonnetz_from_chroma(chroma: npt.ArrayLike) -> NDArray[np.float64]:
     """Tonal centroid features, ``librosa.feature.tonnetz(chroma=chroma)``.
 
     Returns:
@@ -535,6 +939,33 @@ def tonnetz_from_chroma(chroma: npt.ArrayLike) -> NDArray[np.floating]:
 # Pitch tracking and harmonics
 # ---------------------------------------------------------------------------
 
+@overload
+def yin(
+    y: NDArray[_UnknownDtype],
+    *,
+    fmin: float,
+    fmax: float,
+    sr: float,
+    frame_length: int = 2048,
+    hop_length: Optional[int] = None,
+    trough_threshold: float = 0.1,
+    center: bool = True,
+    pad_mode: _PadMode = 'constant',
+) -> NDArray[Any]: ...
+@overload
+def yin(  # type: ignore[overload-overlap]
+    y: _SingleArray,
+    *,
+    fmin: float,
+    fmax: float,
+    sr: float,
+    frame_length: int = 2048,
+    hop_length: Optional[int] = None,
+    trough_threshold: float = 0.1,
+    center: bool = True,
+    pad_mode: _PadMode = 'constant',
+) -> NDArray[np.float32]: ...
+@overload
 def yin(
     y: npt.ArrayLike,
     *,
@@ -545,8 +976,8 @@ def yin(
     hop_length: Optional[int] = None,
     trough_threshold: float = 0.1,
     center: bool = True,
-    pad_mode: PadMode = "constant",
-) -> NDArray[np.floating]:
+    pad_mode: _PadMode = 'constant',
+) -> NDArray[np.float64]:
     """YIN f0 per frame, ``librosa.yin``.
 
     Returns:
@@ -554,6 +985,49 @@ def yin(
     """
     ...
 
+@overload
+def pyin(
+    y: NDArray[_UnknownDtype],
+    *,
+    fmin: float,
+    fmax: float,
+    sr: float,
+    frame_length: int = 2048,
+    hop_length: Optional[int] = None,
+    n_thresholds: int = 100,
+    beta_parameters: tuple[float, float] = (2, 18),
+    boltzmann_parameter: float = 2,
+    resolution: float = 0.1,
+    max_transition_rate: float = 35.92,
+    switch_prob: float = 0.01,
+    no_trough_prob: float = 0.01,
+    fill_na: Optional[float] = np.nan,
+    center: bool = True,
+    pad_mode: _PadMode = 'constant',
+    transition_min_prob: Optional[float] = 0.0001,
+) -> tuple[NDArray[Any], NDArray[Any], NDArray[Any]]: ...
+@overload
+def pyin(  # type: ignore[overload-overlap]
+    y: _SingleArray,
+    *,
+    fmin: float,
+    fmax: float,
+    sr: float,
+    frame_length: int = 2048,
+    hop_length: Optional[int] = None,
+    n_thresholds: int = 100,
+    beta_parameters: tuple[float, float] = (2, 18),
+    boltzmann_parameter: float = 2,
+    resolution: float = 0.1,
+    max_transition_rate: float = 35.92,
+    switch_prob: float = 0.01,
+    no_trough_prob: float = 0.01,
+    fill_na: Optional[float] = np.nan,
+    center: bool = True,
+    pad_mode: _PadMode = 'constant',
+    transition_min_prob: Optional[float] = 0.0001,
+) -> tuple[NDArray[np.float32], NDArray[np.bool_], NDArray[np.float32]]: ...
+@overload
 def pyin(
     y: npt.ArrayLike,
     *,
@@ -571,9 +1045,9 @@ def pyin(
     no_trough_prob: float = 0.01,
     fill_na: Optional[float] = np.nan,
     center: bool = True,
-    pad_mode: PadMode = "constant",
-    transition_min_prob: Optional[float] = 1e-4,
-) -> tuple[NDArray[np.floating], NDArray[np.bool_], NDArray[np.floating]]:
+    pad_mode: _PadMode = 'constant',
+    transition_min_prob: Optional[float] = 0.0001,
+) -> tuple[NDArray[np.float64], NDArray[np.bool_], NDArray[np.float64]]:
     """Probabilistic YIN, ``librosa.pyin``.
 
     Args:
@@ -584,6 +1058,33 @@ def pyin(
     """
     ...
 
+@overload
+def salience(
+    S: NDArray[_UnknownDtype],
+    *,
+    freqs: npt.ArrayLike,
+    harmonics: Sequence[float],
+    weights: Optional[npt.ArrayLike] = None,
+    aggregate: Optional[Callable[..., Any]] = None,
+    filter_peaks: bool = True,
+    fill_value: float = np.nan,
+    kind: Literal['linear'] = 'linear',
+    axis: int = -2,
+) -> NDArray[Any]: ...
+@overload
+def salience(  # type: ignore[overload-overlap]
+    S: _SingleArray,
+    *,
+    freqs: npt.ArrayLike,
+    harmonics: Sequence[float],
+    weights: Optional[npt.ArrayLike] = None,
+    aggregate: Optional[Callable[..., Any]] = None,
+    filter_peaks: bool = True,
+    fill_value: float = np.nan,
+    kind: Literal['linear'] = 'linear',
+    axis: int = -2,
+) -> NDArray[np.float32]: ...
+@overload
 def salience(
     S: npt.ArrayLike,
     *,
@@ -593,9 +1094,9 @@ def salience(
     aggregate: Optional[Callable[..., Any]] = None,
     filter_peaks: bool = True,
     fill_value: float = np.nan,
-    kind: Literal["linear"] = "linear",
+    kind: Literal['linear'] = 'linear',
     axis: int = -2,
-) -> NDArray[np.floating]:
+) -> NDArray[np.float64]:
     """Harmonic salience, ``librosa.salience``.
 
     Args:
@@ -609,15 +1110,36 @@ def salience(
     """
     ...
 
+@overload
+def interp_harmonics(
+    x: NDArray[_UnknownDtype],
+    *,
+    freqs: npt.ArrayLike,
+    harmonics: npt.ArrayLike,
+    kind: Literal['linear'] = 'linear',
+    fill_value: float = 0,
+    axis: int = -2,
+) -> NDArray[Any]: ...
+@overload
+def interp_harmonics(  # type: ignore[overload-overlap]
+    x: _SingleArray,
+    *,
+    freqs: npt.ArrayLike,
+    harmonics: npt.ArrayLike,
+    kind: Literal['linear'] = 'linear',
+    fill_value: float = 0,
+    axis: int = -2,
+) -> NDArray[np.float32]: ...
+@overload
 def interp_harmonics(
     x: npt.ArrayLike,
     *,
     freqs: npt.ArrayLike,
     harmonics: npt.ArrayLike,
-    kind: Literal["linear"] = "linear",
+    kind: Literal['linear'] = 'linear',
     fill_value: float = 0,
     axis: int = -2,
-) -> NDArray[np.floating]:
+) -> NDArray[np.float64]:
     """Energy interpolated at harmonics of every bin, ``librosa.interp_harmonics``.
 
     Returns:
@@ -626,16 +1148,39 @@ def interp_harmonics(
     """
     ...
 
+@overload
+def f0_harmonics(
+    x: NDArray[_UnknownDtype],
+    *,
+    f0: npt.ArrayLike,
+    freqs: npt.ArrayLike,
+    harmonics: npt.ArrayLike,
+    kind: Literal['linear'] = 'linear',
+    fill_value: float = 0,
+    axis: int = -2,
+) -> NDArray[Any]: ...
+@overload
+def f0_harmonics(  # type: ignore[overload-overlap]
+    x: _SingleArray,
+    *,
+    f0: npt.ArrayLike,
+    freqs: npt.ArrayLike,
+    harmonics: npt.ArrayLike,
+    kind: Literal['linear'] = 'linear',
+    fill_value: float = 0,
+    axis: int = -2,
+) -> NDArray[np.float32]: ...
+@overload
 def f0_harmonics(
     x: npt.ArrayLike,
     *,
     f0: npt.ArrayLike,
     freqs: npt.ArrayLike,
     harmonics: npt.ArrayLike,
-    kind: Literal["linear"] = "linear",
+    kind: Literal['linear'] = 'linear',
     fill_value: float = 0,
     axis: int = -2,
-) -> NDArray[np.floating]:
+) -> NDArray[np.float64]:
     """Energy at the harmonics of a time-varying f0, ``librosa.f0_harmonics``.
 
     Args:
@@ -647,37 +1192,38 @@ def f0_harmonics(
     ...
 
 __all__ = [
-    "spectral_centroid_from_spectrogram",
-    "spectral_bandwidth_from_spectrogram",
-    "spectral_rolloff_from_spectrogram",
-    "spectral_flatness_from_spectrogram",
-    "spectral_contrast_from_spectrogram",
-    "poly_features_from_spectrogram",
-    "rms_from_spectrogram",
-    "pcen",
+    "__doc__",
     "a_weighting",
     "b_weighting",
     "c_weighting",
-    "d_weighting",
-    "z_weighting",
-    "frequency_weighting",
-    "multi_frequency_weighting",
-    "perceptual_weighting",
-    "chroma_filterbank",
-    "normalize",
-    "pitch_tuning",
-    "chroma_stft_from_spectrogram",
-    "piptrack_from_spectrogram",
-    "estimate_tuning_from_spectrogram",
-    "estimate_tuning_from_signal",
-    "cq_to_chroma",
-    "wavelet_lengths",
-    "wavelet",
     "chroma_cens_from_chroma",
-    "tonnetz_from_chroma",
-    "yin",
-    "pyin",
-    "salience",
-    "interp_harmonics",
+    "chroma_filterbank",
+    "chroma_stft_from_spectrogram",
+    "cq_to_chroma",
+    "d_weighting",
+    "estimate_tuning_from_signal",
+    "estimate_tuning_from_spectrogram",
     "f0_harmonics",
+    "frequency_weighting",
+    "interp_harmonics",
+    "multi_frequency_weighting",
+    "normalize",
+    "pcen",
+    "perceptual_weighting",
+    "piptrack_from_spectrogram",
+    "pitch_tuning",
+    "poly_features_from_spectrogram",
+    "pyin",
+    "rms_from_spectrogram",
+    "salience",
+    "spectral_bandwidth_from_spectrogram",
+    "spectral_centroid_from_spectrogram",
+    "spectral_contrast_from_spectrogram",
+    "spectral_flatness_from_spectrogram",
+    "spectral_rolloff_from_spectrogram",
+    "tonnetz_from_chroma",
+    "wavelet",
+    "wavelet_lengths",
+    "yin",
+    "z_weighting",
 ]

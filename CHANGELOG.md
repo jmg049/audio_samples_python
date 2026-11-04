@@ -11,6 +11,14 @@ has the full detail.
 
 ## [Unreleased]
 
+- **Type stubs are checked and precise.** `mypy.stubtest`, mypy and pyright run in pre-commit and in CI. `AudioSamples`
+  is generic in its sample type (`AudioSamples[numpy.float32]` also works at run time), and overloads give the dtype of
+  analysis results from the sample type or the input array, the bool results of `pyin`, `recurrence_matrix` and
+  `viterbi_binary`, and the results selected by `units=`, `mode=`, `return_zf=`, `backtrack=` and similar arguments. An
+  input of unknown type gives a result of unknown type. Corrected signatures include `apply_compressor`, `apply_limiter`
+  and `normalize`; `scale`, `clip`, `normalize` and `remove_dc_offset` return `None`. The stubs for `utils` move to
+  `audio_samples/utils/`; `audio_samples.audio_math` and `audio_samples.detection` never existed at run time and are gone
+  from the stubs, with their contents under `audio_samples.utils`.
 - **Migration checker.** `python -m audio_samples.migrate PATH [PATH ...]` lists the librosa calls in Python
   files and notebooks with the equivalent, how closely it matches and what to watch for in that call. It has
   JSON output, a summary and an exit status for CI, and it never changes the files.

@@ -2098,6 +2098,19 @@ impl PyAudioSamples {
     ///     >>> stereo = aus.AudioSamples.from_array(np.zeros((2, 44100)), 44100)
     ///     >>> len(stereo)
     ///     88200
+    /// `AudioSamples[numpy.float32]` names audio of that sample type in annotations; the type
+    /// stubs use it to tie the precision of analysis results to the sample type.
+    #[classmethod]
+    fn __class_getitem__<'py>(
+        cls: &Bound<'py, pyo3::types::PyType>,
+        item: Bound<'py, PyAny>,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        cls.py()
+            .import("types")?
+            .getattr("GenericAlias")?
+            .call1((cls, item))
+    }
+
     fn __len__(&self, py: Python<'_>) -> usize {
         self.len(py)
     }

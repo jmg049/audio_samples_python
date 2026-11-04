@@ -164,7 +164,7 @@ def test_no_nonexistent_constructors_in_docs():
     for fn in (aus.utils.snr, aus.utils.mse, aus.utils.correlation, aus.utils.align_signals):
         assert "from_mono_f32" not in fn.__doc__
         assert "zeros_mono_f32" not in fn.__doc__
-    assert "from_mono_f32" not in (PKG / "utils.pyi").read_text()
+    assert "from_mono_f32" not in (PKG / "utils" / "__init__.pyi").read_text()
 
 
 # --------------------------------------------------------------------------

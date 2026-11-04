@@ -384,6 +384,12 @@ array, and for ``float32`` ``AudioSamples``; everything else is converted to ``f
 Integer arrays are converted by value, without audio scaling, so give them floats. Passing
 ``dtype=`` to ``griffinlim`` is accepted and ignored: the input's precision decides.
 
+The type stubs state this rule, so mypy and pyright know the result's dtype when they know the input's.
+``AudioSamples`` is generic in its sample type: ``generation.sine_wave(440.0, 1.0, dtype=np.float64)`` is an
+``AudioSamples[np.float64]``, and its ``melspectrogram()`` is ``NDArray[np.float64]``. The sample type of audio read
+from a file is known only at run time, so ``io.read`` gives an ``AudioSamples`` of unknown sample type, whose results
+have an unknown dtype. A file's sample type can be stated with an annotation on the result of ``io.read``.
+
 .. _changed defaults:
 
 Some defaults are different on purpose

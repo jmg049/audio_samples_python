@@ -1,0 +1,11 @@
+# Modules with no stubs of their own, some of which need optional packages just to import.
+audio_samples\.bench_resampling(\..*)?
+audio_samples\.benchmarks(\..*)?
+audio_samples\.io_benchmark(\..*)?
+audio_samples\.examples(\..*)?
+# The compiled extension itself, loaded by __init__.py under the package's name.
+audio_samples\.audio_samples
+# A class attribute named None, which a stub cannot spell. getattr(MelNorm, "None") reaches it.
+audio_samples\.spectrograms\.MelNorm\.None
+# Present because of __pow__, but `2.0 ** audio` raises TypeError, so the stub leaves it out.
+audio_samples\.AudioSamples\.__rpow__

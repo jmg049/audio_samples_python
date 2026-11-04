@@ -5,8 +5,9 @@
 #
 # The notebook hooks guard the tutorials in docs/source/tutorials: they must be
 # committed without outputs, and they must execute (each asserts the numbers
-# its text states). Executing them needs the extension built into the active
-# environment (`maturin develop --release`).
+# its text states). Executing them, and comparing the type stubs with the
+# extension, needs the extension built into the active environment
+# (`maturin develop --release`).
 repos:
   - repo: local
     hooks:
@@ -21,3 +22,10 @@ repos:
         entry: tests/hooks/check_notebooks.sh
         language: system
         files: ^docs/source/tutorials/.*\.ipynb$
+
+      - id: type-stubs
+        name: type stubs match the extension (mypy.stubtest, mypy, pyright)
+        entry: tests/hooks/check_stubs.sh
+        language: system
+        pass_filenames: false
+        files: ^(audio_samples/.*\.pyi|tests/typing/.*|tests/test_stub_types\.py|tests/hooks/check_stubs\.sh|pyproject\.toml|src/.*\.rs)$

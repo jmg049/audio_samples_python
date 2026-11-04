@@ -1,12 +1,14 @@
 from __future__ import annotations
-from enum import Enum
-from typing import Optional
+from typing import final
+from typing_extensions import Self
+from typing import ClassVar, Optional
 import numpy
 import numpy.typing
-from audio_samples.spectrograms import CqtParams, StftParams
+from audio_samples.spectrograms import CqtParams, StftParams, WindowType as WindowType
 from audio_samples.explain import ExplainDoc
 
-class SampleType(Enum):
+@final
+class SampleType:
     """
     Enumeration of supported audio sample data types.
 
@@ -40,14 +42,16 @@ class SampleType(Enum):
     treated as enum values rather than constructed directly.
     """
 
-    I16: SampleType
-    I24: SampleType
-    I32: SampleType
-    F32: SampleType
-    F64: SampleType
+    U8: ClassVar[SampleType]
+    I16: ClassVar[SampleType]
+    I24: ClassVar[SampleType]
+    I32: ClassVar[SampleType]
+    F32: ClassVar[SampleType]
+    F64: ClassVar[SampleType]
 
     ...
 
+@final
 class PadSide:
     """
     Side for padding operations.
@@ -59,6 +63,12 @@ class PadSide:
     left: PadSide
     right: PadSide
 
+    @staticmethod
+    def default() -> PadSide:
+        """The default PadSide."""
+        ...
+
+@final
 class NormalizationMethod:
     """
     Normalisation strategy for audio sample data.
@@ -106,6 +116,12 @@ class NormalizationMethod:
 
     ...
 
+    @staticmethod
+    def default() -> NormalizationMethod:
+        """The default NormalizationMethod."""
+        ...
+
+@final
 class FadeCurve:
     """
     Fade curve shape for envelope operations.
@@ -141,6 +157,12 @@ class FadeCurve:
 
     ...
 
+    @staticmethod
+    def default() -> FadeCurve:
+        """The default FadeCurve."""
+        ...
+
+@final
 class MonoConversionMethod:
     """
     Method for converting multi-channel audio to mono.
@@ -180,6 +202,12 @@ class MonoConversionMethod:
 
     ...
 
+    @staticmethod
+    def default() -> MonoConversionMethod:
+        """The default MonoConversionMethod."""
+        ...
+
+@final
 class StereoConversionMethod:
     """
     Method for converting mono audio to stereo.
@@ -218,6 +246,12 @@ class StereoConversionMethod:
 
     ...
 
+    @staticmethod
+    def default() -> StereoConversionMethod:
+        """The default StereoConversionMethod."""
+        ...
+
+@final
 class VadMethod:
     """
     Voice Activity Detection (VAD) method.
@@ -250,6 +284,12 @@ class VadMethod:
 
     ...
 
+    @staticmethod
+    def default() -> VadMethod:
+        """The default VadMethod."""
+        ...
+
+@final
 class VadChannelPolicy:
     """
     Multi-channel handling policy for Voice Activity Detection (VAD).
@@ -285,6 +325,12 @@ class VadChannelPolicy:
 
     ...
 
+    @staticmethod
+    def default() -> VadChannelPolicy:
+        """The default VadChannelPolicy."""
+        ...
+
+@final
 class VadConfig:
     """
     Configuration for Voice Activity Detection (VAD).
@@ -297,8 +343,8 @@ class VadConfig:
     configuration is internally consistent.
     """
 
-    def __init__(
-        self,
+    def __new__(
+        cls,
         method: VadMethod,
         channel_policy: VadChannelPolicy,
         /,
@@ -315,7 +361,7 @@ class VadConfig:
         speech_band_low_hz: float,
         speech_band_high_hz: float,
         spectral_ratio_threshold: float,
-    ) -> None:
+    ) -> Self:
         """
         Create a new VAD configuration.
 
@@ -389,6 +435,57 @@ class VadConfig:
         """
         ...
 
+    @staticmethod
+    def default() -> VadConfig:
+        """The default VadConfig."""
+        ...
+
+    @property
+    def channel_policy(self) -> VadChannelPolicy: ...
+
+    @property
+    def energy_threshold_db(self) -> float: ...
+
+    @property
+    def frame_size(self) -> int: ...
+
+    @property
+    def hangover_frames(self) -> int: ...
+
+    @property
+    def hop_size(self) -> int: ...
+
+    @property
+    def method(self) -> VadMethod: ...
+
+    @property
+    def min_silence_frames(self) -> int: ...
+
+    @property
+    def min_speech_frames(self) -> int: ...
+
+    @property
+    def pad_end(self) -> bool: ...
+
+    @property
+    def smooth_frames(self) -> int: ...
+
+    @property
+    def spectral_ratio_threshold(self) -> float: ...
+
+    @property
+    def speech_band_high_hz(self) -> float: ...
+
+    @property
+    def speech_band_low_hz(self) -> float: ...
+
+    @property
+    def zcr_max(self) -> float: ...
+
+    @property
+    def zcr_min(self) -> float: ...
+
+@final
 class ResamplingQuality:
     """
     Quality level for resampling operations.
@@ -416,6 +513,12 @@ class ResamplingQuality:
 
     ...
 
+    @staticmethod
+    def default() -> ResamplingQuality:
+        """The default ResamplingQuality."""
+        ...
+
+@final
 class SpectrogramScale:
     """
     Scaling method for spectrogram magnitude and frequency representations.
@@ -448,6 +551,12 @@ class SpectrogramScale:
 
     ...
 
+    @staticmethod
+    def default() -> SpectrogramScale:
+        """The default SpectrogramScale."""
+        ...
+
+@final
 class PitchDetectionMethod:
     """
     Pitch detection algorithm selection.
@@ -487,6 +596,12 @@ class PitchDetectionMethod:
 
     ...
 
+    @staticmethod
+    def default() -> PitchDetectionMethod:
+        """The default PitchDetectionMethod."""
+        ...
+
+@final
 class IirFilterType:
     """
     IIR filter family selection for digital signal processing.
@@ -532,6 +647,12 @@ class IirFilterType:
 
     ...
 
+    @staticmethod
+    def default() -> IirFilterType:
+        """The default IirFilterType."""
+        ...
+
+@final
 class FilterResponse:
     """
     Filter response characteristic.
@@ -572,6 +693,12 @@ class FilterResponse:
 
     ...
 
+    @staticmethod
+    def default() -> FilterResponse:
+        """The default FilterResponse."""
+        ...
+
+@final
 class IirFilterDesign:
     """
     IIR filter design parameters.
@@ -584,8 +711,8 @@ class IirFilterDesign:
     properties.
     """
 
-    def __init__(
-        self,
+    def __new__(
+        cls,
         filter_type: IirFilterType,
         response: FilterResponse | str,
         order: int,
@@ -595,7 +722,7 @@ class IirFilterDesign:
         passband_ripple: Optional[float] = None,
         stopband_attenuation: Optional[float] = None,
         bessel_norm: Optional[str] = None,
-    ) -> None:
+    ) -> Self:
         """
         Create a new IIR filter design.
 
@@ -840,6 +967,7 @@ class IirFilterDesign:
         """
         ...
 
+@final
 class EqBandType:
     """
     Parametric equaliser band type.
@@ -896,6 +1024,12 @@ class EqBandType:
 
     ...
 
+    @staticmethod
+    def default() -> EqBandType:
+        """The default EqBandType."""
+        ...
+
+@final
 class EqBand:
     """
     Parametric equaliser band configuration.
@@ -907,13 +1041,13 @@ class EqBand:
     construction time and exposed via read-only properties.
     """
 
-    def __init__(
-        self,
+    def __new__(
+        cls,
         band_type: EqBandType,
         frequency: float,
         gain_db: float,
         q_factor: float,
-    ) -> None:
+    ) -> Self:
         """
         Create a new EQ band with explicit parameters.
 
@@ -991,6 +1125,7 @@ class EqBand:
         """
         ...
 
+@final
 class ParametricEq:
     """
     Parametric equaliser configuration.
@@ -1046,6 +1181,7 @@ class ParametricEq:
 
     ...
 
+@final
 class KneeType:
     """
     Knee characteristic for dynamic range processing.
@@ -1072,6 +1208,12 @@ class KneeType:
 
     ...
 
+    @staticmethod
+    def default() -> KneeType:
+        """The default KneeType."""
+        ...
+
+@final
 class DynamicRangeMethod:
     """
     Detection method for dynamic range processing.
@@ -1104,6 +1246,12 @@ class DynamicRangeMethod:
 
     ...
 
+    @staticmethod
+    def default() -> DynamicRangeMethod:
+        """The default DynamicRangeMethod."""
+        ...
+
+@final
 class EnvelopeFollower:
     """
     Envelope follower for attack/release envelope tracking.
@@ -1113,13 +1261,13 @@ class EnvelopeFollower:
     envelope extraction.
     """
 
-    def __init__(
-        self,
+    def __new__(
+        cls,
         attack_ms: float,
         release_ms: float,
         sample_rate: float,
         detection_method: DynamicRangeMethod,
-    ) -> None:
+    ) -> Self:
         """
         Create a new EnvelopeFollower.
 
@@ -1145,7 +1293,10 @@ class EnvelopeFollower:
         """Process one sample; returns the envelope level (stateful)."""
         ...
 
-    def process_array(self, samples: numpy.typing.NDArray[numpy.float64]) -> numpy.typing.NDArray[numpy.float64]:
+    def process_array(
+        self,
+        samples: numpy.typing.NDArray[numpy.float64],
+    ) -> numpy.typing.NDArray[numpy.float64]:
         """Process a 1-D array; returns the envelope per sample (stateful)."""
         ...
 
@@ -1153,7 +1304,7 @@ class EnvelopeFollower:
         """Reset the envelope to 0."""
         ...
 
-
+@final
 class SideChainConfig:
     """
     Side-chain configuration for dynamic range processing.
@@ -1166,14 +1317,14 @@ class SideChainConfig:
     construction time and exposed via read-only properties.
     """
 
-    def __init__(
-        self,
+    def __new__(
+        cls,
         enabled: bool,
         high_pass_freq: Optional[float] = None,
         low_pass_freq: Optional[float] = None,
         pre_emphasis_db: float = 0.0,
         external_mix: float = 0.0,
-    ) -> None:
+    ) -> Self:
         """
         Create a new side-chain configuration.
 
@@ -1215,6 +1366,12 @@ class SideChainConfig:
 
     ...
 
+    @staticmethod
+    def default() -> SideChainConfig:
+        """The default SideChainConfig."""
+        ...
+
+@final
 class CompressorConfig:
     """
     Compressor configuration parameters.
@@ -1229,8 +1386,8 @@ class CompressorConfig:
     Several common presets are available as class attributes.
     """
 
-    def __init__(
-        self,
+    def __new__(
+        cls,
         *,
         threshold_db: float,
         ratio: float,
@@ -1242,7 +1399,7 @@ class CompressorConfig:
         detection_method: DynamicRangeMethod,
         side_chain: SideChainConfig,
         lookahead_ms: float,
-    ) -> None:
+    ) -> Self:
         """
         Create a new compressor configuration.
         """
@@ -1315,6 +1472,7 @@ class CompressorConfig:
         """
         ...
 
+@final
 class LimiterConfig:
     """
     Limiter configuration parameters.
@@ -1327,8 +1485,8 @@ class LimiterConfig:
     using ``validate(sample_rate)``.
     """
 
-    def __init__(
-        self,
+    def __new__(
+        cls,
         *,
         ceiling_db: float,
         attack_ms: float,
@@ -1339,7 +1497,7 @@ class LimiterConfig:
         side_chain: SideChainConfig,
         lookahead_ms: float,
         isp_limiting: bool,
-    ) -> None:
+    ) -> Self:
         """
         Create a new limiter configuration.
         """
@@ -1431,6 +1589,12 @@ class LimiterConfig:
         """
         ...
 
+    @staticmethod
+    def default() -> LimiterConfig:
+        """The default LimiterConfig."""
+        ...
+
+@final
 class AdaptiveThresholdMethod:
     """
     Adaptive thresholding strategy for peak picking.
@@ -1465,6 +1629,12 @@ class AdaptiveThresholdMethod:
 
     ...
 
+    @staticmethod
+    def default() -> AdaptiveThresholdMethod:
+        """The default AdaptiveThresholdMethod."""
+        ...
+
+@final
 class NoiseColor:
     """
     Noise colour classification for audio perturbation and synthesis.
@@ -1497,6 +1667,12 @@ class NoiseColor:
 
     ...
 
+    @staticmethod
+    def default() -> NoiseColor:
+        """The default NoiseColor."""
+        ...
+
+@final
 class PerturbationMethod:
     """
     Perturbation methods for audio data augmentation.
@@ -1606,6 +1782,7 @@ class PerturbationMethod:
 
     ...
 
+@final
 class PerturbationConfig:
     """
     Configuration for audio perturbation operations.
@@ -1615,11 +1792,11 @@ class PerturbationConfig:
     created and can be validated explicitly.
     """
 
-    def __init__(
-        self,
+    def __new__(
+        cls,
         method: PerturbationMethod,
         seed: Optional[int] = None,
-    ) -> None: ...
+    ) -> Self: ...
     @property
     def seed(self) -> Optional[int]:
         """Random seed used for deterministic perturbation, if specified."""
@@ -1635,6 +1812,7 @@ class PerturbationConfig:
 
     ...
 
+@final
 class HpssConfig:
     """
     Configuration for Harmonic / Percussive Source Separation (HPSS).
@@ -1643,14 +1821,14 @@ class HpssConfig:
     magnitude median filtering. Pass it to ``AudioSamples.hpss(config)``.
     """
 
-    def __init__(
-        self,
+    def __new__(
+        cls,
         *,
         stft_params: Optional[StftParams] = None,
         median_filter_harmonic: int = 17,
         median_filter_percussive: int = 17,
         mask_softness: float = 0.3,
-    ) -> None:
+    ) -> Self:
         """
         Args:
             stft_params: Analysis STFT parameters; None uses n_fft=2048,
@@ -1711,6 +1889,7 @@ class HpssConfig:
 
     ...
 
+@final
 class AdaptiveThresholdConfig:
     """
     Configuration for adaptive thresholding in peak picking.
@@ -1719,8 +1898,8 @@ class AdaptiveThresholdConfig:
     based on local characteristics of the onset strength function.
     """
 
-    def __init__(
-        self,
+    def __new__(
+        cls,
         method: AdaptiveThresholdMethod,
         *,
         delta: float,
@@ -1728,7 +1907,7 @@ class AdaptiveThresholdConfig:
         window_size: int,
         min_threshold: float,
         max_threshold: float,
-    ) -> None: ...
+    ) -> Self: ...
 
     # --- Presets -------------------------------------------------
 
@@ -1765,6 +1944,12 @@ class AdaptiveThresholdConfig:
 
     def validate(self) -> AdaptiveThresholdConfig: ...
 
+    @staticmethod
+    def default() -> AdaptiveThresholdConfig:
+        """The default AdaptiveThresholdConfig."""
+        ...
+
+@final
 class PeakPickingConfig:
     """
     Configuration for peak picking with temporal constraints.
@@ -1774,8 +1959,8 @@ class PeakPickingConfig:
     separated by minimum time intervals and can include smoothing.
     """
 
-    def __init__(
-        self,
+    def __new__(
+        cls,
         *,
         adaptive_threshold_config: AdaptiveThresholdConfig,
         min_peak_separation: int,
@@ -1785,7 +1970,7 @@ class PeakPickingConfig:
         median_filter_length: int,
         normalize_onset_strength: bool,
         normalization_method: NormalizationMethod,
-    ) -> None: ...
+    ) -> Self: ...
     # Presets are class attributes (no parentheses): PeakPickingConfig.music
     music: PeakPickingConfig
     speech: PeakPickingConfig
@@ -1803,6 +1988,7 @@ class PeakPickingConfig:
     def set_median_filter(self, enabled: bool, length: int) -> None: ...
     def validate(self) -> PeakPickingConfig: ...
 
+@final
 class SpectralFluxMethod:
     """
     Spectral flux variant for onset detection.
@@ -1842,6 +2028,7 @@ class SpectralFluxMethod:
     Suppresses negative phase contributions to balance sensitivity and robustness.
     """
 
+@final
 class SpectralFluxConfig:
     """
     Configuration for spectral flux onset detection.
@@ -1851,17 +2038,17 @@ class SpectralFluxConfig:
     both percussive and tonal instruments.
     """
 
-    def __init__(
-        self,
+    def __new__(
+        cls,
         *,
         cqt_params: CqtParams,
         hop_size: int,
-        window_size: Optional[int],
+        window_size: Optional[int] = None,
         flux_method: SpectralFluxMethod,
         peak_picking: PeakPickingConfig,
         rectify: bool,
         log_compression: float,
-    ) -> None: ...
+    ) -> Self: ...
     percussive: SpectralFluxConfig
     """ Configuration optimised for percussive onsets."""
 
@@ -1871,7 +2058,7 @@ class SpectralFluxConfig:
     complex: SpectralFluxConfig
     """ Configuration optimised for complex onsets."""
 
-    def validate(self, sample_rate: float) -> SpectralFluxConfig: ...
+    def validate(self) -> SpectralFluxConfig: ...
     @property
     def cqt_params(self) -> CqtParams: ...
     @cqt_params.setter
@@ -1903,6 +2090,7 @@ class SpectralFluxConfig:
 
     ...
 
+@final
 class ComplexOnsetConfig:
     """
     Configuration for complex domain onset detection.
@@ -1912,8 +2100,8 @@ class ComplexOnsetConfig:
     methods, especially for polyphonic music and complex timbres.
     """
 
-    def __init__(
-        self,
+    def __new__(
+        cls,
         *,
         cqt_params: CqtParams,
         hop_size: int,
@@ -1924,7 +2112,7 @@ class ComplexOnsetConfig:
         magnitude_rectify: bool,
         phase_rectify: bool,
         log_compression: float,
-    ) -> None: ...
+    ) -> Self: ...
 
     percussive: ComplexOnsetConfig
     """ Configuration optimised for percussive onsets."""
@@ -1936,7 +2124,7 @@ class ComplexOnsetConfig:
     """ Configuration optimised for speech onsets."""
 
     def set_weights(self, magnitude_weight: float, phase_weight: float) -> None: ...
-    def validate(self, sample_rate: float) -> ComplexOnsetConfig: ...
+    def validate(self) -> ComplexOnsetConfig: ...
     @property
     def cqt_params(self) -> CqtParams: ...
     @cqt_params.setter
@@ -1976,6 +2164,7 @@ class ComplexOnsetConfig:
 
     ...
 
+@final
 class OnsetDetectionConfig:
     """
     Configuration for onset detection.
@@ -1985,8 +2174,8 @@ class OnsetDetectionConfig:
     parameters, peak picking strategy, and various preprocessing options.
     """
 
-    def __init__(
-        self,
+    def __new__(
+        cls,
         cqt_params: CqtParams,
         hop_size: int,
         window_size: Optional[int] = None,
@@ -1997,7 +2186,7 @@ class OnsetDetectionConfig:
         median_filter_length: int = 3,
         adaptive_threshold_multiplier: float = 3.0,
         peak_picking: Optional[PeakPickingConfig] = None,
-    ) -> None: ...
+    ) -> Self: ...
     @classmethod
     def default(cls) -> OnsetDetectionConfig: ...
     @classmethod
@@ -2039,15 +2228,56 @@ class OnsetDetectionConfig:
         """
         ...
 
+    @property
+    def adaptive_threshold(self) -> bool: ...
+    @adaptive_threshold.setter
+    def adaptive_threshold(self, value: bool) -> None: ...
+
+    @property
+    def adaptive_threshold_multiplier(self) -> float: ...
+    @adaptive_threshold_multiplier.setter
+    def adaptive_threshold_multiplier(self, value: float) -> None: ...
+
+    @property
+    def median_filter_length(self) -> int: ...
+    @median_filter_length.setter
+    def median_filter_length(self, value: int) -> None: ...
+
+    @property
+    def min_onset_interval_secs(self) -> float: ...
+    @min_onset_interval_secs.setter
+    def min_onset_interval_secs(self, value: float) -> None: ...
+
+    @property
+    def peak_picking(self) -> PeakPickingConfig: ...
+    @peak_picking.setter
+    def peak_picking(self, value: PeakPickingConfig) -> None: ...
+
+    @property
+    def pre_emphasis(self) -> float: ...
+    @pre_emphasis.setter
+    def pre_emphasis(self, value: float) -> None: ...
+
+    @property
+    def threshold(self) -> float: ...
+    @threshold.setter
+    def threshold(self, value: float) -> None: ...
+
+    @property
+    def window_size(self) -> Optional[int]: ...
+    @window_size.setter
+    def window_size(self, value: Optional[int]) -> None: ...
+
+@final
 class BeatTrackingConfig:
     """Configuration for beat detection."""
 
-    def __init__(
-        self,
+    def __new__(
+        cls,
         tempo_bpm: float,
         onset_config: OnsetDetectionConfig,
         tolerance: Optional[float] = None,
-    ) -> None: ...
+    ) -> Self: ...
     @property
     def tempo_bpm(self) -> float: ...
     @tempo_bpm.setter
@@ -2063,15 +2293,16 @@ class BeatTrackingConfig:
 
     ...
 
+@final
 class BeatTrackingData:
     """Beat tracking results containing tempo and beat timestamps."""
 
-    def __init__(
-        self,
+    def __new__(
+        cls,
         tempo_bpm: float,
         beat_times: list[float],
         config: BeatTrackingConfig,
-    ) -> None: ...
+    ) -> Self: ...
     @property
     def tempo_bpm(self) -> float: ...
     @property
@@ -2081,98 +2312,7 @@ class BeatTrackingData:
 
     ...
 
-class Layout:
-    """Plot layout direction for multi-channel visualizations."""
-
-    vertical: Layout
-    horizontal: Layout
-
-    @classmethod
-    def default(cls) -> Layout: ...
-
-    ...
-
-class ChannelManagementStrategy:
-    """Strategy for handling multi-channel audio in plots."""
-
-    @classmethod
-    def average(cls) -> ChannelManagementStrategy: ...
-    @classmethod
-    def separate(cls, layout: Layout) -> ChannelManagementStrategy: ...
-    @classmethod
-    def first(cls) -> ChannelManagementStrategy: ...
-    @classmethod
-    def last(cls) -> ChannelManagementStrategy: ...
-    @classmethod
-    def overlap(cls) -> ChannelManagementStrategy: ...
-    @classmethod
-    def default(cls) -> ChannelManagementStrategy: ...
-
-    ...
-
-class WaveformPlotParams:
-    """Configuration parameters for waveform plots."""
-
-    def __init__(
-        self,
-        title: Optional[str] = None,
-        channel_strategy: Optional[ChannelManagementStrategy] = None,
-        color: Optional[str] = None,
-        line_width: Optional[float] = None,
-        markers: bool = False,
-    ) -> None: ...
-    @staticmethod
-    def default() -> WaveformPlotParams: ...
-
-    ...
-
-class SpectrogramPlotParams:
-    """Configuration parameters for spectrogram plots."""
-
-    def __init__(self, title: Optional[str] = None) -> None: ...
-    @staticmethod
-    def default() -> SpectrogramPlotParams: ...
-
-    ...
-
-class MagnitudeSpectrumParams:
-    """Configuration parameters for magnitude spectrum plots."""
-
-    def __init__(
-        self, title: Optional[str] = None, n_fft: Optional[int] = None
-    ) -> None: ...
-    @staticmethod
-    def default() -> MagnitudeSpectrumParams: ...
-
-    ...
-
-class WaveformPlot:
-    """Waveform plot result with methods for display and export."""
-
-    def html(self) -> str: ...
-    def save(self, path: str) -> None: ...
-    def show(self) -> None: ...
-
-    ...
-
-class SpectrogramPlot:
-    """Spectrogram plot result with methods for display and export."""
-
-    def html(self) -> str: ...
-    def save(self, path: str) -> None: ...
-    def show(self) -> None: ...
-
-    ...
-
-class MagnitudeSpectrumPlot:
-    """Magnitude spectrum plot result with methods for display and export."""
-
-    def html(self) -> str: ...
-    def save(self, path: str) -> None: ...
-    def show(self) -> None: ...
-
-    ...
-
+@final
 class ChannelReduction:
     """
     Strategy for reducing a multi-channel signal to a single channel.
@@ -2216,6 +2356,12 @@ class ChannelReduction:
 
     ...
 
+    @staticmethod
+    def default() -> ChannelReduction:
+        """The default ChannelReduction."""
+        ...
+
+@final
 class GateConfig:
     """
     Noise gate configuration parameters.
@@ -2231,14 +2377,14 @@ class GateConfig:
     A general-purpose noise-gating preset is provided via ``GateConfig.noise_gate``.
     """
 
-    def __init__(
-        self,
+    def __new__(
+        cls,
         *,
         threshold_db: float,
         ratio: float,
         attack_ms: float,
         release_ms: float,
-    ) -> None:
+    ) -> Self:
         """
         Create a new gate configuration.
 
@@ -2302,6 +2448,12 @@ class GateConfig:
 
     ...
 
+    @staticmethod
+    def default() -> GateConfig:
+        """The default GateConfig."""
+        ...
+
+@final
 class ExpanderConfig:
     """
     Downward expander configuration parameters.
@@ -2317,14 +2469,14 @@ class ExpanderConfig:
     A gentle expansion preset is provided via ``ExpanderConfig.gentle``.
     """
 
-    def __init__(
-        self,
+    def __new__(
+        cls,
         *,
         threshold_db: float,
         ratio: float,
         attack_ms: float,
         release_ms: float,
-    ) -> None:
+    ) -> Self:
         """
         Create a new expander configuration.
 
@@ -2385,6 +2537,12 @@ class ExpanderConfig:
 
     ...
 
+    @staticmethod
+    def default() -> ExpanderConfig:
+        """The default ExpanderConfig."""
+        ...
+
+@final
 class ThreeBandEqConfig:
     """
     Three-band parametric equaliser configuration.
@@ -2400,8 +2558,8 @@ class ThreeBandEqConfig:
     A flat (unity-gain) preset is provided via ``ThreeBandEqConfig.flat``.
     """
 
-    def __init__(
-        self,
+    def __new__(
+        cls,
         *,
         low_freq: float,
         low_gain: float,
@@ -2410,7 +2568,7 @@ class ThreeBandEqConfig:
         mid_q: float,
         high_freq: float,
         high_gain: float,
-    ) -> None:
+    ) -> Self:
         """
         Create a new three-band EQ configuration.
 
@@ -2489,6 +2647,12 @@ class ThreeBandEqConfig:
 
     ...
 
+    @staticmethod
+    def default() -> ThreeBandEqConfig:
+        """The default ThreeBandEqConfig."""
+        ...
+
+@final
 class Psd:
     """
     Power spectral density (PSD) estimate.
@@ -2503,16 +2667,18 @@ class Psd:
     """
 
     @property
-    def frequencies(self) -> numpy.ndarray:
+    def frequencies(self) -> numpy.typing.NDArray[numpy.float64]:
         """The frequency axis, in Hz (a 1-D array, same length as ``density``)."""
         ...
 
     @property
-    def density(self) -> numpy.ndarray:
+    def density(self) -> numpy.typing.NDArray[numpy.float64]:
         """The estimated power spectral density (power per Hz) at each frequency bin."""
         ...
 
-    def into_parts(self) -> tuple[numpy.ndarray, numpy.ndarray]:
+    def into_parts(
+        self,
+    ) -> tuple[numpy.typing.NDArray[numpy.float64], numpy.typing.NDArray[numpy.float64]]:
         """
         Return the ``(frequencies, density)`` arrays as a tuple.
 
@@ -2530,6 +2696,7 @@ class Psd:
 
     def __repr__(self) -> str: ...
 
+@final
 class PitchClass:
     """
     One of the twelve pitch classes of the chromatic scale.
@@ -2607,6 +2774,7 @@ class PitchClass:
     def __str__(self) -> str: ...
     def __repr__(self) -> str: ...
 
+@final
 class Mode:
     """
     The mode (tonality) of an estimated musical key.
@@ -2626,6 +2794,7 @@ class Mode:
     def __str__(self) -> str: ...
     def __repr__(self) -> str: ...
 
+@final
 class Key:
     """
     A musical key estimate.
@@ -2637,7 +2806,7 @@ class Key:
     constructed directly. Fields are exposed via read-only properties.
     """
 
-    def __init__(self, tonic: PitchClass, mode: Mode, confidence: float) -> None:
+    def __new__(cls, tonic: PitchClass, mode: Mode, confidence: float) -> Self:
         """
         Create a new key estimate.
 
@@ -2668,6 +2837,7 @@ class Key:
     def __str__(self) -> str: ...
     def __repr__(self) -> str: ...
 
+@final
 class PitchFrame:
     """
     A single frame of a pitch contour.
@@ -2679,7 +2849,7 @@ class PitchFrame:
     Fields are exposed via read-only properties.
     """
 
-    def __init__(self, time: float, frequency: Optional[float] = None) -> None:
+    def __new__(cls, time: float, frequency: Optional[float] = None) -> Self:
         """
         Create a new pitch frame.
 
@@ -2707,6 +2877,7 @@ class PitchFrame:
 
     def __repr__(self) -> str: ...
 
+@final
 class PitchContour:
     """
     A time-ordered pitch track.
@@ -2753,6 +2924,7 @@ class PitchContour:
 
     def __repr__(self) -> str: ...
 
+@final
 class SosFilter:
     """
     Streaming second-order-sections (SOS) IIR filter.
@@ -2809,7 +2981,10 @@ class SosFilter:
         """The ``(n_sections, 6)`` coefficient array (SciPy layout, ``a0 == 1``)."""
         ...
 
-    def filtfilt(self, samples: numpy.ndarray) -> numpy.ndarray:
+    def filtfilt(
+        self,
+        samples: numpy.typing.NDArray[numpy.float64],
+    ) -> numpy.typing.NDArray[numpy.float64]:
         """
         Zero-phase forward-backward filtering of a whole signal, returning a
         new array; equivalent to ``scipy.signal.sosfiltfilt(sos, samples)``.
@@ -2831,7 +3006,10 @@ class SosFilter:
         """
         ...
 
-    def process_samples(self, samples: numpy.ndarray) -> numpy.ndarray:
+    def process_samples(
+        self,
+        samples: numpy.typing.NDArray[numpy.float64],
+    ) -> numpy.typing.NDArray[numpy.float64]:
         """
         Process an array of samples, returning a new array.
 
@@ -2846,7 +3024,7 @@ class SosFilter:
         """
         ...
 
-    def process_samples_in_place(self, samples: numpy.ndarray) -> None:
+    def process_samples_in_place(self, samples: numpy.typing.NDArray[numpy.float64]) -> None:
         """
         Process an array of samples in place.
 
@@ -2861,7 +3039,7 @@ class SosFilter:
         """
         ...
 
-    def process_block(self, block: numpy.ndarray) -> None:
+    def process_block(self, block: numpy.typing.NDArray[numpy.float64]) -> None:
         """
         Process a block of samples in place, retaining state across calls.
 
@@ -2885,8 +3063,8 @@ class SosFilter:
         ...
 
     def frequency_response(
-        self, frequencies: numpy.ndarray
-    ) -> tuple[numpy.ndarray, numpy.ndarray]:
+        self, frequencies: numpy.typing.NDArray[numpy.float64]
+    ) -> tuple[numpy.typing.NDArray[numpy.float64], numpy.typing.NDArray[numpy.float64]]:
         """
         Compute the frequency response of the cascade.
 
@@ -2902,3 +3080,55 @@ class SosFilter:
             arrays, each the same length as ``frequencies``.
         """
         ...
+
+__all__ = [
+    "AdaptiveThresholdConfig",
+    "AdaptiveThresholdMethod",
+    "BeatTrackingConfig",
+    "BeatTrackingData",
+    "ChannelReduction",
+    "ComplexOnsetConfig",
+    "CompressorConfig",
+    "DynamicRangeMethod",
+    "EnvelopeFollower",
+    "EqBand",
+    "EqBandType",
+    "ExpanderConfig",
+    "FadeCurve",
+    "FilterResponse",
+    "GateConfig",
+    "HpssConfig",
+    "IirFilterDesign",
+    "IirFilterType",
+    "Key",
+    "KneeType",
+    "LimiterConfig",
+    "Mode",
+    "MonoConversionMethod",
+    "NoiseColor",
+    "NormalizationMethod",
+    "OnsetDetectionConfig",
+    "PadSide",
+    "ParametricEq",
+    "PeakPickingConfig",
+    "PerturbationConfig",
+    "PerturbationMethod",
+    "PitchClass",
+    "PitchContour",
+    "PitchDetectionMethod",
+    "PitchFrame",
+    "Psd",
+    "ResamplingQuality",
+    "SampleType",
+    "SideChainConfig",
+    "SosFilter",
+    "SpectralFluxConfig",
+    "SpectralFluxMethod",
+    "SpectrogramScale",
+    "StereoConversionMethod",
+    "ThreeBandEqConfig",
+    "VadChannelPolicy",
+    "VadConfig",
+    "VadMethod",
+    "WindowType",
+]

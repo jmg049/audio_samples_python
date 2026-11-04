@@ -87,11 +87,47 @@ python-source = "."
 include = [
     "*.pyi",
     "audio_samples/*.pyi",
+    "audio_samples/utils/*.pyi",
+    "audio_samples/mpl/*.pyi",
     "audio_samples/py.typed",
     "logo.png",
     { path = "CHANGELOG.md", format = "sdist" },
 ]
 exclude = ["tests/*", "examples/*", "benches/*", "docs/*", "audio_samples/io_benching.ipynb"]
+
+# Settings for checking the type stubs (tests/hooks/check_stubs.sh). The modules listed have no
+# stubs of their own, so only their use of the stubs matters to these checks.
+[tool.mypy]
+python_version = "3.13"
+warn_unused_ignores = true
+
+[[tool.mypy.overrides]]
+module = [
+    "audio_samples.bench_resampling",
+    "audio_samples.benchmarks",
+    "audio_samples.io_benchmark",
+    "audio_samples.migrate",
+    "audio_samples._migrate_table",
+    "audio_samples._display",
+    "audio_samples.examples.*",
+    "audio_samples.mpl.comparison",
+    "audio_samples.mpl.dashboard",
+    "audio_samples.mpl.distributions",
+    "audio_samples.mpl.envelopes",
+    "audio_samples.mpl.events",
+    "audio_samples.mpl.harmonic",
+    "audio_samples.mpl.spectral",
+    "audio_samples.mpl.timefreq",
+    "audio_samples.mpl.vad",
+    "audio_samples.mpl.waveform",
+    "audio_samples.mpl._utils",
+]
+ignore_errors = true
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["matplotlib.*", "seaborn.*"]
+ignore_missing_imports = true
 
 [dependency-groups]
 dev = [
@@ -123,4 +159,14 @@ test = [
     "scipy>=1.10",
     "librosa>=0.10",
     "soundfile>=0.13.1",
+    "mypy>=1.18",
+    "pyright>=1.1.400",
 ]
+
+[tool.pyright]
+include = ["audio_samples/*.pyi", "audio_samples/utils", "audio_samples/mpl/*.pyi", "tests/typing/usage.py"]
+typeCheckingMode = "standard"
+pythonVersion = "3.13"
+reportOverlappingOverload = "none"
+# Stub-only modules such as audio_samples.effects are attributes of the compiled extension.
+reportMissingModuleSource = "none"

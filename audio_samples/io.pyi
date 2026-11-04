@@ -3,6 +3,8 @@ Type stubs for audio_python.io - Audio file I/O functions.
 
 This module provides functions to read and write audio files in various formats.
 """
+from typing import final
+from typing_extensions import Self
 
 from typing import Optional, Any, Union
 from pathlib import Path
@@ -10,6 +12,7 @@ import numpy as np
 from . import AudioSamples
 from .types import SampleType, ResamplingQuality
 
+@final
 class AudioInfo:
     """Information about an audio file."""
 
@@ -187,10 +190,11 @@ def peek_native_type(fp: Union[str, Path]) -> str:
 # Write options / format types
 # -----------------------------------------------------------------------------
 
+@final
 class WriteOptions:
     """Options controlling how audio data is written."""
 
-    def __init__(self, write_buf_capacity: Optional[int] = None) -> None:
+    def __new__(cls, write_buf_capacity: Optional[int] = None) -> Self:
         """
         Args:
             write_buf_capacity: Size of the internal write buffer in bytes. A larger
@@ -207,11 +211,11 @@ class WriteOptions:
     @write_buf_capacity.setter
     def write_buf_capacity(self, value: int) -> None: ...
 
-
+@final
 class CompressionLevel:
     """FLAC compression level (0-8): higher means smaller files but slower encoding."""
 
-    def __init__(self, level: Optional[int] = None) -> None:
+    def __new__(cls, level: Optional[int] = None) -> Self:
         """
         Args:
             level: Compression level, clamped to the range 0-8. Defaults to 5.
@@ -238,6 +242,7 @@ class CompressionLevel:
 # WAV metadata
 # -----------------------------------------------------------------------------
 
+@final
 class InfoMetadata:
     """
     LIST/INFO metadata tags for a WAV file (title, artist, etc.).
@@ -261,7 +266,7 @@ class InfoMetadata:
     source: Optional[str]
     keywords: Optional[str]
 
-
+@final
 class CuePoint:
     """A WAV cue point (marker). Read-only."""
 
@@ -280,7 +285,7 @@ class CuePoint:
         """Sample offset within the data chunk."""
         ...
 
-
+@final
 class WavMetadata:
     """
     Round-trippable WAV metadata: INFO tags plus cue points.
@@ -288,7 +293,8 @@ class WavMetadata:
     Pass to ``write_with_metadata`` to persist tags that a plain read->write would drop.
     """
 
-    def __init__(self, info: Optional[InfoMetadata] = None) -> None: ...
+
+    def __new__(cls, info: Optional[InfoMetadata] = None) -> Self: ...
 
     info: Optional[InfoMetadata]
 
@@ -307,6 +313,7 @@ class WavMetadata:
 # FLAC metadata
 # -----------------------------------------------------------------------------
 
+@final
 class VorbisComment:
     """
     A FLAC Vorbis comment block: a vendor string plus key->values tags.
@@ -351,7 +358,7 @@ class VorbisComment:
         """Serialise to a raw Vorbis comment block."""
         ...
 
-
+@final
 class StreamInfo:
     """FLAC STREAMINFO metadata block (read-only)."""
 
@@ -465,6 +472,7 @@ def read_flac_stream_info(fp: Union[str, Path]) -> StreamInfo:
 # Streaming subsystem
 # -----------------------------------------------------------------------------
 
+@final
 class StreamedAudioReader:
     """
     A streaming audio file reader.
@@ -474,7 +482,7 @@ class StreamedAudioReader:
     or iterate with ``frames``, ``windows``, or ``samples``.
     """
 
-    def __init__(self, fp: Union[str, Path]) -> None:
+    def __new__(cls, fp: Union[str, Path]) -> Self:
         """
         Open a WAV or FLAC file for streaming reads.
 
@@ -603,9 +611,14 @@ class StreamedAudioReader:
         ...
 
     def __enter__(self) -> "StreamedAudioReader": ...
-    def __exit__(self, exc_type: object, exc_value: object, traceback: object) -> bool: ...
+    def __exit__(
+        self,
+        _exc_type: object  =  None,
+        _exc_value: object  =  None,
+        _traceback: object  =  None,
+    ) -> bool: ...
 
-
+@final
 class StreamedFrameIterator:
     """
     Iterator over chunks / windows / single frames of a ``StreamedAudioReader``.
@@ -617,7 +630,7 @@ class StreamedFrameIterator:
     def __iter__(self) -> "StreamedFrameIterator": ...
     def __next__(self) -> AudioSamples: ...
 
-
+@final
 class StreamedAudioWriter:
     """
     A streaming audio file writer.
@@ -628,13 +641,13 @@ class StreamedAudioWriter:
     headers are patched with the final sizes.
     """
 
-    def __init__(
-        self,
+    def __new__(
+        cls,
         fp: Union[str, Path],
         channels: int,
         sample_rate: int,
         dtype: Optional[SampleType] = None,
-    ) -> None:
+    ) -> Self:
         """
         Create a streaming writer to ``fp`` (format chosen from the extension).
 
@@ -730,9 +743,14 @@ class StreamedAudioWriter:
         ...
 
     def __enter__(self) -> "StreamedAudioWriter": ...
-    def __exit__(self, exc_type: object, exc_value: object, traceback: object) -> bool: ...
+    def __exit__(
+        self,
+        _exc_type: object  =  None,
+        _exc_value: object  =  None,
+        _traceback: object  =  None,
+    ) -> bool: ...
 
-
+@final
 class WavSink:
     """
     A non-seekable streaming WAV writer ("sink").
@@ -742,14 +760,14 @@ class WavSink:
     (``total_frames``) or left open-ended (streaming-size convention).
     """
 
-    def __init__(
-        self,
+    def __new__(
+        cls,
         fp: Union[str, Path],
         channels: int,
         sample_rate: int,
         dtype: Optional[SampleType] = None,
         total_frames: Optional[int] = None,
-    ) -> None:
+    ) -> Self:
         """
         Args:
             fp: Output ``.wav`` path.
@@ -797,4 +815,35 @@ class WavSink:
         ...
 
     def __enter__(self) -> "WavSink": ...
-    def __exit__(self, exc_type: object, exc_value: object, traceback: object) -> bool: ...
+    def __exit__(
+        self,
+        _exc_type: object  =  None,
+        _exc_value: object  =  None,
+        _traceback: object  =  None,
+    ) -> bool: ...
+
+__all__ = [
+    "AudioInfo",
+    "CompressionLevel",
+    "CuePoint",
+    "InfoMetadata",
+    "StreamInfo",
+    "StreamedAudioReader",
+    "StreamedAudioWriter",
+    "StreamedFrameIterator",
+    "VorbisComment",
+    "WavMetadata",
+    "WavSink",
+    "WriteOptions",
+    "info",
+    "peek_native_type",
+    "read",
+    "read_and_resample",
+    "read_flac_stream_info",
+    "read_wav_cue_points",
+    "read_wav_info_tags",
+    "read_with_info",
+    "save",
+    "write_with_metadata",
+    "write_with_options",
+]

@@ -1,0 +1,39 @@
+name: Type stubs
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  stubs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: audio_samples_python
+      # The bindings build against a sibling checkout of the core crate.
+      - uses: actions/checkout@v7
+        with:
+          repository: jmg049/audio_samples
+          path: audio_samples
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: audio_samples_python
+      - name: Build the extension
+        working-directory: audio_samples_python
+        run: |
+          python -m venv .venv
+          .venv/bin/python -m pip install maturin numpy "mypy>=1.18" "pyright>=1.1.400" pytest matplotlib
+          .venv/bin/maturin develop --skip-install
+          .venv/bin/python -c "import site; print(site.getsitepackages()[0])" | xargs -I{} sh -c 'pwd > {}/audio_samples_dev.pth'
+      - name: Check the stubs
+        working-directory: audio_samples_python
+        run: tests/hooks/check_stubs.sh
