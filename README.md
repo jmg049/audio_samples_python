@@ -6,7 +6,7 @@
 
 <img src="logo.png" title="AudioSamples Logo -- Ferrous' Mustachioed Cousin From East Berlin, Eisenhaltig" width="200"/>
 
-[![PyPI][pypi-img]][pypi] [![Docs][docs-img]][docs] [![License: MIT][license-img]][license]
+[![PyPI][pypi-img]][pypi] [![Docs][docs-img]][docs] [![License: MIT][license-img]][license] [![DOI][doi-img]][doi]
 </div>
 
 ---
@@ -422,13 +422,17 @@ If you use AudioSamples in research, please cite:
 @inproceedings{geraghty2026audio,
   author    = {Geraghty, Jack and Golpayegani, Fatemeh and Hines, Andrew},
   title     = {Audio Made Simple: A Modern Framework for Audio Processing},
-  booktitle = {ACM Multimedia Systems Conference 2026 (MMSys '26)},
+  booktitle = {Proceedings of the ACM Multimedia Systems Conference 2026},
+  series    = {MMSys '26},
   year      = {2026},
-  month     = apr,
-  publisher = {ACM},
-  address   = {Hong Kong, Hong Kong},
-  doi       = {10.1145/3793853.3799811},
-  note      = {Accepted for publication}
+  pages     = {436--442},
+  numpages  = {7},
+  isbn      = {9798400724817},
+  publisher = {Association for Computing Machinery},
+  address   = {New York, NY, USA},
+  location  = {Hong Kong},
+  url       = {https://doi.org/10.1145/3793853.3799811},
+  doi       = {10.1145/3793853.3799811}
 }
 ```
 
@@ -436,7 +440,9 @@ If you use AudioSamples in research, please cite:
 [pypi-img]: https://img.shields.io/pypi/v/audio_samples?style=for-the-badge&color=009E73&label=PyPI
 
 [docs]: https://jmg049.github.io/audio_samples_python/
-[docs-img]: https://img.shields.io/pypi/v/audio_samples?style=for-the-badge&color=009E73&label=Docs
+[docs-img]: https://img.shields.io/badge/docs-online-009E73?style=for-the-badge&labelColor=gray
 
-[license-img]: https://img.shields.io/crates/l/audio_samples?style=for-the-badge&label=license&labelColor=gray
+[license-img]: https://img.shields.io/github/license/jmg049/audio_samples_python?style=for-the-badge&label=license&labelColor=gray
 [license]: https://github.com/jmg049/audio_samples_python/blob/main/LICENSE
+[doi-img]: https://img.shields.io/badge/DOI-10.1145%2F3793853.3799811-009E73?style=for-the-badge&labelColor=gray
+[doi]: https://doi.org/10.1145/3793853.3799811

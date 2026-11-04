@@ -110,6 +110,14 @@ Table of Contents
    changelog
    GitHub Repository <https://github.com/jmg049/audio_samples_python>
 
+Citing
+======
+
+If you use AudioSamples in research, please cite
+`Audio Made Simple: A Modern Framework for Audio Processing
+<https://doi.org/10.1145/3793853.3799811>`_ (Geraghty, Golpayegani and Hines,
+MMSys '26). The ``CITATION.cff`` file in the repository has the full reference.
+
 Indices and tables
 ==================
 
