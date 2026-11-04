@@ -1,0 +1,346 @@
+# Builds wheels and the sdist, tests them, and publishes to PyPI on a version tag.
+#
+# Started from the output of `maturin generate-ci github` (maturin 1.16), with
+# these changes:
+#   - the bindings need sibling checkouts of audio_samples and audio_samples_io,
+#     so every repository is checked out under the workspace and maturin runs
+#     from audio_samples_python/. The manylinux and musllinux containers only
+#     mount the workspace, so the siblings are visible inside them;
+#   - one job per target and Python version, so a job only compiles once;
+#   - tests run on the built wheel, on a machine without Rust or the sources;
+#   - publishing uses trusted publishing and only runs for a v* tag;
+#   - the Python versions are in one place (the `config` job). Adding a
+#     free-threaded build is one entry there, for example "3.14t".
+#
+# Run it without publishing: Actions > Wheels > Run workflow. A manual run never
+# reaches the publish job.
+name: Wheels
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      audio_samples_ref:
+        description: "audio_samples commit (empty: the pinned one)"
+        required: false
+        type: string
+      audio_samples_io_ref:
+        description: "audio_samples_io commit (empty: the pinned one)"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  # The crates the bindings build against, until their releases are on crates.io.
+  AUDIO_SAMPLES_REF: ${{ inputs.audio_samples_ref || '1084dfac3af771fc2a2a01e14cbcb5cc55a550fd' }}
+  AUDIO_SAMPLES_IO_REF: ${{ inputs.audio_samples_io_ref || 'fc3948be5b5d59ee6dc797bd09e151f01c6b5d52' }}
+  RUST_TOOLCHAIN: "1.96.0"
+  MATURIN_VERSION: "v1.16.0"
+
+jobs:
+  config:
+    runs-on: ubuntu-24.04
+    outputs:
+      pythons: ${{ steps.pythons.outputs.pythons }}
+    steps:
+      - id: pythons
+        run: echo 'pythons=["3.10", "3.11", "3.12", "3.13", "3.14", "3.15"]' >> "$GITHUB_OUTPUT"
+
+  linux:
+    name: ${{ matrix.platform.tag }} ${{ matrix.platform.target }} py${{ matrix.python }}
+    needs: config
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ${{ fromJSON(needs.config.outputs.pythons) }}
+        platform:
+          - target: x86_64
+            tag: "2_28"
+          - target: aarch64
+            tag: "2_28"
+          - target: x86_64
+            tag: musllinux_1_2
+          - target: aarch64
+            tag: musllinux_1_2
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: audio_samples_python
+          persist-credentials: false
+      - uses: actions/checkout@v7
+        with:
+          repository: jmg049/audio_samples
+          ref: ${{ env.AUDIO_SAMPLES_REF }}
+          path: audio_samples
+          persist-credentials: false
+      - uses: actions/checkout@v7
+        with:
+          repository: jmg049/audio_samples_io
+          ref: ${{ env.AUDIO_SAMPLES_IO_REF }}
+          path: audio_samples_io
+          persist-credentials: false
+      - name: Build wheel
+        uses: PyO3/maturin-action@v1
+        with:
+          working-directory: audio_samples_python
+          target: ${{ matrix.platform.target }}
+          manylinux: ${{ matrix.platform.tag }}
+          maturin-version: ${{ env.MATURIN_VERSION }}
+          rust-toolchain: ${{ env.RUST_TOOLCHAIN }}
+          args: --release --locked --out dist -i python${{ matrix.python }}
+      - uses: actions/upload-artifact@v7
+        with:
+          name: wheel-${{ matrix.platform.tag }}-${{ matrix.platform.target }}-py${{ matrix.python }}
+          path: audio_samples_python/dist
+          if-no-files-found: error
+
+  test-manylinux:
+    name: test manylinux ${{ matrix.platform.target }} py${{ matrix.python }}
+    needs: [config, linux]
+    runs-on: ${{ matrix.platform.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ${{ fromJSON(needs.config.outputs.pythons) }}
+        platform:
+          - target: x86_64
+            runner: ubuntu-24.04
+          - target: aarch64
+            runner: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: audio_samples_python
+          persist-credentials: false
+      - uses: actions/download-artifact@v8
+        with:
+          name: wheel-2_28-${{ matrix.platform.target }}-py${{ matrix.python }}
+          path: dist
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Smoke test
+        shell: bash
+        run: |
+          python -m venv venv
+          venv/bin/python -m pip install --no-index --no-deps dist/*.whl
+          venv/bin/python -m pip install "numpy>=1.24.4"
+          cd "$RUNNER_TEMP"
+          "$GITHUB_WORKSPACE/venv/bin/python" "$GITHUB_WORKSPACE/audio_samples_python/tests/ci/wheel_smoke.py"
+      - name: Test suite
+        if: matrix.python == '3.13'
+        shell: bash
+        run: |
+          venv/bin/python -m pip install pytest pytest-timeout scipy librosa soundfile matplotlib
+          cd "$RUNNER_TEMP"
+          "$GITHUB_WORKSPACE/venv/bin/python" -m pytest "$GITHUB_WORKSPACE/audio_samples_python/tests" \
+            -q --rootdir="$GITHUB_WORKSPACE/audio_samples_python" -p no:cacheprovider
+
+  test-musllinux:
+    name: test musllinux ${{ matrix.platform.target }} py${{ matrix.python }}
+    needs: linux
+    runs-on: ${{ matrix.platform.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # The images carry their own Python; only versions with a numpy musllinux wheel are listed.
+        python: ["3.12", "3.13", "3.14"]
+        platform:
+          - target: x86_64
+            runner: ubuntu-24.04
+          - target: aarch64
+            runner: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: audio_samples_python
+          persist-credentials: false
+      - uses: actions/download-artifact@v8
+        with:
+          name: wheel-musllinux_1_2-${{ matrix.platform.target }}-py${{ matrix.python }}
+          path: dist
+      - name: Smoke test in Alpine
+        run: |
+          docker run --rm -v "$GITHUB_WORKSPACE:/io" -w /tmp "python:${{ matrix.python }}-alpine" sh -ec '
+            python -m venv /venv
+            /venv/bin/python -m pip install --no-index --no-deps /io/dist/*.whl
+            /venv/bin/python -m pip install --only-binary=:all: "numpy>=1.24.4"
+            /venv/bin/python /io/audio_samples_python/tests/ci/wheel_smoke.py
+          '
+
+  macos-windows:
+    name: ${{ matrix.platform.runner }} ${{ matrix.platform.target }} py${{ matrix.python }}
+    needs: config
+    runs-on: ${{ matrix.platform.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ${{ fromJSON(needs.config.outputs.pythons) }}
+        platform:
+          - runner: macos-15-intel
+            target: x86_64
+          - runner: macos-15
+            target: aarch64
+          - runner: windows-2025
+            target: x64
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: audio_samples_python
+          persist-credentials: false
+      - uses: actions/checkout@v7
+        with:
+          repository: jmg049/audio_samples
+          ref: ${{ env.AUDIO_SAMPLES_REF }}
+          path: audio_samples
+          persist-credentials: false
+      - uses: actions/checkout@v7
+        with:
+          repository: jmg049/audio_samples_io
+          ref: ${{ env.AUDIO_SAMPLES_IO_REF }}
+          path: audio_samples_io
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        id: python
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Build wheel
+        uses: PyO3/maturin-action@v1
+        with:
+          working-directory: audio_samples_python
+          target: ${{ matrix.platform.target }}
+          maturin-version: ${{ env.MATURIN_VERSION }}
+          rust-toolchain: ${{ env.RUST_TOOLCHAIN }}
+          args: --release --locked --out dist -i "${{ steps.python.outputs.python-path }}"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: wheel-${{ matrix.platform.runner }}-${{ matrix.platform.target }}-py${{ matrix.python }}
+          path: audio_samples_python/dist
+          if-no-files-found: error
+      - name: Smoke test
+        shell: bash
+        run: |
+          python -m venv venv
+          if [ -d venv/Scripts ]; then bin=venv/Scripts; else bin=venv/bin; fi
+          "$bin/python" -m pip install --no-index --no-deps audio_samples_python/dist/*.whl
+          "$bin/python" -m pip install "numpy>=1.24.4"
+          py="$GITHUB_WORKSPACE/$bin/python"
+          cd "$RUNNER_TEMP"
+          "$py" "$GITHUB_WORKSPACE/audio_samples_python/tests/ci/wheel_smoke.py"
+      - name: Test suite
+        if: matrix.python == '3.13'
+        shell: bash
+        run: |
+          if [ -d venv/Scripts ]; then bin=venv/Scripts; else bin=venv/bin; fi
+          "$bin/python" -m pip install pytest pytest-timeout scipy librosa soundfile matplotlib
+          py="$GITHUB_WORKSPACE/$bin/python"
+          cd "$RUNNER_TEMP"
+          "$py" -m pytest "$GITHUB_WORKSPACE/audio_samples_python/tests" -q \
+            --rootdir="$GITHUB_WORKSPACE/audio_samples_python" -p no:cacheprovider
+
+  sdist:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: audio_samples_python
+          persist-credentials: false
+      - uses: actions/checkout@v7
+        with:
+          repository: jmg049/audio_samples
+          ref: ${{ env.AUDIO_SAMPLES_REF }}
+          path: audio_samples
+          persist-credentials: false
+      - uses: actions/checkout@v7
+        with:
+          repository: jmg049/audio_samples_io
+          ref: ${{ env.AUDIO_SAMPLES_IO_REF }}
+          path: audio_samples_io
+          persist-credentials: false
+      - name: Copy the sibling sources into the tree
+        run: python3 audio_samples_python/tests/ci/bundle_siblings.py
+      - name: Build sdist
+        uses: PyO3/maturin-action@v1
+        with:
+          working-directory: audio_samples_python
+          command: sdist
+          maturin-version: ${{ env.MATURIN_VERSION }}
+          args: --out dist
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      # Without the other checkouts: the sdist has to carry everything it needs.
+      - name: Build a wheel from the sdist alone
+        run: |
+          mkdir "$RUNNER_TEMP/alone"
+          cp audio_samples_python/dist/*.tar.gz "$RUNNER_TEMP/alone/"
+          python -m venv venv
+          venv/bin/python -m pip install "$RUNNER_TEMP"/alone/*.tar.gz
+          cd "$RUNNER_TEMP"
+          "$GITHUB_WORKSPACE/venv/bin/python" "$GITHUB_WORKSPACE/audio_samples_python/tests/ci/wheel_smoke.py"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: sdist
+          path: audio_samples_python/dist
+          if-no-files-found: error
+
+  publish:
+    name: Publish to PyPI
+    # Only a pushed v* tag publishes. A workflow_dispatch run stops before this job.
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs: [linux, test-manylinux, test-musllinux, macos-windows, sdist]
+    runs-on: ubuntu-24.04
+    environment:
+      name: pypi
+      url: https://pypi.org/project/audio-samples/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+          pattern: "*"
+          merge-multiple: true
+      - name: Tag matches the package version
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          ls artifacts
+          ls artifacts/*.tar.gz | grep -F "audio_samples-${version}.tar.gz"
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: artifacts
+
+  release:
+    name: GitHub Release
+    needs: publish
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+          pattern: "*"
+          merge-multiple: true
+      # The section of CHANGELOG.md for this tag.
+      - name: Release notes
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          awk -v v="$version" '
+            index($0, "## [" v "]") == 1 { on = 1; next }
+            /^## \[/ { on = 0 }
+            on
+          ' CHANGELOG.md > notes.md
+          test -s notes.md
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file notes.md artifacts/*
