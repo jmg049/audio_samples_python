@@ -4,7 +4,8 @@ use numpy::PyArrayDescrMethods;
 use pyo3::{exceptions::PyValueError, prelude::*, types::PyList};
 
 use crate::{
-    PyAudioDataInner, PyAudioSamples, audio_err_to_py, dispatch_with_view, dispatch_with_view_detached, dispatch_with_view_mut,
+    PyAudioDataInner, PyAudioSamples, audio_err_to_py, dispatch_with_view,
+    dispatch_with_view_detached, dispatch_with_view_mut,
     types::{PyMonoConversionMethod, PyStereoConversionMethod},
 };
 
