@@ -12,15 +12,15 @@ license = "MIT"
 keywords = ["audio", "python", "bindings", "signal-processing", "multimedia"]
 categories = ["multimedia::audio", "api-bindings"]
 include = [
-    "src/**/*",
-    "Cargo.toml",
-    "README.md",
-    "LICENSE",
-    "audio_samples/*.pyi",
-    "audio_samples/utils/*.pyi",
-    "audio_samples/mpl/*.pyi",
-    "audio_samples/py.typed",
-    "logo.png",
+    "/src/**/*",
+    "/Cargo.toml",
+    "/README.md",
+    "/LICENSE",
+    "/audio_samples/*.pyi",
+    "/audio_samples/utils/*.pyi",
+    "/audio_samples/mpl/*.pyi",
+    "/audio_samples/py.typed",
+    "/logo.png",
 ]
 
 [lib]
