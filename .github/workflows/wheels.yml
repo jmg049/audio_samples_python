@@ -9,8 +9,8 @@
 #   - one job per target and Python version, so a job only compiles once;
 #   - tests run on the built wheel, on a machine without Rust or the sources;
 #   - publishing uses trusted publishing and only runs for a v* tag;
-#   - the Python versions are in one place (the `config` job). Adding a
-#     free-threaded build is one entry there, for example "3.14t".
+#   - the Python versions are in one place (the `config` job), including the
+#     free-threaded 3.14t.
 #
 # Run it without publishing: Actions > Wheels > Run workflow, or push a branch
 # named wheels-test (a manual run needs this file on the default branch; a push
@@ -41,7 +41,7 @@ env:
   # The crates the bindings build against, until their releases are on crates.io.
   AUDIO_SAMPLES_REF: ${{ inputs.audio_samples_ref || 'ae71cac7ea7960999b20371845d6e0d0e931f1d8' }}
   AUDIO_SAMPLES_IO_REF: ${{ inputs.audio_samples_io_ref || 'fc3948be5b5d59ee6dc797bd09e151f01c6b5d52' }}
-  RUST_TOOLCHAIN: "1.96.0"
+  RUST_TOOLCHAIN: "1.99.1"
   MATURIN_VERSION: "v1.16.0"
 
 jobs:
@@ -51,7 +51,7 @@ jobs:
       pythons: ${{ steps.pythons.outputs.pythons }}
     steps:
       - id: pythons
-        run: echo 'pythons=["3.10", "3.11", "3.12", "3.13", "3.14", "3.15"]' >> "$GITHUB_OUTPUT"
+        run: echo 'pythons=["3.10", "3.11", "3.12", "3.13", "3.14", "3.14t", "3.15"]' >> "$GITHUB_OUTPUT"
 
   linux:
     name: ${{ matrix.platform.tag }} ${{ matrix.platform.target }} py${{ matrix.python }}
@@ -151,6 +151,14 @@ jobs:
           venv/bin/python -m pip install pytest pytest-timeout scipy librosa soundfile matplotlib
           cd "$RUNNER_TEMP"
           "$GITHUB_WORKSPACE/venv/bin/python" -m pytest "$GITHUB_WORKSPACE/audio_samples_python/tests" \
+            -q --rootdir="$GITHUB_WORKSPACE/audio_samples_python" -p no:cacheprovider
+      - name: Thread tests on the free-threaded build
+        if: matrix.python == '3.14t'
+        shell: bash
+        run: |
+          venv/bin/python -m pip install pytest pytest-timeout scipy
+          cd "$RUNNER_TEMP"
+          "$GITHUB_WORKSPACE/venv/bin/python" -m pytest "$GITHUB_WORKSPACE/audio_samples_python/tests/test_threads.py" \
             -q --rootdir="$GITHUB_WORKSPACE/audio_samples_python" -p no:cacheprovider
 
   test-musllinux:
@@ -348,11 +356,7 @@ jobs:
       - name: Release notes
         run: |
           version="${GITHUB_REF_NAME#v}"
-          awk -v v="$version" '
-            index($0, "## [" v "]") == 1 { on = 1; next }
-            /^## \[/ { on = 0 }
-            on
-          ' CHANGELOG.md > notes.md
+          python3 .github/release/release_meta.py notes "$version" > notes.md
           test -s notes.md
       - name: Create the release
         env:
