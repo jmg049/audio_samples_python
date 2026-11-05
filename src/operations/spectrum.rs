@@ -12,9 +12,13 @@
 use crate::args::Int;
 use audio_samples::operations::filterbanks::Window;
 use audio_samples::operations::spectrum::{
+    stft_n_frames,
     DbConfig, DctNorm, DctType, MelSpectrogramConfig, MfccConfig,
 };
 use audio_samples::{AudioSample, AudioSamples, AudioSpectrum};
+use ndarray::{Axis, Ix3};
+use num_complex::Complex;
+use numpy::{PyArrayDyn, PyArrayMethods, PyUntypedArrayMethods};
 use pyo3::prelude::*;
 
 use crate::args::{
@@ -22,7 +26,7 @@ use crate::args::{
     stft_config, to_3d, value_err, with_sample_type,
 };
 use crate::types::PySampleType;
-use crate::{PyAudioSamples, audio_err_to_py, dispatch_array_detached, nzu32_or_err};
+use crate::{PyAudioDataInner, PyAudioSamples, audio_err_to_py, dispatch_array_detached, nzu32_or_err};
 
 /// Parses `dct_type` (1, 2 or 3).
 pub(crate) fn parse_dct_type(dct_type: i64) -> PyResult<DctType> {
@@ -112,6 +116,75 @@ impl PyAudioSamples {
     ) -> PyResult<Bound<'py, PyAny>> {
         let cfg = stft_config(n_fft, hop_length, win_length, window, center, pad_mode)?;
         dispatch_array_detached!(self, py, |audio| audio.stft_matrix(&cfg))
+    }
+
+    /// ``stft_matrix`` of float audio written into ``out``, which needs no memory for the
+    /// matrix.
+    ///
+    /// Args:
+    ///     out (numpy.ndarray): Of ``complex64`` for float32 audio and ``complex128`` for
+    ///         float64 audio, shape ``(1 + n_fft // 2, frames)`` for mono audio or
+    ///         ``(channels, 1 + n_fft // 2, frames)``, with at least as many frames as the
+    ///         result. Only the first frames that the result needs are written.
+    ///     ``n_fft``, ``hop_length``, ``win_length``, window, center, ``pad_mode``: As ``stft_matrix``.
+    ///
+    /// Returns:
+    ///     int: The number of frames written.
+    #[pyo3(
+        signature = (out, *, n_fft = Int(2048), hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant"),
+        text_signature = "($self, out, *, n_fft=2048, hop_length=None, win_length=None, window='hann', center=True, pad_mode='constant')"
+    )]
+    #[allow(clippy::too_many_arguments)]
+    fn _stft_matrix_into<'py>(
+        &self,
+        py: Python<'py>,
+        out: &Bound<'py, PyAny>,
+        n_fft: Int,
+        hop_length: Option<Int>,
+        win_length: Option<Int>,
+        window: WindowArg,
+        center: bool,
+        pad_mode: &str,
+    ) -> PyResult<usize> {
+        let cfg = stft_config(n_fft, hop_length, win_length, window, center, pad_mode)?;
+        macro_rules! write_into {
+            ($a:expr, $F:ty) => {
+                $a.with_view(py, |audio| {
+                    let array = out.cast::<PyArrayDyn<Complex<$F>>>()?;
+                    let mut guard = array.try_readwrite()?;
+                    let mut view = guard.as_array_mut();
+                    if view.ndim() == 2 {
+                        view.insert_axis_inplace(Axis(0));
+                    }
+                    let channels = audio.num_channels().get() as usize;
+                    let frames = stft_n_frames(audio.samples_per_channel().get(), &cfg)
+                        .map_err(audio_err_to_py)?;
+                    let expected = [channels, cfg.n_bins(), frames];
+                    let shape = view.shape();
+                    if shape.len() != 3 || shape[..2] != expected[..2] || shape[2] < frames {
+                        return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                            "out: has shape {:?}, expected at least {:?}",
+                            array.shape(),
+                            if array.ndim() == 2 { &expected[1..] } else { &expected[..] }
+                        )));
+                    }
+                    let view = view
+                        .into_dimensionality::<Ix3>()
+                        .expect("three dimensions")
+                        .slice_move(ndarray::s![.., .., ..frames]);
+                    py.detach(|| audio.stft_matrix_into(&cfg, view))
+                        .map_err(audio_err_to_py)?;
+                    Ok(frames)
+                })
+            };
+        }
+        match self.inner() {
+            PyAudioDataInner::F32(a) => write_into!(a, f32),
+            PyAudioDataInner::F64(a) => write_into!(a, f64),
+            _ => Err(pyo3::exceptions::PyTypeError::new_err(
+                "out: needs float32 or float64 audio",
+            )),
+        }
     }
 
     /// Reconstruct audio from an STFT matrix, equivalent to ``librosa.istft``.

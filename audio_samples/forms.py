@@ -583,6 +583,13 @@ def stft(
     if dtype is not None:
         data = data.astype(np.float32 if np.dtype(dtype) == np.complex64 else np.float64)
     audio = _from_rows(data, sr)
+    # A buffer of exactly the type of the result is written in place.
+    matching = {np.dtype(np.float32): np.complex64, np.dtype(np.float64): np.complex128}.get(data.dtype)
+    if isinstance(out, np.ndarray) and out.dtype == matching and out.flags.writeable and out.ndim == data.ndim + 1:
+        frames = audio._stft_matrix_into(
+            out, n_fft=n_fft, hop_length=hop_length, win_length=win_length, window=window, center=center, pad_mode=pad_mode
+        )
+        return out[..., :frames]
     result = audio.stft_matrix(
         n_fft=n_fft, hop_length=hop_length, win_length=win_length, window=window, center=center, pad_mode=pad_mode
     )
