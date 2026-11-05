@@ -52,6 +52,13 @@ _NATIVE_SUBMODULES = (
     "features",
     "rhythm",
     "effects",
+    "linalg",
+    "inverse",
+    "factorization",
+    "pitch_filterbank",
+    "segment",
+    "arrays",
+    "notation",
 )
 
 _load_lock = _RLock()
