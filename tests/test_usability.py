@@ -145,7 +145,10 @@ def test_mel_and_mfcc_via_top_level_classes(mono):
 
 
 def test_pyproject_does_not_require_spectrograms_pip_package():
-    text = (PKG_DIR.parent / "pyproject.toml").read_text()
+    pyproject = PKG_DIR.parent / "pyproject.toml"
+    if not pyproject.exists():
+        pytest.skip("installed from a wheel, no pyproject.toml next to the package")
+    text = pyproject.read_text()
     deps = text.split("dependencies = [", 1)[1].split("]", 1)[0]
     assert "spectrograms" not in deps
 

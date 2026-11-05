@@ -26,8 +26,9 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Programming Language :: Python :: Implementation :: CPython",
-    "Programming Language :: Python :: Implementation :: PyPy",
     "Programming Language :: Rust",
     "Topic :: Multimedia :: Sound/Audio",
     "Topic :: Multimedia :: Sound/Audio :: Analysis",
@@ -88,10 +89,13 @@ include = [
     "*.pyi",
     "audio_samples/*.pyi",
     "audio_samples/py.typed",
-    "logo.png",
     { path = "CHANGELOG.md", format = "sdist" },
+    { path = "Cargo.lock", format = "sdist" },
+    { path = ".cargo/config.toml", format = "sdist" },
+    # Written by tests/ci/bundle_siblings.py before an sdist is built.
+    { path = "bundled/**/*", format = "sdist" },
 ]
-exclude = ["tests/*", "examples/*", "benches/*", "docs/*", "audio_samples/io_benching.ipynb"]
+exclude = ["tests/*", "examples/*", "benches/*", "docs/*", ".venv/**/*", "target/**/*"]
 
 [dependency-groups]
 dev = [

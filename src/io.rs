@@ -112,7 +112,11 @@ where
 ///     TypeError: If the file cannot be decoded (``AudioDecodeError``).
 #[pyfunction]
 #[pyo3(signature = (fp: "str|Path", as_type:"SampleType"=None))]
-pub fn read(py: Python<'_>, fp: std::path::PathBuf, as_type: Option<PySampleType>) -> PyResult<PyAudioSamples> {
+pub fn read(
+    py: Python<'_>,
+    fp: std::path::PathBuf,
+    as_type: Option<PySampleType>,
+) -> PyResult<PyAudioSamples> {
     let fp = fp.to_string_lossy();
     let fp: &str = &fp;
     crate::ensure_file_exists(fp)?;

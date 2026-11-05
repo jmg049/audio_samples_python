@@ -9,6 +9,23 @@ welcome. For pull requests, please consider:
 * Ensure cargo fmt is run.
 * Documentation and tests are required.
 
+## Building
+
+The bindings build against checkouts of
+[`audio_samples`](https://github.com/jmg049/audio_samples) and
+[`audio_samples_io`](https://github.com/jmg049/audio_samples_io) next to this
+one (`[patch.crates-io]` in `Cargo.toml`), until the matching releases are on
+crates.io. `.github/workflows/wheels.yml` pins the commits it uses.
+
+Wheels: Actions > Wheels > Run workflow builds and tests everything without
+publishing. Only a pushed `v*` tag publishes, through trusted publishing.
+
+An sdist needs those sources inside it, because maturin does not package the
+targets of a patch table: run `tests/ci/bundle_siblings.py` on a throw-away
+checkout first, then `maturin sdist`. The result builds on its own with a Rust
+toolchain and access to crates.io (or a `cargo vendor` directory); `Cargo.lock`
+is included and it has no C dependencies.
+
 ## Usage of AI Tools
 
 > Copied from the [Rust audio_samples](https://github.com/jmg049/audio_samples/blob/main/CONTRIBUTING.md) contribution guidelines.

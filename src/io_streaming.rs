@@ -77,7 +77,8 @@ where
     let array = unsafe { PyArray2::<T>::new(py, [channels, frames], interleaved) };
     // SAFETY: the fresh array is contiguous and no other reference to it exists; its values
     // are written before they are read.
-    let slice = unsafe { array.as_slice_mut() }.map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+    let slice =
+        unsafe { array.as_slice_mut() }.map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
     let frames_read = match inner {
         ReaderInner::Wav(r) => r.read_interleaved_into(slice),
         ReaderInner::Flac(r) => r.read_planar_into(slice),
@@ -98,7 +99,8 @@ where
                 pyo3::types::PySlice::new(py, 0, frames_read as isize, 1),
             ),),
         )?;
-        view.call_method1("copy", (order,))?.cast_into::<PyArray2<T>>()?
+        view.call_method1("copy", (order,))?
+            .cast_into::<PyArray2<T>>()?
     } else {
         array
     };

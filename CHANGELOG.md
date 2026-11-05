@@ -11,6 +11,11 @@ has the full detail.
 
 ## [Unreleased]
 
+- **Import is close to free.** `import audio_samples` no longer loads the
+  extension; the first access to one of its names (or `import
+  audio_samples.io` and the like) does. Everything else behaves as before.
+- **The wheel no longer ships** `logo.png`, benchmark scripts or notebooks. The
+  README's logo uses an absolute URL, so it shows on PyPI.
 - **librosa parity.** A librosa 1.0-compatible API alongside the existing one:
   librosa-style methods on `AudioSamples` and the new submodules
   `audio_samples.spectral`, `features`, `sequence`, `rhythm` and `effects`.

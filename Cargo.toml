@@ -19,7 +19,6 @@ include = [
     "*.pyi",
     "audio_samples/*.pyi",
     "audio_samples/py.typed",
-    "logo.png",
 ]
 
 [lib]
@@ -44,15 +43,12 @@ num-complex = "0.4"
 # Diagnostic code/help of core errors are forwarded to Python exceptions.
 miette = { version = "7", default-features = false }
 
-# Build against the sibling audio_samples checkout (for this crate and for
-# audio_samples_io, which depends on it) so binding builds pick up unreleased
-# fixes. Remove once the matching audio_samples release is on crates.io.
+# Build against sibling checkouts of audio_samples and audio_samples_io (the
+# bindings need fixes that are not on crates.io yet). Remove once the matching
+# releases are published.
 [patch.crates-io]
 audio_samples = { path = "../audio_samples" }
-# audio_samples_io 0.3.3 with the fix for FLAC frames that a large Rice quotient
-# desynchronises (vendor/audio_samples_io/src/flac/bitstream.rs). Remove with the
-# release that contains it.
-audio_samples_io = { path = "vendor/audio_samples_io" }
+audio_samples_io = { path = "../audio_samples_io" }
 
 [features]
 default = []
@@ -64,6 +60,6 @@ flac-parallel = ["audio_samples_io/flac-parallel"]
 opt-level = 3
 debug = false
 strip = "symbols"
-lto = "thin"
+lto = "fat"
 codegen-units = 1
 panic = "unwind"

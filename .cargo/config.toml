@@ -1,0 +1,8 @@
+# Lower LLVM's inlining thresholds (defaults 275 and 325) for the extension's
+# long tail of wrappers. Hot kernels are always-inlined or target_feature
+# functions and are not affected.
+[target.'cfg(all())']
+rustflags = [
+    "-C", "llvm-args=-inline-threshold=150",
+    "-C", "llvm-args=-inlinehint-threshold=200",
+]

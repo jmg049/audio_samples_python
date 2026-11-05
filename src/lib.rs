@@ -3945,6 +3945,19 @@ impl<T: StandardSample + Element> Mul<T> for PyAudioBacking<T> {
     }
 }
 
+/// The backing array as one view, so that each `with_view*` calls its closure
+/// from a single place.
+enum BackingView<'a, T> {
+    Mono(numpy::ndarray::ArrayView1<'a, T>),
+    Multi(numpy::ndarray::ArrayView2<'a, T>),
+}
+
+/// [`BackingView`] for mutation.
+enum BackingViewMut<'a, T> {
+    Mono(numpy::ndarray::ArrayViewMut1<'a, T>),
+    Multi(numpy::ndarray::ArrayViewMut2<'a, T>),
+}
+
 #[derive(Debug, Clone)]
 pub(crate) struct TypedAudioSamples<T: StandardSample + Element> {
     backing: PyAudioBacking<T>,
@@ -3961,60 +3974,7 @@ where
         py: Python<'_>,
         f: impl for<'a> FnOnce(AudioSamples<'a, T>) -> R,
     ) -> R {
-        use PyAudioBacking::*;
-        let sr = self.sample_rate;
-        match &self.backing {
-            OwnedMono(arr) => {
-                let view = arr.view();
-                // safety: with_view operates on an instantiated TypedAudioSamples which is non-empty
-                let core = AudioSamples::new(
-                    unsafe { AudioData::from_borrowed_array1_unchecked(view) },
-                    sr,
-                );
-                f(core)
-            }
-            OwnedMulti(arr) => {
-                let view = arr.view();
-                // safety: with_view operates on an instantiated TypedAudioSamples which is non-empty
-                let core = AudioSamples::new(
-                    unsafe { AudioData::from_borrowed_array2_unchecked(view) },
-                    sr,
-                );
-                f(core)
-            }
-            NumpyMono(handle) => {
-                let bound = handle.bind(py);
-                let view = unsafe { bound.as_array() };
-                // safety: with_view operates on an instantiated TypedAudioSamples which is non-empty
-                let core = AudioSamples::new(
-                    unsafe { AudioData::from_borrowed_array1_unchecked(view) },
-                    sr,
-                );
-                f(core)
-            }
-            NumpyMulti(handle) => {
-                let bound = handle.bind(py);
-                let view = unsafe { bound.as_array() };
-                // safety: with_view operates on an instantiated TypedAudioSamples which is non-empty
-                let core = AudioSamples::new(
-                    unsafe { AudioData::from_borrowed_array2_unchecked(view) },
-                    sr,
-                );
-                f(core)
-            }
-            NumpyInterleaved(handle) => {
-                // Fortran-layout array: data is interleaved in memory
-                // Let ndarray handle the memory layout directly - no conversion needed
-                let bound = handle.bind(py);
-                let view = unsafe { bound.as_array() };
-                // safety: with_view operates on an instantiated TypedAudioSamples which is non-empty
-                let core = AudioSamples::new(
-                    unsafe { AudioData::from_borrowed_array2_unchecked(view) },
-                    sr,
-                );
-                f(core)
-            }
-        }
+        f(self.borrowed(py))
     }
 
     /// The samples as an `AudioSamples` borrowing this object's data (owned
@@ -4062,46 +4022,37 @@ where
     ) -> R {
         use PyAudioBacking::*;
         let sr = self.sample_rate;
-        match &self.backing {
-            OwnedMono(arr) => {
-                let view = arr.view();
-                py.detach(move || {
-                    // safety: an instantiated TypedAudioSamples is non-empty
-                    f(AudioSamples::new(
-                        unsafe { AudioData::from_borrowed_array1_unchecked(view) },
-                        sr,
-                    ))
-                })
-            }
-            OwnedMulti(arr) => {
-                let view = arr.view();
-                py.detach(move || {
-                    // safety: an instantiated TypedAudioSamples is non-empty
-                    f(AudioSamples::new(
-                        unsafe { AudioData::from_borrowed_array2_unchecked(view) },
-                        sr,
-                    ))
-                })
-            }
-            NumpyMono(handle) => {
-                let view = unsafe { handle.bind(py).as_array() };
-                py.detach(move || {
-                    // safety: an instantiated TypedAudioSamples is non-empty
-                    f(AudioSamples::new(
-                        unsafe { AudioData::from_borrowed_array1_unchecked(view) },
-                        sr,
-                    ))
-                })
-            }
+        let view = match &self.backing {
+            OwnedMono(arr) => BackingView::Mono(arr.view()),
+            OwnedMulti(arr) => BackingView::Multi(arr.view()),
+            NumpyMono(handle) => BackingView::Mono(unsafe { handle.bind(py).as_array() }),
             NumpyMulti(handle) | NumpyInterleaved(handle) => {
-                let view = unsafe { handle.bind(py).as_array() };
-                py.detach(move || {
-                    // safety: an instantiated TypedAudioSamples is non-empty
-                    f(AudioSamples::new(
-                        unsafe { AudioData::from_borrowed_array2_unchecked(view) },
-                        sr,
-                    ))
-                })
+                BackingView::Multi(unsafe { handle.bind(py).as_array() })
+            }
+        };
+        py.detach(move || {
+            // safety: an instantiated TypedAudioSamples is non-empty
+            let data = unsafe {
+                match view {
+                    BackingView::Mono(v) => AudioData::from_borrowed_array1_unchecked(v),
+                    BackingView::Multi(v) => AudioData::from_borrowed_array2_unchecked(v),
+                }
+            };
+            f(AudioSamples::new(data, sr))
+        })
+    }
+
+    /// A mutable view of the backing array, with any read-only NumPy buffer
+    /// replaced by a private copy first.
+    fn backing_view_mut<'a>(&'a mut self, py: Python<'a>) -> BackingViewMut<'a, T> {
+        use PyAudioBacking::*;
+        self.backing.ensure_writeable(py);
+        match &mut self.backing {
+            OwnedMono(arr) => BackingViewMut::Mono(arr.view_mut()),
+            OwnedMulti(arr) => BackingViewMut::Multi(arr.view_mut()),
+            NumpyMono(handle) => BackingViewMut::Mono(unsafe { handle.bind(py).as_array_mut() }),
+            NumpyMulti(handle) | NumpyInterleaved(handle) => {
+                BackingViewMut::Multi(unsafe { handle.bind(py).as_array_mut() })
             }
         }
     }
@@ -4111,61 +4062,16 @@ where
         py: Python<'_>,
         f: impl for<'a> FnOnce(AudioSamples<'a, T>) -> R,
     ) -> R {
-        use PyAudioBacking::*;
         let sr = self.sample_rate;
-        self.backing.ensure_writeable(py);
-
-        match &mut self.backing {
-            OwnedMono(arr) => {
-                let view = arr.view_mut();
-                // safety: with_view operates on an instantiated TypedAudioSamples which is non-empty
-                let core = AudioSamples::new(
-                    unsafe { AudioData::from_borrowed_array1_mut_unchecked(view) },
-                    sr,
-                );
-                f(core)
+        let view = self.backing_view_mut(py);
+        // safety: an instantiated TypedAudioSamples is non-empty
+        let data = unsafe {
+            match view {
+                BackingViewMut::Mono(v) => AudioData::from_borrowed_array1_mut_unchecked(v),
+                BackingViewMut::Multi(v) => AudioData::from_borrowed_array2_mut_unchecked(v),
             }
-            OwnedMulti(arr) => {
-                let view = arr.view_mut();
-                // safety: with_view operates on an instantiated TypedAudioSamples which is non-empty
-                let core = AudioSamples::new(
-                    unsafe { AudioData::from_borrowed_array2_mut_unchecked(view) },
-                    sr,
-                );
-                f(core)
-            }
-            NumpyMono(handle) => {
-                let bound = handle.bind(py);
-                let view = unsafe { bound.as_array_mut() };
-                // safety: with_view operates on an instantiated TypedAudioSamples which is non-empty
-                let core = AudioSamples::new(
-                    unsafe { AudioData::from_borrowed_array1_mut_unchecked(view) },
-                    sr,
-                );
-                f(core)
-            }
-            NumpyMulti(handle) => {
-                let bound = handle.bind(py);
-                let view = unsafe { bound.as_array_mut() };
-                // safety: with_view operates on an instantiated TypedAudioSamples which is non-empty
-                let core = AudioSamples::new(
-                    unsafe { AudioData::from_borrowed_array2_mut_unchecked(view) },
-                    sr,
-                );
-                f(core)
-            }
-            NumpyInterleaved(handle) => {
-                // Mutable operations on interleaved arrays using direct ndarray view
-                let bound = handle.bind(py);
-                let view = unsafe { bound.as_array_mut() };
-                // safety: with_view operates on an instantiated TypedAudioSamples which is non-empty
-                let core = AudioSamples::new(
-                    unsafe { AudioData::from_borrowed_array2_mut_unchecked(view) },
-                    sr,
-                );
-                f(core)
-            }
-        }
+        };
+        f(AudioSamples::new(data, sr))
     }
 
     /// Safe clone that requires a Python token for numpy-backed variants
@@ -4188,78 +4094,18 @@ where
         py: Python<'_>,
         f: impl FnOnce(AudioSamples<'_, T>) -> R + Send,
     ) -> R {
-        use PyAudioBacking::*;
         let sr = self.sample_rate;
-        self.backing.ensure_writeable(py);
-
-        match &mut self.backing {
-            OwnedMono(arr) => {
-                // For owned data, release GIL and work directly
-                py.detach(move || {
-                    let view = arr.view_mut();
-                    // safety: with_view operates on an instantiated TypedAudioSamples which is non-empty
-                    let core = AudioSamples::new(
-                        unsafe { AudioData::from_borrowed_array1_mut_unchecked(view) },
-                        sr,
-                    );
-                    f(core)
-                })
-            }
-            OwnedMulti(arr) => py.detach(move || {
-                let view = arr.view_mut();
-                // safety: with_view operates on an instantiated TypedAudioSamples which is non-empty
-                let core = AudioSamples::new(
-                    unsafe { AudioData::from_borrowed_array2_mut_unchecked(view) },
-                    sr,
-                );
-                f(core)
-            }),
-            NumpyMono(handle) => {
-                // Get mutable view while holding GIL
-                let bound = handle.bind(py);
-                let view = unsafe { bound.as_array_mut() };
-
-                // Release GIL for computation
-                // Safety: The Py<PyArray> handle keeps the array alive,
-                // and ArrayViewMut doesn't require GIL
-                py.detach(move || {
-                    // safety: with_view operates on an instantiated TypedAudioSamples which is non-empty
-                    let core = AudioSamples::new(
-                        unsafe { AudioData::from_borrowed_array1_mut_unchecked(view) },
-                        sr,
-                    );
-                    f(core)
-                })
-            }
-            NumpyMulti(handle) => {
-                let bound = handle.bind(py);
-                let view = unsafe { bound.as_array_mut() };
-
-                py.detach(move || {
-                    // safety: with_view operates on an instantiated TypedAudioSamples which is non-empty
-                    let core = AudioSamples::new(
-                        unsafe { AudioData::from_borrowed_array2_mut_unchecked(view) },
-                        sr,
-                    );
-                    f(core)
-                })
-            }
-            NumpyInterleaved(handle) => {
-                // For numpy arrays, we can safely detach the GIL since the Py<PyArray> handle
-                // keeps the array alive and the view remains valid even without the GIL
-                let bound = handle.bind(py);
-                let view = unsafe { bound.as_array_mut() };
-
-                py.detach(move || {
-                    // safety: with_view operates on an instantiated TypedAudioSamples which is non-empty
-                    let core = AudioSamples::new(
-                        unsafe { AudioData::from_borrowed_array2_mut_unchecked(view) },
-                        sr,
-                    );
-                    f(core)
-                })
-            }
-        }
+        let view = self.backing_view_mut(py);
+        py.detach(move || {
+            // safety: an instantiated TypedAudioSamples is non-empty
+            let data = unsafe {
+                match view {
+                    BackingViewMut::Mono(v) => AudioData::from_borrowed_array1_mut_unchecked(v),
+                    BackingViewMut::Multi(v) => AudioData::from_borrowed_array2_mut_unchecked(v),
+                }
+            };
+            f(AudioSamples::new(data, sr))
+        })
     }
 }
 
