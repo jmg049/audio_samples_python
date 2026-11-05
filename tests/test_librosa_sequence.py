@@ -224,8 +224,9 @@ def test_recurrence_matrix(fx):
             np.testing.assert_array_equal(R.astype(float), expected, err_msg=name)
         else:
             assert_peak_close(R, expected, RTOL_KNN, f"recurrence/{name}")
-    with pytest.raises(ValueError, match="sparse"):
-        Q.recurrence_matrix(X, sparse=True)
+    np.testing.assert_array_equal(
+        Q.recurrence_matrix(X, k=5, sparse=True).toarray(), Q.recurrence_matrix(X, k=5)
+    )
     # self_links= is the keyword-friendly spelling of librosa's self=.
     np.testing.assert_array_equal(
         Q.recurrence_matrix(X, k=5, self_links=True), Q.recurrence_matrix(X, k=5, **{"self": True})

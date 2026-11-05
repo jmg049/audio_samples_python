@@ -134,6 +134,13 @@ def _load_extension():
         "features": _ext.features,
         "rhythm": _ext.rhythm,
         "effects": _ext.effects,
+        "linalg": _ext.linalg,
+        "inverse": _ext.inverse,
+        "factorization": _ext.factorization,
+        "pitch_filterbank": _ext.pitch_filterbank,
+        "segment": _ext.segment,
+        "arrays": _ext.arrays,
+        "notation": _ext.notation,
     }.items():
         _sys.modules.setdefault(f"audio_samples.{_subname}", _submod)
         # ``exceptions`` is compiled from source text and has a spec naming a
@@ -212,6 +219,12 @@ _sys.meta_path.append(_NativeSubmoduleFinder)
 
 
 def __getattr__(name):
+    if name == "forms":
+        import importlib
+
+        module = importlib.import_module("audio_samples.forms")
+        globals()["forms"] = module
+        return module
     if name == "mpl":
         # Matplotlib visualisation extension (pure Python), None without matplotlib.
         import importlib
@@ -259,8 +272,16 @@ __all__ = [
     "features",
     "rhythm",
     "effects",
+    "linalg",
+    "inverse",
+    "factorization",
+    "pitch_filterbank",
+    "segment",
+    "arrays",
+    "notation",
     "spectrograms",
     "mpl",
+    "forms",
     "spectrograms",
     "exceptions",
     "explain",

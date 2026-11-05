@@ -30,6 +30,31 @@ from audio_samples.types import (
 )
 
 from .style import MplStyle as MplStyle
+from .display import (
+    plot_matrix as plot_matrix,
+    plot_waveform_adaptive as plot_waveform_adaptive,
+    plot_waveform_bars as plot_waveform_bars,
+    plot_waveform_f0 as plot_waveform_f0,
+    plot_grid as plot_grid,
+    infer_colormap as infer_colormap,
+    add_db_colorbar as add_db_colorbar,
+    add_phase_colorbar as add_phase_colorbar,
+    legend_for_axes as legend_for_axes,
+    highlight_effects as highlight_effects,
+    AdaptiveWaveform as AdaptiveWaveform,
+    F0Transform as F0Transform,
+    TimeFormatter as TimeFormatter,
+    NoteFormatter as NoteFormatter,
+    SvaraFormatter as SvaraFormatter,
+    FJSFormatter as FJSFormatter,
+    LogHzFormatter as LogHzFormatter,
+    EngFormatter as EngFormatter,
+    ChromaFormatter as ChromaFormatter,
+    ChromaSvaraFormatter as ChromaSvaraFormatter,
+    ChromaFJSFormatter as ChromaFJSFormatter,
+    TonnetzFormatter as TonnetzFormatter,
+    AXIS_TYPES as AXIS_TYPES,
+)
 
 # ---------------------------------------------------------------------------
 # Style helpers
@@ -541,6 +566,30 @@ def plot_filter_analysis(
 ) -> tuple[Figure, dict[str, Axes]]: ...
 
 __all__ = [
+    "plot_matrix",
+    "plot_waveform_adaptive",
+    "plot_waveform_bars",
+    "plot_waveform_f0",
+    "plot_grid",
+    "infer_colormap",
+    "add_db_colorbar",
+    "add_phase_colorbar",
+    "legend_for_axes",
+    "highlight_effects",
+    "AdaptiveWaveform",
+    "F0Transform",
+    "TimeFormatter",
+    "NoteFormatter",
+    "SvaraFormatter",
+    "FJSFormatter",
+    "LogHzFormatter",
+    "EngFormatter",
+    "ChromaFormatter",
+    "ChromaSvaraFormatter",
+    "ChromaFJSFormatter",
+    "TonnetzFormatter",
+    "AXIS_TYPES",
+
     "MplStyle",
     "get_default_style",
     "plot_amplitude_envelope",

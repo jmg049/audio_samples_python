@@ -21,13 +21,20 @@
 #![warn(clippy::multiple_unsafe_ops_per_block)]
 
 pub mod args;
+pub mod arrays;
 pub mod effects;
 pub mod explain;
+pub mod factorization;
 pub mod features;
+pub mod inverse;
 pub mod io;
 pub mod io_streaming;
+pub mod linalg;
+pub mod notation;
 pub mod operations;
+pub mod pitch_filterbank;
 pub mod rhythm;
+pub mod segment;
 pub mod sequence;
 pub mod spectral;
 pub mod types;
@@ -821,6 +828,13 @@ fn audio_samples_python(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()>
     features::register(py, m)?;
     rhythm::register(py, m)?;
     effects::register(py, m)?;
+    linalg::register(py, m)?;
+    inverse::register(py, m)?;
+    factorization::register(py, m)?;
+    pitch_filterbank::register(py, m)?;
+    segment::register(py, m)?;
+    arrays::register(py, m)?;
+    notation::register(py, m)?;
 
     // Explanations (audio_samples.explain); ExplainDoc is re-exported at top level.
     explain::explain_module(py, m)?;

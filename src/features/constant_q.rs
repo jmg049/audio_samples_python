@@ -11,9 +11,7 @@ use numpy::{IntoPyArray, PyArray1, PyArray2};
 use pyo3::prelude::*;
 
 use super::args::{spec3, squeeze_out};
-use crate::args::{
-    WindowArg, non_negative, opt_positive, positive, precision_of, value_err, with_precision,
-};
+use crate::args::{WindowArg, non_negative, opt_positive, positive, precision_of, with_precision};
 use crate::audio_err_to_py;
 
 /// The CQT-to-chroma folding matrix, equivalent to
@@ -24,14 +22,14 @@ use crate::audio_err_to_py;
 ///     bins_per_octave (int): CQT bins per octave (a multiple of ``n_chroma``). Default 12.
 ///     n_chroma (int): Number of chroma bins. Default 12.
 ///     fmin (Optional[float]): Frequency of CQT bin 0 (Hz); None = C1.
-///     window: Must be None (librosa's smoothing kernel is not supported).
+///     window (Optional[``array_like``]): Smooths each row by convolution with these weights.
 ///     base_c (bool): Chroma row 0 is C (default) or A.
 ///
 /// Returns:
 ///     numpy.ndarray[float64]: shape ``(n_chroma, n_input)`` of zeros and ones.
 ///
 /// Raises:
-///     ValueError: For invalid parameters or a non-None ``window``.
+///     ``ValueError``: For invalid parameters.
 #[pyfunction]
 #[pyo3(
     signature = (n_input, *, bins_per_octave = Int(12), n_chroma = Int(12), fmin = None, window = None, base_c = true),
@@ -46,13 +44,11 @@ pub fn cq_to_chroma<'py>(
     window: Option<&Bound<'py, PyAny>>,
     base_c: bool,
 ) -> PyResult<Bound<'py, PyArray2<f64>>> {
-    if window.is_some_and(|w| !w.is_none()) {
-        return Err(value_err(
-            "window",
-            "a smoothing window is not supported; pass None",
-        ));
-    }
-    let m = cq::cq_to_chroma(
+    let smoothing = match window.filter(|w| !w.is_none()) {
+        Some(w) => Some(super::args::f64_vec(w, "window")?),
+        None => None,
+    };
+    let mut m = cq::cq_to_chroma(
         non_negative("n_input", n_input)?,
         positive("bins_per_octave", bins_per_octave)?,
         positive("n_chroma", n_chroma)?,
@@ -60,7 +56,18 @@ pub fn cq_to_chroma<'py>(
         base_c,
     )
     .map_err(audio_err_to_py)?;
+    if let Some(w) = smoothing.filter(|w| !w.is_empty()) {
+        cq::smooth_chroma_map(&mut m, &w);
+    }
     Ok(m.into_pyarray(py))
+}
+
+/// One relative bandwidth per frequency, from one value or a sequence.
+fn alpha_per_frequency(alpha: &Bound<'_, PyAny>, n: usize) -> PyResult<Vec<f64>> {
+    if let Ok(a) = alpha.extract::<f64>() {
+        return Ok(vec![a; n]);
+    }
+    super::args::f64_vec1(alpha, "alpha")
 }
 
 fn wavelet_config(
@@ -89,18 +96,19 @@ fn wavelet_config(
 ///     filter_scale (float): Filter-length scale. Default 1.
 ///     gamma (Optional[float]): Bandwidth offset (Hz); 0 (default) = constant Q,
 ///         None = ERB-derived.
+///     alpha (Optional[float | ``array_like``]): Relative bandwidth, one value or one per
+///         frequency. None derives it from the spacing of the frequencies.
 ///
 /// Returns:
 ///     tuple[numpy.ndarray[float64], float]: ``(lengths, cutoff)``: the length of
 ///     each filter in samples and the highest cut-off frequency in Hz.
 ///
 /// Raises:
-///     ValueError: For invalid frequencies or parameters. librosa's explicit
-///         ``alpha`` (for a single frequency) is not supported.
+///     ``ValueError``: For invalid frequencies or parameters.
 #[pyfunction]
 #[pyo3(
-    signature = (*, freqs, sr, window = WindowArg(Window::Hann), filter_scale = 1.0, gamma = Some(0.0)),
-    text_signature = "(*, freqs, sr, window='hann', filter_scale=1.0, gamma=0.0)"
+    signature = (*, freqs, sr, window = WindowArg(Window::Hann), filter_scale = 1.0, gamma = Some(0.0), alpha = None),
+    text_signature = "(*, freqs, sr, window='hann', filter_scale=1.0, gamma=0.0, alpha=None)"
 )]
 pub fn wavelet_lengths<'py>(
     py: Python<'py>,
@@ -109,9 +117,17 @@ pub fn wavelet_lengths<'py>(
     window: WindowArg,
     filter_scale: f64,
     gamma: Option<f64>,
+    alpha: Option<&Bound<'py, PyAny>>,
 ) -> PyResult<(Bound<'py, PyArray1<f64>>, f64)> {
     use numpy::PyArrayMethods;
     let cfg = wavelet_config(window, filter_scale, gamma, Some(1.0), true);
+    if let Some(a) = alpha.filter(|a| !a.is_none()) {
+        let f = super::args::f64_vec1(freqs, "freqs")?;
+        let bandwidths = alpha_per_frequency(a, f.len())?;
+        let (lengths, cutoff) =
+            cq::wavelet_lengths_with_alpha(&f, sr, &cfg, &bandwidths).map_err(audio_err_to_py)?;
+        return Ok((lengths.into_pyarray(py), cutoff));
+    }
     // A contiguous 1-D float64 array is read in place; the lengths are
     // written straight into a NumPy-allocated array.
     crate::args::with_float_view::<f64, _>(freqs, "freqs", |v| {
@@ -148,6 +164,7 @@ pub fn wavelet_lengths<'py>(
 ///     pad_fft (bool): Centre the filters in a power-of-two buffer. Default True.
 ///     norm (Optional[float]): Per-filter normalisation (p-norm). Default 1.
 ///     gamma (Optional[float]): Bandwidth offset (Hz). Default 0.
+///     alpha (Optional[float | ``array_like``]): As ``wavelet_lengths``.
 ///
 /// Returns:
 ///     tuple[numpy.ndarray[complex128], numpy.ndarray[float64]]: ``(filters,
@@ -158,8 +175,8 @@ pub fn wavelet_lengths<'py>(
 ///     ValueError: For invalid frequencies or parameters.
 #[pyfunction]
 #[pyo3(
-    signature = (*, freqs, sr, window = WindowArg(Window::Hann), filter_scale = 1.0, pad_fft = true, norm = Some(1.0), gamma = Some(0.0)),
-    text_signature = "(*, freqs, sr, window='hann', filter_scale=1.0, pad_fft=True, norm=1.0, gamma=0.0)"
+    signature = (*, freqs, sr, window = WindowArg(Window::Hann), filter_scale = 1.0, pad_fft = true, norm = Some(1.0), gamma = Some(0.0), alpha = None),
+    text_signature = "(*, freqs, sr, window='hann', filter_scale=1.0, pad_fft=True, norm=1.0, gamma=0.0, alpha=None)"
 )]
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn wavelet<'py>(
@@ -171,13 +188,21 @@ pub fn wavelet<'py>(
     pad_fft: bool,
     norm: Option<f64>,
     gamma: Option<f64>,
+    alpha: Option<&Bound<'py, PyAny>>,
 ) -> PyResult<(
     Bound<'py, PyArray2<Complex<f64>>>,
     Bound<'py, PyArray1<f64>>,
 )> {
     let f = super::args::f64_vec1(freqs, "freqs")?;
     let cfg = wavelet_config(window, filter_scale, gamma, norm, pad_fft);
-    let (filters, lengths) = cq::wavelet(&f, sr, &cfg).map_err(audio_err_to_py)?;
+    let (filters, lengths) = match alpha.filter(|a| !a.is_none()) {
+        Some(a) => {
+            let bandwidths = alpha_per_frequency(a, f.len())?;
+            cq::wavelet_with_alpha(&f, sr, &cfg, &bandwidths)
+        }
+        None => cq::wavelet(&f, sr, &cfg),
+    }
+    .map_err(audio_err_to_py)?;
     Ok((filters.into_pyarray(py), lengths.into_pyarray(py)))
 }
 

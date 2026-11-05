@@ -1213,6 +1213,8 @@ def example_clip(
     """
     ...
 
+def example_clip_info(name: str) -> str:
+    """One sentence on what an example clip contains."""
 def example_clip_names() -> list[str]:
     """
     The names ``example_clip`` accepts.
@@ -1243,6 +1245,7 @@ __all__ = [
     "compound_tone",
     "cosine_wave",
     "example_clip",
+    "example_clip_info",
     "example_clip_names",
     "example_speech_f0",
     "exponential_bursts",

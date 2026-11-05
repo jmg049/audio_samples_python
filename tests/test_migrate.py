@@ -186,6 +186,8 @@ def test_each_keyword_is_accounted_for(name):
     """Every librosa parameter exists in the equivalent with the same default, or the table says what differs."""
     pytest.importorskip("librosa")
     entry = TABLE[name]
+    if not callable(_librosa_object(name)):
+        pytest.skip("a constant has no parameters")
     theirs = inspect.signature(_librosa_object(name)).parameters
     problems = []
     for primary, options, selecting in _forms(entry):
@@ -211,6 +213,8 @@ def test_each_keyword_is_accounted_for(name):
 def test_options_describe_real_keywords_and_real_defaults(name):
     pytest.importorskip("librosa")
     entry = TABLE[name]
+    if not callable(_librosa_object(name)):
+        pytest.skip("a constant has no parameters")
     theirs = inspect.signature(_librosa_object(name)).parameters
     for _, options, _ in _forms(entry):
         for key, option in options.items():
@@ -269,7 +273,7 @@ def _table_text():
 
 
 def test_names_in_the_advice_exist_in_audio_samples():
-    pattern = re.compile(r"(?<![\w.])(AudioSamples|io|spectral|features|rhythm|effects|sequence|utils|generation)\.([A-Za-z_]\w*)")
+    pattern = re.compile(r"(?<![\w.])(AudioSamples|io|spectral|features|rhythm|effects|sequence|utils|generation|forms|arrays|notation)\.([A-Za-z_]\w*)")
     missing = set()
     for text in _table_text():
         for head, attribute in pattern.findall(text):
@@ -480,12 +484,12 @@ def test_unsupported_option_is_flagged_whatever_its_form():
 
 
 def test_a_value_only_rejected_when_it_is_the_unsupported_one():
-    sparse = _single("librosa.segment.recurrence_matrix(x, sparse=True)")
-    assert _watch_keywords(sparse, "unsupported option") == {"sparse"}
-    dense = _single("librosa.segment.recurrence_matrix(x, sparse=False)")
-    assert _watch_keywords(dense, "unsupported option") == set()
-    assert not dense.blocking
-    variable = _single("librosa.segment.recurrence_matrix(x, sparse=flag)")
+    dense = _single("librosa.onset.onset_detect(y=y, sr=sr, sparse=False)")
+    assert _watch_keywords(dense, "unsupported option") == {"sparse"}
+    sparse = _single("librosa.onset.onset_detect(y=y, sr=sr, sparse=True)")
+    assert _watch_keywords(sparse, "unsupported option") == set()
+    assert not sparse.blocking
+    variable = _single("librosa.onset.onset_detect(y=y, sr=sr, sparse=flag)")
     assert _watch_keywords(variable, "unsupported option") == set()
     assert _watch_keywords(variable, "not checked") == {"sparse"}
 
@@ -532,7 +536,7 @@ def test_too_many_positional_arguments_are_reported():
 
 
 def test_no_counterpart_blocks():
-    finding = _single("librosa.iirt(y)")
+    finding = _single("librosa.cite()")
     assert finding.equivalent == ()
     assert finding.match == NOT_PROVIDED
     assert finding.blocking
@@ -623,7 +627,7 @@ def test_exit_status(tmp_path):
     used = tmp_path / "used.py"
     used.write_text("import librosa\nlibrosa.power_to_db(S)\n")
     blocked = tmp_path / "blocked.py"
-    blocked.write_text("import librosa\nlibrosa.iirt(y)\n")
+    blocked.write_text("import librosa\nlibrosa.cite()\n")
     broken = tmp_path / "broken.py"
     broken.write_text("def (:\n")
 
@@ -640,7 +644,7 @@ def test_exit_status(tmp_path):
 
 def test_json_output_with_summary(tmp_path, capsys):
     path = tmp_path / "a.py"
-    path.write_text("import librosa\nlibrosa.power_to_db(S)\nlibrosa.iirt(y)\n")
+    path.write_text("import librosa\nlibrosa.power_to_db(S)\nlibrosa.cite()\n")
     status = main(["--format", "json", str(path)])
     report = json.loads(capsys.readouterr().out)
     assert status == 1

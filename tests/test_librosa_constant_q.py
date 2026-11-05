@@ -200,8 +200,7 @@ def test_cq_to_chroma(fx):
     for name, (n, kw) in cases.items():
         # Exact 0/1 matrices.
         np.testing.assert_array_equal(F.cq_to_chroma(n, **kw), fixture_array(m[name]), err_msg=name)
-    with pytest.raises(ValueError, match="window"):
-        F.cq_to_chroma(84, window=np.ones(3))
+    assert F.cq_to_chroma(84, window=np.ones(3)).shape == (12, 84)
 
 
 def test_chroma_features(fx, sr):
@@ -271,7 +270,7 @@ def test_shapes_and_validation(sr):
     with pytest.raises(ValueError, match="res_type"):
         x.cqt(res_type="kaiser_best")
     with pytest.raises(ValueError, match="intervals"):
-        x.vqt(intervals="ji5")
+        x.vqt(intervals="ji9")
     with pytest.raises(ValueError, match="cqt_mode"):
         x.chroma_cqt(cqt_mode="pseudo")
     with pytest.raises(ValueError, match="window"):

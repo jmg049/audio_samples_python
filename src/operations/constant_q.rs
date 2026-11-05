@@ -11,7 +11,7 @@
 use crate::args::Int;
 use audio_samples::operations::constant_q::{
     AudioConstantQ, ChromaCensConfig, ChromaCqtConfig, ChromaVqtConfig, CqtConfig, TonnetzConfig,
-    VqtConfig,
+    VqtConfig, vqt_with_intervals,
 };
 use audio_samples::operations::filterbanks::Window;
 use audio_samples::{AudioSample, AudioSamples};
@@ -27,6 +27,26 @@ use crate::{PyAudioSamples, audio_err_to_py, dispatch_array_detached, nzu32_or_e
 
 /// Builds a [`CqtConfig`] from librosa's `cqt` keyword arguments.
 #[allow(clippy::too_many_arguments)]
+/// The ratios of one octave for a tuning system; None for equal temperament.
+fn interval_ratios(
+    intervals: &Bound<'_, PyAny>,
+    bins_per_octave: Int,
+) -> PyResult<Option<Vec<f64>>> {
+    let system = crate::notation::parse_tuning(intervals)?;
+    if matches!(system, audio_samples::utils::notation::TuningSystem::Equal) {
+        return Ok(None);
+    }
+    let per_octave = match &system {
+        audio_samples::utils::notation::TuningSystem::Custom(r) => r.len(),
+        _ => crate::args::non_negative("bins_per_octave", bins_per_octave)?,
+    };
+    audio_samples::utils::notation::interval_frequencies(
+        per_octave, 1.0, &system, per_octave, 0.0, true,
+    )
+    .map(Some)
+    .map_err(crate::audio_err_to_py)
+}
+
 fn cqt_config(
     hop_length: Int,
     fmin: Option<f64>,
@@ -202,9 +222,10 @@ impl PyAudioSamples {
         pad_mode: &str,
         res_type: &str,
     ) -> PyResult<Bound<'py, PyAny>> {
-        if let Some(i) = intervals {
-            check_intervals(i)?;
-        }
+        let ratios = match intervals.filter(|i| !i.is_none()) {
+            Some(i) => interval_ratios(i, bins_per_octave)?,
+            None => None,
+        };
         let cfg = VqtConfig {
             cqt: cqt_config(
                 hop_length,
@@ -222,6 +243,11 @@ impl PyAudioSamples {
             )?,
             gamma,
         };
+        if let Some(ratios) = ratios {
+            return dispatch_array_detached!(self, py, |audio| vqt_with_intervals(
+                &audio, &cfg, &ratios
+            ));
+        }
         dispatch_array_detached!(self, py, |audio| audio.vqt(&cfg))
     }
 

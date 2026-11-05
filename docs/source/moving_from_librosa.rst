@@ -530,7 +530,6 @@ Errors where librosa warns or carries on
    assert "sparse" in raises(ValueError, lambda: b.onset_detect(sparse=False))
 
    # Options that are not implemented raise instead of being ignored.
-   assert "sparse" in raises(ValueError, lambda: aus.sequence.recurrence_matrix(features, sparse=True))
    assert "scale" in raises(ValueError, lambda: b.pitch_shift(2.0, scale=True))
 
    # trim with a fixed reference when every frame is below it.
@@ -922,8 +921,8 @@ What it reports depends on the arguments in the call:
 
 - **keyword changed**: the keyword has another name or is not needed, for example ``y`` and ``sr`` when the
   equivalent is a method.
-- **unsupported option**: the equivalent has no such option, or rejects the value given. ``sparse=False`` on
-  ``recurrence_matrix`` passes and ``sparse=True`` does not.
+- **unsupported option**: the equivalent has no such option, or rejects the value given. ``sparse=True`` on
+  ``onset_detect`` passes and ``sparse=False`` does not, and the advice names ``forms.onset_detect``.
 - **default differs**: the two libraries use different defaults and the call relies on the default. Passing
   the keyword removes the warning.
 - **shape differs**: the result has another shape, usually the leading channel axis.
@@ -1042,42 +1041,31 @@ both are in the file library this package uses, and have not been changed yet.
 with ``as_type=SampleType.F64``. It is the one place this library changes a sample type without
 being asked. To keep float64 samples on disk, use another format or ``soundfile.write``.
 
-**Functions with no equivalent:**
+**Functions with no equivalent:** only librosa's own plumbing: ``cache``, ``cite``,
+``show_versions``, ``util.Deprecated``, ``util.rename_kw`` and its exception classes. Everything else
+has a counterpart: ``audio_samples.inverse``, ``linalg``, ``factorization``, ``pitch_filterbank``,
+``segment``, ``notation`` and ``arrays``, and ``mpl`` for ``librosa.display``.
 
-- ``librosa.display``: no ``specshow`` or formatters here, though it works on these arrays;
-- ``feature.inverse``: ``mel_to_stft``, ``mel_to_audio``, ``mfcc_to_mel``, ``mfcc_to_audio``, and
-  ``util.nnls``;
-- ``decompose.decompose`` (NMF through scikit-learn);
-- ``iirt``, ``fmt``, ``filters.semitone_filterbank``, ``filters.mr_frequencies``,
-  ``filters.diagonal_filter``;
-- ``segment.path_enhance``, ``segment.agglomerative``, ``segment.subsegment``,
-  ``segment.timelag_filter``, ``sequence.path_to_steps``;
-- notation and tuning systems: ``interval_frequencies``, ``pythagorean_intervals``,
-  ``plimit_intervals``, ``interval_to_fjs``, ``hz_to_fjs``, ``fifths_to_note``, the svara, mela and
-  thaat functions;
-- ``blocks_to_frames``, ``blocks_to_samples``, ``blocks_to_time``;
-- the example data (``ex``, ``example_info``, ``list_examples``), ``util.find_files``,
-  ``cache`` and ``loadx``;
-- helpers such as ``util.localmax``, ``util.match_events``, ``util.pad_center``,
-  ``util.fix_frames``, ``util.axis_sort``, ``util.sparsify_rows``, ``util.shear``. Most are a
-  NumPy line or two.
+**Options on an array form.** ``audio_samples.forms`` takes the options that methods leave out: ``sr``,
+``offset`` and ``duration`` when reading a file; several signals, ``pad`` and ``out`` when mixing channels;
+``scale`` when resampling; ``sparse=False`` in ``onset_detect`` and ``beat_track``; ``S``, ``C``, ``V`` and
+``window`` given to an analysis; ``feature`` in ``onset_strength``; ``freqs`` in ``tempogram_ratio``;
+``kind`` and ``axis`` in ``salience``; and ``axis`` in ``frame``.
 
 **Options that raise here.** Each was run and raises ``ValueError`` or ``TypeError``:
 
-- ``sparse=True`` in ``recurrence_matrix`` and ``cross_similarity``, ``sparse=False`` in
-  ``onset_detect`` and ``beat_track``;
+- ``sparse=False`` on the methods ``onset_detect`` and ``beat_track`` (see above);
 - multichannel audio in ``onset_detect`` and ``beat_track``;
-- ``intervals`` other than ``"equal"`` in ``vqt`` and ``chroma_vqt``;
-- ``kind`` other than ``"linear"`` in ``interp_harmonics``, ``f0_harmonics``, ``salience``;
+- ``intervals`` other than ``"equal"`` in the method ``chroma_vqt``: compute the transform with
+  ``vqt(intervals=...)`` and pass it to ``forms.chroma_vqt``;
 - ``init="random"`` in ``griffinlim_cqt``; a NumPy generator as ``rng`` in ``griffinlim``;
-- a smoothing ``window`` in ``chroma_cqt`` and ``cq_to_chroma``;
-- ``alpha`` in ``wavelet`` and ``wavelet_lengths``;
+- a smoothing ``window`` in the method ``chroma_cqt``: use ``forms.chroma_cqt``;
 - a time-varying 2-D ``freq`` in ``spectral_centroid_from_spectrogram``;
 - slices as ``channels`` in ``onset_strength_multi``, and as indices in ``sync``;
-- custom ``freqs`` in ``tempogram_ratio``, ``aggregate=None`` in ``metrogram``;
+- ``aggregate=None`` in ``metrogram``;
 - ``mask=True`` in ``harmonic``, ``percussive`` and ``harmonic_percussive`` (it is available in
   ``effects.hpss``);
-- ``scale=True`` in ``pitch_shift``;
+- ``scale=True`` in the method ``pitch_shift``: use ``forms.pitch_shift``;
 - a fractional ``power`` in ``magphase``, a 3-D matrix too (index ``[0]``);
 - a callable other than ``numpy.max``, ``numpy.min`` or ``numpy.mean`` as ``aggregate`` in
   ``trim_db`` and ``split_db``; other than ``numpy.mean``, ``numpy.median`` or ``numpy.average`` in

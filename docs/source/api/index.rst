@@ -11,6 +11,14 @@ provide type checking and IDE completion).
    spectral
    features
    sequence
+   segment
+   arrays
+   forms
+   linalg
+   inverse
+   factorization
+   pitch_filterbank
+   notation
    rhythm
    effects
    generation
@@ -24,6 +32,14 @@ Core Classes
 - :doc:`spectral` - librosa-compatible STFT, mel, MFCC, dB and unit conversions
 - :doc:`features` - librosa-compatible features, chroma/tuning, constant-Q and pitch tracking
 - :doc:`sequence` - DTW, Viterbi, recurrence matrices and sync (librosa-compatible)
+- :doc:`segment` - path enhancement, time-lag filtering, clustering and subsegmentation
+- :doc:`arrays` - array helpers, zero crossings, tones and sweeps
+- :doc:`forms` - array forms of methods, with their extra options
+- :doc:`linalg` - NNLS, pseudo-inverse, eigendecomposition and SVD
+- :doc:`inverse` - mel and MFCC inversion
+- :doc:`factorization` - non-negative matrix factorisation
+- :doc:`pitch_filterbank` - semitone filterbank and IIR time-frequency representation
+- :doc:`notation` - tuning systems, note, FJS, svara, mela and thaat names
 - :doc:`rhythm` - onset strength/detection, tempograms, tempo, beat tracking, PLP (librosa-compatible)
 - :doc:`effects` - time stretch, pitch shift, emphasis, trim/split, HPSS, Griffin-Lim, LPC (librosa-compatible)
 - :doc:`generation` - Signal generation functions

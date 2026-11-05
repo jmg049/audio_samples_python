@@ -16,6 +16,28 @@ has the full detail.
   audio_samples.io` and the like) does. Everything else behaves as before.
 - **The wheel no longer ships** `logo.png`, benchmark scripts or notebooks. The
   README's logo uses an absolute URL, so it shows on PyPI.
+- **Everything else librosa 1.0 computes.** New submodules: `linalg` (`nnls`, `pinv`, `eigh`,
+  `svd`); `inverse` (`mel_to_stft`, `mel_to_audio`, `mfcc_to_mel`, `mfcc_to_audio`);
+  `factorization` (`Nmf`, `decompose`); `pitch_filterbank` (`mr_frequencies`,
+  `semitone_filterbank`, `iirt`), with `AudioSamples.iirt`; `segment` (`diagonal_filter`,
+  `path_enhance`, `timelag_filter`, `agglomerative`, `subsegment`); `notation` (tuning systems,
+  Functional Just System, svara, mela and thaat names, `midi_to_note`, `hz_to_note`, `note_to_midi`,
+  `note_to_hz`); `arrays` (local extrema, event and interval matching, one-dimensional
+  interpolation, padding, reordering, compressed sparse rows, argument checks, `zero_crossings`,
+  `tone`, `chirp`). Also `spectral.mellin_transform`, `sequence.path_to_steps`,
+  `utils.blocks_to_{frames,samples,time}` and `generation.example_clip_info`.
+- **Array forms and options.** `audio_samples.forms` holds array forms of methods, for options an
+  `AudioSamples` makes unnecessary or that need another input: `to_mono`, `to_stereo`, `to_multi`,
+  `get_duration`, `read_segment`, `stream_blocks`, `resample`, `pitch_shift`, `frame`, `onset_detect`,
+  `beat_track`, `stft`, `istft`, `reassigned_spectrogram`, `chroma_cqt`, `chroma_cens`, `chroma_vqt`,
+  `tempogram_ratio`, `onset_strength` and `salience`. `AudioSamples.vqt` takes `intervals`;
+  `interp_harmonics` and `f0_harmonics` take `kind` and `axis`; `recurrence_matrix` and
+  `cross_similarity` take `sparse=True` and `recurrence_matrix` takes `axis`; `cq_to_chroma` takes
+  its smoothing `window`; `wavelet` and `wavelet_lengths` take `alpha`.
+- **Display.** `mpl.plot_matrix` with typed axes (time, lag, frequency, mel, constant-Q, note, svara,
+  FJS, chroma, tempo, tonnetz) and dB and phase value scales; `mpl.plot_waveform_adaptive`,
+  `mpl.plot_waveform_bars`, `mpl.plot_waveform_f0`, `mpl.plot_grid`, `mpl.infer_colormap`, dB and phase
+  colorbars, a shared legend, highlights and the tick formatters.
 - **Unary operators.** `-audio`, `+audio` and `abs(audio)` return audio of the same sample type. Integer results saturate,
   and `uint8` works relative to silence.
 - **Arithmetic keeps the sample type.** `1.0 + audio` returned float64; `audio / other` and `audio / array` returned

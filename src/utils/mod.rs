@@ -39,6 +39,9 @@ pub fn utils(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     utils_mod.add_function(wrap_pyfunction!(audio_math::time_to_samples, &utils_mod)?)?;
     utils_mod.add_function(wrap_pyfunction!(audio_math::samples_to_frames, &utils_mod)?)?;
     utils_mod.add_function(wrap_pyfunction!(audio_math::frames_to_samples, &utils_mod)?)?;
+    utils_mod.add_function(wrap_pyfunction!(audio_math::blocks_to_frames, &utils_mod)?)?;
+    utils_mod.add_function(wrap_pyfunction!(audio_math::blocks_to_samples, &utils_mod)?)?;
+    utils_mod.add_function(wrap_pyfunction!(audio_math::blocks_to_time, &utils_mod)?)?;
     utils_mod.add_function(wrap_pyfunction!(
         audio_math::time_to_frames_floor,
         &utils_mod

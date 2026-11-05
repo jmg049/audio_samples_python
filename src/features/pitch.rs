@@ -272,20 +272,132 @@ impl<F: FloatElement> Grid<F> {
     }
 }
 
+/// Rejects what the salience kernel does not provide: another interpolant or axis.
 fn check_kind_axis(kind: &str, axis: i64, ndim: usize) -> PyResult<()> {
-    if kind != "linear" {
+    if !native_kind_axis(kind, axis, ndim) {
         return Err(value_err(
             "kind",
-            format!("only kind='linear' is supported, got {kind:?}"),
-        ));
-    }
-    if axis != -2 && axis != ndim as i64 - 2 {
-        return Err(value_err(
-            "axis",
-            format!("only the frequency axis -2 is supported, got {axis}"),
+            "salience uses linear interpolation on the frequency axis; use interp_harmonics for others",
         ));
     }
     Ok(())
+}
+
+/// Whether the native harmonic kernels apply: linear interpolation on the frequency axis.
+fn native_kind_axis(kind: &str, axis: i64, ndim: usize) -> bool {
+    kind == "linear" && (axis == -2 || usize::try_from(axis).is_ok_and(|a| a + 2 == ndim))
+}
+
+/// `harmonics * freqs` by any interpolant along any axis of `x`.
+fn interp_harmonics_any<'py, F: crate::args::PyFloat>(
+    x: &Bound<'py, PyAny>,
+    freqs: &Bound<'py, PyAny>,
+    harmonics: &[f64],
+    kind: &str,
+    fill_value: f64,
+    axis: i64,
+) -> PyResult<Bound<'py, PyAny>> {
+    use audio_samples::utils::array_ops as ops;
+    use numpy::IntoPyArray;
+    let py = x.py();
+    let parsed = crate::arrays::parse_kind(pyo3::types::PyString::new(py, kind).as_any())?;
+    crate::args::with_float_view::<F, _>(x, "x", |v| {
+        let ax = crate::arrays::norm_axis("axis", axis, v.ndim())?;
+        let grid = super::args::f64_vec1(freqs, "freqs").map_err(|_| {
+            value_err(
+                "freqs",
+                "other interpolants and axes need a 1-D frequency grid",
+            )
+        })?;
+        let n = grid.len();
+        let mut xi = ndarray::Array2::<f64>::zeros((harmonics.len(), n));
+        for (mut row, &h) in xi.rows_mut().into_iter().zip(harmonics) {
+            for (o, &f) in row.iter_mut().zip(&grid) {
+                *o = h * f;
+            }
+        }
+        let out = ops::interp1d(
+            &grid,
+            v,
+            xi.view().into_dyn(),
+            parsed,
+            <F as crate::args::FloatElement>::from_f64(fill_value),
+            ax,
+        )
+        .map_err(audio_err_to_py)?;
+        Ok(out.into_pyarray(py).into_any())
+    })
+}
+
+/// The energy at the harmonics of an f0 per frame, by any interpolant along any axis of `x`.
+fn f0_harmonics_any<'py, F: crate::args::PyFloat>(
+    x: &Bound<'py, PyAny>,
+    f0: &Bound<'py, PyAny>,
+    freqs: &Bound<'py, PyAny>,
+    harmonics: &[f64],
+    kind: &str,
+    fill_value: f64,
+    axis: i64,
+) -> PyResult<Bound<'py, PyAny>> {
+    use audio_samples::utils::array_ops as ops;
+    use ndarray::Axis;
+    use numpy::IntoPyArray;
+    let py = x.py();
+    let parsed = crate::arrays::parse_kind(pyo3::types::PyString::new(py, kind).as_any())?;
+    let grid = super::args::f64_vec1(freqs, "freqs").map_err(|_| {
+        value_err(
+            "freqs",
+            "other interpolants and axes need a 1-D frequency grid",
+        )
+    })?;
+    let positions: Vec<f64> = grid.iter().copied().filter(|f| f.is_finite()).collect();
+    let f0_values = super::args::f64_vec(f0, "f0")?;
+    crate::args::with_float_view::<F, _>(x, "x", |v| {
+        let ax = crate::arrays::norm_axis("axis", axis, v.ndim())?;
+        let mut v_lane_first = v.view();
+        v_lane_first.swap_axes(ax.index(), v.ndim() - 1);
+        // Lanes along the last axis are (..., F); one f0 per lane.
+        let lanes = v_lane_first.lanes(Axis(v.ndim() - 1));
+        let count = lanes.clone().into_iter().count();
+        if count != f0_values.len() {
+            return Err(value_err(
+                "f0",
+                format!("{} values for {count} frames", f0_values.len()),
+            ));
+        }
+        let mut shape = v_lane_first.shape().to_vec();
+        shape.pop();
+        shape.push(harmonics.len());
+        let mut flat = Vec::with_capacity(count * harmonics.len());
+        let fill = <F as crate::args::FloatElement>::from_f64(fill_value);
+        for (lane, &f) in lanes.into_iter().zip(&f0_values) {
+            let data: ndarray::Array1<F> = lane
+                .iter()
+                .zip(&grid)
+                .filter(|(_, f)| f.is_finite())
+                .map(|(&e, _)| e)
+                .collect();
+            let xi: ndarray::Array1<f64> = harmonics.iter().map(|&h| h * f).collect();
+            let y = ops::interp1d(
+                &positions,
+                data.into_dyn().view(),
+                xi.into_dyn().view(),
+                parsed,
+                fill,
+                Axis(0),
+            )
+            .map_err(audio_err_to_py)?;
+            flat.extend(y.iter().map(|&e| if e.is_finite() { e } else { fill }));
+        }
+        let mut out = ndarray::ArrayD::from_shape_vec(ndarray::IxDyn(&shape), flat)
+            .map_err(|e| value_err("x", e))?;
+        out.swap_axes(ax.index(), v.ndim() - 1);
+        Ok(out
+            .as_standard_layout()
+            .into_owned()
+            .into_pyarray(py)
+            .into_any())
+    })
 }
 
 /// Harmonic salience of a spectrogram, equivalent to ``librosa.salience``.
@@ -357,9 +469,9 @@ pub fn salience<'py>(
 ///     x (array_like): Energy, ``(F, T)`` or ``(channels, F, T)``.
 ///     freqs (array_like): 1-D bin frequencies or an array shaped like ``x``.
 ///     harmonics (array_like): Harmonic multipliers.
-///     kind (str): Must be ``"linear"``.
+///     kind (str | int): Interpolation kind, as ``arrays.interp1d``. Default ``"linear"``.
 ///     fill_value (float): Value outside the frequency range. Default 0.
-///     axis (int): Must be -2.
+///     axis (int): The frequency axis. Default -2.
 ///
 /// Returns:
 ///     numpy.ndarray[float32 | float64]: shape ``(len(harmonics), F, T)`` or
@@ -382,9 +494,16 @@ pub fn interp_harmonics<'py>(
     axis: Int,
 ) -> PyResult<Bound<'py, PyAny>> {
     let h = super::args::f64_vec(harmonics, "harmonics")?;
+    let nd = x
+        .cast::<numpy::PyUntypedArray>()
+        .map_or(2, numpy::PyUntypedArrayMethods::ndim);
+    if !native_kind_axis(kind, axis.0, nd) {
+        return with_precision!(precision_of(x), |F| {
+            interp_harmonics_any::<F>(x, freqs, &h, kind, fill_value, axis.0)
+        });
+    }
     with_precision!(precision_of(x), |F| {
         let (s, nd) = spec3::<F>(x, "x")?;
-        check_kind_axis(kind, axis.0, nd)?;
         let grid = Grid::<F>::parse(freqs, nd)?;
         let r =
             pt::interp_harmonics(s.view(), grid.view(), &h, fill_value).map_err(audio_err_to_py)?;
@@ -400,9 +519,9 @@ pub fn interp_harmonics<'py>(
 ///         NaN frames get ``fill_value``.
 ///     freqs (array_like): 1-D bin frequencies or an array shaped like ``x``.
 ///     harmonics (array_like): Harmonic multipliers.
-///     kind (str): Must be ``"linear"``.
+///     kind (str): The interpolant, as for ``arrays.interp1d``. Default ``"linear"``.
 ///     fill_value (float): Value for out-of-range targets. Default 0.
-///     axis (int): Must be -2.
+///     axis (int): The frequency axis. Default -2.
 ///
 /// Returns:
 ///     numpy.ndarray[float32 | float64]: shape ``(len(harmonics), T)`` or
@@ -427,9 +546,16 @@ pub fn f0_harmonics<'py>(
     axis: Int,
 ) -> PyResult<Bound<'py, PyAny>> {
     let h = super::args::f64_vec(harmonics, "harmonics")?;
+    let nd = x
+        .cast::<numpy::PyUntypedArray>()
+        .map_or(2, numpy::PyUntypedArrayMethods::ndim);
+    if !native_kind_axis(kind, axis.0, nd) {
+        return with_precision!(precision_of(x), |F| {
+            f0_harmonics_any::<F>(x, f0, freqs, &h, kind, fill_value, axis.0)
+        });
+    }
     with_precision!(precision_of(x), |F| {
         let (s, nd) = spec3::<F>(x, "x")?;
-        check_kind_axis(kind, axis.0, nd)?;
         let grid = Grid::<F>::parse(freqs, nd)?;
         let (f0, f0_nd) = signal2::<F>(f0, "f0")?;
         if f0_nd + 1 != nd {

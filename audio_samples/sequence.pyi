@@ -830,11 +830,15 @@ def sync(
     """
     ...
 
+def path_to_steps(path: npt.ArrayLike, *, inverse: bool = False) -> NDArray[np.float64]:
+    """The fractional index on one side of an alignment path for each frame on the other."""
+
 __all__ = [
     "__doc__",
     "cross_similarity",
     "dtw",
     "dtw_backtracking",
+    "path_to_steps",
     "lag_to_recurrence",
     "recurrence_matrix",
     "recurrence_to_lag",

@@ -33,22 +33,31 @@ keyword where librosa has one (the older ``utils`` conversions call it
 librosa's ``S=``, ``onset_envelope=``, ``chroma=`` and ``tg=`` forms, and the
 filterbanks and helpers, are free functions in the submodules:
 
-=================================  =============================================================
-Submodule                          Contents
-=================================  =============================================================
-``audio_samples.spectral``         STFT/ISTFT, dB conversions, mel filterbank, windows, MFCC from
-                                   a mel spectrogram, ``delta``, ``stack_memory``, ``frame``
-``audio_samples.features``         ``feature.*(S=...)`` forms, PCEN, weightings, chroma and
-                                   constant-Q filters, ``normalize``, tuning, YIN/pYIN, harmonics
-``audio_samples.rhythm``           onset strength and detection, peak picking, tempograms,
-                                   tempo, beat tracking, PLP
-``audio_samples.effects``          phase vocoder, emphasis filters, HPSS, ``softmask``,
-                                   ``nn_filter``, Griffin-Lim, LPC, ``clicks``
-``audio_samples.sequence``         DTW, Viterbi, transition matrices, recurrence, RQA, ``sync``
-``audio_samples.utils``            unit, frame/time, tuning, octave and key conversions
-``audio_samples.generation``       tones, chirps, other test signals and named example clips
-``audio_samples.io``               reading and writing audio files
-=================================  =============================================================
+===================================  =============================================================
+Submodule                            Contents
+===================================  =============================================================
+``audio_samples.spectral``           STFT/ISTFT, dB conversions, mel filterbank, windows, MFCC from
+                                     a mel spectrogram, ``delta``, ``stack_memory``, ``frame``
+``audio_samples.features``           ``feature.*(S=...)`` forms, PCEN, weightings, chroma and
+                                     constant-Q filters, ``normalize``, tuning, YIN/pYIN, harmonics
+``audio_samples.rhythm``             onset strength and detection, peak picking, tempograms,
+                                     tempo, beat tracking, PLP
+``audio_samples.effects``            phase vocoder, emphasis filters, HPSS, ``softmask``,
+                                     ``nn_filter``, Griffin-Lim, LPC, ``clicks``
+``audio_samples.sequence``           DTW, Viterbi, transition matrices, recurrence, RQA, ``sync``
+``audio_samples.utils``              unit, frame/time, tuning, octave and key conversions
+``audio_samples.generation``         tones, chirps, other test signals and named example clips
+``audio_samples.io``                 reading and writing audio files
+``audio_samples.arrays``             extrema, matching, interpolation, padding, sparse rows,
+                                     zero crossings, tones and sweeps, argument checks
+``audio_samples.forms``              array forms of methods with their extra options
+``audio_samples.linalg``             NNLS, pseudo-inverse, eigendecomposition, SVD
+``audio_samples.inverse``            mel and MFCC inversion
+``audio_samples.factorization``      NMF and ``decompose``
+``audio_samples.pitch_filterbank`  ` semitone filterbank, IIR time-frequency representation
+``audio_samples.segment``            path enhancement, time-lag filtering, clustering
+``audio_samples.notation``           tuning, note, FJS, svara, mela and thaat names
+===================================  =============================================================
 
 **Methods return** ``(channels, F, T)``. Every frame-wise method returns a
 NumPy array with a leading channel axis, also for mono audio:
@@ -274,8 +283,8 @@ Status values:
 
 ``AudioSamples.x`` is a method (``audio.x(...)``); ``spectral.x``,
 ``features.x``, ``rhythm.x``, ``effects.x``, ``sequence.x``, ``utils.x``,
-``generation.x`` and ``io.x`` are functions in the ``audio_samples``
-submodule of that name.
+``arrays.x``, ``linalg.x``, ``inverse.x``, ``factorization.x``,
+``pitch_filterbank.x``, ``segment.x``, ``notation.x``, ``generation.x`` and ``io.x`` are functions in the ``audio_samples`` submodule of that name.
 
 ``python -m audio_samples.migrate`` applies these tables to your code, call by
 call (see :ref:`migration-checker`). It reads the same facts from
@@ -301,9 +310,9 @@ Core: audio
        WAV and FLAC only (librosa: every format of libsndfile, also MP3 and Ogg);
        a path, not a file object
    * - ``loadx``
-     - --
-     - not provided
-     - librosa's experimental extended loader
+     - ``generation.example_clip``
+     - with differences
+     - An ``AudioSamples`` holding a synthesised clip rather than a ``(y, sr)`` tuple of a recording
    * - ``stream``
      - ``io.StreamedAudioReader``
      - with differences
@@ -412,13 +421,13 @@ Core: spectral representations
        RNG (integer seeds only); ``rng`` defaults to the seed 0 (librosa:
        unseeded)
    * - ``iirt``
-     - --
-     - not provided
-     - Deferred: needs elliptic order selection (``ellipord``)
+     - ``AudioSamples.iirt``, ``pitch_filterbank.iirt``
+     - with differences
+     - The two lower rates use this library's resampler
    * - ``fmt``
-     - --
-     - not provided
-     - Deferred: rarely used; needs a cubic-spline exponential resampler
+     - ``spectral.mellin_transform``
+     - equivalent
+     -
    * - ``pcen``
      - ``features.pcen``
      - equivalent
@@ -478,7 +487,7 @@ Core: constant-Q
    * - ``vqt``
      - ``AudioSamples.vqt``
      - with differences
-     - As ``cqt``; only ``intervals="equal"``
+     - As ``cqt``
    * - ``pseudo_cqt``
      - ``AudioSamples.pseudo_cqt``
      - equivalent
@@ -530,16 +539,16 @@ Core: pitch, tuning and harmonics
      -
    * - ``salience``
      - ``features.salience``
-     - equivalent
-     -
+     - with differences
+     - Linear interpolation along the frequency axis; ``forms.salience`` takes the others
    * - ``interp_harmonics``
      - ``features.interp_harmonics``
-     - with differences
-     - Only ``kind="linear"``
+     - equivalent
+     - Interpolants other than linear, and other axes, need a 1-D frequency grid
    * - ``f0_harmonics``
      - ``features.f0_harmonics``
-     - with differences
-     - Only ``kind="linear"``
+     - equivalent
+     - Interpolants other than linear, and other axes, need a 1-D frequency grid
 
 Core: unit conversions (``librosa.convert``)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -584,10 +593,18 @@ array-like; for an array they return a list of names or an array of values.
      - ``utils.time_to_samples``
      - equivalent
      - ``utils.seconds_to_samples`` rounds instead of truncating
-   * - ``blocks_to_frames``, ``blocks_to_samples``, ``blocks_to_time``
-     - --
-     - not provided
-     - Block streaming belongs to file I/O; one multiplication each
+   * - ``blocks_to_frames``
+     - ``utils.blocks_to_frames``
+     - equivalent
+     -
+   * - ``blocks_to_samples``
+     - ``utils.blocks_to_samples``
+     - equivalent
+     -
+   * - ``blocks_to_time``
+     - ``utils.blocks_to_time``
+     - equivalent
+     - ``sr`` is ``sample_rate``
    * - ``times_like``
      - ``utils.times_like``
      - equivalent
@@ -676,21 +693,74 @@ array-like; for an array they return a list of names or an array of values.
      - ``utils.key_to_degrees``
      - equivalent
      -
-   * - ``interval_frequencies``, ``pythagorean_intervals``, ``plimit_intervals``
-     - --
-     - not provided
-     - Deferred: tuning-system generators, low use
-   * - ``interval_to_fjs``, ``hz_to_fjs``, ``fifths_to_note``
-     - --
-     - not provided
-     - Deferred: Functional Just System notation, low use
-   * - ``hz_to_svara_c``, ``hz_to_svara_h``, ``midi_to_svara_c``,
-       ``midi_to_svara_h``, ``note_to_svara_c``, ``note_to_svara_h``,
-       ``list_mela``, ``list_thaat``, ``mela_to_degrees``, ``mela_to_svara``,
-       ``thaat_to_degrees``
-     - --
-     - not provided
-     - Deferred: Carnatic / Hindustani notation tables, low use
+   * - ``interval_frequencies``
+     - ``notation.interval_frequencies``
+     - equivalent
+     -
+   * - ``pythagorean_intervals``
+     - ``notation.pythagorean_intervals``
+     - equivalent
+     -
+   * - ``plimit_intervals``
+     - ``notation.plimit_intervals``
+     - equivalent
+     -
+   * - ``interval_to_fjs``
+     - ``notation.interval_to_fjs``
+     - with differences
+     - Recognises any ratio built from the primes up to 23
+   * - ``hz_to_fjs``
+     - ``notation.hz_to_fjs``
+     - with differences
+     - As ``interval_to_fjs``
+   * - ``fifths_to_note``
+     - ``notation.fifths_to_note``
+     - equivalent
+     -
+   * - ``hz_to_svara_c``
+     - ``notation.hz_to_svara_c``
+     - equivalent
+     -
+   * - ``hz_to_svara_h``
+     - ``notation.hz_to_svara_h``
+     - equivalent
+     -
+   * - ``midi_to_svara_c``
+     - ``notation.midi_to_svara_c``
+     - equivalent
+     -
+   * - ``midi_to_svara_h``
+     - ``notation.midi_to_svara_h``
+     - equivalent
+     -
+   * - ``note_to_svara_c``
+     - ``notation.note_to_svara_c``
+     - equivalent
+     -
+   * - ``note_to_svara_h``
+     - ``notation.note_to_svara_h``
+     - equivalent
+     -
+   * - ``list_mela``
+     - ``notation.list_mela``
+     - equivalent
+     -
+   * - ``list_thaat``
+     - ``notation.list_thaat``
+     - equivalent
+     -
+   * - ``mela_to_degrees``
+     - ``notation.mela_to_degrees``
+     - equivalent
+     -
+   * - ``mela_to_svara``
+     - ``notation.mela_to_svara``
+     - equivalent
+     -
+   * - ``thaat_to_degrees``
+     - ``notation.thaat_to_degrees``
+     - equivalent
+     -
 
 ``librosa.feature``
 ~~~~~~~~~~~~~~~~~~~
@@ -806,11 +876,22 @@ array-like; for an array they return a list of names or an array of values.
      - ``rhythm.metrogram``
      - with differences
      - ``aggregate=None`` (the 4-D per-bin output) not supported
-   * - ``inverse.mel_to_stft``, ``inverse.mel_to_audio``,
-       ``inverse.mfcc_to_mel``, ``inverse.mfcc_to_audio``
-     - --
-     - not provided
-     - Deferred: needs a non-negative least-squares solver
+   * - ``inverse.mel_to_stft``
+     - ``inverse.mel_to_stft``
+     - with differences
+     - A better fit than librosa's early-stopped L-BFGS-B; energy within 15 %
+   * - ``inverse.mel_to_audio``
+     - ``inverse.mel_to_audio``
+     - with differences
+     - As ``mel_to_stft``, then Griffin-Lim with this library's random phases
+   * - ``inverse.mfcc_to_mel``
+     - ``inverse.mfcc_to_mel``
+     - equivalent
+     -
+   * - ``inverse.mfcc_to_audio``
+     - ``inverse.mfcc_to_audio``
+     - with differences
+     - ``sr`` is required; the filterbank's norm is ``mel_norm``
 
 ``librosa.effects``
 ~~~~~~~~~~~~~~~~~~~
@@ -921,9 +1002,10 @@ type; each has an ``_in_place`` twin (``time_stretch_in_place``, ...).
      - status
      - notes
    * - ``decompose``
-     - --
-     - not provided
-     - Deferred: NMF through scikit-learn
+     - ``factorization.decompose``
+     - with differences
+     - No scikit-learn needed; ``factorization.Nmf`` is the default transformer, any object
+       with ``fit_transform`` works
    * - ``hpss``
      - ``effects.hpss``
      - equivalent
@@ -960,15 +1042,15 @@ type; each has an ``_in_place`` twin (``time_stretch_in_place``, ...).
    * - ``cq_to_chroma``
      - ``features.cq_to_chroma``
      - with differences
-     - The smoothing ``window`` must be ``None``
+     - ``float64`` tables
    * - ``wavelet``
      - ``features.wavelet``
      - with differences
-     - complex128 filters (librosa: complex64); no explicit ``alpha``
+     - complex128 filters (librosa: complex64)
    * - ``wavelet_lengths``
      - ``features.wavelet_lengths``
      - with differences
-     - No explicit ``alpha`` (at least two ascending ``freqs``)
+     - An explicit ``alpha`` allows one frequency; without it, at least two ascending frequencies
    * - ``window_bandwidth``
      - ``spectral.window_bandwidth``
      - with differences
@@ -979,17 +1061,17 @@ type; each has an ``_in_place`` twin (``time_stretch_in_place``, ...).
      - equivalent
      - float64 output unless ``dtype=numpy.float32`` (librosa's default)
    * - ``diagonal_filter``
-     - --
-     - not provided
-     - Deferred: needs spline image rotation; only used by ``path_enhance``
+     - ``segment.diagonal_filter``
+     - equivalent
+     -
    * - ``mr_frequencies``
-     - --
-     - not provided
-     - Deferred: only used by ``iirt``
+     - ``pitch_filterbank.mr_frequencies``
+     - equivalent
+     -
    * - ``semitone_filterbank``
-     - --
-     - not provided
-     - Deferred: needs ``ellipord``
+     - ``pitch_filterbank.semitone_filterbank``
+     - equivalent
+     - ``flayout`` defaults to ``"sos"``
 
 ``librosa.util``
 ~~~~~~~~~~~~~~~~
@@ -1027,40 +1109,126 @@ type; each has an ``_in_place`` twin (``time_stretch_in_place``, ...).
      - ``AudioSamples.pad_samples_right``
      - with differences
      - Pads only; a longer signal is returned unchanged
-   * - ``localmax``, ``localmin``
-     - --
-     - not provided
-     - Internal helpers of peak picking and beat tracking
+   * - ``localmax``
+     - ``arrays.localmax``
+     - equivalent
+     -
+   * - ``localmin``
+     - ``arrays.localmin``
+     - equivalent
+     -
    * - ``match_events``
-     - --
-     - not provided
-     - Internal helper of ``remix(align_zeros=True)``
+     - ``arrays.match_events``
+     - with differences
+     - Index outputs are int64; ties between targets at one position may pick another of the equal targets
+   * - ``match_intervals``
+     - ``arrays.match_intervals``
+     - with differences
+     - Index outputs are int64; with ``strict=False`` an interval that overlaps nothing goes to the true nearest target
    * - ``nnls``
+     - ``linalg.nnls``
+     - with differences
+     - A matrix ``B`` reaches a better objective than librosa's early-stopped L-BFGS-B
+   * - ``pad_center``
+     - ``arrays.pad_center``
+     - equivalent
+     -
+   * - ``fix_frames``
+     - ``arrays.fix_frames``
+     - equivalent
+     -
+   * - ``abs2``
+     - ``arrays.abs2``
+     - with differences
+     - A complex scalar gives a float rather than a 0-d array
+   * - ``phasor``
+     - ``arrays.phasor``
+     - with differences
+     - Integer angles give complex128
+   * - ``tiny``
+     - ``arrays.tiny``
+     - equivalent
+     -
+   * - ``expand_to``
+     - ``arrays.expand_to``
+     - with differences
+     - Positions out of increasing order reorder the axes
+   * - ``stack``
+     - ``arrays.stack``
+     - with differences
+     - C order for every axis; same values
+   * - ``dtype_c2r``
+     - ``arrays.dtype_c2r``
+     - equivalent
+     -
+   * - ``dtype_r2c``
+     - ``arrays.dtype_r2c``
+     - equivalent
+     -
+   * - ``MAX_MEM_BLOCK``
+     - ``arrays.MAX_MEM_BLOCK``
+     - equivalent
+     -
+   * - ``buf_to_float``
+     - ``arrays.buf_to_float``
+     - with differences
+     - Also 3-byte samples; ``float32`` up to 3 bytes per sample, otherwise ``float64``
+   * - ``valid_audio``
+     - ``arrays.valid_audio``
+     - equivalent
+     -
+   * - ``axis_sort``
+     - ``arrays.axis_sort``
+     - with differences
+     - Stable sort, so equal keys keep their order
+   * - ``sparsify_rows``
+     - ``arrays.sparsify_rows``
+     - with differences
+     - Returns ``arrays.SparseRows`` (``toarray``, ``tocsr``)
+   * - ``shear``
+     - ``arrays.shear``
+     - equivalent
+     -
+   * - ``cyclic_gradient``
+     - ``arrays.cyclic_gradient``
+     - equivalent
+     -
+   * - ``fill_off_diagonal``
+     - ``arrays.fill_off_diagonal``
+     - equivalent
+     -
+   * - ``index_to_slice``
+     - ``arrays.index_to_slice``
+     - equivalent
+     -
+   * - ``count_unique``
+     - ``arrays.count_unique``
+     - equivalent
+     -
+   * - ``is_unique``
+     - ``arrays.is_unique``
+     - equivalent
+     -
+   * - ``interp_broadcast``
+     - ``arrays.interp_broadcast``
+     - with differences
+     - ``float32`` stays ``float32``; spline orders up to 3
+   * - ``is_positive_int``
+     - ``arrays.is_positive_int``
+     - equivalent
+     -
+   * - ``valid_int``
+     - ``arrays.valid_int``
+     - equivalent
+     -
+   * - ``valid_intervals``
+     - ``arrays.valid_intervals``
+     - equivalent
+     -
+   * - ``rename_kw``, ``Deprecated``
      - --
      - not provided
-     - Deferred with ``feature.inverse``
-   * - ``pad_center``, ``fix_frames``, ``abs2``, ``phasor``, ``tiny``,
-       ``expand_to``, ``stack``, ``dtype_c2r``, ``dtype_r2c``,
-       ``MAX_MEM_BLOCK``
-     - --
-     - not provided
-     - NumPy one-liners and dtype plumbing
-   * - ``buf_to_float``, ``valid_audio``
-     - --
-     - not provided
-     - Decoding is file I/O; ``AudioSamples`` enforces its invariants and the
-       librosa-compatible methods reject non-finite audio
-   * - ``axis_sort``, ``sparsify_rows``, ``shear``, ``cyclic_gradient``,
-       ``fill_off_diagonal``, ``index_to_slice``, ``count_unique``,
-       ``is_unique``, ``interp_broadcast``, ``match_intervals``
-     - --
-     - not provided
-     - Generic array utilities
-   * - ``is_positive_int``, ``valid_int``, ``valid_intervals``,
-       ``rename_kw``, ``Deprecated``
-     - --
-     - not provided
-     - Argument-validation and deprecation plumbing
+     - Deprecation plumbing of librosa itself
    * - ``example``, ``ex``
      - ``generation.example_clip``
      - with differences
@@ -1070,10 +1238,18 @@ type; each has an ``_in_place`` twin (``time_stretch_in_place``, ...).
      - ``generation.example_clip_names``
      - with differences
      - Returns a list of names rather than printing a table
-   * - ``example_info``, ``find_files``, ``cite``
+   * - ``example_info``
+     - ``generation.example_clip_info``
+     - with differences
+     - One sentence on a synthesised clip
+   * - ``find_files``
+     - ``arrays.find_files``
+     - with differences
+     - Any letter case matches with ``case_sensitive=False``; directories are left out
+   * - ``cite``
      - --
      - not provided
-     - File discovery and citation helpers, and details of librosa's recordings
+     - Citation helper of librosa itself
 
 ``librosa.segment`` and ``librosa.sequence``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1091,8 +1267,8 @@ All in ``audio_samples.sequence``, on ``(n_features, n_frames)`` arrays.
    * - ``segment.recurrence_matrix``
      - ``sequence.recurrence_matrix``
      - with differences
-     - Dense only (``sparse=True`` raises); ``axis=-1`` only; exact
-       neighbour search. Connectivity results are ``bool``, as librosa's
+     - ``sparse=True`` returns ``arrays.SparseRows``; exact neighbour search.
+       Connectivity results are ``bool``, as librosa's
    * - ``segment.cross_similarity``
      - ``sequence.cross_similarity``
      - with differences
@@ -1106,18 +1282,22 @@ All in ``audio_samples.sequence``, on ``(n_features, n_frames)`` arrays.
      - equivalent
      - Dense input
    * - ``segment.path_enhance``
-     - --
-     - not provided
-     - Deferred: needs ``filters.diagonal_filter``
+     - ``segment.path_enhance``
+     - equivalent
+     - The convolution options are ``mode``, ``cval`` and ``origin``
    * - ``segment.timelag_filter``
-     - --
-     - not provided
-     - A decorator; compose ``recurrence_to_lag``, a filter and
+     - ``segment.timelag_filter``
+     - equivalent
+     - Returns a callable object
        ``lag_to_recurrence``
-   * - ``segment.agglomerative``, ``segment.subsegment``
-     - --
-     - not provided
-     - scikit-learn clustering
+   * - ``segment.agglomerative``
+     - ``segment.agglomerative``
+     - equivalent
+     - No scikit-learn needed; a ``clusterer`` with ``fit`` and ``labels_`` is still accepted
+   * - ``segment.subsegment``
+     - ``segment.subsegment``
+     - equivalent
+     -
    * - ``sequence.dtw``
      - ``sequence.dtw``
      - equivalent
@@ -1161,37 +1341,103 @@ All in ``audio_samples.sequence``, on ``(n_features, n_frames)`` arrays.
      - equivalent
      -
    * - ``sequence.path_to_steps``
-     - --
-     - not provided
-     - Differences of consecutive path points
+     - ``sequence.path_to_steps``
+     - equivalent
+     -
 
 ``librosa.display``
 ~~~~~~~~~~~~~~~~~~~
 
-``librosa.display`` is matplotlib plotting and is not provided. The arrays
-returned here are plain NumPy arrays, so they can be passed to
-``librosa.display.specshow`` or to matplotlib directly (with ``[0]`` for mono
-audio).
+The plots are in ``audio_samples.mpl``, under this library's names.
 
 .. list-table::
    :header-rows: 1
-   :widths: 30 20 50
+   :widths: 22 30 14 34
 
    * - librosa
+     - audio_samples
      - status
      - notes
-   * - ``specshow``, ``waveshow``, ``AdaptiveWaveplot``, ``wavebars``, ``wavef0``
-     - not provided
-     - matplotlib plotting
-   * - ``multiplot``, ``highlight``, ``legend_for_axes``, ``colorbar_db``,
-       ``colorbar_phase``, ``infer_cmap``
-     - not provided
-     - matplotlib helpers
-   * - ``TimeFormatter``, ``NoteFormatter``, ``LogHzFormatter``,
-       ``ChromaFormatter``, ``ChromaFJSFormatter``, ``ChromaSvaraFormatter``,
-       ``FJSFormatter``, ``TonnetzFormatter``, ``Transformf0``
-     - not provided
-     - matplotlib axis formatters
+   * - ``specshow``
+     - ``mpl.plot_matrix``
+     - with differences
+     - Every axis type, ``vscale`` as ``value_scale``; returns ``(fig, ax, mesh)``
+   * - ``waveshow``
+     - ``mpl.plot_waveform_adaptive``
+     - with differences
+     - Takes ``AudioSamples`` or an array with ``sample_rate``
+   * - ``AdaptiveWaveplot``
+     - ``mpl.AdaptiveWaveform``
+     - with differences
+     - Returned by ``plot_waveform_adaptive``
+   * - ``wavebars``
+     - ``mpl.plot_waveform_bars``
+     - with differences
+     -
+   * - ``wavef0``
+     - ``mpl.plot_waveform_f0``
+     - with differences
+     - ``method`` is ``"adaptive"`` or ``"bars"``
+   * - ``multiplot``
+     - ``mpl.plot_grid``
+     - with differences
+     - ``kind`` is ``"waveform"``, ``"bars"`` or ``"matrix"``
+   * - ``highlight``
+     - ``mpl.highlight_effects``
+     - equivalent
+     -
+   * - ``legend_for_axes``
+     - ``mpl.legend_for_axes``
+     - equivalent
+     -
+   * - ``colorbar_db``
+     - ``mpl.add_db_colorbar``
+     - equivalent
+     -
+   * - ``colorbar_phase``
+     - ``mpl.add_phase_colorbar``
+     - equivalent
+     -
+   * - ``infer_cmap``
+     - ``mpl.infer_colormap``
+     - with differences
+     - Keywords are ``sequential``, ``boolean``, ``diverging``, ``threshold``
+   * - ``TimeFormatter``
+     - ``mpl.TimeFormatter``
+     - equivalent
+     -
+   * - ``NoteFormatter``
+     - ``mpl.NoteFormatter``
+     - equivalent
+     -
+   * - ``LogHzFormatter``
+     - ``mpl.LogHzFormatter``
+     - equivalent
+     -
+   * - ``ChromaFormatter``
+     - ``mpl.ChromaFormatter``
+     - equivalent
+     -
+   * - ``ChromaFJSFormatter``
+     - ``mpl.ChromaFJSFormatter``
+     - equivalent
+     -
+   * - ``ChromaSvaraFormatter``
+     - ``mpl.ChromaSvaraFormatter``
+     - equivalent
+     -
+   * - ``FJSFormatter``
+     - ``mpl.FJSFormatter``
+     - equivalent
+     -
+   * - ``TonnetzFormatter``
+     - ``mpl.TonnetzFormatter``
+     - equivalent
+     -
+   * - ``Transformf0``
+     - ``mpl.F0Transform``
+     - with differences
+     - ``scale`` gives the octaves per unit amplitude
 
 Differences from librosa
 ------------------------
@@ -1372,25 +1618,46 @@ Randomness
   round-off.
 - ``griffinlim_cqt`` offers only ``init=None``.
 
+Options reached through array forms
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``audio_samples.forms`` holds array forms of methods, for options that an
+``AudioSamples`` makes unnecessary or that need another input:
+
+- ``forms.read_segment`` and ``forms.stream_blocks``: ``offset``, ``duration``,
+  ``sr``, ``fill_value`` and ``res_type``. They read the whole file first.
+- ``forms.get_duration``: ``S``, ``n_fft``, ``hop_length``, ``center`` and ``path``.
+- ``forms.to_mono``, ``forms.to_stereo`` and ``forms.to_multi``: several signals of
+  different lengths, ``pad``, ``norm``, ``downmix`` and ``out``.
+- ``forms.resample`` and ``forms.pitch_shift``: ``scale`` and ``fix``.
+- ``forms.stft`` and ``forms.istft``: ``dtype`` and ``out``, which copies the result
+  into the buffer.
+- ``forms.reassigned_spectrogram``: ``S``.
+- ``forms.chroma_cqt``, ``forms.chroma_cens`` and ``forms.chroma_vqt``: ``C``, ``V``
+  and the smoothing ``window``.
+- ``forms.tempogram_ratio``: custom ``freqs``.
+- ``forms.onset_strength``: ``feature``.
+- ``forms.onset_detect`` and ``forms.beat_track``: ``sparse=False``.
+- ``forms.frame``: ``axis`` and ``subok``.
+- ``forms.salience``: ``kind`` and ``axis``.
+
+``arrays.zero_crossings``, ``arrays.tone`` and ``arrays.chirp`` take ``threshold``,
+``ref_magnitude``, ``pad``, ``zero_pos`` and ``phi``.
+``notation.midi_to_note``, ``notation.hz_to_note``, ``notation.note_to_midi`` and
+``notation.note_to_hz`` take ``octave``, ``cents``, ``key``, ``unicode`` and
+``round_midi``. Cents round to the nearest whole cent; librosa truncates the rounded
+value, which can give one cent less.
+
 Options that are not supported
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Each raises ``ValueError`` or ``TypeError`` instead of being ignored:
 
-- ``sparse=True`` in ``recurrence_matrix`` / ``cross_similarity`` (dense only),
-  and ``sparse=False`` in ``onset_detect`` / ``beat_track`` (sparse only);
-- ``vqt`` / ``chroma_vqt``: ``intervals`` other than ``"equal"``;
-- ``interp_harmonics`` / ``f0_harmonics`` / ``salience``: ``kind`` other than
-  ``"linear"`` and a frequency ``axis`` other than ``-2``;
 - ``griffinlim_cqt``: ``init="random"``;
-- ``chroma_cqt`` / ``cq_to_chroma``: the smoothing ``window``;
-- ``wavelet`` / ``wavelet_lengths``: an explicit ``alpha``;
 - ``spectral_centroid_from_spectrogram``: a time-varying 2-D ``freq``;
 - ``onset_strength_multi``: ``channels`` given as slices;
-- ``tempogram_ratio``: custom ``freqs``;
 - ``metrogram``: ``aggregate=None``;
 - ``harmonic`` / ``percussive``: ``mask=True``;
-- ``pitch_shift``: ``scale=True``;
 - ``sync``: slice indices (frame indices only);
 - ``nn_filter``: sparse recurrence matrices and aggregates other than mean,
   median or a weighted average;

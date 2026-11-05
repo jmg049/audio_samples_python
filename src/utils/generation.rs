@@ -184,6 +184,7 @@ pub fn generation(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Example clips
     generation_mod.add_function(wrap_pyfunction!(example_clip, &generation_mod)?)?;
     generation_mod.add_function(wrap_pyfunction!(example_clip_names, &generation_mod)?)?;
+    generation_mod.add_function(wrap_pyfunction!(example_clip_info, &generation_mod)?)?;
     generation_mod.add_function(wrap_pyfunction!(example_speech_f0, &generation_mod)?)?;
     generation_mod.add(
         "EXAMPLE_TEMPO_BPM",
@@ -1106,4 +1107,26 @@ fn exponential_bursts(
         );
         Ok(PyAudioSamples::from_audio_samples(audio))
     })
+}
+
+/// What an example clip contains.
+///
+/// Args:
+///     name: The clip, one of ``example_clip_names()``
+///
+/// Returns:
+///     str: One sentence on the clip's known contents
+///
+/// Raises:
+///     ``ValueError``: Unknown name
+#[pyfunction]
+fn example_clip_info(name: &str) -> PyResult<&'static str> {
+    ExampleClip::from_name(name)
+        .map(ExampleClip::description)
+        .ok_or_else(|| {
+            let names = ExampleClip::ALL.map(ExampleClip::name).join(", ");
+            PyValueError::new_err(format!(
+                "name: unknown example clip {name:?}; the clips are {names}"
+            ))
+        })
 }

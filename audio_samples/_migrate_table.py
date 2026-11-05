@@ -197,7 +197,7 @@ _NOT_METHOD = Absorbed("not used by this method.")
 _LAYOUT = Absorbed("an AudioSamples knows its layout.")
 _AUDIO: dict[str, Option] = {"y": _Y, "sr": _SR}
 _DTYPE = Unsupported("the output precision follows the sample type; convert the audio with as_f32, as_f64 or to_format first.")
-_OUT = Unsupported("there is no output-buffer argument; the result is a new array.")
+_OUT = Unsupported("the array forms take out=: forms.stft, forms.istft, forms.to_mono, forms.to_stereo and forms.to_multi.")
 _ARRAY_SR = Default(22050, "a required sr", "Pass sr=...")
 _ARRAY_HOP = Default(512, "a required hop_length", "Pass hop_length=...")
 _HOP_NONE = Default(512, "hop_length=None", "Pass hop_length=512 with frames=.")
@@ -242,8 +242,8 @@ _e(
             "librosa mixes to mono here; io.read does not. Call .to_mono() on the result to do the same.",
             value_note="io.read keeps the file's channels. Call .to_mono() on the result for mono.",
         ),
-        "offset": Unsupported("read the file and slice it, or use io.StreamedAudioReader."),
-        "duration": Unsupported("read the file and slice it, or use io.StreamedAudioReader."),
+        "offset": Unsupported("use forms.read_segment(path, offset=..., duration=...)."),
+        "duration": Unsupported("use forms.read_segment(path, offset=..., duration=...)."),
         "dtype": Default(
             _Named("numpy.float32"),
             "the file's own sample type",
@@ -254,7 +254,20 @@ _e(
     },
     behaviour=("Returns an AudioSamples holding samples and rate, not a (y, sr) tuple.",),
 )
-_none("librosa's experimental extended loader.", "librosa.loadx(key | hq **)")
+_e(
+    "librosa.loadx",
+    "key | hq **",
+    "generation.example_clip",
+    WITH_DIFFERENCES,
+    "Returns an AudioSamples holding a synthesised clip rather than a (y, sr) tuple of a recording; there is nothing to download.",
+    options={
+        "key": Renamed("name", "Clip names differ; see generation.example_clip_names()."),
+        "hq": Absorbed("clips are rendered at the rate asked for."),
+        "sr": Renamed("sample_rate"),
+        "duration": Renamed("duration_secs"),
+        "dtype": Renamed("dtype", "The default is float32, as here."),
+    },
+)
 _e(
     "librosa.stream",
     "path | block_length frame_length hop_length sr mono offset duration fill_value res_type dtype",
@@ -267,12 +280,12 @@ _e(
         "block_length": Absorbed("it goes into the size given to windows()."),
         "frame_length": Absorbed("it goes into the size given to windows()."),
         "hop_length": Absorbed("it goes into the size given to windows()."),
-        "sr": Unsupported("the reader keeps the file's rate."),
+        "sr": Unsupported("use forms.stream_blocks(path, ..., sr=...)."),
         "mono": Default(True, "the file's own channels", "librosa mixes each block to mono; the reader does not."),
-        "offset": Unsupported("skip the leading windows instead."),
-        "duration": Unsupported("stop reading after the windows you need."),
-        "fill_value": Unsupported("the reader has no padding option."),
-        "res_type": Unsupported("the reader does not resample."),
+        "offset": Unsupported("use forms.stream_blocks(path, ..., offset=...)."),
+        "duration": Unsupported("use forms.stream_blocks(path, ..., duration=...)."),
+        "fill_value": Unsupported("use forms.stream_blocks(path, ..., fill_value=...)."),
+        "res_type": Unsupported("use forms.stream_blocks(path, ..., res_type=...)."),
         "dtype": Default(_Named("numpy.float32"), "the file's own sample type"),
     },
 )
@@ -292,11 +305,11 @@ _e(
     "Audio only; no S= or path= forms.",
     options={
         **_AUDIO,
-        "S": Unsupported("compute the duration from the frame count and hop."),
-        "n_fft": Unsupported("only used with S=."),
-        "hop_length": Unsupported("only used with S=."),
-        "center": Unsupported("only used with S=."),
-        "path": Unsupported("use io.info(path) for the file's details, or read the file."),
+        "S": Unsupported("use forms.get_duration(S=...)."),
+        "n_fft": Unsupported("use forms.get_duration(S=..., n_fft=...)."),
+        "hop_length": Unsupported("use forms.get_duration(S=..., hop_length=...)."),
+        "center": Unsupported("use forms.get_duration(S=..., center=...)."),
+        "path": Unsupported("use forms.get_duration(path=...)."),
     },
 )
 _e(
@@ -315,8 +328,8 @@ _e(
             'Pass quality="high" for the closest result.',
             value_note='becomes quality=; "high" is closest to soxr_hq.',
         ),
-        "fix": Only((True,), "The length is always exact."),
-        "scale": Only((False,), "Scaling by the ratio is not supported."),
+        "fix": Only((True,), "The length is always exact; forms.resample takes fix."),
+        "scale": Only((False,), "Use forms.resample(y, ..., scale=True)."),
         "axis": _LAYOUT,
     },
 )
@@ -328,8 +341,8 @@ _e(
     "The default method is the channel average.",
     options={
         "signals": _Y,
-        "pad": Unsupported("the channels of an AudioSamples already have one length."),
-        "norm": Only((True,), "The method is the average of the channels."),
+        "pad": Unsupported("use forms.to_mono(*signals, pad=...)."),
+        "norm": Only((True,), "Use forms.to_mono(*signals, norm=False) for the sum."),
         "out": _OUT,
     },
 )
@@ -340,11 +353,11 @@ _e(
     WITH_DIFFERENCES,
     "Takes a StereoConversionMethod; for two separate signals use AudioSamples.stack.",
     options={
-        "left": Unsupported("there is no two-signal form; use AudioSamples.stack."),
-        "right": Unsupported("there is no two-signal form; use AudioSamples.stack."),
-        "downmix": Unsupported("use AudioSamples.stack."),
-        "pad": Unsupported("use AudioSamples.stack, after padding to one length."),
-        "norm": Unsupported("use AudioSamples.stack."),
+        "left": Unsupported("use forms.to_stereo(left=..., right=...)."),
+        "right": Unsupported("use forms.to_stereo(left=..., right=...)."),
+        "downmix": Unsupported("use forms.to_stereo(left=..., right=..., downmix=...)."),
+        "pad": Unsupported("use forms.to_stereo(left=..., right=..., pad=...)."),
+        "norm": Unsupported("use forms.to_stereo(left=..., right=..., norm=...)."),
         "out": _OUT,
     },
 )
@@ -356,9 +369,9 @@ _e(
     "Takes a list of AudioSamples; no pad or trim to a common length.",
     options={
         "signals": Renamed("sources", "Pass the signals as one list of AudioSamples."),
-        "downmix": Unsupported("mix each source with to_mono first."),
-        "pad": Unsupported("pad the sources to one length first."),
-        "norm": Unsupported("scale the sources first."),
+        "downmix": Unsupported("use forms.to_multi(*signals, downmix=...)."),
+        "pad": Unsupported("use forms.to_multi(*signals, pad=...)."),
+        "norm": Unsupported("use forms.to_multi(*signals, norm=...)."),
         "out": _OUT,
     },
 )
@@ -387,10 +400,10 @@ _e(
     "Returns a count, not a boolean mask; AudioSamples.zero_crossing_rate_frames gives the frame-wise rate.",
     options={
         "y": _Y,
-        "threshold": Unsupported("the method takes no arguments."),
-        "ref_magnitude": Unsupported("the method takes no arguments."),
-        "pad": Unsupported("the method takes no arguments."),
-        "zero_pos": Unsupported("the method takes no arguments."),
+        "threshold": Unsupported("use arrays.zero_crossings(y, threshold=...)."),
+        "ref_magnitude": Unsupported("use arrays.zero_crossings(y, ref_magnitude=...)."),
+        "pad": Unsupported("use arrays.zero_crossings(y, pad=...)."),
+        "zero_pos": Unsupported("use arrays.zero_crossings(y, zero_pos=...)."),
         "axis": _LAYOUT,
     },
 )
@@ -412,7 +425,7 @@ _e(
         "sr": Renamed("sample_rate", "The default is 44100, not 22050."),
         "length": Renamed("duration_secs", "Give the length in seconds: length / sr."),
         "duration": Renamed("duration_secs"),
-        "phi": Unsupported("the generators start at phase zero."),
+        "phi": Unsupported("use arrays.tone(frequency, ..., phi=...)."),
     },
 )
 _e(
@@ -428,7 +441,7 @@ _e(
         "length": Renamed("duration_secs", "Give the length in seconds: length / sr."),
         "duration": Renamed("duration_secs"),
         "linear": Absorbed("choose the function instead."),
-        "phi": Unsupported("the generators start at phase zero."),
+        "phi": Unsupported("use arrays.chirp(fmin=..., fmax=..., phi=...)."),
     },
 )
 _e(
@@ -487,7 +500,7 @@ _e(
     "y | sr S n_fft hop_length win_length window center reassign_frequencies reassign_times ref_power fill_nan clip dtype pad_mode",
     "AudioSamples.reassigned_spectrogram",
     EQUIVALENT,
-    options={**_AUDIO, "S": Unsupported("the method computes the STFT from the audio."), "dtype": _DTYPE},
+    options={**_AUDIO, "S": Unsupported("use forms.reassigned_spectrogram(y, S=...)."), "dtype": _DTYPE},
     shape="Each array is (channels, 1 + n_fft // 2, n_frames), also for mono audio; index [0] for librosa's mono shape.",
 )
 _e(
@@ -505,8 +518,28 @@ _e(
     "init=None matches; random initial phases come from this library's RNG (integer seeds only).",
     options={"rng": Default(None, "rng=0", "Repeated calls give the same output; pass rng=None for a new seed each call.")},
 )
-_none("Deferred: needs elliptic order selection (ellipord).", "librosa.iirt(y | sr win_length hop_length center tuning pad_mode flayout res_type **)")
-_none("Deferred: rarely used; needs a cubic-spline exponential resampler.", "librosa.fmt(y | t_min n_fmt kind beta over_sample axis)")
+_e(
+    "librosa.iirt",
+    "y | sr win_length hop_length center tuning pad_mode flayout res_type **",
+    ("AudioSamples.iirt", "pitch_filterbank.iirt"),
+    WITH_DIFFERENCES,
+    "The two lower sample rates use this library's resampler rather than soxr.",
+    options={"y": _Y, "sr": _SR},
+    forms=(
+        Form(
+            when=("sample_rates",),
+            ours=("pitch_filterbank.iirt",),
+            options={"sr": _ARRAY_SR},
+        ),
+    ),
+)
+_e(
+    "librosa.fmt",
+    "y | t_min n_fmt kind beta over_sample axis",
+    "spectral.mellin_transform",
+    EQUIVALENT,
+    "Named mellin_transform. float32 input stays in single precision.",
+)
 _e(
     "librosa.pcen",
     "S | sr hop_length gain bias power time_constant eps b max_size ref axis max_axis zi return_zf",
@@ -554,9 +587,9 @@ _e(
     "y | sr hop_length fmin n_bins intervals gamma bins_per_octave tuning filter_scale norm sparsity window scale pad_mode res_type dtype",
     "AudioSamples.vqt",
     WITH_DIFFERENCES,
-    'As cqt; only intervals="equal".',
+    'As cqt.',
     shape=_CQT_SHAPE,
-    options={**_CQT_OPTIONS, "intervals": Only(("equal",), "Other tunings are not supported.")},
+    options={**_CQT_OPTIONS},
 )
 _e(
     "librosa.pseudo_cqt",
@@ -649,24 +682,20 @@ _e(
     ],
 )
 _e("librosa.pitch_tuning", "frequencies | resolution bins_per_octave", "features.pitch_tuning", EQUIVALENT)
-_e("librosa.salience", "S | freqs harmonics weights aggregate filter_peaks fill_value kind axis", "features.salience", EQUIVALENT)
-_KIND_LINEAR = Only(("linear",), "Other interpolation kinds are not supported.")
-_FREQ_AXIS = Only((-2,), "Other frequency axes are not supported.")
+_e("librosa.salience", "S | freqs harmonics weights aggregate filter_peaks fill_value kind axis", "features.salience", WITH_DIFFERENCES, "Linear interpolation along the frequency axis; forms.salience takes the others.", options={"kind": Only(("linear",), "Use forms.salience(S, ..., kind=...)."), "axis": Only((-2,), "Use forms.salience(S, ..., axis=...).")})
 _e(
     "librosa.interp_harmonics",
     "x | freqs harmonics kind fill_value axis",
     "features.interp_harmonics",
-    WITH_DIFFERENCES,
-    'Only kind="linear".',
-    options={"kind": _KIND_LINEAR, "axis": _FREQ_AXIS},
+    EQUIVALENT,
+    "Interpolants other than linear, and other axes, need a 1-D frequency grid.",
 )
 _e(
     "librosa.f0_harmonics",
     "x | f0 freqs harmonics kind fill_value axis",
     "features.f0_harmonics",
-    WITH_DIFFERENCES,
-    'Only kind="linear".',
-    options={"kind": _KIND_LINEAR, "axis": _FREQ_AXIS},
+    EQUIVALENT,
+    "Interpolants other than linear, and other axes, need a 1-D frequency grid.",
 )
 
 # Core: unit conversions ----------------------------------------------------
@@ -710,11 +739,14 @@ _e(
     "utils.seconds_to_samples rounds instead of truncating.",
     options={"sr": _SR_KW},
 )
-_none(
-    "Block streaming belongs to file I/O; one multiplication each.",
-    "librosa.blocks_to_frames(blocks | block_length)",
-    "librosa.blocks_to_samples(blocks | block_length hop_length)",
-    "librosa.blocks_to_time(blocks | block_length hop_length sr)",
+_e("librosa.blocks_to_frames", "blocks | block_length", "utils.blocks_to_frames", EQUIVALENT)
+_e("librosa.blocks_to_samples", "blocks | block_length hop_length", "utils.blocks_to_samples", EQUIVALENT)
+_e(
+    "librosa.blocks_to_time",
+    "blocks | block_length hop_length sr",
+    "utils.blocks_to_time",
+    EQUIVALENT,
+    options={"sr": Renamed("sample_rate")},
 )
 _e("librosa.times_like", "X | sr hop_length n_fft axis", "utils.times_like", EQUIVALENT, options={"sr": _SR_KW, "hop_length": _ARRAY_HOP})
 _e("librosa.samples_like", "X | hop_length n_fft axis", "utils.samples_like", EQUIVALENT, options=_free("hop_length"))
@@ -758,10 +790,10 @@ _e(
     "Returns (name, cents) (a list of names and a cents array for array input); ASCII #; MIDI 0..127 only.",
     options={
         "frequencies": Renamed("freq_hz"),
-        "octave": Unsupported("names always have an octave."),
+        "octave": Unsupported("use notation.hz_to_note(hz, octave=...)."),
         "cents": Absorbed("the cents are always returned."),
-        "key": Unsupported("names use sharps."),
-        "unicode": Only((False,), "Names use ASCII #."),
+        "key": Unsupported("use notation.hz_to_note(hz, key=...)."),
+        "unicode": Only((False,), "Use notation.hz_to_note(hz, unicode=True)."),
     },
 )
 _e(
@@ -772,9 +804,9 @@ _e(
     "Integer MIDI 0..127 (an array gives a list of names); ASCII #; no cents, no octave=False.",
     options={
         "midi": Renamed("midi_note"),
-        "octave": Only((True,), "Names always have an octave."),
-        "cents": Only((False,), "Use utils.frequency_to_note for cents."),
-        "key": Only(("C:maj",), "Names use sharps."),
+        "octave": Only((True,), "Use notation.midi_to_note(midi, octave=False)."),
+        "cents": Only((False,), "Use notation.midi_to_note(midi, cents=True)."),
+        "key": Only(("C:maj",), "Use notation.midi_to_note(midi, key=...)."),
         "unicode": Default(True, "ASCII #", "librosa returns Unicode sharps here; compare names with that in mind."),
     },
 )
@@ -784,7 +816,7 @@ _e(
     "utils.note_to_frequency",
     WITH_DIFFERENCES,
     "Name or sequence of names; grammar and limits as note_to_midi.",
-    options={"note": Renamed("note_name"), "round_midi": Only((False,), "Use utils.note_to_midi for a rounded note.")},
+    options={"note": Renamed("note_name"), "round_midi": Only((False,), "Use notation.note_to_hz(note, round_midi=True).")},
 )
 _e(
     "librosa.note_to_midi",
@@ -792,7 +824,7 @@ _e(
     "utils.note_to_midi",
     WITH_DIFFERENCES,
     "Name or sequence of names; librosa's grammar (accidentals, cents suffix); the octave is required and the result is in 0..127.",
-    options={"note": Renamed("note_name"), "round_midi": Only((True,), "Fractional MIDI values are not returned.")},
+    options={"note": Renamed("note_name"), "round_midi": Only((True,), "Use notation.note_to_midi(note, round_midi=False).")},
 )
 _e("librosa.hz_to_octs", "frequencies | tuning bins_per_octave", "utils.hz_to_octs", EQUIVALENT)
 _e("librosa.octs_to_hz", "octs | tuning bins_per_octave", "utils.octs_to_hz", EQUIVALENT)
@@ -800,32 +832,34 @@ _e("librosa.A4_to_tuning", "A4 | bins_per_octave", "utils.a4_to_tuning", EQUIVAL
 _e("librosa.tuning_to_A4", "tuning | bins_per_octave", "utils.tuning_to_a4", EQUIVALENT, "Lower-case name.")
 _e("librosa.key_to_notes", "key | unicode natural", "utils.key_to_notes", EQUIVALENT)
 _e("librosa.key_to_degrees", "key", "utils.key_to_degrees", EQUIVALENT)
-_none(
-    "Deferred: tuning-system generators, low use.",
-    "librosa.interval_frequencies(n_bins | fmin intervals bins_per_octave tuning sort)",
-    "librosa.pythagorean_intervals(| bins_per_octave sort return_factors)",
-    "librosa.plimit_intervals(| primes bins_per_octave sort return_factors)",
+_e(
+    "librosa.interval_frequencies",
+    "n_bins | fmin intervals bins_per_octave tuning sort",
+    "notation.interval_frequencies",
+    EQUIVALENT,
 )
-_none(
-    "Deferred: Functional Just System notation, low use.",
-    "librosa.interval_to_fjs(interval | unison unicode tolerance)",
-    "librosa.hz_to_fjs(frequencies | fmin unison unicode)",
-    "librosa.fifths_to_note(| unison fifths unicode)",
+_e("librosa.pythagorean_intervals", "| bins_per_octave sort return_factors", "notation.pythagorean_intervals", EQUIVALENT)
+_e("librosa.plimit_intervals", "| primes bins_per_octave sort return_factors", "notation.plimit_intervals", EQUIVALENT)
+_e(
+    "librosa.interval_to_fjs",
+    "interval | unison tolerance unicode",
+    "notation.interval_to_fjs",
+    WITH_DIFFERENCES,
+    "Recognises more ratios: any built from the primes up to 23, where librosa looks up a fixed table.",
 )
-_none(
-    "Deferred: Indian classical notation, low use.",
-    "librosa.hz_to_svara_c(frequencies | Sa mela abbr octave unicode)",
-    "librosa.hz_to_svara_h(frequencies | Sa abbr octave unicode)",
-    "librosa.midi_to_svara_c(midi | Sa mela abbr octave unicode)",
-    "librosa.midi_to_svara_h(midi | Sa abbr octave unicode)",
-    "librosa.note_to_svara_c(notes | Sa mela abbr octave unicode)",
-    "librosa.note_to_svara_h(notes | Sa abbr octave unicode)",
-    "librosa.list_mela()",
-    "librosa.list_thaat()",
-    "librosa.mela_to_degrees(mela)",
-    "librosa.mela_to_svara(mela | abbr unicode)",
-    "librosa.thaat_to_degrees(thaat)",
-)
+_e("librosa.hz_to_fjs", "frequencies | fmin unison unicode", "notation.hz_to_fjs", WITH_DIFFERENCES, "Recognises more ratios, as interval_to_fjs.")
+_e("librosa.fifths_to_note", "| unison fifths unicode", "notation.fifths_to_note", EQUIVALENT)
+_e("librosa.hz_to_svara_c", "frequencies | Sa mela abbr octave unicode", "notation.hz_to_svara_c", EQUIVALENT)
+_e("librosa.hz_to_svara_h", "frequencies | Sa abbr octave unicode", "notation.hz_to_svara_h", EQUIVALENT)
+_e("librosa.midi_to_svara_c", "midi | Sa mela abbr octave unicode", "notation.midi_to_svara_c", EQUIVALENT)
+_e("librosa.midi_to_svara_h", "midi | Sa abbr octave unicode", "notation.midi_to_svara_h", EQUIVALENT)
+_e("librosa.note_to_svara_c", "notes | Sa mela abbr octave unicode", "notation.note_to_svara_c", EQUIVALENT)
+_e("librosa.note_to_svara_h", "notes | Sa abbr octave unicode", "notation.note_to_svara_h", EQUIVALENT)
+_e("librosa.list_mela", "", "notation.list_mela", EQUIVALENT)
+_e("librosa.list_thaat", "", "notation.list_thaat", EQUIVALENT)
+_e("librosa.mela_to_degrees", "mela", "notation.mela_to_degrees", EQUIVALENT)
+_e("librosa.mela_to_svara", "mela | abbr unicode", "notation.mela_to_svara", EQUIVALENT)
+_e("librosa.thaat_to_degrees", "thaat", "notation.thaat_to_degrees", EQUIVALENT)
 
 # librosa.feature -----------------------------------------------------------
 
@@ -985,8 +1019,8 @@ _e(
         )
     ],
 )
-_CHROMA_WINDOW = Only((None,), "The smoothing window of cq_to_chroma is not supported.")
-_C_FORM = Unsupported("this method computes the CQT from the audio.")
+_CHROMA_WINDOW = Only((None,), "Compute the CQT, then use forms.chroma_cqt(C=..., window=...) or forms.chroma_cens(C=..., window=...).")
+_C_FORM = Unsupported("use forms.chroma_cqt(C=...) or forms.chroma_cens(C=...).")
 _e(
     "librosa.feature.chroma_cqt",
     "| y sr C hop_length fmin norm threshold tuning n_chroma n_octaves window bins_per_octave cqt_mode",
@@ -1013,8 +1047,8 @@ _e(
     "As vqt.",
     options={
         **_AUDIO,
-        "V": Unsupported("this method computes the VQT from the audio."),
-        "intervals": Only(("equal",), "Other tunings are not supported."),
+        "V": Unsupported("use forms.chroma_vqt(V=...)."),
+        "intervals": Only(("equal",), "Use AudioSamples.vqt(intervals=...), then forms.chroma_vqt(V=...)."),
     },
     shape=_FRAMES,
 )
@@ -1090,7 +1124,7 @@ _e(
         **_ENV_OPTION,
         "tg": Unsupported("use rhythm.tempogram_ratio(tg=...)."),
         "bpm": Unsupported("use rhythm.tempogram_ratio(bpm=...)."),
-        "freqs": Unsupported("custom frequencies are not supported."),
+        "freqs": Unsupported("use forms.tempogram_ratio(tg=..., bpm=..., freqs=...)."),
         "kind": Unsupported("use rhythm.tempogram_ratio(kind=...)."),
     },
     shape=_FRAMES,
@@ -1101,7 +1135,7 @@ _e(
             options={
                 "y": Absorbed("this form takes an onset envelope or tempogram rather than audio."),
                 "sr": _ARRAY_SR,
-                "freqs": Unsupported("custom frequencies are not supported."),
+                "freqs": Unsupported("use forms.tempogram_ratio(tg=..., bpm=..., freqs=...)."),
             },
         )
     ],
@@ -1122,12 +1156,35 @@ _e(
     WITH_DIFFERENCES,
     "aggregate=None (the 4-D per-bin output) is not supported.",
 )
-_none(
-    "Deferred: needs a non-negative least-squares solver.",
-    "librosa.feature.inverse.mel_to_stft(M | sr n_fft power **)",
-    "librosa.feature.inverse.mel_to_audio(M | sr n_fft hop_length win_length window center pad_mode power n_iter length dtype **)",
-    "librosa.feature.inverse.mfcc_to_mel(mfcc | n_mels dct_type norm ref lifter)",
-    "librosa.feature.inverse.mfcc_to_audio(mfcc | n_mels dct_type norm ref lifter **)",
+_e(
+    "librosa.feature.inverse.mel_to_stft",
+    "M | sr n_fft power **",
+    "inverse.mel_to_stft",
+    WITH_DIFFERENCES,
+    "Coordinate descent reaches a better fit than librosa's early-stopped L-BFGS-B; the magnitudes differ by up to 15 % in energy.",
+    options={"sr": _ARRAY_SR},
+)
+_e(
+    "librosa.feature.inverse.mel_to_audio",
+    "M | sr n_fft hop_length win_length window center pad_mode power n_iter length dtype **",
+    "inverse.mel_to_audio",
+    WITH_DIFFERENCES,
+    "As mel_to_stft, then fast Griffin-Lim; random phases come from this library's generator, seeded by rng.",
+    options={"sr": _ARRAY_SR, "dtype": _DTYPE},
+)
+_e(
+    "librosa.feature.inverse.mfcc_to_mel",
+    "mfcc | n_mels dct_type norm ref lifter",
+    "inverse.mfcc_to_mel",
+    EQUIVALENT,
+)
+_e(
+    "librosa.feature.inverse.mfcc_to_audio",
+    "mfcc | n_mels dct_type norm ref lifter **",
+    "inverse.mfcc_to_audio",
+    WITH_DIFFERENCES,
+    "sr is required; the filterbank's norm is mel_norm, because norm is the DCT's. As mel_to_audio otherwise.",
+    options={"sr": _ARRAY_SR, "dtype": _DTYPE},
 )
 
 # librosa.effects -----------------------------------------------------------
@@ -1147,7 +1204,7 @@ _e(
     "AudioSamples.pitch_shift",
     WITH_DIFFERENCES,
     "Final resampling by this library's resampler, not soxr (~68 dB SNR).",
-    options={**_AUDIO, "scale": Only((False,), "Scaling by the ratio is not supported.")},
+    options={**_AUDIO, "scale": Only((False,), "Use forms.pitch_shift(y, ..., scale=True).")},
     behaviour=("Returns an AudioSamples of the input's sample type.",),
 )
 _ZI: dict[str, Option] = {
@@ -1213,7 +1270,7 @@ _e(
         **_AUDIO,
         "S": _NOT_METHOD,
         "ref": Unsupported("use rhythm.onset_strength(S=..., ref=...)."),
-        "feature": Unsupported("the feature is always the log mel spectrogram; compute your own and pass S= to rhythm.onset_strength."),
+        "feature": Unsupported("use forms.onset_strength(y=..., feature=...)."),
     },
     shape=_TRACK,
     forms=[
@@ -1244,7 +1301,7 @@ _e(
         )
     ],
 )
-_SPARSE_ONLY = Only((True,), "Dense output is not supported.")
+_SPARSE_ONLY = Only((True,), "Use forms.onset_detect(y=..., sparse=False) or forms.beat_track(y=..., sparse=False).")
 _e(
     "librosa.onset.onset_detect",
     "| y sr onset_envelope hop_length backtrack energy units normalize sparse **",
@@ -1289,7 +1346,17 @@ _e(
 
 # librosa.decompose ---------------------------------------------------------
 
-_none("Deferred: NMF through scikit-learn.", "librosa.decompose.decompose(S | n_components transformer sort fit **)")
+_e(
+    "librosa.decompose.decompose",
+    "S | n_components transformer sort fit **",
+    "factorization.decompose",
+    WITH_DIFFERENCES,
+    "No scikit-learn needed: the default transformer is factorization.Nmf, which takes NMF's arguments; any object with fit_transform, transform and components_ also works. Same solvers; a different random generator in the SVD start.",
+    options={
+        "random_state": Default(None, "random_state=0", "Repeated calls give the same result."),
+        "verbose": Unsupported("the factorisation prints nothing."),
+    },
+)
 _e("librosa.decompose.hpss", "S | kernel_size power mask margin", "effects.hpss", EQUIVALENT, "Kernel sizes, power, margins, mask=True.")
 _e(
     "librosa.decompose.nn_filter",
@@ -1325,25 +1392,24 @@ _e(
     "n_input | bins_per_octave n_chroma fmin window base_c dtype",
     "features.cq_to_chroma",
     WITH_DIFFERENCES,
-    "The smoothing window must be None.",
-    options={"window": _CHROMA_WINDOW, "dtype": _FILTER_DTYPE},
+    "float64 tables.",
+    options={"dtype": _FILTER_DTYPE},
 )
-_ALPHA = Only((None,), "An explicit alpha is not supported.")
 _e(
     "librosa.filters.wavelet",
     "| freqs sr window filter_scale pad_fft norm dtype gamma alpha **",
     "features.wavelet",
     WITH_DIFFERENCES,
-    "complex128 filters (librosa: complex64); no explicit alpha.",
-    options={"sr": _ARRAY_SR, "alpha": _ALPHA, "dtype": _WAVELET_DTYPE},
+    "complex128 filters (librosa: complex64).",
+    options={"sr": _ARRAY_SR, "dtype": _WAVELET_DTYPE},
 )
 _e(
     "librosa.filters.wavelet_lengths",
     "| freqs sr window filter_scale gamma alpha",
     "features.wavelet_lengths",
     WITH_DIFFERENCES,
-    "No explicit alpha (at least two ascending freqs).",
-    options={"sr": _ARRAY_SR, "alpha": _ALPHA},
+    "An explicit alpha allows one frequency; without it, at least two ascending frequencies.",
+    options={"sr": _ARRAY_SR},
 )
 _e(
     "librosa.filters.window_bandwidth",
@@ -1360,9 +1426,17 @@ _e(
     "float64 output unless dtype=numpy.float32 (librosa's default).",
     options={"dtype": Default(_Named("numpy.float32"), "dtype=None (float64)", "Pass dtype=numpy.float32 to do the same.")},
 )
-_none("Deferred: needs spline image rotation; only used by path_enhance.", "librosa.filters.diagonal_filter(window n | slope angle zero_mean)")
-_none("Deferred: only used by iirt.", "librosa.filters.mr_frequencies(tuning)")
-_none("Deferred: needs ellipord.", "librosa.filters.semitone_filterbank(| center_freqs tuning sample_rates flayout **)")
+_e("librosa.filters.diagonal_filter", "window n | slope angle zero_mean", "segment.diagonal_filter", EQUIVALENT)
+_e("librosa.filters.mr_frequencies", "tuning", "pitch_filterbank.mr_frequencies", EQUIVALENT)
+_e(
+    "librosa.filters.semitone_filterbank",
+    "| center_freqs tuning sample_rates flayout **",
+    "pitch_filterbank.semitone_filterbank",
+    EQUIVALENT,
+    options={
+        "flayout": Default("ba", "flayout='sos'", "Second-order sections keep the precision that polynomials lose at these orders. Pass flayout='ba' for polynomials."),
+    },
+)
 
 # librosa.util --------------------------------------------------------------
 
@@ -1373,9 +1447,9 @@ _e(
     WITH_DIFFERENCES,
     "1-D input, last-axis framing. A writable copy by default; copy=False gives librosa's read-only strided view.",
     options={
-        "axis": Only((-1,), "Move the axis with numpy.moveaxis first."),
+        "axis": Only((-1,), "Use forms.frame(x, ..., axis=...)."),
         "writeable": Renamed("copy", "copy=True gives a writable array; copy=False a read-only view."),
-        "subok": Unsupported("the result is a plain ndarray."),
+        "subok": Unsupported("use forms.frame(x, ..., subok=True)."),
     },
 )
 _e("librosa.util.normalize", "S | norm axis threshold fill", "features.normalize", EQUIVALENT)
@@ -1390,47 +1464,131 @@ _e(
     "Pads only; a longer signal is returned unchanged.",
     options={"data": _Y, "size": Renamed("target_num_samples"), "axis": _LAYOUT},
 )
-_none("Internal helpers of peak picking and beat tracking.", "librosa.util.localmax(x | axis)", "librosa.util.localmin(x | axis)")
-_none("Internal helper of remix(align_zeros=True).", "librosa.util.match_events(events_from events_to left right)")
-_none("Deferred with feature.inverse.", "librosa.util.nnls(A B | **)")
-_none(
-    "NumPy one-liners and dtype plumbing.",
-    "librosa.util.pad_center(data | size axis **)",
-    "librosa.util.fix_frames(frames | x_min x_max pad)",
-    "librosa.util.abs2(x dtype)",
-    "librosa.util.phasor(angles | mag)",
-    "librosa.util.tiny(x)",
-    "librosa.util.expand_to(x | ndim axes)",
-    "librosa.util.stack(arrays | axis)",
-    "librosa.util.dtype_c2r(d | default)",
-    "librosa.util.dtype_r2c(d | default)",
-    "librosa.util.MAX_MEM_BLOCK()",
-)
-_none(
-    "Decoding is file I/O; AudioSamples enforces its invariants and rejects non-finite audio.",
-    "librosa.util.buf_to_float(x | n_bytes dtype)",
-    "librosa.util.valid_audio(y)",
-)
-_none(
-    "Generic array utilities.",
-    "librosa.util.axis_sort(S | axis index value)",
-    "librosa.util.sparsify_rows(x | quantile dtype)",
-    "librosa.util.shear(X | factor axis)",
-    "librosa.util.cyclic_gradient(data | edge_order axis)",
-    "librosa.util.fill_off_diagonal(x | radius value)",
-    "librosa.util.index_to_slice(idx | idx_min idx_max step pad)",
-    "librosa.util.count_unique(data | axis)",
-    "librosa.util.is_unique(data | axis)",
-    "librosa.util.interp_broadcast(| x1 x1_pos x2 x2_pos interp_pos op kind fill_value axis)",
-    "librosa.util.match_intervals(intervals_from intervals_to strict)",
+_e(
+    "librosa.util.nnls",
+    "A B | **",
+    "linalg.nnls",
+    WITH_DIFFERENCES,
+    "A matrix B is solved by coordinate descent from the same start, to a better objective; librosa stops L-BFGS-B early.",
+    options={
+        "bounds": Unsupported("the bound is always zero."),
+    },
 )
 _none(
     "Argument-validation and deprecation plumbing.",
-    "librosa.util.is_positive_int(x)",
-    "librosa.util.valid_int(x | cast)",
-    "librosa.util.valid_intervals(intervals)",
     "librosa.util.rename_kw(| old_name old_value new_name new_value version_deprecated version_removed)",
     "librosa.util.Deprecated()",
+)
+_INDEX64 = "Index outputs are int64."
+_e("librosa.util.localmax", "x | axis", "arrays.localmax", EQUIVALENT)
+_e("librosa.util.localmin", "x | axis", "arrays.localmin", EQUIVALENT)
+_e("librosa.util.match_events", "events_from events_to left right", "arrays.match_events", WITH_DIFFERENCES, _INDEX64 + " Ties between targets at one position may pick another of the equal targets.")
+_e(
+    "librosa.util.match_intervals",
+    "intervals_from intervals_to strict",
+    "arrays.match_intervals",
+    WITH_DIFFERENCES,
+    _INDEX64 + " With strict=False an interval that overlaps nothing goes to the true nearest target; librosa skips the first target after it.",
+)
+_e("librosa.util.pad_center", "data | size axis **", "arrays.pad_center", EQUIVALENT)
+_e("librosa.util.fix_frames", "frames | x_min x_max pad", "arrays.fix_frames", EQUIVALENT)
+_e("librosa.util.abs2", "x dtype", "arrays.abs2", WITH_DIFFERENCES, "A complex scalar gives a float rather than a 0-d array.")
+_e("librosa.util.phasor", "angles | mag", "arrays.phasor", WITH_DIFFERENCES, "Integer angles give complex128 rather than complex64: only float32 angles stay in single precision.")
+_e("librosa.util.tiny", "x", "arrays.tiny", EQUIVALENT)
+_e("librosa.util.expand_to", "x | ndim axes", "arrays.expand_to", WITH_DIFFERENCES, "Positions out of increasing order reorder the axes, so axis i is always axis axes[i]; librosa reinterprets the data.")
+_e("librosa.util.stack", "arrays | axis", "arrays.stack", WITH_DIFFERENCES, "C order for every axis (librosa: Fortran order for axis=0). Same values.")
+_e(
+    "librosa.util.dtype_c2r",
+    "d | default",
+    "arrays.dtype_c2r",
+    EQUIVALENT,
+    options={"default": Same("None means float32.")},
+)
+_e(
+    "librosa.util.dtype_r2c",
+    "d | default",
+    "arrays.dtype_r2c",
+    EQUIVALENT,
+    options={"default": Same("None means complex64.")},
+)
+_e(
+    "librosa.util.MAX_MEM_BLOCK",
+    "",
+    "arrays.MAX_MEM_BLOCK",
+    EQUIVALENT,
+)
+_e(
+    "librosa.util.buf_to_float",
+    "x | n_bytes dtype",
+    "arrays.buf_to_float",
+    WITH_DIFFERENCES,
+    "Also decodes 3-byte samples. Only float32 and float64 outputs.",
+    options={
+        "dtype": Default(
+            _Named("numpy.float32"),
+            "float32 up to 3 bytes per sample, otherwise float64",
+            "Pass dtype=numpy.float32 for 4- and 8-byte samples to do the same as librosa.",
+        ),
+    },
+)
+_e("librosa.util.valid_audio", "y", "arrays.valid_audio", EQUIVALENT)
+_e(
+    "librosa.util.axis_sort",
+    "S | axis index value",
+    "arrays.axis_sort",
+    WITH_DIFFERENCES,
+    "The sort is stable, so equal keys keep their order; librosa's order for equal keys is unspecified.",
+)
+_e(
+    "librosa.util.sparsify_rows",
+    "x | quantile dtype",
+    "arrays.sparsify_rows",
+    WITH_DIFFERENCES,
+    "Returns arrays.SparseRows, with data, indices, indptr, toarray() and tocsr() (tocsr needs SciPy), so that SciPy is not required.",
+)
+_e("librosa.util.shear", "X | factor axis", "arrays.shear", EQUIVALENT, "SciPy sparse input stays sparse; arrays.SparseRows input gives a SciPy array.")
+_e("librosa.util.cyclic_gradient", "data | edge_order axis", "arrays.cyclic_gradient", EQUIVALENT)
+_e(
+    "librosa.util.fill_off_diagonal",
+    "x | radius value",
+    "arrays.fill_off_diagonal",
+    EQUIVALENT,
+    options={"value": Same("None means 0.")},
+)
+_e("librosa.util.index_to_slice", "idx | idx_min idx_max step pad", "arrays.index_to_slice", EQUIVALENT)
+_e("librosa.util.count_unique", "data | axis", "arrays.count_unique", EQUIVALENT)
+_e("librosa.util.is_unique", "data | axis", "arrays.is_unique", EQUIVALENT)
+_e(
+    "librosa.util.interp_broadcast",
+    "| x1 x1_pos x2 x2_pos interp_pos op kind fill_value axis",
+    "arrays.interp_broadcast",
+    WITH_DIFFERENCES,
+    "float32 arrays stay in float32 (librosa: float64 for every input); spline orders above 3 are not accepted.",
+    options={
+        "op": Same("'multiply' is numpy.multiply, which is also accepted."),
+        "kind": Same("None means 'linear'."),
+    },
+)
+_e("librosa.util.is_positive_int", "x", "arrays.is_positive_int", EQUIVALENT)
+_e("librosa.util.valid_int", "x | cast", "arrays.valid_int", EQUIVALENT)
+_e("librosa.util.valid_intervals", "intervals", "arrays.valid_intervals", EQUIVALENT)
+_e(
+    "librosa.util.example_info",
+    "key | html",
+    "generation.example_clip_info",
+    WITH_DIFFERENCES,
+    "Returns one sentence on a synthesised clip rather than printing a recording's licence and details.",
+    options={
+        "key": Renamed("name", "Clip names differ; see generation.example_clip_names()."),
+        "html": Unsupported("the result is plain text."),
+    },
+)
+_e(
+    "librosa.util.find_files",
+    "directory | ext recurse case_sensitive limit offset",
+    "arrays.find_files",
+    WITH_DIFFERENCES,
+    "case_sensitive=False matches any letter case (librosa: all-lower or all-upper only); directories named like files are left out.",
 )
 _e(
     "librosa.util.example",
@@ -1453,8 +1611,6 @@ _e(
 )
 _none(
     "File discovery and citation helpers, and details of librosa's recordings.",
-    "librosa.util.example_info(key | html)",
-    "librosa.util.find_files(directory | ext recurse case_sensitive limit offset)",
     "librosa.util.cite(version | bib)",
 )
 _as("librosa.util.ex", "librosa.util.example")
@@ -1480,14 +1636,12 @@ _none(
 
 # librosa.segment and librosa.sequence --------------------------------------
 
-_DENSE_ONLY = Only((False,), "Dense only.")
 _e(
     "librosa.segment.recurrence_matrix",
     "data | k width metric sym sparse mode bandwidth self axis full",
     "sequence.recurrence_matrix",
     WITH_DIFFERENCES,
-    "Dense only; axis=-1 only; exact neighbour search. Connectivity results are bool, as librosa's.",
-    options={"sparse": _DENSE_ONLY, "axis": Only((-1,), "Move the axis with numpy.moveaxis first.")},
+    "sparse=True returns arrays.SparseRows; exact neighbour search. Connectivity results are bool, as librosa's.",
 )
 _e(
     "librosa.segment.cross_similarity",
@@ -1495,17 +1649,19 @@ _e(
     "sequence.cross_similarity",
     WITH_DIFFERENCES,
     "As recurrence_matrix.",
-    options={"sparse": _DENSE_ONLY},
 )
 _e("librosa.segment.recurrence_to_lag", "rec | pad axis", "sequence.recurrence_to_lag", EQUIVALENT, "Dense input.")
 _e("librosa.segment.lag_to_recurrence", "lag | axis", "sequence.lag_to_recurrence", EQUIVALENT, "Dense input.")
-_none("Deferred: needs filters.diagonal_filter.", "librosa.segment.path_enhance(R n | window max_ratio min_ratio n_filters zero_mean clip **)")
-_none("A decorator; compose recurrence_to_lag, a filter and lag_to_recurrence.", "librosa.segment.timelag_filter(function pad index)")
-_none(
-    "scikit-learn clustering.",
-    "librosa.segment.agglomerative(data k | clusterer axis)",
-    "librosa.segment.subsegment(data frames | n_segments axis)",
+_e("librosa.segment.path_enhance", "R n | window max_ratio min_ratio n_filters zero_mean clip **", "segment.path_enhance", EQUIVALENT, "The convolution options are mode, cval and origin.")
+_e("librosa.segment.timelag_filter", "function pad index", "segment.timelag_filter", EQUIVALENT, "Returns a callable object; the wrapped function's signature is not copied onto it.")
+_e(
+    "librosa.segment.agglomerative",
+    "data k | clusterer axis",
+    "segment.agglomerative",
+    EQUIVALENT,
+    "No scikit-learn needed; a clusterer object with fit and labels_ is still accepted.",
 )
+_e("librosa.segment.subsegment", "data frames | n_segments axis", "segment.subsegment", EQUIVALENT)
 _e(
     "librosa.sequence.dtw",
     "X Y | C metric step_sizes_sigma weights_add weights_mul subseq backtrack global_constraints band_rad return_steps",
@@ -1540,39 +1696,31 @@ _e("librosa.sequence.transition_uniform", "n_states", "sequence.transition_unifo
 _e("librosa.sequence.transition_loop", "n_states prob", "sequence.transition_loop", EQUIVALENT)
 _e("librosa.sequence.transition_cycle", "n_states prob", "sequence.transition_cycle", EQUIVALENT)
 _e("librosa.sequence.transition_local", "n_states width | window wrap", "sequence.transition_local", EQUIVALENT)
-_none("Differences of consecutive path points.", "librosa.sequence.path_to_steps(path | inverse)")
+_e("librosa.sequence.path_to_steps", "path | inverse", "sequence.path_to_steps", EQUIVALENT)
 
 # librosa.display -----------------------------------------------------------
 
-_none(
-    "matplotlib plotting. The arrays here are plain NumPy arrays, so they can go to matplotlib directly (with [0] for mono audio).",
-    "librosa.display.specshow(data | **)",
-    "librosa.display.waveshow(y | **)",
-    "librosa.display.AdaptiveWaveplot(| **)",
-    "librosa.display.wavebars(| **)",
-    "librosa.display.wavef0(| **)",
-)
-_none(
-    "matplotlib helpers.",
-    "librosa.display.multiplot(| **)",
-    "librosa.display.highlight(| **)",
-    "librosa.display.legend_for_axes(| **)",
-    "librosa.display.colorbar_db(| **)",
-    "librosa.display.colorbar_phase(| **)",
-    "librosa.display.infer_cmap(data | **)",
-)
-_none(
-    "matplotlib axis formatters.",
-    "librosa.display.TimeFormatter(| **)",
-    "librosa.display.NoteFormatter(| **)",
-    "librosa.display.LogHzFormatter(| **)",
-    "librosa.display.ChromaFormatter(| **)",
-    "librosa.display.ChromaFJSFormatter(| **)",
-    "librosa.display.ChromaSvaraFormatter(| **)",
-    "librosa.display.FJSFormatter(| **)",
-    "librosa.display.TonnetzFormatter(| **)",
-    "librosa.display.Transformf0(| **)",
-)
+_DISPLAY = "Same capability under this library's names and argument names; returns (fig, ax, artist)."
+_e("librosa.display.specshow", "data | **", "mpl.plot_matrix", WITH_DIFFERENCES, _DISPLAY + " vscale is value_scale; cmap_seq and the like are sequential, boolean, diverging, cyclic.")
+_e("librosa.display.waveshow", "y | **", "mpl.plot_waveform_adaptive", WITH_DIFFERENCES, _DISPLAY + " Takes AudioSamples or an array with sample_rate.")
+_e("librosa.display.AdaptiveWaveplot", "| **", "mpl.AdaptiveWaveform", WITH_DIFFERENCES, "Returned by plot_waveform_adaptive.")
+_e("librosa.display.wavebars", "| **", "mpl.plot_waveform_bars", WITH_DIFFERENCES, _DISPLAY)
+_e("librosa.display.wavef0", "| **", "mpl.plot_waveform_f0", WITH_DIFFERENCES, _DISPLAY + " method is 'adaptive' or 'bars'.")
+_e("librosa.display.multiplot", "| **", "mpl.plot_grid", WITH_DIFFERENCES, "kind is 'waveform', 'bars' or 'matrix'; shared gives one colour range.")
+_e("librosa.display.highlight", "| **", "mpl.highlight_effects", EQUIVALENT)
+_e("librosa.display.legend_for_axes", "| **", "mpl.legend_for_axes", EQUIVALENT)
+_e("librosa.display.colorbar_db", "| **", "mpl.add_db_colorbar", EQUIVALENT)
+_e("librosa.display.colorbar_phase", "| **", "mpl.add_phase_colorbar", EQUIVALENT)
+_e("librosa.display.infer_cmap", "| **", "mpl.infer_colormap", WITH_DIFFERENCES, "Keywords are sequential, boolean, diverging and threshold.")
+_e("librosa.display.TimeFormatter", "| **", "mpl.TimeFormatter", EQUIVALENT)
+_e("librosa.display.NoteFormatter", "| **", "mpl.NoteFormatter", EQUIVALENT)
+_e("librosa.display.LogHzFormatter", "| **", "mpl.LogHzFormatter", EQUIVALENT)
+_e("librosa.display.ChromaFormatter", "| **", "mpl.ChromaFormatter", EQUIVALENT)
+_e("librosa.display.ChromaFJSFormatter", "| **", "mpl.ChromaFJSFormatter", EQUIVALENT)
+_e("librosa.display.ChromaSvaraFormatter", "| **", "mpl.ChromaSvaraFormatter", EQUIVALENT)
+_e("librosa.display.FJSFormatter", "| **", "mpl.FJSFormatter", EQUIVALENT)
+_e("librosa.display.TonnetzFormatter", "| **", "mpl.TonnetzFormatter", EQUIVALENT)
+_e("librosa.display.Transformf0", "| **", "mpl.F0Transform", WITH_DIFFERENCES, "scale gives the octaves per unit amplitude.")
 
 # ---------------------------------------------------------------------------
 

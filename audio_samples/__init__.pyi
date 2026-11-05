@@ -147,6 +147,14 @@ from . import spectral as spectral
 from . import sequence as sequence
 from . import rhythm as rhythm
 from . import effects as effects
+from . import forms as forms
+from . import linalg as linalg
+from . import inverse as inverse
+from . import factorization as factorization
+from . import pitch_filterbank as pitch_filterbank
+from . import segment as segment
+from . import arrays as arrays
+from . import notation as notation
 from . import features as features
 from .utils import mu_law_encode as mu_law_encode, mu_law_decode as mu_law_decode
 
@@ -4723,6 +4731,19 @@ class AudioSamples(Generic[_S_co]):
         """``librosa.lpc`` (Burg) per channel: shape ``(channels, order + 1)``."""
         ...
 
+    def iirt(
+        self,
+        *,
+        win_length: int = 2048,
+        hop_length: Optional[int] = None,
+        center: bool = True,
+        tuning: float = 0.0,
+        pad_mode: str = "constant",
+        flayout: Literal["sos", "ba"] = "sos",
+        res_type: str = "soxr_hq",
+        **kwargs: Any,
+    ) -> NDArray[Any]:
+        """The energy of each semitone band per frame: ``(channels, 85, n_frames)``."""
     @staticmethod
     @overload
     def griffinlim_audio(
@@ -5271,6 +5292,14 @@ __all__ = [
     "features",
     "rhythm",
     "effects",
+    "forms",
+    "linalg",
+    "inverse",
+    "factorization",
+    "pitch_filterbank",
+    "segment",
+    "arrays",
+    "notation",
     "spectrograms",
     "mpl",
     "spectrograms",

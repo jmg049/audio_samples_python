@@ -568,6 +568,19 @@ def mfcc_from_mel_db(
     """
     ...
 
+def mellin_transform(
+    y: npt.ArrayLike,
+    *,
+    t_min: float = 0.5,
+    n_fmt: Optional[int] = None,
+    kind: str = "cubic",
+    beta: float = 0.5,
+    over_sample: float = 1.0,
+    axis: int = -1,
+) -> NDArray[Any]:
+    """The fast Mellin (scale) transform along one axis: ``complex64`` for ``float32``
+    input, otherwise ``complex128``."""
+
 __all__ = [
     "__doc__",
     "amplitude_to_db",
@@ -579,6 +592,7 @@ __all__ = [
     "istft",
     "mel_filterbank",
     "melspectrogram_from_spectrogram",
+    "mellin_transform",
     "mfcc_from_mel_db",
     "power_to_db",
     "stack_memory",

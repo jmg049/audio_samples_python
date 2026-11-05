@@ -703,6 +703,21 @@ def samples_to_frames(
     ...
 
 @overload
+def blocks_to_frames(blocks: float, *, block_length: int) -> int: ...
+@overload
+def blocks_to_frames(blocks: npt.ArrayLike, *, block_length: int) -> NDArray[np.int64]:
+    """``blocks * block_length``."""
+@overload
+def blocks_to_samples(blocks: float, *, block_length: int, hop_length: int) -> int: ...
+@overload
+def blocks_to_samples(blocks: npt.ArrayLike, *, block_length: int, hop_length: int) -> NDArray[np.int64]:
+    """``blocks * block_length * hop_length``."""
+@overload
+def blocks_to_time(blocks: float, *, block_length: int, hop_length: int, sample_rate: float) -> float: ...
+@overload
+def blocks_to_time(blocks: npt.ArrayLike, *, block_length: int, hop_length: int, sample_rate: float) -> NDArray[np.float64]:
+    """``blocks * block_length * hop_length / sample_rate``."""
+@overload
 def frames_to_samples(frames: float, *, hop_length: int, n_fft: Optional[int]=None) -> int: ...
 @overload
 def frames_to_samples(
@@ -926,6 +941,9 @@ __all__ = [
     "exponential_bursts",
     "exponential_chirp",
     "fft_frequencies",
+    "blocks_to_frames",
+    "blocks_to_samples",
+    "blocks_to_time",
     "fm_signal",
     "frames_to_samples",
     "frames_to_time",
