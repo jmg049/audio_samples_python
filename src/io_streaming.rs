@@ -49,8 +49,8 @@ type FileWriter = BufWriter<File>;
 ///
 /// Returns `Ok(None)` at end-of-stream (zero frames read).
 ///
-/// The streaming readers are !Send (they hold non-Send buffers), so we cannot release the
-/// GIL across the decode the way the bulk resample path does. Decode inline.
+/// Decodes inline, with the thread attached: blocks are short and the result is a new
+/// array written directly.
 fn read_into_new_array<T>(
     py: Python<'_>,
     inner: &mut ReaderInner,
@@ -149,7 +149,7 @@ macro_rules! reader_dispatch {
 /// Raises:
 ///     OSError: If the file cannot be opened.
 ///     ValueError: If the format is unsupported or the header is corrupt.
-#[pyclass(name = "StreamedAudioReader", module = "audio_samples.io", unsendable)]
+#[pyclass(name = "StreamedAudioReader", module = "audio_samples.io")]
 pub struct PyStreamedAudioReader {
     inner: Option<ReaderInner>,
 }
@@ -431,11 +431,7 @@ fn nzu32_sr(sr: u32) -> PyResult<NonZeroU32> {
 /// Created by :meth:`StreamedAudioReader.frames`, :meth:`StreamedAudioReader.windows`, and
 /// :meth:`StreamedAudioReader.samples`. Yields :class:`AudioSamples`; for ``hop != window``
 /// the iterator seeks the underlying reader between steps.
-#[pyclass(
-    name = "StreamedFrameIterator",
-    module = "audio_samples.io",
-    unsendable
-)]
+#[pyclass(name = "StreamedFrameIterator", module = "audio_samples.io")]
 pub struct PyStreamedFrameIterator {
     reader: Py<PyStreamedAudioReader>,
     window: usize,
@@ -508,7 +504,7 @@ macro_rules! writer_dispatch {
 /// Raises:
 ///     OSError: If the file cannot be created.
 ///     ValueError: If parameters are invalid or the type/format combination is unsupported.
-#[pyclass(name = "StreamedAudioWriter", module = "audio_samples.io", unsendable)]
+#[pyclass(name = "StreamedAudioWriter", module = "audio_samples.io")]
 pub struct PyStreamedAudioWriter {
     inner: Option<WriterInner>,
 }
@@ -785,7 +781,7 @@ fn create_streamed_flac_for(
 /// Raises:
 ///     OSError: If the file cannot be created.
 ///     ValueError: If parameters are invalid.
-#[pyclass(name = "WavSink", module = "audio_samples.io", unsendable)]
+#[pyclass(name = "WavSink", module = "audio_samples.io")]
 pub struct PyWavSink {
     inner: Option<WavSink<File>>,
 }

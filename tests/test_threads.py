@@ -454,7 +454,6 @@ def test_reads_and_resampling_at_once(tmp_path):
             out = tmp_path / f"{i}_{r}.wav"
             aus.io.save(str(out), source)
             ok.append(digest(aus.io.read(str(out))) == digest(aus.io.read(str(wav))))
-            # A reader belongs to the thread that made it, so each thread opens its own.
             with aus.io.StreamedAudioReader(str(wav)) as reader:
                 ok.append(reader.sample_rate == 22050)
                 ok.append(reader.read_frames(1024).shape[0] == 1024)
@@ -463,27 +462,102 @@ def test_reads_and_resampling_at_once(tmp_path):
     assert all(run_threads(work))
 
 
-def test_stream_reader_on_another_thread_raises():
-    """A streaming object is tied to its thread: other threads get an error, not a race."""
-    import tempfile
+def test_streaming_objects_work_on_another_thread(tmp_path):
+    """A reader, writer or sink made on one thread can be used and closed on another."""
+    path = tmp_path / "a.wav"
+    audio = aus.AudioSamples.new_mono(signal(seconds=0.1), 22050)
+    aus.io.save(str(path), audio)
+    reader = aus.io.StreamedAudioReader(str(path))
+    writer = aus.io.StreamedAudioWriter(str(tmp_path / "b.wav"), 1, 22050, dtype=aus.SampleType.F32)
+    results = []
 
-    with tempfile.TemporaryDirectory() as d:
-        path = os.path.join(d, "a.wav")
-        aus.io.save(path, aus.AudioSamples.new_mono(signal(seconds=0.1), 22050))
-        reader = aus.io.StreamedAudioReader(path)
-        caught = []
+    def other():
+        block = reader.read_frames(16)
+        writer.write_frames(block)
+        writer.close()
+        results.append(block.shape)
 
-        def other():
+    t = threading.Thread(target=other)
+    t.start()
+    t.join()
+    assert results, "the other thread raised"
+    assert reader.read_frames(16) is not None
+    assert aus.io.info(str(tmp_path / "b.wav")).num_samples == 16
+
+
+def test_shared_reader_serialises_or_raises_a_normal_exception(tmp_path):
+    """Concurrent calls on one reader raise RuntimeError at worst, and never lose a frame."""
+    path = tmp_path / "a.wav"
+    aus.io.save(str(path), aus.AudioSamples.new_mono(signal(seconds=1.0), 22050))
+    reader = aus.io.StreamedAudioReader(str(path))
+    lock = threading.Lock()
+    frames = [0]
+
+    def work(_):
+        while True:
             try:
-                reader.read_frames(16)
-            except BaseException as e:  # noqa: BLE001 - PanicException derives from BaseException
-                caught.append(e)
+                block = reader.read_frames(64)
+            except RuntimeError as e:
+                assert "borrowed" in str(e).lower(), e
+                continue
+            if block is None:
+                return True
+            with lock:
+                frames[0] += block.shape[-1]
 
-        t = threading.Thread(target=other)
-        t.start()
-        t.join()
-        assert caught, "a streaming reader must refuse a call from another thread"
-        assert "thread" in str(caught[0]).lower(), caught[0]
+    assert all(run_threads(work))
+    assert frames[0] == 22050
+
+
+def test_in_place_write_on_a_wrapped_array_meets_readers():
+    """An in-place method on audio wrapping an array, against readers of that array.
+
+    The write and the reads go through different objects, so only the array's
+    borrow connects them. A reader gets a result or a TypeError that names the
+    borrow, and without a GIL the two do meet.
+    """
+    y = np.ones(400_000, dtype=np.float32)
+    writer_audio = aus.AudioSamples.new_mono(y, 22050)
+    reader_audio = aus.AudioSamples.new_mono(y, 22050)
+    stop = threading.Event()
+    errors = []
+    met = [0]
+
+    def guarded(body):
+        def run():
+            try:
+                body()
+            except BaseException as e:  # noqa: BLE001 - a PanicException must fail the test
+                errors.append(e)
+
+        return run
+
+    def reader():
+        while not stop.is_set():
+            for read in (reader_audio.rms, lambda: aus.spectral.frame(y, frame_length=64, hop_length=64)):
+                try:
+                    read()
+                except TypeError as e:
+                    assert "borrowed" in str(e).lower(), e
+                    met[0] += 1
+
+    def writer():
+        while not stop.is_set():
+            try:
+                writer_audio.butterworth_lowpass(4, 2000.0)
+            except TypeError as e:
+                assert "borrowed" in str(e).lower(), e
+                met[0] += 1
+
+    threads = [threading.Thread(target=guarded(reader)) for _ in range(3)]
+    threads.append(threading.Thread(target=guarded(writer)))
+    [t.start() for t in threads]
+    time.sleep(1.0)
+    stop.set()
+    [t.join() for t in threads]
+    assert not errors, errors
+    if free_threaded:
+        assert met[0] > 0, "the write and the reads never met"
 
 
 @pytest.mark.skipif(not free_threaded, reason="needs a free-threaded interpreter")

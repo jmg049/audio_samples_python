@@ -35,10 +35,15 @@ These are errors you can catch, not races:
 * ``SosFilter.process_samples_in_place`` and ``process_block`` hold a write borrow on the
   array they are given. A call that reads the same array on another thread raises
   ``TypeError: The given array is already borrowed``.
-* ``StreamedAudioReader``, ``StreamedAudioWriter`` and ``WavSink`` belong to the thread
-  that made them. On any other thread they raise ``pyo3_runtime.PanicException``, which
-  derives from ``BaseException``, so ``except Exception`` does not catch it. Create one in the
-  thread that uses it. This does not depend on the build of Python.
+* ``StreamedAudioReader``, ``StreamedAudioWriter`` and ``WavSink`` can be used from any
+  thread, one call at a time. Two calls at once on one of them raise the same
+  ``RuntimeError`` as other objects with state.
+* On a free-threaded build, an in-place method on an ``AudioSamples`` built on a NumPy array
+  takes a write borrow on that array, and reads of it through any ``AudioSamples`` or
+  array argument take a read borrow. The call that meets the other raises
+  ``TypeError: The given array is already borrowed``. With the GIL an in-place method runs
+  with the GIL held, so a reader holding the GIL cannot overlap it, and these borrows
+  are not taken.
 
 What you must not do
 --------------------
@@ -46,9 +51,6 @@ What you must not do
 * Write to a NumPy array from Python, for example ``y *= 2``, while another thread
   passes it to this package. Neither NumPy nor this package detects that: the
   result of the read is undefined, as it is for a NumPy function in the same situation.
-* Call an in-place method on an ``AudioSamples`` built on a NumPy array without a copy
-  while another thread reads that array, or call in-place methods on two
-  objects that wrap the same array. The method writes the array, as ``y *= 2`` does.
 * Draw with ``audio_samples.mpl`` from several threads. Matplotlib is not thread-safe;
   compute in threads and plot on one.
 
