@@ -32,6 +32,7 @@ pub mod sequence;
 pub mod linalg;
 pub mod inverse;
 pub mod factorization;
+pub mod pitch_filterbank;
 pub mod arrays;
 pub mod spectral;
 pub mod types;
@@ -740,6 +741,7 @@ fn audio_samples_python(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()>
     linalg::register(py, m)?;
     inverse::register(py, m)?;
     factorization::register(py, m)?;
+    pitch_filterbank::register(py, m)?;
     arrays::register(py, m)?;
 
     // Explanations (audio_samples.explain); ExplainDoc is re-exported at top level.
