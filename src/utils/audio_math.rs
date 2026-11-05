@@ -806,6 +806,110 @@ pub fn frames_to_samples<'py>(
     })
 }
 
+/// `scalar_f` for a Python int without building an array; a multiplication that wraps
+/// at the limits of int64 for arrays.
+fn blocks_map<'py>(
+    blocks: &Bound<'py, PyAny>,
+    scale: i64,
+    scalar_f: impl Fn(i64) -> i64,
+) -> PyResult<Bound<'py, PyAny>> {
+    use numpy::{PyArrayDyn, PyArrayMethods};
+    use pyo3::IntoPyObjectExt;
+    let py = blocks.py();
+    if let Ok(i) = blocks.cast::<pyo3::types::PyInt>() {
+        return scalar_f(i.extract()?).into_bound_py_any(py);
+    }
+    if let Ok(a) = blocks.cast::<PyArrayDyn<i64>>() {
+        // SAFETY: the array outlives the view and nothing writes to it during the call.
+        let v = unsafe { a.as_array() };
+        if let Some(slice) = v.as_slice() {
+            // SAFETY: `blocks_scale_into` writes every element before the array is returned.
+            let out = unsafe { PyArrayDyn::<i64>::new(py, v.raw_dim(), false) };
+            // SAFETY: the array was just created and is contiguous, so nothing else refers to it.
+            let target = unsafe { out.as_slice_mut() }.map_err(|e| crate::args::value_err("blocks", e))?;
+            audio_math::blocks_scale_into(slice, scale, target);
+            return Ok(out.into_any());
+        }
+    }
+    map_i64(blocks, "blocks", scalar_f)
+}
+
+/// Converts block indices to frame indices: ``blocks * block_length``.
+///
+/// Args:
+///     blocks (int | array_like[int]): Block index or indices.
+///     block_length (int): Frames per block.
+///
+/// Returns:
+///     int | numpy.ndarray[int64]: Frame indices, same shape as the input.
+#[pyfunction]
+#[pyo3(signature = (blocks, *, block_length), text_signature = "(blocks, *, block_length)")]
+pub fn blocks_to_frames<'py>(
+    blocks: &Bound<'py, PyAny>,
+    block_length: Int,
+) -> PyResult<Bound<'py, PyAny>> {
+    let length = positive("block_length", block_length)?;
+    blocks_map(blocks, length.get() as i64, |b| {
+        audio_math::blocks_to_frames(b, length)
+    })
+}
+
+/// Converts block indices to sample indices: ``blocks * block_length * hop_length``.
+///
+/// Args:
+///     blocks (int | array_like[int]): Block index or indices.
+///     block_length (int): Frames per block.
+///     hop_length (int): Samples between frames.
+///
+/// Returns:
+///     int | numpy.ndarray[int64]: Sample indices, same shape as the input.
+#[pyfunction]
+#[pyo3(signature = (blocks, *, block_length, hop_length), text_signature = "(blocks, *, block_length, hop_length)")]
+pub fn blocks_to_samples<'py>(
+    blocks: &Bound<'py, PyAny>,
+    block_length: Int,
+    hop_length: Int,
+) -> PyResult<Bound<'py, PyAny>> {
+    let length = positive("block_length", block_length)?;
+    let hop = positive("hop_length", hop_length)?;
+    blocks_map(blocks, (length.get() as i64).saturating_mul(hop.get() as i64), |b| {
+        audio_math::blocks_to_samples(b, length, hop)
+    })
+}
+
+/// Converts block indices to the time in seconds at which each block starts.
+///
+/// Args:
+///     blocks (int | array_like[int]): Block index or indices.
+///     block_length (int): Frames per block.
+///     hop_length (int): Samples between frames.
+///     sample_rate (float): Sampling rate in Hertz.
+///
+/// Returns:
+///     float | numpy.ndarray[float64]: Times in seconds, same shape as the input.
+#[pyfunction]
+#[pyo3(signature = (blocks, *, block_length, hop_length, sample_rate), text_signature = "(blocks, *, block_length, hop_length, sample_rate)")]
+pub fn blocks_to_time<'py>(
+    blocks: &Bound<'py, PyAny>,
+    block_length: Int,
+    hop_length: Int,
+    sample_rate: f64,
+) -> PyResult<Bound<'py, PyAny>> {
+    let length = positive("block_length", block_length)?;
+    let hop = positive("hop_length", hop_length)?;
+    if !sample_rate.is_finite() || sample_rate <= 0.0 {
+        return Err(crate::args::value_err("sample_rate", "must be positive and finite"));
+    }
+    if let Ok(i) = blocks.cast::<pyo3::types::PyInt>() {
+        use pyo3::IntoPyObjectExt;
+        return audio_math::blocks_to_time(i.extract()?, length, hop, sample_rate)
+            .into_bound_py_any(blocks.py());
+    }
+    map_i64(blocks, "blocks", |b| {
+        audio_math::blocks_to_time(b, length, hop, sample_rate)
+    })
+}
+
 /// Converts times in seconds to the frame **containing** each time, exactly as
 /// ``librosa.time_to_frames``.
 ///

@@ -29,6 +29,7 @@ pub mod io_streaming;
 pub mod operations;
 pub mod rhythm;
 pub mod sequence;
+pub mod arrays;
 pub mod spectral;
 pub mod types;
 pub mod utils;
@@ -733,6 +734,7 @@ fn audio_samples_python(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()>
     features::register(py, m)?;
     rhythm::register(py, m)?;
     effects::register(py, m)?;
+    arrays::register(py, m)?;
 
     // Explanations (audio_samples.explain); ExplainDoc is re-exported at top level.
     explain::explain_module(py, m)?;
