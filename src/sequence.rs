@@ -740,17 +740,6 @@ fn similarity_out<'py, F: PyFloat>(
     }
 }
 
-fn reject_sparse(sparse: bool) -> PyResult<()> {
-    if sparse {
-        Err(value_err(
-            "sparse",
-            "sparse output is not supported; convert the dense result with scipy.sparse.csc_array",
-        ))
-    } else {
-        Ok(())
-    }
-}
-
 /// Recurrence (self-similarity) matrix, equivalent to
 /// ``librosa.segment.recurrence_matrix(data, ..., sparse=False)``.
 ///
@@ -793,9 +782,19 @@ pub fn recurrence_matrix<'py>(
     full: bool,
     kwargs: Option<&Bound<'py, PyDict>>,
 ) -> PyResult<Bound<'py, PyAny>> {
-    reject_sparse(sparse)?;
     if axis != Int(-1) && axis != Int(1) {
-        return Err(value_err("axis", "only axis=-1 (frames last) is supported"));
+        let moved = py.import("numpy")?.getattr("moveaxis")?.call1((data, axis.0, -1))?;
+        let kw = kwargs.map_or_else(|| PyDict::new(py), |k| k.clone());
+        return recurrence_matrix(
+            py, &moved, k, width, metric, sym, sparse, mode, bandwidth, self_links, Int(-1), full,
+            Some(&kw),
+        );
+    }
+    if sparse {
+        let dense = recurrence_matrix(
+            py, data, k, width, metric, sym, false, mode, bandwidth, self_links, axis, full, kwargs,
+        )?;
+        return crate::arrays::dense_to_rows(&dense);
     }
     let mut self_links = self_links;
     if let Some(kw) = kwargs {
@@ -842,7 +841,7 @@ pub fn recurrence_matrix<'py>(
 ///     k (Optional[int]): Reference neighbours per query frame; None =
 ///         ``min(n_ref, 2 * ceil(sqrt(n_ref)))``.
 ///     metric (str): Distance metric. Default "euclidean".
-///     sparse (bool): Must be False.
+///     sparse (bool): Return ``arrays.SparseRows`` rather than a dense array. Default False.
 ///     mode (str): ``"connectivity"`` (bool output), ``"distance"`` or ``"affinity"``.
 ///     bandwidth: As ``recurrence_matrix`` (array shape ``(n, n_ref)``).
 ///     full (bool): Link every query frame to its ``min(n_ref, n)`` nearest. Default False.
@@ -867,7 +866,10 @@ pub fn cross_similarity<'py>(
     bandwidth: Option<&Bound<'py, PyAny>>,
     full: bool,
 ) -> PyResult<Bound<'py, PyAny>> {
-    reject_sparse(sparse)?;
+    if sparse {
+        let dense = cross_similarity(py, data, data_ref, k, metric, false, mode, bandwidth, full)?;
+        return crate::arrays::dense_to_rows(&dense);
+    }
     let mode = parse_mode(mode)?;
     let cfg = CrossSimilarityConfig {
         k: k.map(|k| positive("k", k).map(std::num::NonZeroUsize::get))

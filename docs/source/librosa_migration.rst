@@ -477,7 +477,7 @@ Core: constant-Q
    * - ``vqt``
      - ``AudioSamples.vqt``
      - with differences
-     - As ``cqt``; only ``intervals="equal"``
+     - As ``cqt``
    * - ``pseudo_cqt``
      - ``AudioSamples.pseudo_cqt``
      - equivalent
@@ -529,16 +529,16 @@ Core: pitch, tuning and harmonics
      -
    * - ``salience``
      - ``features.salience``
-     - equivalent
-     -
+     - with differences
+     - Linear interpolation along the frequency axis; ``forms.salience`` takes the others
    * - ``interp_harmonics``
      - ``features.interp_harmonics``
-     - with differences
-     - Only ``kind="linear"``
+     - equivalent
+     - Interpolants other than linear, and other axes, need a 1-D frequency grid
    * - ``f0_harmonics``
      - ``features.f0_harmonics``
-     - with differences
-     - Only ``kind="linear"``
+     - equivalent
+     - Interpolants other than linear, and other axes, need a 1-D frequency grid
 
 Core: unit conversions (``librosa.convert``)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1032,15 +1032,15 @@ type; each has an ``_in_place`` twin (``time_stretch_in_place``, ...).
    * - ``cq_to_chroma``
      - ``features.cq_to_chroma``
      - with differences
-     - The smoothing ``window`` must be ``None``
+     - ``float64`` tables
    * - ``wavelet``
      - ``features.wavelet``
      - with differences
-     - complex128 filters (librosa: complex64); no explicit ``alpha``
+     - complex128 filters (librosa: complex64)
    * - ``wavelet_lengths``
      - ``features.wavelet_lengths``
      - with differences
-     - No explicit ``alpha`` (at least two ascending ``freqs``)
+     - An explicit ``alpha`` allows one frequency; without it, at least two ascending frequencies
    * - ``window_bandwidth``
      - ``spectral.window_bandwidth``
      - with differences
@@ -1257,8 +1257,8 @@ All in ``audio_samples.sequence``, on ``(n_features, n_frames)`` arrays.
    * - ``segment.recurrence_matrix``
      - ``sequence.recurrence_matrix``
      - with differences
-     - Dense only (``sparse=True`` raises); ``axis=-1`` only; exact
-       neighbour search. Connectivity results are ``bool``, as librosa's
+     - ``sparse=True`` returns ``arrays.SparseRows``; exact neighbour search.
+       Connectivity results are ``bool``, as librosa's
    * - ``segment.cross_similarity``
      - ``sequence.cross_similarity``
      - with differences
@@ -1608,25 +1608,46 @@ Randomness
   round-off.
 - ``griffinlim_cqt`` offers only ``init=None``.
 
+Options reached through array forms
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``audio_samples.forms`` holds array forms of methods, for options that an
+``AudioSamples`` makes unnecessary or that need another input:
+
+- ``forms.read_segment`` and ``forms.stream_blocks``: ``offset``, ``duration``,
+  ``sr``, ``fill_value`` and ``res_type``. They read the whole file first.
+- ``forms.get_duration``: ``S``, ``n_fft``, ``hop_length``, ``center`` and ``path``.
+- ``forms.to_mono``, ``forms.to_stereo`` and ``forms.to_multi``: several signals of
+  different lengths, ``pad``, ``norm``, ``downmix`` and ``out``.
+- ``forms.resample`` and ``forms.pitch_shift``: ``scale`` and ``fix``.
+- ``forms.stft`` and ``forms.istft``: ``dtype`` and ``out``, which copies the result
+  into the buffer.
+- ``forms.reassigned_spectrogram``: ``S``.
+- ``forms.chroma_cqt``, ``forms.chroma_cens`` and ``forms.chroma_vqt``: ``C``, ``V``
+  and the smoothing ``window``.
+- ``forms.tempogram_ratio``: custom ``freqs``.
+- ``forms.onset_strength``: ``feature``.
+- ``forms.onset_detect`` and ``forms.beat_track``: ``sparse=False``.
+- ``forms.frame``: ``axis`` and ``subok``.
+- ``forms.salience``: ``kind`` and ``axis``.
+
+``arrays.zero_crossings``, ``arrays.tone`` and ``arrays.chirp`` take ``threshold``,
+``ref_magnitude``, ``pad``, ``zero_pos`` and ``phi``.
+``notation.midi_to_note``, ``notation.hz_to_note``, ``notation.note_to_midi`` and
+``notation.note_to_hz`` take ``octave``, ``cents``, ``key``, ``unicode`` and
+``round_midi``. Cents round to the nearest whole cent; librosa truncates the rounded
+value, which can give one cent less.
+
 Options that are not supported
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Each raises ``ValueError`` or ``TypeError`` instead of being ignored:
 
-- ``sparse=True`` in ``recurrence_matrix`` / ``cross_similarity`` (dense only),
-  and ``sparse=False`` in ``onset_detect`` / ``beat_track`` (sparse only);
-- ``vqt`` / ``chroma_vqt``: ``intervals`` other than ``"equal"``;
-- ``interp_harmonics`` / ``f0_harmonics`` / ``salience``: ``kind`` other than
-  ``"linear"`` and a frequency ``axis`` other than ``-2``;
 - ``griffinlim_cqt``: ``init="random"``;
-- ``chroma_cqt`` / ``cq_to_chroma``: the smoothing ``window``;
-- ``wavelet`` / ``wavelet_lengths``: an explicit ``alpha``;
 - ``spectral_centroid_from_spectrogram``: a time-varying 2-D ``freq``;
 - ``onset_strength_multi``: ``channels`` given as slices;
-- ``tempogram_ratio``: custom ``freqs``;
 - ``metrogram``: ``aggregate=None``;
 - ``harmonic`` / ``percussive``: ``mask=True``;
-- ``pitch_shift``: ``scale=True``;
 - ``sync``: slice indices (frame indices only);
 - ``nn_filter``: sparse recurrence matrices and aggregates other than mean,
   median or a weighted average;

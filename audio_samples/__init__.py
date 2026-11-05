@@ -180,6 +180,12 @@ else:
 
 
 def __getattr__(name):
+    if name == "forms":
+        import importlib
+
+        module = importlib.import_module("audio_samples.forms")
+        globals()["forms"] = module
+        return module
     if name == "mpl":
         # Matplotlib visualisation extension (pure Python), None without matplotlib.
         import importlib
@@ -231,6 +237,7 @@ __all__ = [
     "notation",
     "spectrograms",
     "mpl",
+    "forms",
     "spectrograms",
     "exceptions",
     "explain",

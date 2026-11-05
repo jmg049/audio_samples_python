@@ -28,7 +28,7 @@ use crate::{PyAudioSamples, audio_err_to_py, dispatch_typed};
 #[pyfunction]
 pub fn mr_frequencies<'py>(py: Python<'py>, tuning: f64) -> PyResult<Bound<'py, PyAny>> {
     let (f, r) = pf::mr_frequencies(tuning);
-    (PyArray1::from_vec(py, f), PyArray1::from_vec(py, r)).into_bound_py_any(py)
+    (PyArray1::from_slice(py, &f), PyArray1::from_slice(py, &r)).into_bound_py_any(py)
 }
 
 fn filter_config(kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<(MultirateFilterConfig, Option<(Vec<f64>, Vec<f64>)>)> {
@@ -118,7 +118,10 @@ pub fn semitone_filterbank<'py>(
     let layout = parse_layout(flayout)?;
     let (freqs, rates) = match (center_freqs.filter(|v| !v.is_none()), sample_rates.filter(|v| !v.is_none())) {
         (Some(f), Some(r)) => (f64_vec(f, "center_freqs")?, f64_vec(r, "sample_rates")?),
-        (None, None) => pf::mr_frequencies(tuning),
+        (None, None) => {
+            let (f, r) = pf::mr_frequencies(tuning);
+            (f.to_vec(), r.to_vec())
+        }
         _ => return Err(value_err("center_freqs", "give center_freqs and sample_rates together")),
     };
     let bank = pf::semitone_filterbank(&freqs, &rates, &cfg, layout).map_err(audio_err_to_py)?;
@@ -134,7 +137,7 @@ pub fn semitone_filterbank<'py>(
             }
         }
     }
-    (out, PyArray1::from_vec(py, rates)).into_bound_py_any(py)
+    (out, PyArray1::from_slice(py, &rates)).into_bound_py_any(py)
 }
 
 fn pad_mode(mode: &str) -> PyResult<PadMode<f64>> {

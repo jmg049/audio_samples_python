@@ -147,6 +147,7 @@ from . import spectral as spectral
 from . import sequence as sequence
 from . import rhythm as rhythm
 from . import effects as effects
+from . import forms as forms
 from . import linalg as linalg
 from . import inverse as inverse
 from . import factorization as factorization
@@ -5291,6 +5292,7 @@ __all__ = [
     "features",
     "rhythm",
     "effects",
+    "forms",
     "linalg",
     "inverse",
     "factorization",

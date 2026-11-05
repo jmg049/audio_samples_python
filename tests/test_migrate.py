@@ -273,7 +273,7 @@ def _table_text():
 
 
 def test_names_in_the_advice_exist_in_audio_samples():
-    pattern = re.compile(r"(?<![\w.])(AudioSamples|io|spectral|features|rhythm|effects|sequence|utils|generation)\.([A-Za-z_]\w*)")
+    pattern = re.compile(r"(?<![\w.])(AudioSamples|io|spectral|features|rhythm|effects|sequence|utils|generation|forms|arrays|notation)\.([A-Za-z_]\w*)")
     missing = set()
     for text in _table_text():
         for head, attribute in pattern.findall(text):
@@ -484,12 +484,12 @@ def test_unsupported_option_is_flagged_whatever_its_form():
 
 
 def test_a_value_only_rejected_when_it_is_the_unsupported_one():
-    sparse = _single("librosa.segment.recurrence_matrix(x, sparse=True)")
-    assert _watch_keywords(sparse, "unsupported option") == {"sparse"}
-    dense = _single("librosa.segment.recurrence_matrix(x, sparse=False)")
-    assert _watch_keywords(dense, "unsupported option") == set()
-    assert not dense.blocking
-    variable = _single("librosa.segment.recurrence_matrix(x, sparse=flag)")
+    dense = _single("librosa.onset.onset_detect(y=y, sr=sr, sparse=False)")
+    assert _watch_keywords(dense, "unsupported option") == {"sparse"}
+    sparse = _single("librosa.onset.onset_detect(y=y, sr=sr, sparse=True)")
+    assert _watch_keywords(sparse, "unsupported option") == set()
+    assert not sparse.blocking
+    variable = _single("librosa.onset.onset_detect(y=y, sr=sr, sparse=flag)")
     assert _watch_keywords(variable, "unsupported option") == set()
     assert _watch_keywords(variable, "not checked") == {"sparse"}
 

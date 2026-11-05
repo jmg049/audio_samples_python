@@ -838,12 +838,12 @@ def cq_to_chroma(
     bins_per_octave: int = 12,
     n_chroma: int = 12,
     fmin: Optional[float] = None,
-    window: None = None,
+    window: Optional[npt.ArrayLike] = None,
     base_c: bool = True,
 ) -> NDArray[np.float64]:
     """CQT-to-chroma folding matrix, ``librosa.filters.cq_to_chroma(..., dtype=numpy.float64)``.
 
-    ``window`` (a smoothing kernel in librosa) must be None.
+    ``window`` smooths each row by convolution with these weights.
 
     Returns:
         numpy.ndarray[float64] of zeros and ones, shape ``(n_chroma, n_input)``.
@@ -857,6 +857,7 @@ def wavelet_lengths(
     window: _WindowSpec = "hann",
     filter_scale: float = 1.0,
     gamma: Optional[float] = 0.0,
+    alpha: float | npt.ArrayLike | None = None,
 ) -> tuple[NDArray[np.float64], float]:
     """Filter lengths of a CQT/VQT filterbank, ``librosa.filters.wavelet_lengths``.
 
@@ -875,6 +876,7 @@ def wavelet(
     pad_fft: bool = True,
     norm: Optional[float] = 1.0,
     gamma: Optional[float] = 0.0,
+    alpha: float | npt.ArrayLike | None = None,
 ) -> tuple[NDArray[np.complex128], NDArray[np.float64]]:
     """CQT/VQT wavelet filters, ``librosa.filters.wavelet(..., dtype=numpy.complex128)``.
 

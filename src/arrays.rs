@@ -48,7 +48,7 @@ fn as_ndarray<'py>(obj: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyUntypedArra
         .cast_into::<PyUntypedArray>()?)
 }
 
-fn norm_axis(name: &str, axis: i64, ndim: usize) -> PyResult<Axis> {
+pub(crate) fn norm_axis(name: &str, axis: i64, ndim: usize) -> PyResult<Axis> {
     let n = ndim as i64;
     if axis < -n || axis >= n {
         return Err(value_err(
@@ -266,6 +266,140 @@ where
 #[pyo3(signature = (angles, *, mag = None))]
 pub fn phasor<'py>(angles: &Bound<'py, PyAny>, mag: Option<&Bound<'py, PyAny>>) -> PyResult<Bound<'py, PyAny>> {
     with_precision!(precision_of(angles), |F| phasor_in::<F>(angles, mag))
+}
+
+fn zero_crossings_in<'py, F: PyFloatElement>(
+    y: &Bound<'py, PyAny>,
+    threshold: f64,
+    pad: bool,
+    zero_pos: bool,
+    axis: i64,
+) -> PyResult<Bound<'py, PyAny>> {
+    let py = y.py();
+    let z = with_float_view::<F, _>(y, "y", |v| {
+        let axis = norm_axis("axis", axis, v.ndim())?;
+        let threshold = F::cast_from(threshold);
+        ops::zero_crossings(&v, threshold, pad, zero_pos, axis).map_err(audio_err_to_py)
+    })?;
+    Ok(z.into_pyarray(py).into_any())
+}
+
+/// Marks the sign changes of a signal along one axis.
+///
+/// Args:
+///     y (array_like): The signal, of any dimension.
+///     threshold (Optional[float]): Magnitudes up to this count as zero. None means 0.
+///         Default 1e-10.
+///     ref_magnitude (Optional[float | Callable]): Scales ``threshold``. A callable receives
+///         ``numpy.abs(y)`` and returns the scale.
+///     pad (bool): The mark of the first element. Default True.
+///     zero_pos (bool): Zero counts as positive; otherwise it is a sign of its own.
+///         Default True.
+///     axis (int): The time axis. Default -1.
+///
+/// Returns:
+///     numpy.ndarray[bool]: The marks, of the shape of ``y``.
+#[pyfunction]
+#[pyo3(
+    signature = (y, *, threshold = Some(1e-10), ref_magnitude = None, pad = true, zero_pos = true, axis = -1),
+    text_signature = "(y, *, threshold=1e-10, ref_magnitude=None, pad=True, zero_pos=True, axis=-1)"
+)]
+pub fn zero_crossings<'py>(
+    y: &Bound<'py, PyAny>,
+    threshold: Option<f64>,
+    ref_magnitude: Option<&Bound<'py, PyAny>>,
+    pad: bool,
+    zero_pos: bool,
+    axis: i64,
+) -> PyResult<Bound<'py, PyAny>> {
+    let mut threshold = threshold.unwrap_or(0.0);
+    if let Some(r) = ref_magnitude.filter(|r| !r.is_none()) {
+        let scale = if r.is_callable() {
+            let magnitudes = numpy_attr(y.py(), "abs")?.call1((y,))?;
+            r.call1((magnitudes,))?.extract::<f64>()?
+        } else {
+            r.extract::<f64>()?
+        };
+        threshold *= scale;
+    }
+    with_precision!(precision_of(y), |F| zero_crossings_in::<F>(
+        y, threshold, pad, zero_pos, axis
+    ))
+}
+
+/// The number of samples of a generator, from its length or its duration.
+fn generated_length(sr: f64, length: Option<Int>, duration: Option<f64>) -> PyResult<usize> {
+    match (length, duration) {
+        (Some(n), _) => usize::try_from(n.0).map_err(|_| value_err("length", "must not be negative")),
+        (None, Some(d)) if d >= 0.0 => Ok((d * sr) as usize),
+        (None, Some(_)) => Err(value_err("duration", "must not be negative")),
+        (None, None) => Err(value_err("length", "give length or duration")),
+    }
+}
+
+/// A cosine of a given frequency and phase, as float64.
+///
+/// Args:
+///     frequency (float): In Hz.
+///     sr (float): Sample rate in Hz. Default 22050.
+///     length (Optional[int]): Samples.
+///     duration (Optional[float]): Seconds, if ``length`` is None.
+///     phi (Optional[float]): Phase offset in radians. None means ``-pi / 2``, which starts
+///         like a sine.
+///
+/// Returns:
+///     numpy.ndarray[float64]: The samples.
+#[pyfunction]
+#[pyo3(
+    signature = (frequency, *, sr = 22050.0, length = None, duration = None, phi = None),
+    text_signature = "(frequency, *, sr=22050, length=None, duration=None, phi=None)"
+)]
+pub fn tone<'py>(
+    py: Python<'py>,
+    frequency: f64,
+    sr: f64,
+    length: Option<Int>,
+    duration: Option<f64>,
+    phi: Option<f64>,
+) -> PyResult<Bound<'py, PyAny>> {
+    let n = generated_length(sr, length, duration)?;
+    let phi = phi.unwrap_or(-std::f64::consts::FRAC_PI_2);
+    Ok(numpy::PyArray1::from_vec(py, ops::tone::<f64>(frequency, sr, n, phi)).into_any())
+}
+
+/// A swept cosine, as float64.
+///
+/// Args:
+///     fmin (float): Starting frequency in Hz.
+///     fmax (float): Frequency at the end in Hz.
+///     sr (float): Sample rate in Hz. Default 22050.
+///     length (Optional[int]): Samples.
+///     duration (Optional[float]): Seconds, if ``length`` is None.
+///     linear (bool): Sweep linearly; otherwise exponentially. Default False.
+///     phi (Optional[float]): Phase offset in radians. None means ``-pi / 2``.
+///
+/// Returns:
+///     numpy.ndarray[float64]: The samples.
+#[pyfunction]
+#[pyo3(
+    signature = (*, fmin, fmax, sr = 22050.0, length = None, duration = None, linear = false, phi = None),
+    text_signature = "(*, fmin, fmax, sr=22050, length=None, duration=None, linear=False, phi=None)"
+)]
+#[allow(clippy::too_many_arguments)]
+pub fn chirp<'py>(
+    py: Python<'py>,
+    fmin: f64,
+    fmax: f64,
+    sr: f64,
+    length: Option<Int>,
+    duration: Option<f64>,
+    linear: bool,
+    phi: Option<f64>,
+) -> PyResult<Bound<'py, PyAny>> {
+    let n = generated_length(sr, length, duration)?;
+    let phi = phi.unwrap_or(-std::f64::consts::FRAC_PI_2);
+    let v = ops::chirp::<f64>(fmin, fmax, sr, n, linear, phi).map_err(audio_err_to_py)?;
+    Ok(numpy::PyArray1::from_vec(py, v).into_any())
 }
 
 /// The smallest positive normal value of the input's floating-point type.
@@ -780,6 +914,34 @@ impl SparseRows {
     }
 }
 
+/// The non-zero entries of a dense matrix as [`SparseRows`].
+pub(crate) fn dense_to_rows<'py>(dense: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+    let py = dense.py();
+    let shape: (usize, usize) = dense.getattr("shape")?.extract()?;
+    let nonzero = numpy_attr(py, "nonzero")?.call1((dense,))?;
+    let rows = i64_vec(&nonzero.get_item(0)?, "rows")?;
+    let data = dense.get_item(&nonzero)?;
+    let mut indptr = vec![0_i32; shape.0 + 1];
+    for &r in &rows {
+        indptr[r as usize + 1] += 1;
+    }
+    for r in 0..shape.0 {
+        indptr[r + 1] += indptr[r];
+    }
+    let indices = nonzero.get_item(1)?.call_method1("astype", ("int32",))?;
+    Ok(Py::new(
+        py,
+        SparseRows {
+            data: data.unbind(),
+            indices: indices.unbind(),
+            indptr: PyArray1::from_vec(py, indptr).into_any().unbind(),
+            shape,
+        },
+    )?
+    .into_bound(py)
+    .into_any())
+}
+
 /// Removes the smallest values of each row, keeping a sparse matrix.
 ///
 /// In each row the sorted magnitudes are divided by the row's total and summed
@@ -974,7 +1136,7 @@ pub fn is_unique<'py>(data: &Bound<'py, PyAny>, axis: Int) -> PyResult<Bound<'py
     }, else unsupported_dtype("data", &arr))
 }
 
-fn parse_kind(kind: &Bound<'_, PyAny>) -> PyResult<InterpKind> {
+pub(crate) fn parse_kind(kind: &Bound<'_, PyAny>) -> PyResult<InterpKind> {
     if let Ok(k) = kind.extract::<i64>() {
         return match k {
             0 => Ok(InterpKind::Zero),
@@ -1590,6 +1752,9 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(valid_intervals, &m)?)?;
     m.add_function(wrap_pyfunction!(is_positive_int, &m)?)?;
     m.add_function(wrap_pyfunction!(valid_int, &m)?)?;
+    m.add_function(wrap_pyfunction!(zero_crossings, &m)?)?;
+    m.add_function(wrap_pyfunction!(tone, &m)?)?;
+    m.add_function(wrap_pyfunction!(chirp, &m)?)?;
     m.add_function(wrap_pyfunction!(match_events, &m)?)?;
     m.add_function(wrap_pyfunction!(match_intervals, &m)?)?;
     parent.add_submodule(&m)?;

@@ -150,8 +150,86 @@ def match_intervals(
 ) -> NDArray[np.int64]:
     """Matches each source interval to the target interval it overlaps most."""
 
+def zero_crossings(
+    y: npt.ArrayLike,
+    *,
+    threshold: float | None = 1e-10,
+    ref_magnitude: float | Callable[[NDArray[Any]], float] | None = None,
+    pad: bool = True,
+    zero_pos: bool = True,
+    axis: int = -1,
+) -> NDArray[np.bool_]:
+    """Marks the sign changes of a signal along one axis.
+
+    Args:
+        y: The signal, of any dimension.
+        threshold: Magnitudes up to this count as zero. None means 0.
+        ref_magnitude: Scales ``threshold``. A callable receives ``numpy.abs(y)``.
+        pad: The mark of the first element.
+        zero_pos: Zero counts as positive; otherwise it is a sign of its own.
+        axis: The time axis.
+
+    Returns:
+        The marks, of the shape of ``y``.
+    """
+    ...
+
+
+def tone(
+    frequency: float,
+    *,
+    sr: float = 22050,
+    length: int | None = None,
+    duration: float | None = None,
+    phi: float | None = None,
+) -> NDArray[np.float64]:
+    """A cosine of a given frequency and phase, as float64.
+
+    Args:
+        frequency: In Hz.
+        sr: Sample rate in Hz.
+        length: Samples.
+        duration: Seconds, if ``length`` is None.
+        phi: Phase offset in radians. None means ``-pi / 2``, which starts like a sine.
+
+    Returns:
+        The samples.
+    """
+    ...
+
+
+def chirp(
+    *,
+    fmin: float,
+    fmax: float,
+    sr: float = 22050,
+    length: int | None = None,
+    duration: float | None = None,
+    linear: bool = False,
+    phi: float | None = None,
+) -> NDArray[np.float64]:
+    """A swept cosine, as float64.
+
+    Args:
+        fmin: Starting frequency in Hz.
+        fmax: Frequency at the end in Hz.
+        sr: Sample rate in Hz.
+        length: Samples.
+        duration: Seconds, if ``length`` is None.
+        linear: Sweep linearly; otherwise exponentially.
+        phi: Phase offset in radians. None means ``-pi / 2``.
+
+    Returns:
+        The samples.
+    """
+    ...
+
+
 __all__ = [
     "__doc__",
+    "zero_crossings",
+    "tone",
+    "chirp",
     "MAX_MEM_BLOCK",
     "SparseRows",
     "abs2",

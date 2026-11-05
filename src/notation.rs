@@ -100,6 +100,127 @@ pub(crate) fn parse_tuning(intervals: &Bound<'_, PyAny>) -> PyResult<TuningSyste
     Ok(TuningSystem::Custom(crate::features::args::f64_vec(intervals, "intervals")?))
 }
 
+/// Maps a function over a scalar or a sequence, returning a value or an array.
+fn map_each<'py, R: pyo3::IntoPyObject<'py>>(
+    input: &Bound<'py, PyAny>,
+    f: impl Fn(&Bound<'py, PyAny>) -> PyResult<R>,
+) -> PyResult<Bound<'py, PyAny>> {
+    let py = input.py();
+    if input.is_instance_of::<PyString>() || is_scalar(input)? {
+        return f(input)?.into_bound_py_any(py);
+    }
+    let mut out = Vec::new();
+    for item in input.try_iter()? {
+        out.push(f(&item?)?.into_bound_py_any(py)?);
+    }
+    py.import("numpy")?.getattr("array")?.call1((PyList::new(py, out)?,))
+}
+
+/// The name of a MIDI number.
+///
+/// Args:
+///     midi (float | array_like): MIDI numbers. A value that is not finite gives ``""``.
+///     octave (bool): Include the octave. Default True.
+///     cents (bool): Include the deviation in cents, such as ``"A4+25"``. Needs ``octave``.
+///     key (str): The key, such as ``"F:maj"``, that decides the spelling. Default ``"C:maj"``.
+///     unicode (bool): Unicode accidentals; otherwise ASCII ``#`` and ``b``. Default False.
+///
+/// Returns:
+///     str | numpy.ndarray: The names.
+#[pyfunction]
+#[pyo3(
+    signature = (midi, *, octave = true, cents = false, key = "C:maj", unicode = false),
+    text_signature = "(midi, *, octave=True, cents=False, key='C:maj', unicode=False)"
+)]
+pub fn midi_to_note<'py>(
+    midi: &Bound<'py, PyAny>,
+    octave: bool,
+    cents: bool,
+    key: &str,
+    unicode: bool,
+) -> PyResult<Bound<'py, PyAny>> {
+    map_each(midi, |m| {
+        nt::midi_name(m.extract()?, octave, cents, key, unicode).map_err(audio_err_to_py)
+    })
+}
+
+/// The name of a frequency.
+///
+/// Args:
+///     hz (float | array_like): Frequencies in Hz.
+///     octave, cents, key, unicode: As ``midi_to_note``.
+///
+/// Returns:
+///     str | numpy.ndarray: The names.
+#[pyfunction]
+#[pyo3(
+    signature = (hz, *, octave = true, cents = false, key = "C:maj", unicode = false),
+    text_signature = "(hz, *, octave=True, cents=False, key='C:maj', unicode=False)"
+)]
+pub fn hz_to_note<'py>(
+    hz: &Bound<'py, PyAny>,
+    octave: bool,
+    cents: bool,
+    key: &str,
+    unicode: bool,
+) -> PyResult<Bound<'py, PyAny>> {
+    map_each(hz, |f| {
+        let f: f64 = f.extract()?;
+        let midi = 12.0 * (f.log2() - 440f64.log2()) + 69.0;
+        nt::midi_name(midi, octave, cents, key, unicode).map_err(audio_err_to_py)
+    })
+}
+
+fn note_number(note: &str, round_midi: bool) -> PyResult<f64> {
+    if note.is_empty() {
+        return Ok(f64::NAN);
+    }
+    let midi = audio_samples::utils::audio_math::note_to_midi_fractional(note)
+        .map_err(audio_err_to_py)?;
+    Ok(if round_midi {
+        let rounded = midi.round();
+        if (midi - midi.trunc()).abs() == 0.5 && rounded % 2.0 != 0.0 {
+            rounded - midi.signum()
+        } else {
+            rounded
+        }
+    } else {
+        midi
+    })
+}
+
+/// The MIDI number of a note name.
+///
+/// Args:
+///     note (str | Iterable[str]): Names such as ``"C#4"`` or ``"A4+25"``. An empty name
+///         gives NaN.
+///     round_midi (bool): Round to a whole number. Default True.
+///
+/// Returns:
+///     float | numpy.ndarray: The numbers.
+#[pyfunction]
+#[pyo3(signature = (note, *, round_midi = true), text_signature = "(note, *, round_midi=True)")]
+pub fn note_to_midi<'py>(note: &Bound<'py, PyAny>, round_midi: bool) -> PyResult<Bound<'py, PyAny>> {
+    map_each(note, |n| note_number(n.cast::<PyString>()?.to_cow()?.as_ref(), round_midi))
+}
+
+/// The frequency of a note name.
+///
+/// Args:
+///     note (str | Iterable[str]): Names such as ``"C#4"`` or ``"A4+25"``.
+///     round_midi (bool): Round to a whole note first. Default False.
+///
+/// Returns:
+///     float | numpy.ndarray: The frequencies in Hz.
+#[pyfunction]
+#[pyo3(signature = (note, *, round_midi = false), text_signature = "(note, *, round_midi=False)")]
+pub fn note_to_hz<'py>(note: &Bound<'py, PyAny>, round_midi: bool) -> PyResult<Bound<'py, PyAny>> {
+    map_each(note, |n| {
+        note_number(n.cast::<PyString>()?.to_cow()?.as_ref(), round_midi)
+            .map(|m| 440.0 * 2f64.powf((m - 69.0) / 12.0))
+    })
+}
+
 /// Frequencies of a tuning system over several octaves.
 ///
 /// Args:
@@ -509,6 +630,10 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     )?;
     m.add_function(wrap_pyfunction!(pythagorean_intervals, &m)?)?;
     m.add_function(wrap_pyfunction!(plimit_intervals, &m)?)?;
+    m.add_function(wrap_pyfunction!(midi_to_note, &m)?)?;
+    m.add_function(wrap_pyfunction!(hz_to_note, &m)?)?;
+    m.add_function(wrap_pyfunction!(note_to_midi, &m)?)?;
+    m.add_function(wrap_pyfunction!(note_to_hz, &m)?)?;
     m.add_function(wrap_pyfunction!(interval_frequencies, &m)?)?;
     m.add_function(wrap_pyfunction!(fifths_to_note, &m)?)?;
     m.add_function(wrap_pyfunction!(interval_to_fjs, &m)?)?;

@@ -197,7 +197,7 @@ _NOT_METHOD = Absorbed("not used by this method.")
 _LAYOUT = Absorbed("an AudioSamples knows its layout.")
 _AUDIO: dict[str, Option] = {"y": _Y, "sr": _SR}
 _DTYPE = Unsupported("the output precision follows the sample type; convert the audio with as_f32, as_f64 or to_format first.")
-_OUT = Unsupported("there is no output-buffer argument; the result is a new array.")
+_OUT = Unsupported("the array forms take out=: forms.stft, forms.istft, forms.to_mono, forms.to_stereo and forms.to_multi.")
 _ARRAY_SR = Default(22050, "a required sr", "Pass sr=...")
 _ARRAY_HOP = Default(512, "a required hop_length", "Pass hop_length=...")
 _HOP_NONE = Default(512, "hop_length=None", "Pass hop_length=512 with frames=.")
@@ -242,8 +242,8 @@ _e(
             "librosa mixes to mono here; io.read does not. Call .to_mono() on the result to do the same.",
             value_note="io.read keeps the file's channels. Call .to_mono() on the result for mono.",
         ),
-        "offset": Unsupported("read the file and slice it, or use io.StreamedAudioReader."),
-        "duration": Unsupported("read the file and slice it, or use io.StreamedAudioReader."),
+        "offset": Unsupported("use forms.read_segment(path, offset=..., duration=...)."),
+        "duration": Unsupported("use forms.read_segment(path, offset=..., duration=...)."),
         "dtype": Default(
             _Named("numpy.float32"),
             "the file's own sample type",
@@ -280,12 +280,12 @@ _e(
         "block_length": Absorbed("it goes into the size given to windows()."),
         "frame_length": Absorbed("it goes into the size given to windows()."),
         "hop_length": Absorbed("it goes into the size given to windows()."),
-        "sr": Unsupported("the reader keeps the file's rate."),
+        "sr": Unsupported("use forms.stream_blocks(path, ..., sr=...)."),
         "mono": Default(True, "the file's own channels", "librosa mixes each block to mono; the reader does not."),
-        "offset": Unsupported("skip the leading windows instead."),
-        "duration": Unsupported("stop reading after the windows you need."),
-        "fill_value": Unsupported("the reader has no padding option."),
-        "res_type": Unsupported("the reader does not resample."),
+        "offset": Unsupported("use forms.stream_blocks(path, ..., offset=...)."),
+        "duration": Unsupported("use forms.stream_blocks(path, ..., duration=...)."),
+        "fill_value": Unsupported("use forms.stream_blocks(path, ..., fill_value=...)."),
+        "res_type": Unsupported("use forms.stream_blocks(path, ..., res_type=...)."),
         "dtype": Default(_Named("numpy.float32"), "the file's own sample type"),
     },
 )
@@ -305,11 +305,11 @@ _e(
     "Audio only; no S= or path= forms.",
     options={
         **_AUDIO,
-        "S": Unsupported("compute the duration from the frame count and hop."),
-        "n_fft": Unsupported("only used with S=."),
-        "hop_length": Unsupported("only used with S=."),
-        "center": Unsupported("only used with S=."),
-        "path": Unsupported("use io.info(path) for the file's details, or read the file."),
+        "S": Unsupported("use forms.get_duration(S=...)."),
+        "n_fft": Unsupported("use forms.get_duration(S=..., n_fft=...)."),
+        "hop_length": Unsupported("use forms.get_duration(S=..., hop_length=...)."),
+        "center": Unsupported("use forms.get_duration(S=..., center=...)."),
+        "path": Unsupported("use forms.get_duration(path=...)."),
     },
 )
 _e(
@@ -328,8 +328,8 @@ _e(
             'Pass quality="high" for the closest result.',
             value_note='becomes quality=; "high" is closest to soxr_hq.',
         ),
-        "fix": Only((True,), "The length is always exact."),
-        "scale": Only((False,), "Scaling by the ratio is not supported."),
+        "fix": Only((True,), "The length is always exact; forms.resample takes fix."),
+        "scale": Only((False,), "Use forms.resample(y, ..., scale=True)."),
         "axis": _LAYOUT,
     },
 )
@@ -341,8 +341,8 @@ _e(
     "The default method is the channel average.",
     options={
         "signals": _Y,
-        "pad": Unsupported("the channels of an AudioSamples already have one length."),
-        "norm": Only((True,), "The method is the average of the channels."),
+        "pad": Unsupported("use forms.to_mono(*signals, pad=...)."),
+        "norm": Only((True,), "Use forms.to_mono(*signals, norm=False) for the sum."),
         "out": _OUT,
     },
 )
@@ -353,11 +353,11 @@ _e(
     WITH_DIFFERENCES,
     "Takes a StereoConversionMethod; for two separate signals use AudioSamples.stack.",
     options={
-        "left": Unsupported("there is no two-signal form; use AudioSamples.stack."),
-        "right": Unsupported("there is no two-signal form; use AudioSamples.stack."),
-        "downmix": Unsupported("use AudioSamples.stack."),
-        "pad": Unsupported("use AudioSamples.stack, after padding to one length."),
-        "norm": Unsupported("use AudioSamples.stack."),
+        "left": Unsupported("use forms.to_stereo(left=..., right=...)."),
+        "right": Unsupported("use forms.to_stereo(left=..., right=...)."),
+        "downmix": Unsupported("use forms.to_stereo(left=..., right=..., downmix=...)."),
+        "pad": Unsupported("use forms.to_stereo(left=..., right=..., pad=...)."),
+        "norm": Unsupported("use forms.to_stereo(left=..., right=..., norm=...)."),
         "out": _OUT,
     },
 )
@@ -369,9 +369,9 @@ _e(
     "Takes a list of AudioSamples; no pad or trim to a common length.",
     options={
         "signals": Renamed("sources", "Pass the signals as one list of AudioSamples."),
-        "downmix": Unsupported("mix each source with to_mono first."),
-        "pad": Unsupported("pad the sources to one length first."),
-        "norm": Unsupported("scale the sources first."),
+        "downmix": Unsupported("use forms.to_multi(*signals, downmix=...)."),
+        "pad": Unsupported("use forms.to_multi(*signals, pad=...)."),
+        "norm": Unsupported("use forms.to_multi(*signals, norm=...)."),
         "out": _OUT,
     },
 )
@@ -400,10 +400,10 @@ _e(
     "Returns a count, not a boolean mask; AudioSamples.zero_crossing_rate_frames gives the frame-wise rate.",
     options={
         "y": _Y,
-        "threshold": Unsupported("the method takes no arguments."),
-        "ref_magnitude": Unsupported("the method takes no arguments."),
-        "pad": Unsupported("the method takes no arguments."),
-        "zero_pos": Unsupported("the method takes no arguments."),
+        "threshold": Unsupported("use arrays.zero_crossings(y, threshold=...)."),
+        "ref_magnitude": Unsupported("use arrays.zero_crossings(y, ref_magnitude=...)."),
+        "pad": Unsupported("use arrays.zero_crossings(y, pad=...)."),
+        "zero_pos": Unsupported("use arrays.zero_crossings(y, zero_pos=...)."),
         "axis": _LAYOUT,
     },
 )
@@ -425,7 +425,7 @@ _e(
         "sr": Renamed("sample_rate", "The default is 44100, not 22050."),
         "length": Renamed("duration_secs", "Give the length in seconds: length / sr."),
         "duration": Renamed("duration_secs"),
-        "phi": Unsupported("the generators start at phase zero."),
+        "phi": Unsupported("use arrays.tone(frequency, ..., phi=...)."),
     },
 )
 _e(
@@ -441,7 +441,7 @@ _e(
         "length": Renamed("duration_secs", "Give the length in seconds: length / sr."),
         "duration": Renamed("duration_secs"),
         "linear": Absorbed("choose the function instead."),
-        "phi": Unsupported("the generators start at phase zero."),
+        "phi": Unsupported("use arrays.chirp(fmin=..., fmax=..., phi=...)."),
     },
 )
 _e(
@@ -500,7 +500,7 @@ _e(
     "y | sr S n_fft hop_length win_length window center reassign_frequencies reassign_times ref_power fill_nan clip dtype pad_mode",
     "AudioSamples.reassigned_spectrogram",
     EQUIVALENT,
-    options={**_AUDIO, "S": Unsupported("the method computes the STFT from the audio."), "dtype": _DTYPE},
+    options={**_AUDIO, "S": Unsupported("use forms.reassigned_spectrogram(y, S=...)."), "dtype": _DTYPE},
     shape="Each array is (channels, 1 + n_fft // 2, n_frames), also for mono audio; index [0] for librosa's mono shape.",
 )
 _e(
@@ -587,9 +587,9 @@ _e(
     "y | sr hop_length fmin n_bins intervals gamma bins_per_octave tuning filter_scale norm sparsity window scale pad_mode res_type dtype",
     "AudioSamples.vqt",
     WITH_DIFFERENCES,
-    'As cqt; only intervals="equal".',
+    'As cqt.',
     shape=_CQT_SHAPE,
-    options={**_CQT_OPTIONS, "intervals": Only(("equal",), "Other tunings are not supported.")},
+    options={**_CQT_OPTIONS},
 )
 _e(
     "librosa.pseudo_cqt",
@@ -682,24 +682,20 @@ _e(
     ],
 )
 _e("librosa.pitch_tuning", "frequencies | resolution bins_per_octave", "features.pitch_tuning", EQUIVALENT)
-_e("librosa.salience", "S | freqs harmonics weights aggregate filter_peaks fill_value kind axis", "features.salience", EQUIVALENT)
-_KIND_LINEAR = Only(("linear",), "Other interpolation kinds are not supported.")
-_FREQ_AXIS = Only((-2,), "Other frequency axes are not supported.")
+_e("librosa.salience", "S | freqs harmonics weights aggregate filter_peaks fill_value kind axis", "features.salience", WITH_DIFFERENCES, "Linear interpolation along the frequency axis; forms.salience takes the others.", options={"kind": Only(("linear",), "Use forms.salience(S, ..., kind=...)."), "axis": Only((-2,), "Use forms.salience(S, ..., axis=...).")})
 _e(
     "librosa.interp_harmonics",
     "x | freqs harmonics kind fill_value axis",
     "features.interp_harmonics",
-    WITH_DIFFERENCES,
-    'Only kind="linear".',
-    options={"kind": _KIND_LINEAR, "axis": _FREQ_AXIS},
+    EQUIVALENT,
+    "Interpolants other than linear, and other axes, need a 1-D frequency grid.",
 )
 _e(
     "librosa.f0_harmonics",
     "x | f0 freqs harmonics kind fill_value axis",
     "features.f0_harmonics",
-    WITH_DIFFERENCES,
-    'Only kind="linear".',
-    options={"kind": _KIND_LINEAR, "axis": _FREQ_AXIS},
+    EQUIVALENT,
+    "Interpolants other than linear, and other axes, need a 1-D frequency grid.",
 )
 
 # Core: unit conversions ----------------------------------------------------
@@ -794,10 +790,10 @@ _e(
     "Returns (name, cents) (a list of names and a cents array for array input); ASCII #; MIDI 0..127 only.",
     options={
         "frequencies": Renamed("freq_hz"),
-        "octave": Unsupported("names always have an octave."),
+        "octave": Unsupported("use notation.hz_to_note(hz, octave=...)."),
         "cents": Absorbed("the cents are always returned."),
-        "key": Unsupported("names use sharps."),
-        "unicode": Only((False,), "Names use ASCII #."),
+        "key": Unsupported("use notation.hz_to_note(hz, key=...)."),
+        "unicode": Only((False,), "Use notation.hz_to_note(hz, unicode=True)."),
     },
 )
 _e(
@@ -808,9 +804,9 @@ _e(
     "Integer MIDI 0..127 (an array gives a list of names); ASCII #; no cents, no octave=False.",
     options={
         "midi": Renamed("midi_note"),
-        "octave": Only((True,), "Names always have an octave."),
-        "cents": Only((False,), "Use utils.frequency_to_note for cents."),
-        "key": Only(("C:maj",), "Names use sharps."),
+        "octave": Only((True,), "Use notation.midi_to_note(midi, octave=False)."),
+        "cents": Only((False,), "Use notation.midi_to_note(midi, cents=True)."),
+        "key": Only(("C:maj",), "Use notation.midi_to_note(midi, key=...)."),
         "unicode": Default(True, "ASCII #", "librosa returns Unicode sharps here; compare names with that in mind."),
     },
 )
@@ -820,7 +816,7 @@ _e(
     "utils.note_to_frequency",
     WITH_DIFFERENCES,
     "Name or sequence of names; grammar and limits as note_to_midi.",
-    options={"note": Renamed("note_name"), "round_midi": Only((False,), "Use utils.note_to_midi for a rounded note.")},
+    options={"note": Renamed("note_name"), "round_midi": Only((False,), "Use notation.note_to_hz(note, round_midi=True).")},
 )
 _e(
     "librosa.note_to_midi",
@@ -828,7 +824,7 @@ _e(
     "utils.note_to_midi",
     WITH_DIFFERENCES,
     "Name or sequence of names; librosa's grammar (accidentals, cents suffix); the octave is required and the result is in 0..127.",
-    options={"note": Renamed("note_name"), "round_midi": Only((True,), "Fractional MIDI values are not returned.")},
+    options={"note": Renamed("note_name"), "round_midi": Only((True,), "Use notation.note_to_midi(note, round_midi=False).")},
 )
 _e("librosa.hz_to_octs", "frequencies | tuning bins_per_octave", "utils.hz_to_octs", EQUIVALENT)
 _e("librosa.octs_to_hz", "octs | tuning bins_per_octave", "utils.octs_to_hz", EQUIVALENT)
@@ -1023,8 +1019,8 @@ _e(
         )
     ],
 )
-_CHROMA_WINDOW = Only((None,), "The smoothing window of cq_to_chroma is not supported.")
-_C_FORM = Unsupported("this method computes the CQT from the audio.")
+_CHROMA_WINDOW = Only((None,), "Compute the CQT, then use forms.chroma_cqt(C=..., window=...) or forms.chroma_cens(C=..., window=...).")
+_C_FORM = Unsupported("use forms.chroma_cqt(C=...) or forms.chroma_cens(C=...).")
 _e(
     "librosa.feature.chroma_cqt",
     "| y sr C hop_length fmin norm threshold tuning n_chroma n_octaves window bins_per_octave cqt_mode",
@@ -1051,8 +1047,8 @@ _e(
     "As vqt.",
     options={
         **_AUDIO,
-        "V": Unsupported("this method computes the VQT from the audio."),
-        "intervals": Only(("equal",), "Other tunings are not supported."),
+        "V": Unsupported("use forms.chroma_vqt(V=...)."),
+        "intervals": Only(("equal",), "Use AudioSamples.vqt(intervals=...), then forms.chroma_vqt(V=...)."),
     },
     shape=_FRAMES,
 )
@@ -1128,7 +1124,7 @@ _e(
         **_ENV_OPTION,
         "tg": Unsupported("use rhythm.tempogram_ratio(tg=...)."),
         "bpm": Unsupported("use rhythm.tempogram_ratio(bpm=...)."),
-        "freqs": Unsupported("custom frequencies are not supported."),
+        "freqs": Unsupported("use forms.tempogram_ratio(tg=..., bpm=..., freqs=...)."),
         "kind": Unsupported("use rhythm.tempogram_ratio(kind=...)."),
     },
     shape=_FRAMES,
@@ -1139,7 +1135,7 @@ _e(
             options={
                 "y": Absorbed("this form takes an onset envelope or tempogram rather than audio."),
                 "sr": _ARRAY_SR,
-                "freqs": Unsupported("custom frequencies are not supported."),
+                "freqs": Unsupported("use forms.tempogram_ratio(tg=..., bpm=..., freqs=...)."),
             },
         )
     ],
@@ -1208,7 +1204,7 @@ _e(
     "AudioSamples.pitch_shift",
     WITH_DIFFERENCES,
     "Final resampling by this library's resampler, not soxr (~68 dB SNR).",
-    options={**_AUDIO, "scale": Only((False,), "Scaling by the ratio is not supported.")},
+    options={**_AUDIO, "scale": Only((False,), "Use forms.pitch_shift(y, ..., scale=True).")},
     behaviour=("Returns an AudioSamples of the input's sample type.",),
 )
 _ZI: dict[str, Option] = {
@@ -1274,7 +1270,7 @@ _e(
         **_AUDIO,
         "S": _NOT_METHOD,
         "ref": Unsupported("use rhythm.onset_strength(S=..., ref=...)."),
-        "feature": Unsupported("the feature is always the log mel spectrogram; compute your own and pass S= to rhythm.onset_strength."),
+        "feature": Unsupported("use forms.onset_strength(y=..., feature=...)."),
     },
     shape=_TRACK,
     forms=[
@@ -1305,7 +1301,7 @@ _e(
         )
     ],
 )
-_SPARSE_ONLY = Only((True,), "Dense output is not supported.")
+_SPARSE_ONLY = Only((True,), "Use forms.onset_detect(y=..., sparse=False) or forms.beat_track(y=..., sparse=False).")
 _e(
     "librosa.onset.onset_detect",
     "| y sr onset_envelope hop_length backtrack energy units normalize sparse **",
@@ -1396,25 +1392,24 @@ _e(
     "n_input | bins_per_octave n_chroma fmin window base_c dtype",
     "features.cq_to_chroma",
     WITH_DIFFERENCES,
-    "The smoothing window must be None.",
-    options={"window": _CHROMA_WINDOW, "dtype": _FILTER_DTYPE},
+    "float64 tables.",
+    options={"dtype": _FILTER_DTYPE},
 )
-_ALPHA = Only((None,), "An explicit alpha is not supported.")
 _e(
     "librosa.filters.wavelet",
     "| freqs sr window filter_scale pad_fft norm dtype gamma alpha **",
     "features.wavelet",
     WITH_DIFFERENCES,
-    "complex128 filters (librosa: complex64); no explicit alpha.",
-    options={"sr": _ARRAY_SR, "alpha": _ALPHA, "dtype": _WAVELET_DTYPE},
+    "complex128 filters (librosa: complex64).",
+    options={"sr": _ARRAY_SR, "dtype": _WAVELET_DTYPE},
 )
 _e(
     "librosa.filters.wavelet_lengths",
     "| freqs sr window filter_scale gamma alpha",
     "features.wavelet_lengths",
     WITH_DIFFERENCES,
-    "No explicit alpha (at least two ascending freqs).",
-    options={"sr": _ARRAY_SR, "alpha": _ALPHA},
+    "An explicit alpha allows one frequency; without it, at least two ascending frequencies.",
+    options={"sr": _ARRAY_SR},
 )
 _e(
     "librosa.filters.window_bandwidth",
@@ -1452,9 +1447,9 @@ _e(
     WITH_DIFFERENCES,
     "1-D input, last-axis framing. A writable copy by default; copy=False gives librosa's read-only strided view.",
     options={
-        "axis": Only((-1,), "Move the axis with numpy.moveaxis first."),
+        "axis": Only((-1,), "Use forms.frame(x, ..., axis=...)."),
         "writeable": Renamed("copy", "copy=True gives a writable array; copy=False a read-only view."),
-        "subok": Unsupported("the result is a plain ndarray."),
+        "subok": Unsupported("use forms.frame(x, ..., subok=True)."),
     },
 )
 _e("librosa.util.normalize", "S | norm axis threshold fill", "features.normalize", EQUIVALENT)
@@ -1641,14 +1636,12 @@ _none(
 
 # librosa.segment and librosa.sequence --------------------------------------
 
-_DENSE_ONLY = Only((False,), "Dense only.")
 _e(
     "librosa.segment.recurrence_matrix",
     "data | k width metric sym sparse mode bandwidth self axis full",
     "sequence.recurrence_matrix",
     WITH_DIFFERENCES,
-    "Dense only; axis=-1 only; exact neighbour search. Connectivity results are bool, as librosa's.",
-    options={"sparse": _DENSE_ONLY, "axis": Only((-1,), "Move the axis with numpy.moveaxis first.")},
+    "sparse=True returns arrays.SparseRows; exact neighbour search. Connectivity results are bool, as librosa's.",
 )
 _e(
     "librosa.segment.cross_similarity",
@@ -1656,7 +1649,6 @@ _e(
     "sequence.cross_similarity",
     WITH_DIFFERENCES,
     "As recurrence_matrix.",
-    options={"sparse": _DENSE_ONLY},
 )
 _e("librosa.segment.recurrence_to_lag", "rec | pad axis", "sequence.recurrence_to_lag", EQUIVALENT, "Dense input.")
 _e("librosa.segment.lag_to_recurrence", "lag | axis", "sequence.lag_to_recurrence", EQUIVALENT, "Dense input.")

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Sequence, Union, overload, Literal, Optional
+from typing import Any, Iterable, Sequence, Union, overload, Literal, Optional
 
 import numpy as np
 import numpy.typing as npt
@@ -48,8 +48,65 @@ def note_to_svara_h(notes: Union[str, Sequence[str]], *, Sa: str, abbr: bool = T
 def note_to_svara_c(notes: Union[str, Sequence[str]], *, Sa: str, mela: _Mela, abbr: bool = True, octave: bool = True, unicode: bool = True) -> Any:
     """The Carnatic svara of note names."""
 
+def midi_to_note(
+    midi: float | npt.ArrayLike,
+    *,
+    octave: bool = True,
+    cents: bool = False,
+    key: str = "C:maj",
+    unicode: bool = False,
+) -> Any:
+    """The name of a MIDI number.
+
+    Args:
+        midi: MIDI numbers. A value that is not finite gives ``""``.
+        octave: Include the octave.
+        cents: Include the deviation in cents, such as ``"A4+25"``. Needs ``octave``.
+        key: The key, such as ``"F:maj"``, that decides the spelling.
+        unicode: Unicode accidentals; otherwise ASCII ``#`` and ``b``.
+
+    Returns:
+        A string for a scalar, otherwise an array of strings.
+    """
+    ...
+
+
+def hz_to_note(
+    hz: float | npt.ArrayLike,
+    *,
+    octave: bool = True,
+    cents: bool = False,
+    key: str = "C:maj",
+    unicode: bool = False,
+) -> Any:
+    """The name of a frequency in Hz; the other arguments are those of ``midi_to_note``."""
+    ...
+
+
+def note_to_midi(note: str | Iterable[str], *, round_midi: bool = True) -> Any:
+    """The MIDI number of a note name; an empty name gives NaN.
+
+    Args:
+        note: Names such as ``"C#4"`` or ``"A4+25"``.
+        round_midi: Round to a whole number.
+
+    Returns:
+        A float for a string, otherwise an array.
+    """
+    ...
+
+
+def note_to_hz(note: str | Iterable[str], *, round_midi: bool = False) -> Any:
+    """The frequency of a note name in Hz; ``round_midi`` rounds to a whole note first."""
+    ...
+
+
 __all__ = [
     "__doc__",
+    "midi_to_note",
+    "hz_to_note",
+    "note_to_midi",
+    "note_to_hz",
     "fifths_to_note",
     "hz_to_fjs",
     "hz_to_svara_c",
