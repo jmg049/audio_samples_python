@@ -90,6 +90,7 @@ if _so_files:
     inverse = _ext.inverse
     factorization = _ext.factorization
     pitch_filterbank = _ext.pitch_filterbank
+    segment = _ext.segment
     arrays = _ext.arrays
     mu_law_encode = _ext.mu_law_encode
     mu_law_decode = _ext.mu_law_decode
@@ -116,6 +117,7 @@ if _so_files:
         "inverse": _ext.inverse,
         "factorization": _ext.factorization,
         "pitch_filterbank": _ext.pitch_filterbank,
+        "segment": _ext.segment,
         "arrays": _ext.arrays,
     }.items():
         _sys.modules.setdefault(f"audio_samples.{_subname}", _submod)
@@ -222,6 +224,7 @@ __all__ = [
     "inverse",
     "factorization",
     "pitch_filterbank",
+    "segment",
     "arrays",
     "spectrograms",
     "mpl",
