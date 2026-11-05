@@ -174,10 +174,24 @@ sphinx_gallery_conf = {
     "backreferences_dir": None,
     "download_all_examples": False,
     "write_computation_times": False,
-    # One flat toctree per section, so that the sidebar nests each example under its
-    # own section heading.
-    "nested_sections": False,
     "show_memory": False,
     "show_signature": False,
     "remove_config_comments": True,
 }
+
+
+def _gallery_index_sections_as_rubrics(app, docname, source):
+    """Keep the gallery index's section titles out of the sidebar.
+
+    sphinx-gallery writes each section as a heading on the index page and its toctree after
+    the last one, so the sidebar would hang every section's page under the last section.
+    As rubrics the titles look the same on the page, and the toctree belongs to the page title.
+    """
+    if docname == "gallery/index":
+        import re
+
+        source[0] = re.sub(r"^(.+)\n-{3,}$", r".. rubric:: \1", source[0], flags=re.M)
+
+
+def setup(app):
+    app.connect("source-read", _gallery_index_sections_as_rubrics)

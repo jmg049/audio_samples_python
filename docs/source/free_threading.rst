@@ -41,7 +41,10 @@ These are errors you can catch, not races:
 * On a free-threaded build, an in-place method on an ``AudioSamples`` built on a NumPy array
   takes a write borrow on that array, and reads of it through any ``AudioSamples`` or
   array argument take a read borrow. The call that meets the other raises
-  ``TypeError: The given array is already borrowed``. With the GIL an in-place method runs
+  ``TypeError: The given array is already borrowed``. Each borrow goes through one lock shared
+  by all arrays: on an efficiency core a call on such audio cost about 60 ns more, and calls that do
+  almost nothing on 8 threads wait on the lock (``rms`` of 64 samples of one shared array, 3.4 us
+  per call against 1.6 us without the borrow). With the GIL an in-place method runs
   with the GIL held, so a reader holding the GIL cannot overlap it, and these borrows
   are not taken.
 
@@ -64,7 +67,7 @@ batch rather than making a thread per file.
 Scaling
 -------
 
-Measured on 2026-11-04 on an Intel i7-13700KF under Linux, with audio_samples 0.2.4, CPython
+Measured on 2026-11-04 and 2026-11-05 on an Intel i7-13700KF under Linux, with audio_samples 0.2.4, CPython
 3.14.2 (regular and free-threaded), NumPy 2.5.4, librosa 1.0.0, SciPy 1.18.1 and numba 0.68.1.
 Native libraries were limited to one thread each, so the threads are all Python's. The process
 was pinned to the eight efficiency cores (four CPUs in each of two clusters, each cluster
@@ -91,18 +94,18 @@ at 22050 Hz already in memory; resampling goes to 16000 Hz at each library's hig
      - 16 threads
      - Others busy (CPUs)
    * - audio_samples, 3.14
-     - 1.99 (1.0x)
-     - 1.02 (2.0x)
-     - 0.59 (3.4x)
-     - 0.44 (4.5x)
-     - 0.44 (4.6x)
+     - 1.60 (1.0x)
+     - 0.86 (1.9x)
+     - 0.58 (2.8x)
+     - 0.40 (4.0x)
+     - 0.38 (4.2x)
      - 0.0 to 0.1
    * - audio_samples, 3.14t
-     - 2.07 (1.0x)
-     - 1.05 (2.0x)
-     - 0.61 (3.4x)
-     - 0.44 (4.7x)
-     - 0.44 (4.7x)
+     - 1.64 (1.0x)
+     - 0.86 (1.9x)
+     - 0.57 (2.9x)
+     - 0.47 (3.5x)
+     - 0.41 (4.0x)
      - 0.0 to 0.1
    * - librosa, 3.14
      - 6.87 (1.0x)
@@ -205,19 +208,19 @@ What this shows:
 
 * For ``audio_samples`` the free-threaded build gives no extra scaling over the regular build,
   because these calls already run without the GIL. One-thread times are within 4 %.
-* Scaling is close to linear up to 4 threads for resampling and stops at about 4.5 to 7
+* Scaling is close to linear up to 4 threads for resampling and stops at about 4 to 7
   times on these 8 cores. More threads than CPUs do not help.
 * The limit for MFCC is the memory system, not a lock. With ``perf stat`` on 3.14t, 8 threads
-  executed the same number of instructions as one (164 billion) but took 56 % more cycles,
-  with 48 times the last-level cache misses. System time was about 8 % of CPU time. Resampling, with
+  executed the same number of instructions as one (114 billion) but took 68 % more cycles, with
+  more last-level cache misses. System time was about 10 % of CPU time. Resampling, with
   a small working set, scales furthest.
 * Rayon is not used on these paths. glibc's allocator returns large buffers to the kernel, which costs page
   faults: setting ``MALLOC_MMAP_THRESHOLD_=4294967296``, ``MALLOC_TRIM_THRESHOLD_=4294967296`` and
   ``MALLOC_TOP_PAD_=268435456`` took the 8-thread STFT batch from 0.31 s to 0.28 s and left MFCC at 0.44 to
   0.45 s. The package does not change these process-wide settings.
 * With 16 threads on 14 logical CPUs (efficiency cores plus three performance cores with
-  hyper-threading) the batches took: MFCC ``audio_samples`` 0.35 s on 3.14 and 0.39 s on 3.14t, librosa 1.37 s and 1.28 s;
-  STFT ``audio_samples`` 0.28 s and 0.30 s, librosa 0.70 s and 0.52 s; resample ``audio_samples``
+  hyper-threading), measured before the MFCC path was reduced, the batches took: MFCC
+  ``audio_samples`` 0.35 s on 3.14 and 0.39 s on 3.14t, librosa 1.37 s and 1.28 s; STFT ``audio_samples`` 0.28 s and 0.30 s, librosa 0.70 s and 0.52 s; resample ``audio_samples``
   0.08 s and 0.09 s, librosa 0.20 s and 0.20 s.
 * librosa 1.0.0 installs from wheels on 3.14t, including numba and llvmlite, and does not turn the GIL
   back on. Its 8-thread MFCC batch took 1.58 s on 3.14 and 1.55 s on 3.14t.

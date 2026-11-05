@@ -15,6 +15,11 @@ has the full detail.
   a ThreadSanitizer run; on `python3.14t` the GIL stays off. A read that meets a concurrent
   `SosFilter.process_samples_in_place` on the same array raises `TypeError` instead of
   a `PanicException`. See the "Threads and free-threaded Python" page.
+- **Threads.** Streaming readers and writers work from any thread, one call at a time; they
+  no longer raise a `PanicException` on another thread. On a free-threaded build, an in-place
+  method on audio built on a NumPy array and reads of that array raise `TypeError` when they meet.
+- **Faster.** `hpss` on a spectrogram (median filter), `melspectrogram`, `mfcc_frames` and `to_mono`
+  of decoded stereo. Results are unchanged.
 - **Example gallery.** The docs have a gallery by task (`docs/gallery`, built with
   sphinx-gallery): each entry runs during the docs build, and a failure stops it.
 - `AudioSamples.apply_compressor` and `apply_limiter` stubs match the methods, which take a
