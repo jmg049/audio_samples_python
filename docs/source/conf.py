@@ -174,6 +174,9 @@ sphinx_gallery_conf = {
     "backreferences_dir": None,
     "download_all_examples": False,
     "write_computation_times": False,
+    # One flat toctree per section, so that the sidebar nests each example under its
+    # own section heading.
+    "nested_sections": False,
     "show_memory": False,
     "show_signature": False,
     "remove_config_comments": True,

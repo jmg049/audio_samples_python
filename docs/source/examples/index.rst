@@ -33,8 +33,10 @@ processing behind each task and check every number they state.
    * - Mel and MFCC
      - :ref:`Mel <sphx_glr_gallery_mel_mfcc_plot_mel_spectrogram.py>`,
        :ref:`MFCC <sphx_glr_gallery_mel_mfcc_plot_mfcc.py>`,
-       :ref:`chroma <sphx_glr_gallery_mel_mfcc_plot_chroma.py>`
-     - :doc:`Cepstrum, mel and MFCC <../tutorials/10_cepstrum_mel_mfcc>`
+       :ref:`chroma <sphx_glr_gallery_mel_mfcc_plot_chroma.py>`,
+       :ref:`perceptual scales <sphx_glr_gallery_mel_mfcc_plot_perceptual_scales.py>`
+     - :doc:`Cepstrum, mel and MFCC <../tutorials/10_cepstrum_mel_mfcc>`,
+       :doc:`Psychoacoustics and codecs <../tutorials/14_psychoacoustics_codecs>`
    * - Pitch
      - :ref:`YIN and pYIN <sphx_glr_gallery_pitch_plot_yin_and_pyin.py>`,
        :ref:`harmonics <sphx_glr_gallery_pitch_plot_harmonics.py>`
@@ -69,9 +71,6 @@ processing behind each task and check every number they state.
 
 Going further
 -------------
-
-The tutorial :doc:`Psychoacoustics and codecs <../tutorials/14_psychoacoustics_codecs>` has no
-gallery entry.
 
 The Rust crate has the same tasks as examples: see the gallery chapter of its
 `book <https://github.com/jmg049/audio_samples/tree/main/book>`_.
