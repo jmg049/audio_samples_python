@@ -92,6 +92,7 @@ if _so_files:
     pitch_filterbank = _ext.pitch_filterbank
     segment = _ext.segment
     arrays = _ext.arrays
+    notation = _ext.notation
     mu_law_encode = _ext.mu_law_encode
     mu_law_decode = _ext.mu_law_decode
 
@@ -119,6 +120,7 @@ if _so_files:
         "pitch_filterbank": _ext.pitch_filterbank,
         "segment": _ext.segment,
         "arrays": _ext.arrays,
+        "notation": _ext.notation,
     }.items():
         _sys.modules.setdefault(f"audio_samples.{_subname}", _submod)
 
@@ -226,6 +228,7 @@ __all__ = [
     "pitch_filterbank",
     "segment",
     "arrays",
+    "notation",
     "spectrograms",
     "mpl",
     "spectrograms",

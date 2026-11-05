@@ -35,6 +35,7 @@ pub mod factorization;
 pub mod pitch_filterbank;
 pub mod segment;
 pub mod arrays;
+pub mod notation;
 pub mod spectral;
 pub mod types;
 pub mod utils;
@@ -745,6 +746,7 @@ fn audio_samples_python(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()>
     pitch_filterbank::register(py, m)?;
     segment::register(py, m)?;
     arrays::register(py, m)?;
+    notation::register(py, m)?;
 
     // Explanations (audio_samples.explain); ExplainDoc is re-exported at top level.
     explain::explain_module(py, m)?;

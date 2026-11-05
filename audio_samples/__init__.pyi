@@ -153,6 +153,7 @@ from . import factorization as factorization
 from . import pitch_filterbank as pitch_filterbank
 from . import segment as segment
 from . import arrays as arrays
+from . import notation as notation
 from . import features as features
 from .utils import mu_law_encode as mu_law_encode, mu_law_decode as mu_law_decode
 
@@ -5296,6 +5297,7 @@ __all__ = [
     "pitch_filterbank",
     "segment",
     "arrays",
+    "notation",
     "spectrograms",
     "mpl",
     "spectrograms",
