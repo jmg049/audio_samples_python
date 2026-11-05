@@ -96,7 +96,58 @@ from .dashboard import (
 )
 
 
+from .display import (
+    plot_matrix,
+    plot_waveform_adaptive,
+    plot_waveform_bars,
+    plot_waveform_f0,
+    plot_grid,
+    infer_colormap,
+    add_db_colorbar,
+    add_phase_colorbar,
+    legend_for_axes,
+    highlight_effects,
+    AdaptiveWaveform,
+    F0Transform,
+    TimeFormatter,
+    NoteFormatter,
+    SvaraFormatter,
+    FJSFormatter,
+    LogHzFormatter,
+    EngFormatter,
+    ChromaFormatter,
+    ChromaSvaraFormatter,
+    ChromaFJSFormatter,
+    TonnetzFormatter,
+    AXIS_TYPES,
+)
+
 __all__ = [
+    # Feature matrices and waveforms
+    "plot_matrix",
+    "plot_waveform_adaptive",
+    "plot_waveform_bars",
+    "plot_waveform_f0",
+    "plot_grid",
+    "infer_colormap",
+    "add_db_colorbar",
+    "add_phase_colorbar",
+    "legend_for_axes",
+    "highlight_effects",
+    "AdaptiveWaveform",
+    "F0Transform",
+    "TimeFormatter",
+    "NoteFormatter",
+    "SvaraFormatter",
+    "FJSFormatter",
+    "LogHzFormatter",
+    "EngFormatter",
+    "ChromaFormatter",
+    "ChromaSvaraFormatter",
+    "ChromaFJSFormatter",
+    "TonnetzFormatter",
+    "AXIS_TYPES",
+
     # Style
     "MplStyle",
     "set_default_style",
