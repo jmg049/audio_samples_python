@@ -405,7 +405,8 @@ def infer_colormap(
     finite = arr[np.isfinite(arr)]
     if finite.size == 0:
         return resolve(sequential)
-    lo, hi = np.percentile(finite, [2, 98]) if robust else (finite.min(), finite.max())
+    # ``finite`` is a copy made above, so the percentile may reorder it.
+    lo, hi = np.percentile(finite, [2, 98], overwrite_input=True) if robust else (finite.min(), finite.max())
     if lo >= threshold or hi <= threshold:
         return resolve(sequential)
     return resolve(diverging)
@@ -768,7 +769,8 @@ def _envelope(x: NDArray[Any], hop: int) -> NDArray[Any]:
     n = x.size // hop if hop > 0 else 0
     if n == 0:
         return np.abs(x)
-    return np.abs(x[: n * hop].reshape(n, hop)).max(axis=1)
+    blocks = x[: n * hop].reshape(n, hop)
+    return np.maximum(blocks.max(axis=1), -blocks.min(axis=1))
 
 
 class AdaptiveWaveform:
@@ -860,7 +862,7 @@ def plot_waveform_adaptive(
     samples, sr = _as_samples(y, sample_rate)
     if samples.ndim > 1:
         samples = samples.mean(axis=0)
-    samples = samples.astype(np.float64)
+    samples = samples.astype(np.float64, copy=False)
     if max_points <= 0:
         raise ValueError("max_points: must be positive")
     if mask is not None:
@@ -967,7 +969,7 @@ def plot_waveform_bars(
     fig: Any
     fig, ax = _ensure_axes(ax, resolved)
     hop = max(1, samples.size // n_bars)
-    env = _envelope(samples.astype(np.float64), hop)[:n_bars]
+    env = _envelope(samples.astype(np.float64, copy=False), hop)[:n_bars]
     slot = hop / sr
     width = slot * (1.0 - gap_ratio)
     heights = np.maximum(env, 1e-6)

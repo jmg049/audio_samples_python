@@ -1,6 +1,7 @@
 """Internal helpers for audio_samples.mpl visualizations."""
 
 from __future__ import annotations
+import dataclasses
 from typing import Any
 
 import numpy as np
@@ -40,6 +41,10 @@ def _to_ax_list(axes: Axes | list[Axes]) -> list[Axes]:
     return [axes]  # type: ignore
 
 
+# The style last given to seaborn, and the rcParams that resulted.
+_THEMED: list[Any] = [None, None]
+
+
 def _apply_style(
     fig: Figure | SubFigure,
     axes: Axes | list[Axes],
@@ -47,21 +52,25 @@ def _apply_style(
 ) -> None:
     """Apply seaborn theme, despine, tight layout to a figure."""
     try:
+        import matplotlib as mpl
         import seaborn as sns
 
-        sns.set_theme(
-            style="ticks" if style.despine else "whitegrid",
-            font=style.font_family,
-            font_scale=style.font_size / 11.0,
-            rc={
-                "axes.titlesize": style.title_size,
-                "axes.labelsize": style.label_size,
-                "xtick.labelsize": style.tick_size,
-                "ytick.labelsize": style.tick_size,
-                "legend.fontsize": style.legend_size,
-                "lines.linewidth": style.linewidth,
-            },
-        )
+        # The theme is set again only if another style asks for it or rcParams have changed.
+        if _THEMED[0] != style or not dict.__eq__(mpl.rcParams, _THEMED[1]):
+            sns.set_theme(
+                style="ticks" if style.despine else "whitegrid",
+                font=style.font_family,
+                font_scale=style.font_size / 11.0,
+                rc={
+                    "axes.titlesize": style.title_size,
+                    "axes.labelsize": style.label_size,
+                    "xtick.labelsize": style.tick_size,
+                    "ytick.labelsize": style.tick_size,
+                    "legend.fontsize": style.legend_size,
+                    "lines.linewidth": style.linewidth,
+                },
+            )
+            _THEMED[:] = [dataclasses.replace(style), mpl.rcParams.copy()]
         if style.despine:
             for ax in _to_ax_list(axes):
                 sns.despine(ax=ax)
