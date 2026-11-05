@@ -888,10 +888,11 @@ def onset_strength(
             raise ValueError("y: give y or S")
         if feature is None:
             audio = _from_rows(np.asarray(y), int(sr))
-            power = audio.melspectrogram(n_fft=n_fft, hop_length=hop_length, **kwargs)
+            power = np.abs(audio.melspectrogram(n_fft=n_fft, hop_length=hop_length, **kwargs))
         else:
-            power = feature(y=y, sr=sr, n_fft=n_fft, hop_length=hop_length, **kwargs)
-        S = _aus.spectral.power_to_db(np.abs(power), top_db=80.0)
+            power = np.abs(feature(y=y, sr=sr, n_fft=n_fft, hop_length=hop_length, **kwargs))
+        S = _aus.spectral.power_to_db(power, top_db=80.0)
+        del power
     return _aus.rhythm.onset_strength(  # type: ignore[no-any-return]
         S=np.asarray(S), sr=int(sr), lag=lag, max_size=max_size, ref=ref, detrend=detrend, center=center,
         n_fft=n_fft, hop_length=hop_length,

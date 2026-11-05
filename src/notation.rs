@@ -503,16 +503,16 @@ pub fn thaat_to_degrees<'py>(py: Python<'py>, thaat: &str) -> PyResult<Bound<'py
 pub fn list_mela(py: Python<'_>) -> PyResult<Bound<'_, PyDict>> {
     static MELAS: pyo3::sync::PyOnceLock<Py<PyDict>> = pyo3::sync::PyOnceLock::new();
     let melas = MELAS.get_or_try_init(py, || -> PyResult<Py<PyDict>> {
-        let map = PyDict::new(py);
         let ordered: BTreeMap<&str, u8> = nt::list_mela()
             .iter()
             .enumerate()
             .map(|(i, m)| (*m, (i + 1) as u8))
             .collect();
-        for (name, number) in ordered {
-            map.set_item(name, number)?;
-        }
-        Ok(map.unbind())
+        // Compiled as a literal: the names in a code object are immortal, so copying the
+        // dict does not touch their reference counts.
+        let items: Vec<String> = ordered.iter().map(|(k, v)| format!("{k:?}: {v}")).collect();
+        let source = std::ffi::CString::new(format!("{{{}}}", items.join(", ")))?;
+        Ok(py.eval(&source, None, None)?.cast_into::<PyDict>()?.unbind())
     })?;
     melas.bind(py).copy()
 }
