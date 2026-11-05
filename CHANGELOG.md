@@ -11,6 +11,14 @@ has the full detail.
 
 ## [Unreleased]
 
+- **`io.save` and `io.write_with_options` take `flac_md5`.** `flac_md5=False` writes a FLAC file
+  without the MD5 signature of its audio, which encodes faster. `as_type=` now converts block by
+  block as the file is written, so saving no longer holds a converted copy of the signal.
+- **`io.set_thread_limit` and `io.thread_limit`.** A limit on the threads a file read or decode uses,
+  settable at any time, alongside the environment variable `AUDIO_SAMPLES_IO_THREADS`.
+- **Streaming reads keep the file's sample type.** `read_frames`, `frames`, `windows` and `samples`
+  of `io.StreamedAudioReader` default to the sample type of the file; they converted to `f32`
+  before. Pass `dtype=SampleType.F32` for the former result.
 - **Import is close to free.** `import audio_samples` no longer loads the
   extension; the first access to one of its names (or `import
   audio_samples.io` and the like) does. Everything else behaves as before.

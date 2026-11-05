@@ -64,6 +64,11 @@ FFT plans and resampling kernels are cached per thread, so that threads do not
 wait on each other. A new thread starts with empty caches, so keep one pool for a
 batch rather than making a thread per file.
 
+A read of a large file or a FLAC decode starts a few short-lived threads of its own, which end
+before the call returns; only one call at a time does, and any other stays on its caller's thread.
+``audio_samples.io.set_thread_limit`` limits how many it starts, or ``AUDIO_SAMPLES_IO_THREADS`` if
+it is set when the first read starts; ``1`` keeps everything on the calling thread.
+
 Scaling
 -------
 

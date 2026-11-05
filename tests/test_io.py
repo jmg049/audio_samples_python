@@ -1,3 +1,6 @@
+import subprocess
+import sys
+
 import pytest
 import numpy as np
 import soundfile as sf
@@ -656,3 +659,83 @@ def test_paths_are_accepted_wherever_a_file_name_is(tmp_path):
         assert r.total_frames == 1000
     with pytest.raises(TypeError):
         aus.io.read(3.5)
+
+
+@pytest.mark.parametrize("ext", ["wav", "flac"])
+@pytest.mark.parametrize("target", [aus.SampleType.I16, aus.SampleType.I24])
+def test_save_as_type_gives_the_file_converting_first_gives(tmp_path, ext, target):
+    y = np.sin(np.arange(40_000, dtype=np.float32) * 0.01).reshape(2, -1) * 0.8
+    audio = aus.AudioSamples.new_multi(y, 44100)
+    direct, converted = tmp_path / f"direct.{ext}", tmp_path / f"converted.{ext}"
+    aus.io.save(direct, audio, as_type=target)
+    aus.io.save(converted, audio.to_format(target))
+    assert direct.read_bytes() == converted.read_bytes()
+
+
+def test_save_as_type_makes_no_copy_of_the_signal(tmp_path):
+    pytest.importorskip("resource")
+    code = f"""
+import resource, numpy as np, audio_samples as aus
+audio = aus.AudioSamples.new_mono(np.full(8_000_000, 0.25, dtype=np.float32), 44100)
+small = aus.AudioSamples.new_mono(np.full(1000, 0.25, dtype=np.float32), 44100)
+aus.io.save({str(tmp_path / "warm.wav")!r}, small, as_type=aus.SampleType.I16)
+before = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+aus.io.save({str(tmp_path / "out.wav")!r}, audio, as_type=aus.SampleType.I16)
+print(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss - before)
+"""
+    done = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True)
+    # A converted copy would be 16 MB.
+    assert int(done.stdout) < 4_000
+
+
+def test_flac_md5_false_leaves_the_signature_out(tmp_path):
+    y = np.sin(np.arange(20_000, dtype=np.float32) * 0.01) * 0.8
+    audio = aus.AudioSamples.new_mono(y, 44100).to_format(aus.SampleType.I16)
+    with_md5, without = tmp_path / "with.flac", tmp_path / "without.flac"
+    aus.io.save(with_md5, audio)
+    aus.io.save(without, audio, flac_md5=False)
+    assert aus.io.read_flac_stream_info(with_md5).has_md5
+    assert not aus.io.read_flac_stream_info(without).has_md5
+    assert np.array_equal(aus.io.read(without).to_numpy(), audio.to_numpy())
+    other = tmp_path / "options.flac"
+    aus.io.write_with_options(other, audio, flac_md5=False)
+    assert other.read_bytes() == without.read_bytes()
+
+
+def test_flac_md5_false_needs_a_flac_path(tmp_path):
+    audio = aus.AudioSamples.new_mono(np.zeros(100, dtype=np.float32), 44100)
+    with pytest.raises(ValueError, match="flac_md5"):
+        aus.io.save(tmp_path / "out.wav", audio, flac_md5=False)
+
+
+def test_thread_limit_setting(tmp_path):
+    y = np.sin(np.arange(4_000_000, dtype=np.float32) * 0.01)
+    path = tmp_path / "large.wav"
+    aus.io.save(path, aus.AudioSamples.new_mono(y, 44100))
+    before = aus.io.thread_limit()
+    try:
+        aus.io.set_thread_limit(1)
+        assert aus.io.thread_limit() == 1
+        assert np.array_equal(aus.io.read(path).to_numpy(), y)
+        aus.io.set_thread_limit(3)
+        assert aus.io.thread_limit() == 3
+        assert np.array_equal(aus.io.read(path).to_numpy(), y)
+        with pytest.raises(ValueError):
+            aus.io.set_thread_limit(0)
+    finally:
+        aus.io.set_thread_limit(None)
+    assert aus.io.thread_limit() == before
+
+
+@pytest.mark.parametrize("target", [aus.SampleType.I16, aus.SampleType.F64])
+def test_streaming_reads_keep_the_sample_type_of_the_file(tmp_path, target):
+    y = np.sin(np.arange(9_000, dtype=np.float64) * 0.01) * 0.5
+    path = tmp_path / "in.wav"
+    aus.io.save(path, aus.AudioSamples.new_mono(y, 44100), as_type=target)
+    dtype = aus.io.read(path).to_numpy().dtype
+    with aus.io.StreamedAudioReader(path) as reader:
+        assert reader.read_frames(100).to_numpy().dtype == dtype
+        assert next(iter(reader.frames(100))).to_numpy().dtype == dtype
+        assert next(iter(reader.windows(100, 50))).to_numpy().dtype == dtype
+        assert next(iter(reader.samples())).to_numpy().dtype == dtype
+        assert reader.read_frames(100, aus.SampleType.F32).to_numpy().dtype == np.float32

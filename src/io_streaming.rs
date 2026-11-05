@@ -15,7 +15,9 @@ use std::num::NonZeroU32;
 use std::path::Path;
 
 use audio_samples::{I24, traits::StandardSample};
-use audio_samples_io::traits::{AudioStreamReader, AudioStreamWrite, AudioStreamWriter};
+use audio_samples_io::traits::{
+    AudioFileMetadata, AudioStreamReader, AudioStreamWrite, AudioStreamWriter,
+};
 use audio_samples_io::wav::{StreamedWavFile, StreamedWavWriter, WavSink};
 use audio_samples_io::{
     StreamedFlacFile, StreamedFlacWriter, create_streamed_sink, create_streamed_writer,
@@ -155,6 +157,16 @@ pub struct PyStreamedAudioReader {
 }
 
 impl PyStreamedAudioReader {
+    /// The sample type the file stores.
+    fn native_type(&self) -> PyResult<PySampleType> {
+        let validated = match &self.inner {
+            Some(ReaderInner::Wav(r)) => r.sample_type(),
+            Some(ReaderInner::Flac(r)) => r.sample_type(),
+            None => return Err(PyRuntimeError::new_err("streaming reader is closed")),
+        };
+        Ok(audio_samples::SampleType::from(validated).into())
+    }
+
     fn open_path(fp: &str) -> PyResult<Self> {
         let path = Path::new(fp);
         // Re-use the crate's format detection by trying each opener based on extension/magic.
@@ -254,7 +266,7 @@ impl PyStreamedAudioReader {
     /// Args:
     ///     frame_count (int): Maximum number of frames to read; must be greater than zero.
     ///     dtype (SampleType, optional): Target sample type for the returned array.
-    ///         Defaults to ``f32``.
+    ///         Defaults to the file's own sample type.
     ///
     /// Returns:
     ///     AudioSamples | None: The decoded chunk (mono shape ``(frames,)`` or multi-channel
@@ -272,7 +284,7 @@ impl PyStreamedAudioReader {
         dtype: Option<PySampleType>,
     ) -> PyResult<Option<PyAudioSamples>> {
         let frame_count = nzu_or_err(frame_count)?;
-        let dtype = dtype.unwrap_or(PySampleType::F32);
+        let dtype = dtype.map_or_else(|| self.native_type(), Ok)?;
         let channels = self.num_channels()?;
         let sample_rate = nzu32_sr(self.sample_rate()?)?;
 
@@ -324,7 +336,8 @@ impl PyStreamedAudioReader {
     ///
     /// Args:
     ///     chunk_frames (int): Frames per chunk; must be greater than zero. Defaults to 4096.
-    ///     dtype (SampleType, optional): Target sample type. Defaults to ``f32``.
+    ///     dtype (SampleType, optional): Target sample type. Defaults to the file's own
+    ///         sample type.
     ///
     /// Returns:
     ///     StreamedFrameIterator: An iterator of :class:`AudioSamples` chunks.
@@ -339,7 +352,7 @@ impl PyStreamedAudioReader {
             reader: slf,
             window: chunk_frames,
             hop: chunk_frames,
-            dtype: dtype.unwrap_or(PySampleType::F32),
+            dtype,
         })
     }
 
@@ -352,7 +365,8 @@ impl PyStreamedAudioReader {
     /// Args:
     ///     window (int): Frames per window; must be greater than zero.
     ///     hop (int): Frames to advance between windows; must be greater than zero.
-    ///     dtype (SampleType, optional): Target sample type. Defaults to ``f32``.
+    ///     dtype (SampleType, optional): Target sample type. Defaults to the file's own
+    ///         sample type.
     ///
     /// Returns:
     ///     StreamedFrameIterator: An iterator of :class:`AudioSamples` windows.
@@ -372,7 +386,7 @@ impl PyStreamedAudioReader {
             reader: slf,
             window,
             hop,
-            dtype: dtype.unwrap_or(PySampleType::F32),
+            dtype,
         })
     }
 
@@ -382,7 +396,8 @@ impl PyStreamedAudioReader {
     /// :meth:`frames`; prefer larger chunks for throughput.
     ///
     /// Args:
-    ///     dtype (SampleType, optional): Target sample type. Defaults to ``f32``.
+    ///     dtype (SampleType, optional): Target sample type. Defaults to the file's own
+    ///         sample type.
     ///
     /// Returns:
     ///     StreamedFrameIterator: An iterator of single-frame :class:`AudioSamples`.
@@ -392,7 +407,7 @@ impl PyStreamedAudioReader {
             reader: slf,
             window: 1,
             hop: 1,
-            dtype: dtype.unwrap_or(PySampleType::F32),
+            dtype,
         }
     }
 
@@ -436,7 +451,7 @@ pub struct PyStreamedFrameIterator {
     reader: Py<PyStreamedAudioReader>,
     window: usize,
     hop: usize,
-    dtype: PySampleType,
+    dtype: Option<PySampleType>,
 }
 
 #[pymethods]
@@ -449,7 +464,7 @@ impl PyStreamedFrameIterator {
         let mut reader = self.reader.borrow_mut(py);
         // Record position so overlapping windows can rewind by (window - hop).
         let start = reader.current_frame()?;
-        let chunk = reader.read_frames(py, self.window, Some(self.dtype))?;
+        let chunk = reader.read_frames(py, self.window, self.dtype)?;
         match chunk {
             Some(samples) => {
                 // For overlapping windows seek back so the next window starts at start + hop.

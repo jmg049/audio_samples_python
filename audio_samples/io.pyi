@@ -110,6 +110,7 @@ def save(
     fp: Union[str, Path],
     samples: AudioSamples,
     as_type: Optional[SampleType] = None,
+    flac_md5: bool = True,
 ) -> None:
     """
     Save AudioSamples to an audio file.
@@ -125,10 +126,15 @@ def save(
     Args:
         fp: Path to save the audio file
         samples: The audio data to save
-        as_type: Optional sample type to convert to before saving (default: native format)
+        as_type: Optional sample type to convert to as the file is written, without a copy of
+            the signal (default: native format)
+        flac_md5: Store the MD5 signature of the audio in a FLAC file, so that decoders can
+            verify it. ``False`` leaves it out, which encodes faster.
 
     Raises:
-        TypeError: If the file cannot be written or the format is unsupported
+        ValueError: If the format is unsupported, the sample type cannot be stored in FLAC, or
+            ``flac_md5`` is false and the file is not FLAC
+        OSError: If the file cannot be written
     """
     ...
 
@@ -197,9 +203,11 @@ class WriteOptions:
     def __new__(cls, write_buf_capacity: Optional[int] = None) -> Self:
         """
         Args:
-            write_buf_capacity: Size of the internal write buffer in bytes. A larger
-                buffer reduces the number of write syscalls at the cost of a larger
-                allocation. Defaults to 4 MiB.
+            write_buf_capacity: Size of the internal write buffer in bytes. The default
+                of 256 holds only the file's header: samples go straight to the file where
+                their memory is already its layout, and otherwise in tiles of 64 KiB. A larger
+                buffer copies them first, and helps only when each write call to the
+                destination is expensive.
         """
         ...
 
@@ -386,11 +394,36 @@ class StreamInfo:
 # Write functions
 # -----------------------------------------------------------------------------
 
+def set_thread_limit(limit: Optional[int]) -> None:
+    """
+    Limit how many threads a file read or decode may use.
+
+    Reads of large files and FLAC decodes run on a few short-lived threads, which end
+    before the call returns. By default their number follows the CPUs available to the
+    process, with a cap, or ``AUDIO_SAMPLES_IO_THREADS`` if that is set when the first
+    read starts. This setting replaces both.
+
+    Args:
+        limit: Most threads to use; ``1`` keeps everything on the calling thread.
+            ``None`` returns to the default.
+
+    Raises:
+        ValueError: If ``limit`` is zero.
+    """
+    ...
+
+
+def thread_limit() -> int:
+    """The most threads a read of a large file will use at present."""
+    ...
+
+
 def write_with_options(
     fp: Union[str, Path],
     samples: AudioSamples,
     options: Optional[WriteOptions] = None,
     as_type: Optional[SampleType] = None,
+    flac_md5: bool = True,
 ) -> None:
     """
     Write audio samples to a file with explicit write options.
@@ -401,8 +434,11 @@ def write_with_options(
     Args:
         fp: Output path.
         samples: The audio to write.
-        options: Write options. Defaults to the standard 4 MiB buffer.
-        as_type: Convert to this sample type before writing. Defaults to the native type.
+        options: Write options. Defaults to a 256-byte buffer, which holds the header.
+        as_type: Convert to this sample type as the file is written, without a copy of the
+            signal. Defaults to the native type.
+        flac_md5: Store the MD5 signature of the audio in a FLAC file, so that decoders can
+            verify it. ``False`` leaves it out, which encodes faster.
 
     Raises:
         ValueError: If the format is unsupported.
@@ -531,7 +567,8 @@ class StreamedAudioReader:
 
         Args:
             frame_count: Maximum number of frames to read; must be greater than zero.
-            dtype: Target sample type for the returned array. Defaults to ``f32``.
+            dtype: Target sample type for the returned array. Defaults to the file's
+                own sample type.
 
         Returns:
             The decoded chunk (mono shape ``(frames,)`` or multi-channel
@@ -574,7 +611,7 @@ class StreamedAudioReader:
 
         Args:
             chunk_frames: Frames per chunk; must be greater than zero. Defaults to 4096.
-            dtype: Target sample type. Defaults to ``f32``.
+            dtype: Target sample type. Defaults to the file's own sample type.
         """
         ...
 
@@ -590,7 +627,7 @@ class StreamedAudioReader:
         Args:
             window: Frames per window; must be greater than zero.
             hop: Frames to advance between windows; must be greater than zero.
-            dtype: Target sample type. Defaults to ``f32``.
+            dtype: Target sample type. Defaults to the file's own sample type.
 
         Raises:
             ValueError: If ``window`` or ``hop`` is zero.
@@ -602,7 +639,7 @@ class StreamedAudioReader:
         Return an iterator yielding single frames (one frame per step).
 
         Args:
-            dtype: Target sample type. Defaults to ``f32``.
+            dtype: Target sample type. Defaults to the file's own sample type.
         """
         ...
 

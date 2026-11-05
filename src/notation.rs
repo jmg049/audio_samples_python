@@ -412,9 +412,8 @@ pub fn hz_to_fjs<'py>(
 #[inline]
 pub fn list_thaat(py: Python<'_>) -> PyResult<Bound<'_, PyList>> {
     static NAMES: pyo3::sync::PyOnceLock<Py<PyList>> = pyo3::sync::PyOnceLock::new();
-    let names = NAMES.get_or_try_init(py, || {
-        PyList::new(py, nt::list_thaat()).map(Bound::unbind)
-    })?;
+    let names =
+        NAMES.get_or_try_init(py, || PyList::new(py, nt::list_thaat()).map(Bound::unbind))?;
     let copy = names.bind(py).get_slice(0, usize::MAX);
     Ok(copy)
 }

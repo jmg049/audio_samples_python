@@ -31,8 +31,8 @@ use audio_samples::utils::array_ops::{
 };
 use ndarray::{ArrayD, ArrayViewD, Axis, Ix2, Zip};
 use num_complex::Complex;
-use numpy::{PyArray2, 
-    IntoPyArray, PyArray1, PyArrayDescr, PyArrayDescrMethods, PyArrayDyn, PyArrayMethods,
+use numpy::{
+    IntoPyArray, PyArray1, PyArray2, PyArrayDescr, PyArrayDescrMethods, PyArrayDyn, PyArrayMethods,
     PyUntypedArray, PyUntypedArrayMethods,
 };
 use pyo3::IntoPyObjectExt;
@@ -1012,7 +1012,12 @@ pub(crate) fn dense_to_rows<'py>(dense: &Bound<'py, PyAny>) -> PyResult<Bound<'p
     fn compress<'py, T: numpy::Element + Copy + PartialEq + Default>(
         py: Python<'py>,
         dense: &Bound<'py, PyArray2<T>>,
-    ) -> PyResult<(Bound<'py, PyAny>, Bound<'py, PyAny>, Bound<'py, PyAny>, (usize, usize))> {
+    ) -> PyResult<(
+        Bound<'py, PyAny>,
+        Bound<'py, PyAny>,
+        Bound<'py, PyAny>,
+        (usize, usize),
+    )> {
         let view = dense.try_readonly()?;
         let m = view.as_array();
         let zero = T::default();

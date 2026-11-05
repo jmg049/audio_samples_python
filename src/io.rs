@@ -4,7 +4,7 @@ use crate::{
     types::PySampleType,
 };
 use audio_samples::operations::ResamplingQuality;
-use audio_samples::{AudioTypeConversion, I24, resample, traits::StandardSample};
+use audio_samples::{I24, resample, traits::StandardSample};
 use audio_samples_io::CompressionLevel;
 use audio_samples_io::flac::{StreamInfo, VorbisComment};
 use audio_samples_io::types::{BaseAudioInfo, FileType, WriteOptions};
@@ -264,26 +264,83 @@ where
     }
 }
 
+/// Save audio to a file, with the format chosen from the extension.
+///
+/// WAV keeps every sample type, float64 included. FLAC stores 16-bit and 24-bit integers only, so
+/// any other sample type raises ``ValueError`` unless ``as_type`` asks for ``SampleType.I16`` or
+/// ``SampleType.I24``.
+///
+/// Args:
+///     fp (str | Path): Output path.
+///     samples (AudioSamples): The audio to write.
+///     as_type (SampleType, optional): Convert to this sample type as the file is written, without
+///         a copy of the signal. Defaults to the audio's native type.
+///     flac_md5 (bool): Store the MD5 signature of the audio in a FLAC file, so that decoders can
+///         verify it. ``False`` leaves it out, which encodes faster. Defaults to ``True``.
+///
+/// Raises:
+///     ValueError: If the format is unsupported, the sample type cannot be stored in FLAC, or
+///         ``flac_md5`` is false and the file is not FLAC.
+///     OSError: If the file cannot be written.
 #[pyfunction]
-#[pyo3(signature = (fp: "str|Path", samples: "AudioSamples", as_type: "SampleType" = None))]
+#[pyo3(signature = (fp: "str|Path", samples: "AudioSamples", as_type: "SampleType" = None, flac_md5: "bool" = true))]
 pub fn save(
     py: Python<'_>,
     fp: std::path::PathBuf,
     samples: &PyAudioSamples,
     as_type: Option<PySampleType>,
+    flac_md5: bool,
 ) -> PyResult<()> {
     let fp = fp.to_string_lossy();
-    let fp: &str = &fp;
-    let is_wav = fp.to_lowercase().ends_with(".wav");
-    check_flac_sample_type(fp, samples, as_type)?;
+    write_samples(py, &fp, samples, WriteOptions::default(), as_type, flac_md5)
+}
 
-    macro_rules! write_as {
-        ($audio:ident, $T:ty) => {{
-            let audio = $audio.to_format::<$T>();
-            write_native(fp, &audio, is_wav)
-        }};
+fn write_flac_without_md5<T: StandardSample + 'static>(
+    fp: &str,
+    audio: &audio_samples::AudioSamples<'_, T>,
+    opts: WriteOptions,
+) -> Result<(), audio_samples_io::AudioIOError> {
+    audio_samples_io::write_flac_file_as::<T, _, T>(
+        fp,
+        audio,
+        opts,
+        CompressionLevel::default(),
+        false,
+    )
+}
+
+/// Write `samples` as `as_type`, or in their own type. Conversion happens block by block as the
+/// file is written, and no Python objects are touched while it is.
+fn write_samples(
+    py: Python<'_>,
+    fp: &str,
+    samples: &PyAudioSamples,
+    opts: WriteOptions,
+    as_type: Option<PySampleType>,
+    flac_md5: bool,
+) -> PyResult<()> {
+    check_flac_sample_type(fp, samples, as_type)?;
+    let without_md5 = !flac_md5;
+    if without_md5 && !fp.to_lowercase().ends_with(".flac") {
+        return Err(PyValueError::new_err(
+            "flac_md5=False applies to FLAC files only, and this path does not end in .flac",
+        ));
     }
-    // No Python objects are touched while the file is written.
+    macro_rules! write_as {
+        ($audio:ident, $T:ty) => {
+            if without_md5 {
+                audio_samples_io::write_flac_file_as::<$T, _, _>(
+                    fp,
+                    &$audio,
+                    opts,
+                    CompressionLevel::default(),
+                    false,
+                )
+            } else {
+                audio_samples_io::write_as::<$T, _, _>(fp, &$audio, opts)
+            }
+        };
+    }
     dispatch_with_view_detached!(samples, py, |audio| {
         match as_type {
             Some(PySampleType::U8) => write_as!(audio, u8),
@@ -292,7 +349,8 @@ pub fn save(
             Some(PySampleType::I32) => write_as!(audio, i32),
             Some(PySampleType::F32) => write_as!(audio, f32),
             Some(PySampleType::F64) => write_as!(audio, f64),
-            None => write_native(fp, &audio, is_wav),
+            None if without_md5 => write_flac_without_md5(fp, &audio, opts),
+            None => audio_samples_io::write_with_options(fp, &audio, opts),
         }
     })
     .map_err(audio_io_err_to_py)
@@ -325,32 +383,6 @@ fn check_flac_sample_type(
          Convert explicitly with as_type=SampleType.I16 or as_type=SampleType.I24."
     )))
 }
-
-/// Write `audio` in its own sample type. For WAV the samples go straight to the file, so the
-/// buffer only has to hold the header; a larger one would copy files smaller than it. 24-bit
-/// samples are written through the default buffer.
-fn write_native<T: StandardSample + 'static>(
-    fp: &str,
-    audio: &audio_samples::AudioSamples<'_, T>,
-    is_wav: bool,
-) -> Result<(), audio_samples_io::AudioIOError> {
-    let capacity = if is_wav && std::any::TypeId::of::<T>() != std::any::TypeId::of::<I24>() {
-        256
-    } else {
-        WriteOptions::default().write_buf_capacity
-    };
-    audio_samples_io::write_with_options(
-        fp,
-        audio,
-        WriteOptions {
-            write_buf_capacity: capacity,
-        },
-    )
-}
-
-// =============================================================================
-// READ / RESAMPLE / PEEK
-// =============================================================================
 
 /// Read an audio file and resample it to a target sample rate in one call.
 ///
@@ -427,9 +459,10 @@ pub fn peek_native_type(fp: std::path::PathBuf) -> PyResult<&'static str> {
 /// Options controlling how audio data is written.
 ///
 /// Args:
-///     write_buf_capacity (int): Size of the internal write buffer in bytes. A larger buffer
-///         reduces the number of write syscalls at the cost of a larger allocation. Defaults
-///         to 4 MiB.
+///     write_buf_capacity (int): Size of the internal write buffer in bytes. The default of
+///         256 holds only the file's header: samples go straight to the file where their memory
+///         is already its layout, and otherwise in tiles of 64 KiB. A larger buffer copies them
+///         first, and helps only when each write call to the destination is expensive.
 #[pyclass(name = "WriteOptions", module = "audio_samples.io", from_py_object)]
 #[derive(Clone, Copy)]
 pub struct PyWriteOptions {
@@ -806,48 +839,63 @@ impl_py_wrapper_core!(PyStreamInfo, StreamInfo);
 /// Args:
 ///     fp (str | Path): Output path.
 ///     samples (AudioSamples): The audio to write.
-///     options (WriteOptions, optional): Write options. Defaults to the standard 4 MiB buffer.
-///     as_type (SampleType, optional): Convert to this sample type before writing. Defaults to
-///         the audio's native type.
+///     options (WriteOptions, optional): Write options. Defaults to a 256-byte buffer, which
+///         holds the header.
+///     as_type (SampleType, optional): Convert to this sample type as the file is written, without
+///         a copy of the signal. Defaults to the audio's native type.
+///     flac_md5 (bool): Store the MD5 signature of the audio in a FLAC file, so that decoders can
+///         verify it. ``False`` leaves it out, which encodes faster. Defaults to ``True``.
 ///
 /// Raises:
-///     ValueError: If the format is unsupported, or the file is FLAC and the sample type to
-///         write is not I16 or I24. FLAC stores integers of those widths only.
+///     ValueError: If the format is unsupported, the file is FLAC and the sample type to write is
+///         not I16 or I24 (FLAC stores integers of those widths only), or ``flac_md5`` is false
+///         and the file is not FLAC.
 ///     OSError: If the file cannot be written.
 #[pyfunction]
-#[pyo3(signature = (fp: "str | Path", samples: "AudioSamples", options: "WriteOptions" = None, as_type: "SampleType" = None))]
+#[pyo3(signature = (fp: "str | Path", samples: "AudioSamples", options: "WriteOptions" = None, as_type: "SampleType" = None, flac_md5: "bool" = true))]
 pub fn write_with_options(
     py: Python<'_>,
     fp: std::path::PathBuf,
     samples: &PyAudioSamples,
     options: Option<PyWriteOptions>,
     as_type: Option<PySampleType>,
+    flac_md5: bool,
 ) -> PyResult<()> {
     let fp = fp.to_string_lossy();
-    let fp: &str = &fp;
-    check_flac_sample_type(fp, samples, as_type)?;
     let opts = options.map_or_else(WriteOptions::default, |o| o.inner);
+    write_samples(py, &fp, samples, opts, as_type, flac_md5)
+}
 
-    macro_rules! write_as {
-        ($audio:expr, $T:ty) => {{
-            let converted = $audio.to_format::<$T>();
-            audio_samples_io::write_with_options(&fp, &converted, opts).map_err(audio_io_err_to_py)
-        }};
+/// Limit how many threads a file read or decode may use.
+///
+/// Reads of large files and FLAC decodes run on a few short-lived threads, which end before the
+/// call returns. By default their number follows the CPUs available to the process, with a cap,
+/// or ``AUDIO_SAMPLES_IO_THREADS`` if that is set when the first read starts. This setting
+/// replaces both.
+///
+/// Args:
+///     limit (int | None): Most threads to use; ``1`` keeps everything on the calling thread.
+///         ``None`` returns to the default.
+///
+/// Raises:
+///     ValueError: If ``limit`` is zero.
+#[pyfunction]
+#[pyo3(signature = (limit: "int | None"))]
+pub fn set_thread_limit(limit: Option<usize>) -> PyResult<()> {
+    if limit == Some(0) {
+        return Err(PyValueError::new_err("limit must be at least 1, or None"));
     }
+    audio_samples_io::set_thread_limit(limit.and_then(std::num::NonZeroUsize::new));
+    Ok(())
+}
 
-    dispatch_with_view!(samples, py, |audio| {
-        match as_type {
-            None => {
-                audio_samples_io::write_with_options(&fp, &audio, opts).map_err(audio_io_err_to_py)
-            }
-            Some(PySampleType::U8) => write_as!(audio, u8),
-            Some(PySampleType::I16) => write_as!(audio, i16),
-            Some(PySampleType::I24) => write_as!(audio, I24),
-            Some(PySampleType::I32) => write_as!(audio, i32),
-            Some(PySampleType::F32) => write_as!(audio, f32),
-            Some(PySampleType::F64) => write_as!(audio, f64),
-        }
-    })
+/// The most threads a read of a large file will use at present.
+///
+/// Returns:
+///     int: See :func:`set_thread_limit`.
+#[pyfunction]
+pub fn thread_limit() -> usize {
+    audio_samples_io::thread_limit()
 }
 
 /// Write a WAV file with trailing metadata chunks (LIST/INFO tags, cue points).
@@ -1007,6 +1055,8 @@ pub fn io(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     io.add_function(pyo3::wrap_pyfunction!(peek_native_type, &io)?)?;
     io.add_function(pyo3::wrap_pyfunction!(save, &io)?)?;
     io.add_function(pyo3::wrap_pyfunction!(write_with_options, &io)?)?;
+    io.add_function(pyo3::wrap_pyfunction!(set_thread_limit, &io)?)?;
+    io.add_function(pyo3::wrap_pyfunction!(thread_limit, &io)?)?;
     io.add_function(pyo3::wrap_pyfunction!(write_with_metadata, &io)?)?;
     io.add_function(pyo3::wrap_pyfunction!(read_wav_info_tags, &io)?)?;
     io.add_function(pyo3::wrap_pyfunction!(read_wav_cue_points, &io)?)?;
