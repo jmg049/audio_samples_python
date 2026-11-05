@@ -16,6 +16,7 @@
     clippy::indexing_slicing,
     // The conversions from Python mirror the NumPy calling conventions of each function.
     clippy::suboptimal_flops,
+    clippy::type_complexity,
     clippy::items_after_statements,
     clippy::option_if_let_else,
     clippy::too_many_arguments,

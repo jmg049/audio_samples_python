@@ -409,10 +409,14 @@ pub fn hz_to_fjs<'py>(
 /// Returns:
 ///     list[str]: The names.
 #[pyfunction]
-#[must_use]
 #[inline]
-pub fn list_thaat() -> Vec<&'static str> {
-    nt::list_thaat().to_vec()
+pub fn list_thaat(py: Python<'_>) -> PyResult<Bound<'_, PyList>> {
+    static NAMES: pyo3::sync::PyOnceLock<Py<PyList>> = pyo3::sync::PyOnceLock::new();
+    let names = NAMES.get_or_try_init(py, || {
+        PyList::new(py, nt::list_thaat()).map(Bound::unbind)
+    })?;
+    let copy = names.bind(py).get_slice(0, usize::MAX);
+    Ok(copy)
 }
 
 /// The scale degrees of a thaat, in semitones above Sa.
@@ -434,14 +438,22 @@ pub fn thaat_to_degrees<'py>(py: Python<'py>, thaat: &str) -> PyResult<Bound<'py
 /// Returns:
 ///     dict[str, int]: Name to number, from 1 to 72.
 #[pyfunction]
-#[must_use]
 #[inline]
-pub fn list_mela() -> BTreeMap<&'static str, u8> {
-    nt::list_mela()
-        .iter()
-        .enumerate()
-        .map(|(i, m)| (*m, (i + 1) as u8))
-        .collect()
+pub fn list_mela(py: Python<'_>) -> PyResult<Bound<'_, PyDict>> {
+    static MELAS: pyo3::sync::PyOnceLock<Py<PyDict>> = pyo3::sync::PyOnceLock::new();
+    let melas = MELAS.get_or_try_init(py, || -> PyResult<Py<PyDict>> {
+        let map = PyDict::new(py);
+        let ordered: BTreeMap<&str, u8> = nt::list_mela()
+            .iter()
+            .enumerate()
+            .map(|(i, m)| (*m, (i + 1) as u8))
+            .collect();
+        for (name, number) in ordered {
+            map.set_item(name, number)?;
+        }
+        Ok(map.unbind())
+    })?;
+    melas.bind(py).copy()
 }
 
 fn mela_arg(mela: &Bound<'_, PyAny>) -> PyResult<u8> {
