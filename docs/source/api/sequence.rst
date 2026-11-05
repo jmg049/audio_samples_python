@@ -6,8 +6,8 @@ functions of ``librosa.segment`` and ``librosa.util.sync`` (librosa 1.0), with
 librosa's keyword arguments, defaults and return conventions. Feature matrices
 are ``(n_features, n_frames)``; probability matrices ``(n_states, n_steps)``.
 
-Differences from librosa: dense outputs only (``sparse=True`` raises), only the
-default ``axis=-1`` layout, integer outputs are ``int64``, ``sync`` with an
+Differences from librosa: ``sparse=True`` returns ``arrays.SparseRows``, integer
+outputs are ``int64``, ``sync`` with an
 empty index list aggregates the whole signal into one segment, and ``rqa``
 follows the move actually taken in the second column (librosa stores a wrong
 back-pointer there).

@@ -33,22 +33,31 @@ keyword where librosa has one (the older ``utils`` conversions call it
 librosa's ``S=``, ``onset_envelope=``, ``chroma=`` and ``tg=`` forms, and the
 filterbanks and helpers, are free functions in the submodules:
 
-=================================  =============================================================
-Submodule                          Contents
-=================================  =============================================================
-``audio_samples.spectral``         STFT/ISTFT, dB conversions, mel filterbank, windows, MFCC from
-                                   a mel spectrogram, ``delta``, ``stack_memory``, ``frame``
-``audio_samples.features``         ``feature.*(S=...)`` forms, PCEN, weightings, chroma and
-                                   constant-Q filters, ``normalize``, tuning, YIN/pYIN, harmonics
-``audio_samples.rhythm``           onset strength and detection, peak picking, tempograms,
-                                   tempo, beat tracking, PLP
-``audio_samples.effects``          phase vocoder, emphasis filters, HPSS, ``softmask``,
-                                   ``nn_filter``, Griffin-Lim, LPC, ``clicks``
-``audio_samples.sequence``         DTW, Viterbi, transition matrices, recurrence, RQA, ``sync``
-``audio_samples.utils``            unit, frame/time, tuning, octave and key conversions
-``audio_samples.generation``       tones, chirps, other test signals and named example clips
-``audio_samples.io``               reading and writing audio files
-=================================  =============================================================
+===================================  =============================================================
+Submodule                            Contents
+===================================  =============================================================
+``audio_samples.spectral``           STFT/ISTFT, dB conversions, mel filterbank, windows, MFCC from
+                                     a mel spectrogram, ``delta``, ``stack_memory``, ``frame``
+``audio_samples.features``           ``feature.*(S=...)`` forms, PCEN, weightings, chroma and
+                                     constant-Q filters, ``normalize``, tuning, YIN/pYIN, harmonics
+``audio_samples.rhythm``             onset strength and detection, peak picking, tempograms,
+                                     tempo, beat tracking, PLP
+``audio_samples.effects``            phase vocoder, emphasis filters, HPSS, ``softmask``,
+                                     ``nn_filter``, Griffin-Lim, LPC, ``clicks``
+``audio_samples.sequence``           DTW, Viterbi, transition matrices, recurrence, RQA, ``sync``
+``audio_samples.utils``              unit, frame/time, tuning, octave and key conversions
+``audio_samples.generation``         tones, chirps, other test signals and named example clips
+``audio_samples.io``                 reading and writing audio files
+``audio_samples.arrays``             extrema, matching, interpolation, padding, sparse rows,
+                                     zero crossings, tones and sweeps, argument checks
+``audio_samples.forms``              array forms of methods with their extra options
+``audio_samples.linalg``             NNLS, pseudo-inverse, eigendecomposition, SVD
+``audio_samples.inverse``            mel and MFCC inversion
+``audio_samples.factorization``      NMF and ``decompose``
+``audio_samples.pitch_filterbank`  ` semitone filterbank, IIR time-frequency representation
+``audio_samples.segment``            path enhancement, time-lag filtering, clustering
+``audio_samples.notation``           tuning, note, FJS, svara, mela and thaat names
+===================================  =============================================================
 
 **Methods return** ``(channels, F, T)``. Every frame-wise method returns a
 NumPy array with a leading channel axis, also for mono audio:
