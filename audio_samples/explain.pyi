@@ -21,6 +21,7 @@ Examples:
 """
 
 from __future__ import annotations
+from typing import final
 
 from typing import Literal, Optional, Sequence, TypedDict, Union
 
@@ -59,40 +60,40 @@ __all__ = [
     "fir",
 ]
 
-WarningLevelName = Literal["info", "caution", "problem"]
+_WarningLevelName = Literal["info", "caution", "problem"]
 
-class FormulaDict(TypedDict):
+class _FormulaDict(TypedDict):
     latex: str
     caption: str
 
-class SymbolDict(TypedDict):
+class _SymbolDict(TypedDict):
     symbol: str
     meaning: str
     value: Optional[str]
     unit: Optional[str]
 
-class QuantityDict(TypedDict):
+class _QuantityDict(TypedDict):
     name: str
     symbol: str
     value: float
     unit: str
     how: str
 
-class TableDict(TypedDict):
+class _TableDict(TypedDict):
     caption: str
     headers: list[str]
     rows: list[list[str]]
 
-class WarningDict(TypedDict):
-    level: WarningLevelName
+class _WarningDict(TypedDict):
+    level: _WarningLevelName
     message: str
     hint: Optional[str]
 
-class SeeAlsoDict(TypedDict):
+class _SeeAlsoDict(TypedDict):
     label: str
     target: str
 
-Explainable = Union[
+_Explainable = Union[
     StftParams,
     SpectrogramParams,
     MelParams,
@@ -107,6 +108,7 @@ Explainable = Union[
 ]
 """Types accepted by :func:`explain` and :meth:`AudioSamples.explain`."""
 
+@final
 class ExplainDoc:
     """A structured explanation of a configuration or concept.
 
@@ -133,19 +135,19 @@ class ExplainDoc:
         """One to three sentences saying what will happen."""
         ...
     @property
-    def formulas(self) -> list[FormulaDict]:
+    def formulas(self) -> list[_FormulaDict]:
         """Formulas the code evaluates: ``{latex, caption}`` (LaTeX without ``$``)."""
         ...
     @property
-    def symbols(self) -> list[SymbolDict]:
+    def symbols(self) -> list[_SymbolDict]:
         """Symbols in the formulas: ``{symbol, meaning, value, unit}``."""
         ...
     @property
-    def derived(self) -> list[QuantityDict]:
+    def derived(self) -> list[_QuantityDict]:
         """Quantities computed from the settings: ``{name, symbol, value, unit, how}``."""
         ...
     @property
-    def tables(self) -> list[TableDict]:
+    def tables(self) -> list[_TableDict]:
         """Tables: ``{caption, headers, rows}``; cells wrapped in ``$`` are LaTeX."""
         ...
     @property
@@ -153,11 +155,11 @@ class ExplainDoc:
         """Resolution, latency and leakage trade-offs for these settings."""
         ...
     @property
-    def warnings(self) -> list[WarningDict]:
+    def warnings(self) -> list[_WarningDict]:
         """Computed observations: ``{level, message, hint}``."""
         ...
     @property
-    def see_also(self) -> list[SeeAlsoDict]:
+    def see_also(self) -> list[_SeeAlsoDict]:
         """Related reading: ``{label, target}``."""
         ...
     def text(self) -> str:
@@ -179,7 +181,7 @@ class ExplainDoc:
             The value, or None if there is no such quantity.
         """
         ...
-    def has_warning(self, level: Optional[WarningLevelName] = None) -> bool:
+    def has_warning(self, level: Optional[_WarningLevelName] = None) -> bool:
         """Whether a warning of exactly ``level`` exists (any warning if None).
 
         Args:
@@ -202,7 +204,7 @@ class ExplainDoc:
         ...
 
 def explain(
-    obj: Explainable,
+    obj: _Explainable,
     *,
     sample_rate: Optional[float] = None,
     n_samples: Optional[int] = None,

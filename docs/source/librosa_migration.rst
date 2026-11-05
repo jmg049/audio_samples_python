@@ -46,7 +46,7 @@ Submodule                          Contents
                                    ``nn_filter``, Griffin-Lim, LPC, ``clicks``
 ``audio_samples.sequence``         DTW, Viterbi, transition matrices, recurrence, RQA, ``sync``
 ``audio_samples.utils``            unit, frame/time, tuning, octave and key conversions
-``audio_samples.generation``       tones, chirps and other test signals
+``audio_samples.generation``       tones, chirps, other test signals and named example clips
 ``audio_samples.io``               reading and writing audio files
 =================================  =============================================================
 
@@ -275,6 +275,11 @@ Status values:
 ``features.x``, ``rhythm.x``, ``effects.x``, ``sequence.x``, ``utils.x``,
 ``generation.x`` and ``io.x`` are functions in the ``audio_samples``
 submodule of that name.
+
+``python -m audio_samples.migrate`` applies these tables to your code, call by
+call (see :ref:`migration-checker`). It reads the same facts from
+``audio_samples/_migrate_table.py``, and the test suite checks that module
+against these tables.
 
 Core: audio
 ~~~~~~~~~~~
@@ -1055,11 +1060,19 @@ type; each has an ``_in_place`` twin (``time_stretch_in_place``, ...).
      - --
      - not provided
      - Argument-validation and deprecation plumbing
-   * - ``example``, ``ex``, ``example_info``, ``list_examples``,
-       ``find_files``, ``cite``
+   * - ``example``, ``ex``
+     - ``generation.example_clip``
+     - with differences
+     - Returns audio rather than a file path. The clips are synthesised, so they are not
+       librosa's recordings; see ``generation.example_clip_names``
+   * - ``list_examples``
+     - ``generation.example_clip_names``
+     - with differences
+     - Returns a list of names rather than printing a table
+   * - ``example_info``, ``find_files``, ``cite``
      - --
      - not provided
-     - Example data, file discovery and citation helpers
+     - File discovery and citation helpers, and details of librosa's recordings
 
 ``librosa.segment`` and ``librosa.sequence``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -386,6 +386,12 @@ array, and for ``float32`` ``AudioSamples``; everything else is converted to ``f
 Integer arrays are converted by value, without audio scaling, so give them floats. Passing
 ``dtype=`` to ``griffinlim`` is accepted and ignored: the input's precision decides.
 
+The type stubs state this rule, so mypy and pyright know the result's dtype when they know the input's.
+``AudioSamples`` is generic in its sample type: ``generation.sine_wave(440.0, 1.0, dtype=np.float64)`` is an
+``AudioSamples[np.float64]``, and its ``melspectrogram()`` is ``NDArray[np.float64]``. The sample type of audio read
+from a file is known only at run time, so ``io.read`` gives an ``AudioSamples`` of unknown sample type, whose results
+have an unknown dtype. A file's sample type can be stated with an annotation on the result of ``io.read``.
+
 .. _changed defaults:
 
 Some defaults are different on purpose
@@ -816,6 +822,20 @@ matplotlib seaborn``), and is imported on first use.
    aus.mpl.plot_waveform(a, ax=axes[2])
    plt.close(figure)
 
+Example audio
+~~~~~~~~~~~~~
+
+``librosa.ex`` downloads recordings. ``generation.example_clip`` synthesises its clips when asked, at the
+sample rate, duration and sample type you choose, and nothing is stored or downloaded. The clips are not
+librosa's recordings, so they do not stand in for a comparison that needs those exact files. Their contents
+are known, which makes them useful for checking a result: :doc:`api/generation` lists them.
+
+.. code-block:: python
+
+   # y, sr = librosa.load(librosa.ex("nutcracker"), duration=10)
+   clip = aus.generation.example_clip("chords_and_drums", 10.0, 22050)
+   assert clip.sample_rate == 22050 and clip.samples_per_channel() == 220500
+
 Other file formats
 ~~~~~~~~~~~~~~~~~~
 
@@ -866,6 +886,60 @@ To NumPy, PyTorch and scikit-learn
 
    scaled = StandardScaler().fit_transform(matrix)
    assert scaled.shape == matrix.shape
+
+.. _migration-checker:
+
+Checking your code
+------------------
+
+``python -m audio_samples.migrate`` lists the librosa calls in Python files and notebooks. For each one
+it prints where it is, the call, the ``audio_samples`` equivalent, how closely it matches, and what to
+watch for in that particular call. It reads the files and never changes them, and librosa does not have
+to be installed.
+
+.. code-block:: bash
+
+   python -m audio_samples.migrate src notebooks/analysis.ipynb
+
+.. code-block:: text
+
+   src/pipeline.py:12: librosa.power_to_db(S, ref=np.max)
+       use:   spectral.power_to_db
+       match: equivalent
+       note:  ref as a number, "max" or numpy.max; per-channel reference.
+       watch (default differs): top_db is not passed: librosa uses 80.0, audio_samples uses top_db=None. librosa applies an 80 dB floor here; pass top_db=80.0 to do the same.
+
+   1 librosa uses of 1 functions in 1 of 1 files
+     match: 1 equivalent, 0 with differences, 0 not provided, 0 unknown
+     watch: 1 default differs
+     blocking: 0, errors: 0
+
+The checker parses the code with :mod:`ast`, so it follows ``import librosa as lb``, ``from librosa.feature
+import mfcc`` and ``from librosa import stft as s``, and it does not report a local function that happens
+to be called ``stft``. A notebook's location is written ``path:cellN:line``, counting code cells from 1.
+
+What it reports depends on the arguments in the call:
+
+- **keyword changed**: the keyword has another name or is not needed, for example ``y`` and ``sr`` when the
+  equivalent is a method.
+- **unsupported option**: the equivalent has no such option, or rejects the value given. ``sparse=False`` on
+  ``recurrence_matrix`` passes and ``sparse=True`` does not.
+- **default differs**: the two libraries use different defaults and the call relies on the default. Passing
+  the keyword removes the warning.
+- **shape differs**: the result has another shape, usually the leading channel axis.
+- **behaviour**: anything else about the result that needs a change at the call site.
+- **not checked**: the checker could not tell, for instance because of ``**options`` or a value that is not
+  a constant.
+
+``--format json`` writes the findings, errors and summary as one JSON object. The exit status is 0 when there
+is nothing to report, 1 when there are findings, and 2 when a path could not be read or parsed.
+``--fail-on`` selects what counts as a finding: ``any`` (the default) for any librosa use, ``blocking`` for
+uses with no equivalent or with an option the equivalent rejects, and ``never`` to report without failing.
+In CI, ``--fail-on any`` stops librosa coming back once a project has moved, and ``--fail-on blocking``
+shows when a project is ready to start.
+
+The checker sees only source text. It does not follow values across calls, so it cannot tell that ``S`` in
+``power_to_db(S)`` came from ``melspectrogram``, and it does not see a call made through ``getattr``.
 
 Migrating gradually
 -------------------

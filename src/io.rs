@@ -1,7 +1,7 @@
 use crate::{
     PyAudioSamples, audio_err_to_py, audio_io_err_to_py, audio_read_err_to_py, dispatch_with_view,
-    dispatch_with_view_detached,
-    impl_py_repr, impl_py_wrapper_core, nzu32_or_err, reexport, types::PySampleType,
+    dispatch_with_view_detached, impl_py_repr, impl_py_wrapper_core, nzu32_or_err, reexport,
+    types::PySampleType,
 };
 use audio_samples::operations::ResamplingQuality;
 use audio_samples::{AudioTypeConversion, I24, resample, traits::StandardSample};

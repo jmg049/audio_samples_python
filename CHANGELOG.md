@@ -16,6 +16,36 @@ has the full detail.
   audio_samples.io` and the like) does. Everything else behaves as before.
 - **The wheel no longer ships** `logo.png`, benchmark scripts or notebooks. The
   README's logo uses an absolute URL, so it shows on PyPI.
+- **Unary operators.** `-audio`, `+audio` and `abs(audio)` return audio of the same sample type. Integer results saturate,
+  and `uint8` works relative to silence.
+- **Arithmetic keeps the sample type.** `1.0 + audio` returned float64; `audio / other` and `audio / array` returned
+  float64 for integer audio, `/=` changed the sample type of the audio it was applied to, and an array of another dtype did the
+  same for `+`, `-` and `*`. All of them now keep the sample type of the audio on the left, and audio of another sample
+  type is converted to it (this panicked before). Integer results saturate instead of wrapping, `u8` audio respects
+  its offset, and an integer divided by zero gives the limit with its sign. On integer audio a float scalar is in the
+  floating-point range, so `audio + 1.0` adds full scale, and it must be within -1.0 to 1.0 or `ValueError` is raised. An int
+  or NumPy integer scalar is a number of sample steps relative to silence, so `audio + 1` adds one step on every integer
+  type, on either side of the operator, and `OverflowError` is raised if it does not fit the type (`audio + 40000` on int16,
+  `audio + 200` on uint8, whose range is -128 to 127). A NumPy `uint8` scalar on `uint8` audio is a sample, so
+  `audio + np.uint8(128)` changes nothing. `*` and `/` are gains, so `audio * 2` equals `audio * 2.0`, and only the result
+  saturates. Non-finite scalars raise `ValueError` on integer audio, a non-finite array too, and dividing integer audio
+  by a zero scalar raises `ZeroDivisionError`. Dividing by an array or other audio works sample by sample: a divisor sample
+  of silence gives the limit with the sign of the dividend, and silence over silence gives silence (128 for `uint8`). Arithmetic with NumPy on the left
+  (`np.int16(1) + audio`, `array * audio`) now follows the same rules. On float audio an int is the same number as the float. A bool scalar raises `TypeError`.
+- **Type stubs are checked and precise.** `mypy.stubtest`, mypy and pyright run in pre-commit and in CI. `AudioSamples`
+  is generic in its sample type (`AudioSamples[numpy.float32]` also works at run time), and overloads give the dtype of
+  analysis results from the sample type or the input array, the bool results of `pyin`, `recurrence_matrix` and
+  `viterbi_binary`, and the results selected by `units=`, `mode=`, `return_zf=`, `backtrack=` and similar arguments. An
+  input of unknown type gives a result of unknown type. Corrected signatures include `apply_compressor`, `apply_limiter`
+  and `normalize`; `scale`, `clip`, `normalize` and `remove_dc_offset` return `None`. The stubs for `utils` move to
+  `audio_samples/utils/`; `audio_samples.audio_math` and `audio_samples.detection` never existed at run time and are gone
+  from the stubs, with their contents under `audio_samples.utils`.
+- **Migration checker.** `python -m audio_samples.migrate PATH [PATH ...]` lists the librosa calls in Python
+  files and notebooks with the equivalent, how closely it matches and what to watch for in that call. It has
+  JSON output, a summary and an exit status for CI, and it never changes the files.
+- **Example clips.** `generation.example_clip` renders named clips of music and speech with known
+  contents at any sample rate, duration and sample type. Nothing is stored or downloaded, and the same
+  arguments give the same bytes on any platform with IEEE 754 arithmetic.
 - **librosa parity.** A librosa 1.0-compatible API alongside the existing one:
   librosa-style methods on `AudioSamples` and the new submodules
   `audio_samples.spectral`, `features`, `sequence`, `rhythm` and `effects`.

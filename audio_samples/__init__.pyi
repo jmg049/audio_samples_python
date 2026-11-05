@@ -7,8 +7,11 @@ function.
 """
 
 from __future__ import annotations
+from typing import final
 from pathlib import Path
-from typing import Optional, Any, Literal, Callable, Union, ClassVar
+from typing import Generic, NoReturn, Optional, Any, Literal, Callable, Union, ClassVar, overload, type_check_only
+from types import GenericAlias
+from typing_extensions import Self, TypeAlias, TypeVar
 import numpy as np
 from numpy.typing import NDArray, DTypeLike
 import numpy.typing as npt
@@ -74,6 +77,23 @@ from audio_samples.types import (
 
 # Runtime top-level re-exports of audio_samples.types and audio_samples.io
 from audio_samples.types import (
+    IirFilterDesign as IirFilterDesign,
+    EqBand as EqBand,
+    ParametricEq as ParametricEq,
+    OnsetDetectionConfig as OnsetDetectionConfig,
+    ComplexOnsetConfig as ComplexOnsetConfig,
+    SpectralFluxConfig as SpectralFluxConfig,
+    SpectralFluxMethod as SpectralFluxMethod,
+    DynamicRangeMethod as DynamicRangeMethod,
+    EnvelopeFollower as EnvelopeFollower,
+    BeatTrackingConfig as BeatTrackingConfig,
+    BeatTrackingData as BeatTrackingData,
+    VadMethod as VadMethod,
+    VadChannelPolicy as VadChannelPolicy,
+    VadConfig as VadConfig,
+)
+
+from audio_samples.types import (
     AdaptiveThresholdConfig as AdaptiveThresholdConfig,
     AdaptiveThresholdMethod as AdaptiveThresholdMethod,
     HpssConfig as HpssConfig,
@@ -116,14 +136,13 @@ plotting: Any
 from . import generation as generation
 from . import io as io
 from . import utils as utils
-from . import audio_math as audio_math
 from . import mpl as mpl
 from . import types as types
 from . import spectrograms as spectrograms
 from . import exceptions as exceptions
 from . import explain as explain
 from audio_samples.explain import ExplainDoc as ExplainDoc
-from audio_samples.explain import Explainable as _Explainable
+from audio_samples.explain import _Explainable as _Explainable
 from . import spectral as spectral
 from . import sequence as sequence
 from . import rhythm as rhythm
@@ -133,14 +152,30 @@ from .utils import mu_law_encode as mu_law_encode, mu_law_decode as mu_law_decod
 
 __version__: str
 
+_S = TypeVar("_S", bound=np.generic)
+#: The sample type of an AudioSamples. Unknown (Any) for audio read from a file and for int24 audio,
+#: which has no NumPy dtype.
+#: A scalar operand. A bool is an int to a type checker but raises TypeError at run time.
+_Scalar: TypeAlias = float | np.integer | np.floating
+_S_co = TypeVar("_S_co", bound=np.generic, covariant=True, default=Any)
+#: Sample types whose analysis results are float32 / complex64.
+_SingleSample: TypeAlias = np.uint8 | np.int16 | np.float32
+#: Matches only a sample type unknown to the type checker (Any). The overloads use it so that audio of
+#: unknown sample type, such as audio read from a file, gives results of unknown precision.
+@type_check_only
+class _UnknownDtype(np.generic):
+    def __new__(cls) -> _UnknownDtype: ...
+#: Sample types whose analysis results are float64 / complex128.
+_DoubleSample: TypeAlias = np.int32 | np.float64
+
 #: A window specification accepted by the librosa-compatible functions:
 #: a SciPy window name, ``(name, parameter)``, a number (Kaiser beta) or an array.
-WindowSpec = Union[str, tuple[str, float], float, npt.ArrayLike]
+_WindowSpec = Union[str, tuple[str, float], float, npt.ArrayLike]
 #: Mel filter normalisation for the librosa-compatible functions: ``"slaney"``,
 #: None, or a p-norm exponent. (``MelNorm`` is the ``MelParams`` enum class.)
-MelNormSpec = Union[Literal["slaney"], float, None]
+_MelNormSpec = Union[Literal["slaney"], float, None]
 #: dB reference: a number, ``"max"`` or ``numpy.max``.
-DbRef = Union[float, Literal["max"], Callable[..., Any]]
+_DbRef = Union[float, Literal["max"], Callable[..., Any]]
 
 # Expose generation functions at the top level for convenience
 from .generation import (
@@ -168,92 +203,9 @@ from .generation import (
     exponential_bursts,
 )
 
-__all__ = [
-    "mpl",
-    "types",
-    "spectral",
-    "sequence",
-    "rhythm",
-    "effects",
-    "features",
-    "mu_law_encode",
-    "mu_law_decode",
-    "spectrograms",
-    "exceptions",
-    "StftParams",
-    "SpectrogramParams",
-    "MelParams",
-    "MfccParams",
-    "LogParams",
-    "ChromaParams",
-    "CqtParams",
-    "ErbParams",
-    "MelNorm",
-    "StftResult",
-    "WindowType",
-    "AudioError",
-    "AudioParameterError",
-    "AudioLayoutError",
-    "AudioConversionError",
-    "AudioRuntimeError",
-    "AudioProcessingError",
-    "AudioFeatureError",
-    "AudioSpectrogramError",
-    "AudioIOError",
-    "AudioFileNotFoundError",
-    "AudioFormatError",
-    "AudioDecodeError",
-    "sine_wave",
-    "cosine_wave",
-    "sawtooth_wave",
-    "square_wave",
-    "triangle_wave",
-    "chirp",
-    "white_noise",
-    "pink_noise",
-    "brown_noise",
-    "impulse",
-    "silence",
-    "stereo_sine_wave",
-    "stereo_chirp",
-    "stereo_silence",
-    "square_wave_bandlimited",
-    "sawtooth_wave_bandlimited",
-    "triangle_wave_bandlimited",
-    "exponential_chirp",
-    "fm_signal",
-    "am_signal",
-    "compound_tone",
-    "exponential_bursts",
-    "AudioSamples",
-    "IirFilterDesign",
-    "EqBand",
-    "ParametricEq",
-    "OnsetDetectionConfig",
-    "ComplexOnsetConfig",
-    "SpectralFluxConfig",
-    "SpectralFluxMethod",
-    "DynamicRangeMethod",
-    "EnvelopeFollower",
-    "BeatTrackingConfig",
-    "BeatTrackingData",
-    "VadConfig",
-    "VadMethod",
-    "VadChannelPolicy",
-    "PadSide",
-    "PerturbationConfig",
-    "FadeCurve",
-    "MonoConversionMethod",
-    "StereoConversionMethod",
-    "CompressorConfig",
-    "LimiterConfig",
-    "PitchDetectionMethod",
-    "ResamplingQuality",
-    "NormalizationMethod",
-    "SampleType",
-]
 
-class AudioSamples:
+@final
+class AudioSamples(Generic[_S_co]):
     """
     Main audio processing class supporting multiple sample formats and numpy integration.
 
@@ -265,16 +217,9 @@ class AudioSamples:
     for int32 and float64 audio. Audio-returning methods keep the sample type.
     """
 
-    def __array__(self, dtype: DTypeLike = np.float64) -> npt.NDArray[np.float64]:
-        """Convert the spectrogram to a NumPy array.
-
-        :param dtype: Desired data type (default: np.float64)
-        :return: Spectrogram data as a NumPy array of specified dtype
-        """
-        ...
 
     @staticmethod
-    def new_mono(arr: NDArray[Any], sample_rate: int) -> AudioSamples:
+    def new_mono(arr: NDArray[_S], sample_rate: int) -> AudioSamples[_S]:
         """Create mono audio from a 1-D numpy array (auto-detects dtype).
 
         Zero-copy: the AudioSamples views ``arr``'s memory, so in-place
@@ -285,7 +230,7 @@ class AudioSamples:
         ...
 
     @staticmethod
-    def new_multi(arr: NDArray[Any], sample_rate: int) -> AudioSamples:
+    def new_multi(arr: NDArray[_S], sample_rate: int) -> AudioSamples[_S]:
         """Create multi-channel audio from a 2-D (channels, samples) numpy array.
 
         Zero-copy: the AudioSamples views ``arr``'s memory, so in-place
@@ -295,138 +240,138 @@ class AudioSamples:
 
     # Factory methods - zeros
     @staticmethod
-    def zeros_mono(length: int, sample_rate: int) -> AudioSamples:
+    def zeros_mono(length: int, sample_rate: int) -> AudioSamples[np.float32]:
         """Create zero-filled mono f32 audio."""
         ...
 
     @staticmethod
-    def zeros_mono_i16(length: int, sample_rate: int) -> AudioSamples:
+    def zeros_mono_i16(length: int, sample_rate: int) -> AudioSamples[np.int16]:
         """Create zero-filled mono i16 audio."""
         ...
 
     @staticmethod
-    def zeros_mono_i32(length: int, sample_rate: int) -> AudioSamples:
+    def zeros_mono_i32(length: int, sample_rate: int) -> AudioSamples[np.int32]:
         """Create zero-filled mono i32 audio."""
         ...
 
     @staticmethod
-    def zeros_mono_f64(length: int, sample_rate: int) -> AudioSamples:
+    def zeros_mono_f64(length: int, sample_rate: int) -> AudioSamples[np.float64]:
         """Create zero-filled mono f64 audio."""
         ...
 
     @staticmethod
-    def zeros_multi(channels: int, length: int, sample_rate: int) -> AudioSamples:
+    def zeros_multi(channels: int, length: int, sample_rate: int) -> AudioSamples[np.float32]:
         """Create zero-filled multi-channel f32 audio."""
         ...
 
     @staticmethod
-    def zeros_multi_i16(channels: int, length: int, sample_rate: int) -> AudioSamples:
+    def zeros_multi_i16(channels: int, length: int, sample_rate: int) -> AudioSamples[np.int16]:
         """Create zero-filled multi-channel i16 audio."""
         ...
 
     @staticmethod
-    def zeros_multi_i32(channels: int, length: int, sample_rate: int) -> AudioSamples:
+    def zeros_multi_i32(channels: int, length: int, sample_rate: int) -> AudioSamples[np.int32]:
         """Create zero-filled multi-channel i32 audio."""
         ...
 
     @staticmethod
-    def zeros_multi_f64(channels: int, length: int, sample_rate: int) -> AudioSamples:
+    def zeros_multi_f64(channels: int, length: int, sample_rate: int) -> AudioSamples[np.float64]:
         """Create zero-filled multi-channel f64 audio."""
         ...
 
     # Factory methods - ones
     @staticmethod
-    def ones_mono(length: int, sample_rate: int) -> AudioSamples:
+    def ones_mono(length: int, sample_rate: int) -> AudioSamples[np.float32]:
         """Create ones-filled mono f32 audio."""
         ...
 
     @staticmethod
-    def ones_mono_i16(length: int, sample_rate: int) -> AudioSamples:
+    def ones_mono_i16(length: int, sample_rate: int) -> AudioSamples[np.int16]:
         """Create ones-filled mono i16 audio."""
         ...
 
     @staticmethod
-    def ones_mono_i32(length: int, sample_rate: int) -> AudioSamples:
+    def ones_mono_i32(length: int, sample_rate: int) -> AudioSamples[np.int32]:
         """Create ones-filled mono i32 audio."""
         ...
 
     @staticmethod
-    def ones_mono_f64(length: int, sample_rate: int) -> AudioSamples:
+    def ones_mono_f64(length: int, sample_rate: int) -> AudioSamples[np.float64]:
         """Create ones-filled mono f64 audio."""
         ...
 
     @staticmethod
-    def ones_multi(channels: int, length: int, sample_rate: int) -> AudioSamples:
+    def ones_multi(channels: int, length: int, sample_rate: int) -> AudioSamples[np.float32]:
         """Create ones-filled multi-channel f32 audio."""
         ...
 
     @staticmethod
-    def ones_multi_i16(channels: int, length: int, sample_rate: int) -> AudioSamples:
+    def ones_multi_i16(channels: int, length: int, sample_rate: int) -> AudioSamples[np.int16]:
         """Create ones-filled multi-channel i16 audio."""
         ...
 
     @staticmethod
-    def ones_multi_i32(channels: int, length: int, sample_rate: int) -> AudioSamples:
+    def ones_multi_i32(channels: int, length: int, sample_rate: int) -> AudioSamples[np.int32]:
         """Create ones-filled multi-channel i32 audio."""
         ...
 
     @staticmethod
-    def ones_multi_f64(channels: int, length: int, sample_rate: int) -> AudioSamples:
+    def ones_multi_f64(channels: int, length: int, sample_rate: int) -> AudioSamples[np.float64]:
         """Create ones-filled multi-channel f64 audio."""
         ...
 
     # Factory methods - uniform
     @staticmethod
-    def uniform_mono(length: int, sample_rate: int, value: float) -> AudioSamples:
+    def uniform_mono(length: int, sample_rate: int, value: float) -> AudioSamples[np.float32]:
         """Create uniform-value mono f32 audio."""
         ...
 
     @staticmethod
-    def uniform_mono_i16(length: int, sample_rate: int, value: int) -> AudioSamples:
+    def uniform_mono_i16(length: int, sample_rate: int, value: int) -> AudioSamples[np.int16]:
         """Create uniform-value mono i16 audio."""
         ...
 
     @staticmethod
-    def uniform_mono_i32(length: int, sample_rate: int, value: int) -> AudioSamples:
+    def uniform_mono_i32(length: int, sample_rate: int, value: int) -> AudioSamples[np.int32]:
         """Create uniform-value mono i32 audio."""
         ...
 
     @staticmethod
-    def uniform_mono_f64(length: int, sample_rate: int, value: float) -> AudioSamples:
+    def uniform_mono_f64(length: int, sample_rate: int, value: float) -> AudioSamples[np.float64]:
         """Create uniform-value mono f64 audio."""
         ...
 
     @staticmethod
     def uniform_multi(
         channels: int, length: int, sample_rate: int, value: float
-    ) -> AudioSamples:
+    ) -> AudioSamples[np.float32]:
         """Create uniform-value multi-channel f32 audio."""
         ...
 
     @staticmethod
     def uniform_multi_i16(
         channels: int, length: int, sample_rate: int, value: int
-    ) -> AudioSamples:
+    ) -> AudioSamples[np.int16]:
         """Create uniform-value multi-channel i16 audio."""
         ...
 
     @staticmethod
     def uniform_multi_i32(
         channels: int, length: int, sample_rate: int, value: int
-    ) -> AudioSamples:
+    ) -> AudioSamples[np.int32]:
         """Create uniform-value multi-channel i32 audio."""
         ...
 
     @staticmethod
     def uniform_multi_f64(
         channels: int, length: int, sample_rate: int, value: float
-    ) -> AudioSamples:
+    ) -> AudioSamples[np.float64]:
         """Create uniform-value multi-channel f64 audio."""
         ...
 
     # Audio editing operations
     @classmethod
-    def concatenate(cls, segments: list[AudioSamples]) -> AudioSamples:
+    def concatenate(cls, segments: list[AudioSamples[_S]]) -> AudioSamples[_S]:
         """
         Concatenate multiple audio segments end-to-end.
 
@@ -445,7 +390,7 @@ class AudioSamples:
         ...
 
     @classmethod
-    def stack(cls, sources: list[AudioSamples]) -> AudioSamples:
+    def stack(cls, sources: list[AudioSamples[_S]]) -> AudioSamples[_S]:
         """
         Stack multiple mono audio sources into multi-channel audio.
 
@@ -464,7 +409,7 @@ class AudioSamples:
         ...
 
     @classmethod
-    def concatenate_owned(cls, segments: list[AudioSamples]) -> AudioSamples:
+    def concatenate_owned(cls, segments: list[AudioSamples[_S]]) -> AudioSamples[_S]:
         """Concatenate multiple owned buffers end to end.
 
         Behaves identically to :meth:`concatenate`; it mirrors the crate's
@@ -485,17 +430,17 @@ class AudioSamples:
         ...
 
     # AudioEditing methods
-    def repeat(self, count: int) -> AudioSamples:
+    def repeat(self, count: int) -> Self:
         """Repeat the audio samples count times."""
         ...
 
-    def trim_silence(self, threshold_db: float) -> AudioSamples:
+    def trim_silence(self, threshold_db: float) -> Self:
         """Trim silence from the beginning and end of the audio based on a dB threshold."""
         ...
 
     def trim_all_silence(
         self, threshold_db: float, min_silence_duration_seconds: float
-    ) -> AudioSamples:
+    ) -> Self:
         """Remove every silent region longer than a minimum duration.
 
         Unlike :meth:`trim_silence`, which only trims leading and trailing
@@ -516,7 +461,7 @@ class AudioSamples:
         """
         ...
 
-    def perturb(self, config: "PerturbationConfig") -> AudioSamples:
+    def perturb(self, config: "PerturbationConfig") -> Self:
         """Apply stochastic perturbations and return a new buffer.
 
         Args:
@@ -536,14 +481,14 @@ class AudioSamples:
         ...
 
     def pad(
-        self, pad_start_seconds: float, pad_end_seconds: float, pad_value: float = 0.0
-    ) -> AudioSamples:
+        self, pad_start_seconds: float, pad_end_seconds: float, pad_value: float
+    ) -> Self:
         """Pad audio with silence or a specific value at the start and/or end."""
         ...
 
     def pad_samples_right(
         self, target_num_samples: int, pad_value: float
-    ) -> AudioSamples:
+    ) -> Self:
         """Right-pad the buffer to a fixed sample count.
 
         Args:
@@ -559,7 +504,7 @@ class AudioSamples:
 
     def pad_to_duration(
         self, target_duration_seconds: float, pad_value: float, pad_side: "PadSide"
-    ) -> AudioSamples:
+    ) -> Self:
         """Pad the buffer to reach a target duration.
 
         Args:
@@ -572,14 +517,14 @@ class AudioSamples:
         """
         ...
 
-    def split(self, segment_duration_seconds: float) -> list[AudioSamples]:
+    def split(self, segment_duration_seconds: float) -> list[Self]:
         """Split audio into segments of a specified duration."""
         ...
 
     @classmethod
     def mix(
-        cls, sources: list[AudioSamples], weights: Optional[list[float]] = None
-    ) -> AudioSamples:
+        cls, sources: list[AudioSamples[_S]], weights: Optional[list[float]] = None
+    ) -> AudioSamples[_S]:
         """Mix multiple audio sources together with optional weights."""
         ...
 
@@ -661,7 +606,7 @@ class AudioSamples:
         ...
 
     @classmethod
-    def istft(cls, stft_result: "StftResult") -> AudioSamples:
+    def istft(cls, stft_result: "StftResult") -> AudioSamples[Any]:
         """Invert a Short-Time Fourier Transform result.
 
         Args:
@@ -677,7 +622,7 @@ class AudioSamples:
         self,
         target_sample_rate: int,
         quality: "ResamplingQuality | Literal['fast', 'medium', 'high']" = "fast",
-    ) -> AudioSamples:
+    ) -> Self:
         """Resample to ``target_sample_rate`` (librosa ``resample`` equivalent).
 
         Delay-free windowed-sinc interpolation: the output is time-aligned with
@@ -704,7 +649,7 @@ class AudioSamples:
         self,
         ratio: float,
         quality: "ResamplingQuality | Literal['fast', 'medium', 'high']" = "fast",
-    ) -> AudioSamples:
+    ) -> Self:
         """Resample to ``round(sample_rate * ratio)`` Hz; otherwise as ``resample``.
 
         Args:
@@ -719,7 +664,7 @@ class AudioSamples:
         """
         ...
 
-    def apply_filter(self, coefficients: NDArray[np.float64]) -> AudioSamples:
+    def apply_filter(self, coefficients: NDArray[np.float64]) -> Self:
         """FIR filter by valid convolution: ``numpy.convolve(x, h, 'valid')`` per channel.
 
         ``y[i] = sum_k h[k] * x[i + M - 1 - k]``; the output has ``N - M + 1``
@@ -733,7 +678,7 @@ class AudioSamples:
         """In-place ``apply_filter``; the buffer becomes ``M - 1`` samples shorter."""
         ...
 
-    def apply_window(self, window: NDArray[np.floating]) -> AudioSamples:
+    def apply_window(self, window: NDArray[np.floating]) -> Self:
         """Apply a window function to the audio samples.
 
         Each sample is multiplied by its float64 coefficient; integer audio is
@@ -867,7 +812,7 @@ class AudioSamples:
         mask_softness: Optional[float] = None,
         *,
         stft_params: Optional[StftParams] = None,
-    ) -> tuple[AudioSamples, AudioSamples]:
+    ) -> tuple[Self, Self]:
         """Separate harmonic and percussive components using median-filter HPSS.
 
         Args:
@@ -1014,7 +959,7 @@ class AudioSamples:
         ...
 
     # AudioEnvelopes methods
-    def amplitude_envelope(self) -> NDArray[np.floating]:
+    def amplitude_envelope(self) -> NDArray[_S_co]:
         """Compute a rectified amplitude envelope.
 
         Takes the absolute value of each sample to create an amplitude envelope.
@@ -1024,7 +969,7 @@ class AudioSamples:
         """
         ...
 
-    def rms_envelope(self, window_size: int, hop_size: int) -> NDArray[np.floating]:
+    def rms_envelope(self, window_size: int, hop_size: int) -> NDArray[_S_co]:
         """Compute RMS (root mean square) envelope using a sliding window.
 
         Args:
@@ -1038,7 +983,7 @@ class AudioSamples:
 
     def attack_decay_envelope(
         self, follower: EnvelopeFollower, method: DynamicRangeMethod
-    ) -> tuple[NDArray[np.floating], NDArray[np.floating]]:
+    ) -> tuple[NDArray[_S_co], NDArray[_S_co]]:
         """Compute attack and decay envelopes using an envelope follower.
 
         Args:
@@ -1050,7 +995,7 @@ class AudioSamples:
         """
         ...
 
-    def analytic_envelope(self) -> NDArray[np.floating]:
+    def analytic_envelope(self) -> NDArray[_S_co]:
         """Compute analytic amplitude envelope using Hilbert transform.
 
         Provides the instantaneous amplitude for each sample.
@@ -1062,7 +1007,7 @@ class AudioSamples:
 
     def moving_average_envelope(
         self, window_size: int, hop_size: int
-    ) -> NDArray[np.floating]:
+    ) -> NDArray[_S_co]:
         """Compute moving-average envelope over the rectified signal.
 
         Args:
@@ -1158,7 +1103,7 @@ class AudioSamples:
 
     def windows(
         self, window_size: int, hop_size: int
-    ) -> list[NDArray[np.float64]]:
+    ) -> list[NDArray[_S_co]]:
         """Split the signal into fixed-size, optionally overlapping windows.
 
         Each window covers ``window_size`` samples per channel and successive
@@ -1179,7 +1124,7 @@ class AudioSamples:
         """
         ...
 
-    def frames(self) -> list[NDArray[np.float64]]:
+    def frames(self) -> list[NDArray[_S_co]]:
         """Iterate over time-aligned frames of the signal.
 
         Each frame is a snapshot across all channels at a single time index, so
@@ -1191,7 +1136,7 @@ class AudioSamples:
         """
         ...
 
-    def iter_channels(self) -> list[NDArray[np.float64]]:
+    def iter_channels(self) -> list[NDArray[_S_co]]:
         """Iterate over the complete signal of each channel.
 
         Each item is the full temporal sequence of one channel, yielded in
@@ -1202,11 +1147,6 @@ class AudioSamples:
         """
         ...
 
-    def time_axis(self) -> NDArray[np.floating]:
-        """Get the time axis values corresponding to each sample.
-
-        A linspace from 0 to the total duration of the audio, with one value per sample. Useful for plotting or time-based analysis. Returns: 1D numpy array of time values in seconds"""
-        ...
 
     # IIR Filtering methods
     def butterworth_lowpass(self, order: int, cutoff_frequency: float) -> None:
@@ -1224,7 +1164,7 @@ class AudioSamples:
         ...
 
     # Simple filter methods
-    def low_pass_filter(self, cutoff_hz: float) -> AudioSamples:
+    def low_pass_filter(self, cutoff_hz: float) -> Self:
         """First-order Butterworth low-pass (-3 dB at ``cutoff_hz``, 6 dB/octave).
 
         Identical to ``scipy.signal.sosfilt(scipy.signal.butter(1, cutoff_hz,
@@ -1238,7 +1178,7 @@ class AudioSamples:
         """
         ...
 
-    def high_pass_filter(self, cutoff_hz: float) -> AudioSamples:
+    def high_pass_filter(self, cutoff_hz: float) -> Self:
         """First-order Butterworth high-pass (-3 dB at ``cutoff_hz``, 6 dB/octave).
 
         Identical to ``scipy.signal.sosfilt(scipy.signal.butter(1, cutoff_hz,
@@ -1254,7 +1194,7 @@ class AudioSamples:
 
     def band_pass_filter(
         self, low_cutoff_hz: float, high_cutoff_hz: float
-    ) -> AudioSamples:
+    ) -> Self:
         """Band-pass from a first-order Butterworth prototype (one biquad).
 
         Identical to ``scipy.signal.sosfilt(scipy.signal.butter(1, [low, high],
@@ -1538,7 +1478,7 @@ class AudioSamples:
         ...
 
     # Amplitude processing
-    def scale(self, factor: float) -> AudioSamples:
+    def scale(self, factor: float) -> None:
         """Scale audio amplitude by factor.
 
         Args:
@@ -1550,8 +1490,8 @@ class AudioSamples:
         ...
 
     def normalize(
-        self, min_val: float, max_val: float, method: "NormalizationMethod"
-    ) -> AudioSamples:
+        self, min: float, max: float, method: "NormalizationMethod"
+    ) -> None:
         """Normalize audio to given range using specified method.
 
         Args:
@@ -1564,7 +1504,7 @@ class AudioSamples:
         """
         ...
 
-    def clip(self, min_val: float, max_val: float) -> AudioSamples:
+    def clip(self, min_val: float, max_val: float) -> None:
         """Clip audio values to given range.
 
         Args:
@@ -1576,7 +1516,7 @@ class AudioSamples:
         """
         ...
 
-    def remove_dc_offset(self) -> AudioSamples:
+    def remove_dc_offset(self) -> None:
         """Remove DC offset from audio.
 
         Returns:
@@ -1584,7 +1524,7 @@ class AudioSamples:
         """
         ...
 
-    def mu_compress(self, mu: float) -> AudioSamples:
+    def mu_compress(self, mu: float) -> Self:
         """Apply mu-law compression to the signal.
 
         Args:
@@ -1595,7 +1535,7 @@ class AudioSamples:
         """
         ...
 
-    def mu_expand(self, mu: float) -> AudioSamples:
+    def mu_expand(self, mu: float) -> Self:
         """Apply mu-law expansion to the signal.
 
         Args:
@@ -1607,7 +1547,7 @@ class AudioSamples:
         ...
 
     # Time-domain processing
-    def reverse(self) -> AudioSamples:
+    def reverse(self) -> Self:
         """Return a reversed copy of the audio."""
         ...
 
@@ -1615,29 +1555,25 @@ class AudioSamples:
         """Reverse the audio samples in place."""
         ...
 
-    def trim(self, start_seconds: float, end_seconds: float) -> AudioSamples:
+    def trim(self, start_seconds: float, end_seconds: float) -> Self:
         """Return a trimmed copy of the audio."""
         ...
 
     # Dynamic range processing (in-place)
-    def apply_compressor(
-        self,
-        threshold_db: float,
-        ratio: float,
-        attack_ms: float,
-        release_ms: float,
-        makeup_gain_db: float,
-    ) -> None:
-        """Apply compression (in-place)."""
+    def apply_compressor(self, compressor_config: CompressorConfig) -> None:
+        """Apply dynamic-range compression in place.
+
+        Args:
+            compressor_config: The compressor settings.
+        """
         ...
 
-    def apply_limiter(
-        self,
-        ceiling_db: float,
-        release_ms: float,
-        lookahead_ms: float,
-    ) -> None:
-        """Apply limiting (in-place)."""
+    def apply_limiter(self, config: LimiterConfig) -> None:
+        """Apply peak limiting in place.
+
+        Args:
+            config: The limiter settings.
+        """
         ...
 
     def apply_gate(self, config: GateConfig) -> None:
@@ -1670,7 +1606,7 @@ class AudioSamples:
 
     def apply_compressor_sidechain(
         self, config: CompressorConfig, sidechain: AudioSamples
-    ) -> AudioSamples:
+    ) -> Self:
         """Apply sidechain compression, returning a new buffer.
 
         The compressor's gain reduction is driven by the level of ``sidechain``
@@ -1695,7 +1631,7 @@ class AudioSamples:
 
     def apply_limiter_sidechain(
         self, config: LimiterConfig, sidechain: AudioSamples
-    ) -> AudioSamples:
+    ) -> Self:
         """Apply sidechain limiting, returning a new buffer.
 
         The limiter's gain reduction ceiling is enforced based on the level of
@@ -2096,7 +2032,7 @@ class AudioSamples:
         """Apply parametric equalizer (in-place)."""
         ...
 
-    def parametric_eq(self, eq: ParametricEq) -> AudioSamples:
+    def parametric_eq(self, eq: ParametricEq) -> Self:
         """Apply a parametric equalizer configuration, returning a new buffer.
 
         Non-mutating twin of :meth:`apply_parametric_eq`; leaves the current
@@ -2117,7 +2053,7 @@ class AudioSamples:
         """Apply single EQ band (in-place)."""
         ...
 
-    def eq_band(self, band: EqBand) -> AudioSamples:
+    def eq_band(self, band: EqBand) -> Self:
         """Apply a single EQ band, returning a new buffer.
 
         Non-mutating twin of :meth:`apply_eq_band`; leaves the current buffer
@@ -2203,7 +2139,7 @@ class AudioSamples:
         """
         ...
 
-    def fft(self, n_fft: int) -> np.typing.NDArray[np.complexfloating]:
+    def fft(self, n_fft: int) -> NDArray[np.complex128]:
         """One-sided FFT: ``numpy.fft.rfft(x, n_fft)`` per channel.
 
         Args:
@@ -2214,7 +2150,7 @@ class AudioSamples:
         """
         ...
 
-    def rfft(self, n_fft: int) -> np.typing.NDArray[np.float64]:
+    def rfft(self, n_fft: int) -> NDArray[np.float64]:
         """Magnitude of the one-sided FFT: ``abs(numpy.fft.rfft(x, n_fft))``.
 
         Args:
@@ -2244,7 +2180,7 @@ class AudioSamples:
         """
         ...
 
-    def convolve(self, other: AudioSamples) -> AudioSamples:
+    def convolve(self, other: AudioSamples) -> Self:
         """Compute the linear convolution of this signal with another.
 
         Both signals are converted to f64 internally. The result is mono and
@@ -2266,7 +2202,7 @@ class AudioSamples:
 
     def deconvolve(
         self, other: AudioSamples, regularization: float = 0.0
-    ) -> AudioSamples:
+    ) -> Self:
         """Recover a system response by regularised spectral-division deconvolution.
 
         Solves ``self = denominator (*) h`` for ``h``. The ``regularization``
@@ -2290,7 +2226,7 @@ class AudioSamples:
 
     def constant_q_transform(
         self, params: CqtParams, hop_size: int
-    ) -> NDArray[np.complexfloating]:
+    ) -> NDArray[np.complex128]:
         """Compute the Constant-Q Transform (CQT) of a mono signal.
 
         Args:
@@ -2309,9 +2245,23 @@ class AudioSamples:
         ...
 
     @staticmethod
+    @overload
     def magphase(
-        complex_spect: NDArray[np.complexfloating], power: Optional[int] = None
-    ) -> tuple[NDArray[np.floating], NDArray[np.complexfloating]]:
+        complex_spect: NDArray[_UnknownDtype],
+        power: Optional[int] = None,
+    ) -> tuple[NDArray[Any], NDArray[Any]]: ...
+    @staticmethod
+    @overload
+    def magphase(  # type: ignore[overload-overlap]
+        complex_spect: NDArray[np.complex64],
+        power: Optional[int] = None,
+    ) -> tuple[NDArray[np.float32], NDArray[np.complex64]]: ...
+    @staticmethod
+    @overload
+    def magphase(
+        complex_spect: NDArray[np.complex128],
+        power: Optional[int] = None,
+    ) -> tuple[NDArray[np.float64], NDArray[np.complex128]]:
         """Decompose a complex spectrogram into magnitude and phase.
 
         Given a complex matrix ``D``, returns ``(magnitude, phase)`` such that
@@ -2420,16 +2370,39 @@ class AudioSamples:
     # ``mfcc_frames(top_db=None)`` (librosa: 80).
     # ------------------------------------------------------------------
 
+    @overload
     def stft_matrix(
-        self,
+        self: AudioSamples[_UnknownDtype],
         *,
         n_fft: int = 2048,
         hop_length: Optional[int] = None,
         win_length: Optional[int] = None,
-        window: WindowSpec = "hann",
+        window: _WindowSpec = 'hann',
         center: bool = True,
-        pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
-    ) -> NDArray[np.complexfloating]:
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
+    ) -> NDArray[Any]: ...
+    @overload
+    def stft_matrix(  # type: ignore[overload-overlap]
+        self: AudioSamples[_SingleSample],
+        *,
+        n_fft: int = 2048,
+        hop_length: Optional[int] = None,
+        win_length: Optional[int] = None,
+        window: _WindowSpec = 'hann',
+        center: bool = True,
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
+    ) -> NDArray[np.complex64]: ...
+    @overload
+    def stft_matrix(
+        self: AudioSamples[_DoubleSample],
+        *,
+        n_fft: int = 2048,
+        hop_length: Optional[int] = None,
+        win_length: Optional[int] = None,
+        window: _WindowSpec = 'hann',
+        center: bool = True,
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
+    ) -> NDArray[np.complex128]:
         """Complex STFT of every channel, equivalent to ``librosa.stft``.
 
         Args:
@@ -2456,6 +2429,35 @@ class AudioSamples:
         ...
 
     @staticmethod
+    @overload
+    def istft_matrix(
+        stft_matrix: NDArray[_UnknownDtype],
+        *,
+        sample_rate: int,
+        hop_length: Optional[int] = None,
+        win_length: Optional[int] = None,
+        n_fft: Optional[int] = None,
+        window: _WindowSpec = 'hann',
+        center: bool = True,
+        length: Optional[int] = None,
+        dtype: None = None,
+    ) -> AudioSamples[Any]: ...
+    @staticmethod
+    @overload
+    def istft_matrix(  # type: ignore[overload-overlap]
+        stft_matrix: NDArray[np.complex64] | NDArray[np.float32],
+        *,
+        sample_rate: int,
+        hop_length: Optional[int] = None,
+        win_length: Optional[int] = None,
+        n_fft: Optional[int] = None,
+        window: _WindowSpec = 'hann',
+        center: bool = True,
+        length: Optional[int] = None,
+        dtype: None = None,
+    ) -> AudioSamples[np.float32]: ...
+    @staticmethod
+    @overload
     def istft_matrix(
         stft_matrix: npt.ArrayLike,
         *,
@@ -2463,11 +2465,25 @@ class AudioSamples:
         hop_length: Optional[int] = None,
         win_length: Optional[int] = None,
         n_fft: Optional[int] = None,
-        window: WindowSpec = "hann",
+        window: _WindowSpec = 'hann',
         center: bool = True,
         length: Optional[int] = None,
-        dtype: Optional[SampleType] = None,
-    ) -> AudioSamples:
+        dtype: None = None,
+    ) -> AudioSamples[np.float64]: ...
+    @staticmethod
+    @overload
+    def istft_matrix(
+        stft_matrix: npt.ArrayLike,
+        *,
+        sample_rate: int,
+        hop_length: Optional[int] = None,
+        win_length: Optional[int] = None,
+        n_fft: Optional[int] = None,
+        window: _WindowSpec = 'hann',
+        center: bool = True,
+        length: Optional[int] = None,
+        dtype: SampleType,
+    ) -> AudioSamples[Any]:
         """Inverse STFT to audio, equivalent to ``librosa.istft``.
 
         Args:
@@ -2496,17 +2512,42 @@ class AudioSamples:
         """
         ...
 
+    @overload
     def spectrogram_matrix(
-        self,
+        self: AudioSamples[_UnknownDtype],
         *,
         n_fft: int = 2048,
         hop_length: Optional[int] = None,
         win_length: Optional[int] = None,
-        window: WindowSpec = "hann",
+        window: _WindowSpec = 'hann',
         center: bool = True,
-        pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
         power: float = 1.0,
-    ) -> NDArray[np.floating]:
+    ) -> NDArray[Any]: ...
+    @overload
+    def spectrogram_matrix(  # type: ignore[overload-overlap]
+        self: AudioSamples[_SingleSample],
+        *,
+        n_fft: int = 2048,
+        hop_length: Optional[int] = None,
+        win_length: Optional[int] = None,
+        window: _WindowSpec = 'hann',
+        center: bool = True,
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
+        power: float = 1.0,
+    ) -> NDArray[np.float32]: ...
+    @overload
+    def spectrogram_matrix(
+        self: AudioSamples[_DoubleSample],
+        *,
+        n_fft: int = 2048,
+        hop_length: Optional[int] = None,
+        win_length: Optional[int] = None,
+        window: _WindowSpec = 'hann',
+        center: bool = True,
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
+        power: float = 1.0,
+    ) -> NDArray[np.float64]:
         """``numpy.abs(librosa.stft(y, ...)) ** power`` for every channel.
 
         Returns:
@@ -2517,22 +2558,57 @@ class AudioSamples:
         """
         ...
 
+    @overload
     def melspectrogram(
-        self,
+        self: AudioSamples[_UnknownDtype],
         *,
         n_fft: int = 2048,
         hop_length: int = 512,
         win_length: Optional[int] = None,
-        window: WindowSpec = "hann",
+        window: _WindowSpec = 'hann',
         center: bool = True,
-        pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
         power: float = 2.0,
         n_mels: int = 128,
         fmin: float = 0.0,
         fmax: Optional[float] = None,
         htk: bool = False,
-        norm: MelNormSpec = "slaney",
-    ) -> NDArray[np.floating]:
+        norm: _MelNormSpec = 'slaney',
+    ) -> NDArray[Any]: ...
+    @overload
+    def melspectrogram(  # type: ignore[overload-overlap]
+        self: AudioSamples[_SingleSample],
+        *,
+        n_fft: int = 2048,
+        hop_length: int = 512,
+        win_length: Optional[int] = None,
+        window: _WindowSpec = 'hann',
+        center: bool = True,
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
+        power: float = 2.0,
+        n_mels: int = 128,
+        fmin: float = 0.0,
+        fmax: Optional[float] = None,
+        htk: bool = False,
+        norm: _MelNormSpec = 'slaney',
+    ) -> NDArray[np.float32]: ...
+    @overload
+    def melspectrogram(
+        self: AudioSamples[_DoubleSample],
+        *,
+        n_fft: int = 2048,
+        hop_length: int = 512,
+        win_length: Optional[int] = None,
+        window: _WindowSpec = 'hann',
+        center: bool = True,
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
+        power: float = 2.0,
+        n_mels: int = 128,
+        fmin: float = 0.0,
+        fmax: Optional[float] = None,
+        htk: bool = False,
+        norm: _MelNormSpec = 'slaney',
+    ) -> NDArray[np.float64]:
         """Mel spectrogram of every channel, equivalent to
         ``librosa.feature.melspectrogram(y=..., sr=self.sample_rate, ...)``.
 
@@ -2555,29 +2631,78 @@ class AudioSamples:
         """
         ...
 
+    @overload
     def mfcc_frames(
-        self,
+        self: AudioSamples[_UnknownDtype],
         *,
         n_mfcc: int = 20,
         dct_type: Literal[1, 2, 3] = 2,
-        norm: Optional[Literal["ortho"]] = "ortho",
+        norm: Optional[Literal['ortho']] = 'ortho',
         lifter: float = 0.0,
-        mel_norm: MelNormSpec = "slaney",
+        mel_norm: _MelNormSpec = 'slaney',
         n_fft: int = 2048,
         hop_length: int = 512,
         win_length: Optional[int] = None,
-        window: WindowSpec = "hann",
+        window: _WindowSpec = 'hann',
         center: bool = True,
-        pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
         power: float = 2.0,
         n_mels: int = 128,
         fmin: float = 0.0,
         fmax: Optional[float] = None,
         htk: bool = False,
-        ref: DbRef = 1.0,
+        ref: _DbRef = 1.0,
         amin: float = 1e-10,
         top_db: Optional[float] = None,
-    ) -> NDArray[np.floating]:
+    ) -> NDArray[Any]: ...
+    @overload
+    def mfcc_frames(  # type: ignore[overload-overlap]
+        self: AudioSamples[_SingleSample],
+        *,
+        n_mfcc: int = 20,
+        dct_type: Literal[1, 2, 3] = 2,
+        norm: Optional[Literal['ortho']] = 'ortho',
+        lifter: float = 0.0,
+        mel_norm: _MelNormSpec = 'slaney',
+        n_fft: int = 2048,
+        hop_length: int = 512,
+        win_length: Optional[int] = None,
+        window: _WindowSpec = 'hann',
+        center: bool = True,
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
+        power: float = 2.0,
+        n_mels: int = 128,
+        fmin: float = 0.0,
+        fmax: Optional[float] = None,
+        htk: bool = False,
+        ref: _DbRef = 1.0,
+        amin: float = 1e-10,
+        top_db: Optional[float] = None,
+    ) -> NDArray[np.float32]: ...
+    @overload
+    def mfcc_frames(
+        self: AudioSamples[_DoubleSample],
+        *,
+        n_mfcc: int = 20,
+        dct_type: Literal[1, 2, 3] = 2,
+        norm: Optional[Literal['ortho']] = 'ortho',
+        lifter: float = 0.0,
+        mel_norm: _MelNormSpec = 'slaney',
+        n_fft: int = 2048,
+        hop_length: int = 512,
+        win_length: Optional[int] = None,
+        window: _WindowSpec = 'hann',
+        center: bool = True,
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
+        power: float = 2.0,
+        n_mels: int = 128,
+        fmin: float = 0.0,
+        fmax: Optional[float] = None,
+        htk: bool = False,
+        ref: _DbRef = 1.0,
+        amin: float = 1e-10,
+        top_db: Optional[float] = None,
+    ) -> NDArray[np.float64]:
         """MFCCs of every channel, equivalent to
         ``librosa.feature.mfcc(y=..., sr=self.sample_rate, ...)``.
 
@@ -2614,16 +2739,39 @@ class AudioSamples:
     # Array-level (S=...) forms live in ``audio_samples.features``.
     # ------------------------------------------------------------------
 
+    @overload
     def spectral_centroid_frames(
-        self,
+        self: AudioSamples[_UnknownDtype],
         *,
         n_fft: int = 2048,
         hop_length: int = 512,
         win_length: Optional[int] = None,
-        window: WindowSpec = "hann",
+        window: _WindowSpec = 'hann',
         center: bool = True,
-        pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
-    ) -> NDArray[np.floating]:
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
+    ) -> NDArray[Any]: ...
+    @overload
+    def spectral_centroid_frames(  # type: ignore[overload-overlap]
+        self: AudioSamples[_SingleSample],
+        *,
+        n_fft: int = 2048,
+        hop_length: int = 512,
+        win_length: Optional[int] = None,
+        window: _WindowSpec = 'hann',
+        center: bool = True,
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
+    ) -> NDArray[np.float32]: ...
+    @overload
+    def spectral_centroid_frames(
+        self: AudioSamples[_DoubleSample],
+        *,
+        n_fft: int = 2048,
+        hop_length: int = 512,
+        win_length: Optional[int] = None,
+        window: _WindowSpec = 'hann',
+        center: bool = True,
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
+    ) -> NDArray[np.float64]:
         """Spectral centroid per frame, ``librosa.feature.spectral_centroid(y=..., sr=self.sample_rate)``.
 
         Returns:
@@ -2631,18 +2779,45 @@ class AudioSamples:
         """
         ...
 
+    @overload
     def spectral_bandwidth_frames(
-        self,
+        self: AudioSamples[_UnknownDtype],
         *,
         n_fft: int = 2048,
         hop_length: int = 512,
         win_length: Optional[int] = None,
-        window: WindowSpec = "hann",
+        window: _WindowSpec = 'hann',
         center: bool = True,
-        pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
         norm: bool = True,
         p: float = 2.0,
-    ) -> NDArray[np.floating]:
+    ) -> NDArray[Any]: ...
+    @overload
+    def spectral_bandwidth_frames(  # type: ignore[overload-overlap]
+        self: AudioSamples[_SingleSample],
+        *,
+        n_fft: int = 2048,
+        hop_length: int = 512,
+        win_length: Optional[int] = None,
+        window: _WindowSpec = 'hann',
+        center: bool = True,
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
+        norm: bool = True,
+        p: float = 2.0,
+    ) -> NDArray[np.float32]: ...
+    @overload
+    def spectral_bandwidth_frames(
+        self: AudioSamples[_DoubleSample],
+        *,
+        n_fft: int = 2048,
+        hop_length: int = 512,
+        win_length: Optional[int] = None,
+        window: _WindowSpec = 'hann',
+        center: bool = True,
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
+        norm: bool = True,
+        p: float = 2.0,
+    ) -> NDArray[np.float64]:
         """Order-``p`` spectral bandwidth per frame, ``librosa.feature.spectral_bandwidth``.
 
         Returns:
@@ -2650,17 +2825,42 @@ class AudioSamples:
         """
         ...
 
+    @overload
     def spectral_rolloff_frames(
-        self,
+        self: AudioSamples[_UnknownDtype],
         *,
         n_fft: int = 2048,
         hop_length: int = 512,
         win_length: Optional[int] = None,
-        window: WindowSpec = "hann",
+        window: _WindowSpec = 'hann',
         center: bool = True,
-        pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
         roll_percent: float = 0.85,
-    ) -> NDArray[np.floating]:
+    ) -> NDArray[Any]: ...
+    @overload
+    def spectral_rolloff_frames(  # type: ignore[overload-overlap]
+        self: AudioSamples[_SingleSample],
+        *,
+        n_fft: int = 2048,
+        hop_length: int = 512,
+        win_length: Optional[int] = None,
+        window: _WindowSpec = 'hann',
+        center: bool = True,
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
+        roll_percent: float = 0.85,
+    ) -> NDArray[np.float32]: ...
+    @overload
+    def spectral_rolloff_frames(
+        self: AudioSamples[_DoubleSample],
+        *,
+        n_fft: int = 2048,
+        hop_length: int = 512,
+        win_length: Optional[int] = None,
+        window: _WindowSpec = 'hann',
+        center: bool = True,
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
+        roll_percent: float = 0.85,
+    ) -> NDArray[np.float64]:
         """Roll-off frequency per frame, ``librosa.feature.spectral_rolloff``.
 
         Returns:
@@ -2668,18 +2868,45 @@ class AudioSamples:
         """
         ...
 
+    @overload
     def spectral_flatness_frames(
-        self,
+        self: AudioSamples[_UnknownDtype],
         *,
         n_fft: int = 2048,
         hop_length: int = 512,
         win_length: Optional[int] = None,
-        window: WindowSpec = "hann",
+        window: _WindowSpec = 'hann',
         center: bool = True,
-        pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
         amin: float = 1e-10,
         power: float = 2.0,
-    ) -> NDArray[np.floating]:
+    ) -> NDArray[Any]: ...
+    @overload
+    def spectral_flatness_frames(  # type: ignore[overload-overlap]
+        self: AudioSamples[_SingleSample],
+        *,
+        n_fft: int = 2048,
+        hop_length: int = 512,
+        win_length: Optional[int] = None,
+        window: _WindowSpec = 'hann',
+        center: bool = True,
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
+        amin: float = 1e-10,
+        power: float = 2.0,
+    ) -> NDArray[np.float32]: ...
+    @overload
+    def spectral_flatness_frames(
+        self: AudioSamples[_DoubleSample],
+        *,
+        n_fft: int = 2048,
+        hop_length: int = 512,
+        win_length: Optional[int] = None,
+        window: _WindowSpec = 'hann',
+        center: bool = True,
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
+        amin: float = 1e-10,
+        power: float = 2.0,
+    ) -> NDArray[np.float64]:
         """Spectral flatness per frame, ``librosa.feature.spectral_flatness``.
 
         Returns:
@@ -2687,20 +2914,51 @@ class AudioSamples:
         """
         ...
 
+    @overload
     def spectral_contrast_frames(
-        self,
+        self: AudioSamples[_UnknownDtype],
         *,
         n_fft: int = 2048,
         hop_length: int = 512,
         win_length: Optional[int] = None,
-        window: WindowSpec = "hann",
+        window: _WindowSpec = 'hann',
         center: bool = True,
-        pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
         fmin: float = 200.0,
         n_bands: int = 6,
         quantile: float = 0.02,
         linear: bool = False,
-    ) -> NDArray[np.floating]:
+    ) -> NDArray[Any]: ...
+    @overload
+    def spectral_contrast_frames(  # type: ignore[overload-overlap]
+        self: AudioSamples[_SingleSample],
+        *,
+        n_fft: int = 2048,
+        hop_length: int = 512,
+        win_length: Optional[int] = None,
+        window: _WindowSpec = 'hann',
+        center: bool = True,
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
+        fmin: float = 200.0,
+        n_bands: int = 6,
+        quantile: float = 0.02,
+        linear: bool = False,
+    ) -> NDArray[np.float32]: ...
+    @overload
+    def spectral_contrast_frames(
+        self: AudioSamples[_DoubleSample],
+        *,
+        n_fft: int = 2048,
+        hop_length: int = 512,
+        win_length: Optional[int] = None,
+        window: _WindowSpec = 'hann',
+        center: bool = True,
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
+        fmin: float = 200.0,
+        n_bands: int = 6,
+        quantile: float = 0.02,
+        linear: bool = False,
+    ) -> NDArray[np.float64]:
         """Octave-band spectral contrast, ``librosa.feature.spectral_contrast``.
 
         Returns:
@@ -2708,17 +2966,42 @@ class AudioSamples:
         """
         ...
 
+    @overload
     def poly_features(
-        self,
+        self: AudioSamples[_UnknownDtype],
         *,
         n_fft: int = 2048,
         hop_length: int = 512,
         win_length: Optional[int] = None,
-        window: WindowSpec = "hann",
+        window: _WindowSpec = 'hann',
         center: bool = True,
-        pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
         order: int = 1,
-    ) -> NDArray[np.floating]:
+    ) -> NDArray[Any]: ...
+    @overload
+    def poly_features(  # type: ignore[overload-overlap]
+        self: AudioSamples[_SingleSample],
+        *,
+        n_fft: int = 2048,
+        hop_length: int = 512,
+        win_length: Optional[int] = None,
+        window: _WindowSpec = 'hann',
+        center: bool = True,
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
+        order: int = 1,
+    ) -> NDArray[np.float32]: ...
+    @overload
+    def poly_features(
+        self: AudioSamples[_DoubleSample],
+        *,
+        n_fft: int = 2048,
+        hop_length: int = 512,
+        win_length: Optional[int] = None,
+        window: _WindowSpec = 'hann',
+        center: bool = True,
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
+        order: int = 1,
+    ) -> NDArray[np.float64]:
         """Polynomial fit to every magnitude frame, ``librosa.feature.poly_features``.
 
         Returns:
@@ -2726,14 +3009,33 @@ class AudioSamples:
         """
         ...
 
+    @overload
     def rms_frames(
-        self,
+        self: AudioSamples[_UnknownDtype],
         *,
         frame_length: int = 2048,
         hop_length: int = 512,
         center: bool = True,
-        pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
-    ) -> NDArray[np.floating]:
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
+    ) -> NDArray[Any]: ...
+    @overload
+    def rms_frames(  # type: ignore[overload-overlap]
+        self: AudioSamples[_SingleSample],
+        *,
+        frame_length: int = 2048,
+        hop_length: int = 512,
+        center: bool = True,
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
+    ) -> NDArray[np.float32]: ...
+    @overload
+    def rms_frames(
+        self: AudioSamples[_DoubleSample],
+        *,
+        frame_length: int = 2048,
+        hop_length: int = 512,
+        center: bool = True,
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
+    ) -> NDArray[np.float64]:
         """RMS per frame, ``librosa.feature.rms(y=..., dtype=numpy.float64)`` (scalar: ``rms()``).
 
         Returns:
@@ -2741,8 +3043,9 @@ class AudioSamples:
         """
         ...
 
+    @overload
     def zero_crossing_rate_frames(
-        self,
+        self: AudioSamples[_UnknownDtype],
         *,
         frame_length: int = 2048,
         hop_length: int = 512,
@@ -2751,7 +3054,31 @@ class AudioSamples:
         ref_magnitude: Union[None, float, Callable[..., Any]] = None,
         pad: bool = False,
         zero_pos: bool = True,
-    ) -> NDArray[np.floating]:
+    ) -> NDArray[Any]: ...
+    @overload
+    def zero_crossing_rate_frames(  # type: ignore[overload-overlap]
+        self: AudioSamples[_SingleSample],
+        *,
+        frame_length: int = 2048,
+        hop_length: int = 512,
+        center: bool = True,
+        threshold: float = 1e-10,
+        ref_magnitude: Union[None, float, Callable[..., Any]] = None,
+        pad: bool = False,
+        zero_pos: bool = True,
+    ) -> NDArray[np.float32]: ...
+    @overload
+    def zero_crossing_rate_frames(
+        self: AudioSamples[_DoubleSample],
+        *,
+        frame_length: int = 2048,
+        hop_length: int = 512,
+        center: bool = True,
+        threshold: float = 1e-10,
+        ref_magnitude: Union[None, float, Callable[..., Any]] = None,
+        pad: bool = False,
+        zero_pos: bool = True,
+    ) -> NDArray[np.float64]:
         """Fraction of sign changes per frame, ``librosa.feature.zero_crossing_rate``
         (the scalar ``zero_crossing_rate()`` is crossings per second).
 
@@ -2763,21 +3090,54 @@ class AudioSamples:
         """
         ...
 
+    @overload
     def reassigned_spectrogram(
-        self,
+        self: AudioSamples[_UnknownDtype],
         *,
         n_fft: int = 2048,
         hop_length: Optional[int] = None,
         win_length: Optional[int] = None,
-        window: WindowSpec = "hann",
+        window: _WindowSpec = 'hann',
         center: bool = True,
         reassign_frequencies: bool = True,
         reassign_times: bool = True,
-        ref_power: Union[float, Callable[..., Any]] = 1e-6,
+        ref_power: Union[float, Callable[..., Any]] = 1e-06,
         fill_nan: bool = False,
         clip: bool = True,
-        pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
-    ) -> tuple[NDArray[np.floating], NDArray[np.floating], NDArray[np.floating]]:
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
+    ) -> tuple[NDArray[Any], NDArray[Any], NDArray[Any]]: ...
+    @overload
+    def reassigned_spectrogram(  # type: ignore[overload-overlap]
+        self: AudioSamples[_SingleSample],
+        *,
+        n_fft: int = 2048,
+        hop_length: Optional[int] = None,
+        win_length: Optional[int] = None,
+        window: _WindowSpec = 'hann',
+        center: bool = True,
+        reassign_frequencies: bool = True,
+        reassign_times: bool = True,
+        ref_power: Union[float, Callable[..., Any]] = 1e-06,
+        fill_nan: bool = False,
+        clip: bool = True,
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
+    ) -> tuple[NDArray[np.float32], NDArray[np.float32], NDArray[np.float32]]: ...
+    @overload
+    def reassigned_spectrogram(
+        self: AudioSamples[_DoubleSample],
+        *,
+        n_fft: int = 2048,
+        hop_length: Optional[int] = None,
+        win_length: Optional[int] = None,
+        window: _WindowSpec = 'hann',
+        center: bool = True,
+        reassign_frequencies: bool = True,
+        reassign_times: bool = True,
+        ref_power: Union[float, Callable[..., Any]] = 1e-06,
+        fill_nan: bool = False,
+        clip: bool = True,
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
+    ) -> tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]:
         """Reassigned spectrogram, ``librosa.reassigned_spectrogram``.
 
         Returns:
@@ -2786,22 +3146,57 @@ class AudioSamples:
         """
         ...
 
+    @overload
     def chroma_stft(
-        self,
+        self: AudioSamples[_UnknownDtype],
         *,
         norm: Optional[float] = np.inf,
         n_fft: int = 2048,
         hop_length: int = 512,
         win_length: Optional[int] = None,
-        window: WindowSpec = "hann",
+        window: _WindowSpec = 'hann',
         center: bool = True,
-        pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
         tuning: Optional[float] = 0.0,
         n_chroma: int = 12,
         ctroct: float = 5.0,
         octwidth: Optional[float] = 2.0,
         base_c: bool = True,
-    ) -> NDArray[np.floating]:
+    ) -> NDArray[Any]: ...
+    @overload
+    def chroma_stft(  # type: ignore[overload-overlap]
+        self: AudioSamples[_SingleSample],
+        *,
+        norm: Optional[float] = np.inf,
+        n_fft: int = 2048,
+        hop_length: int = 512,
+        win_length: Optional[int] = None,
+        window: _WindowSpec = 'hann',
+        center: bool = True,
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
+        tuning: Optional[float] = 0.0,
+        n_chroma: int = 12,
+        ctroct: float = 5.0,
+        octwidth: Optional[float] = 2.0,
+        base_c: bool = True,
+    ) -> NDArray[np.float32]: ...
+    @overload
+    def chroma_stft(
+        self: AudioSamples[_DoubleSample],
+        *,
+        norm: Optional[float] = np.inf,
+        n_fft: int = 2048,
+        hop_length: int = 512,
+        win_length: Optional[int] = None,
+        window: _WindowSpec = 'hann',
+        center: bool = True,
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
+        tuning: Optional[float] = 0.0,
+        n_chroma: int = 12,
+        ctroct: float = 5.0,
+        octwidth: Optional[float] = 2.0,
+        base_c: bool = True,
+    ) -> NDArray[np.float64]:
         """Chromagram from the power STFT, ``librosa.feature.chroma_stft(y=..., sr=...)``.
 
         ``tuning`` defaults to 0.0; ``tuning=None`` estimates it from the signal
@@ -2812,8 +3207,9 @@ class AudioSamples:
         """
         ...
 
+    @overload
     def piptrack(
-        self,
+        self: AudioSamples[_UnknownDtype],
         *,
         n_fft: int = 2048,
         hop_length: Optional[int] = None,
@@ -2821,11 +3217,41 @@ class AudioSamples:
         fmax: float = 4000.0,
         threshold: float = 0.1,
         win_length: Optional[int] = None,
-        window: WindowSpec = "hann",
+        window: _WindowSpec = 'hann',
         center: bool = True,
-        pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
         ref: Union[None, float, Callable[..., Any]] = None,
-    ) -> tuple[NDArray[np.floating], NDArray[np.floating]]:
+    ) -> tuple[NDArray[Any], NDArray[Any]]: ...
+    @overload
+    def piptrack(  # type: ignore[overload-overlap]
+        self: AudioSamples[_SingleSample],
+        *,
+        n_fft: int = 2048,
+        hop_length: Optional[int] = None,
+        fmin: float = 150.0,
+        fmax: float = 4000.0,
+        threshold: float = 0.1,
+        win_length: Optional[int] = None,
+        window: _WindowSpec = 'hann',
+        center: bool = True,
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
+        ref: Union[None, float, Callable[..., Any]] = None,
+    ) -> tuple[NDArray[np.float32], NDArray[np.float32]]: ...
+    @overload
+    def piptrack(
+        self: AudioSamples[_DoubleSample],
+        *,
+        n_fft: int = 2048,
+        hop_length: Optional[int] = None,
+        fmin: float = 150.0,
+        fmax: float = 4000.0,
+        threshold: float = 0.1,
+        win_length: Optional[int] = None,
+        window: _WindowSpec = 'hann',
+        center: bool = True,
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
+        ref: Union[None, float, Callable[..., Any]] = None,
+    ) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
         """Spectral peak tracking, ``librosa.piptrack``.
 
         Returns:
@@ -2842,7 +3268,7 @@ class AudioSamples:
         bins_per_octave: int = 12,
         hop_length: Optional[int] = None,
         win_length: Optional[int] = None,
-        window: WindowSpec = "hann",
+        window: _WindowSpec = "hann",
         center: bool = True,
         pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
         fmin: float = 150.0,
@@ -2858,8 +3284,9 @@ class AudioSamples:
         """
         ...
 
+    @overload
     def cqt(
-        self,
+        self: AudioSamples[_UnknownDtype],
         *,
         hop_length: int = 512,
         fmin: Optional[float] = None,
@@ -2869,11 +3296,45 @@ class AudioSamples:
         filter_scale: float = 1,
         norm: Optional[float] = 1,
         sparsity: float = 0.01,
-        window: WindowSpec = "hann",
+        window: _WindowSpec = 'hann',
         scale: bool = True,
-        pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
-        res_type: str = "soxr_hq",
-    ) -> NDArray[np.complexfloating]:
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
+        res_type: str = 'soxr_hq',
+    ) -> NDArray[Any]: ...
+    @overload
+    def cqt(  # type: ignore[overload-overlap]
+        self: AudioSamples[_SingleSample],
+        *,
+        hop_length: int = 512,
+        fmin: Optional[float] = None,
+        n_bins: Optional[int] = 84,
+        bins_per_octave: int = 12,
+        tuning: Optional[float] = 0.0,
+        filter_scale: float = 1,
+        norm: Optional[float] = 1,
+        sparsity: float = 0.01,
+        window: _WindowSpec = 'hann',
+        scale: bool = True,
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
+        res_type: str = 'soxr_hq',
+    ) -> NDArray[np.complex64]: ...
+    @overload
+    def cqt(
+        self: AudioSamples[_DoubleSample],
+        *,
+        hop_length: int = 512,
+        fmin: Optional[float] = None,
+        n_bins: Optional[int] = 84,
+        bins_per_octave: int = 12,
+        tuning: Optional[float] = 0.0,
+        filter_scale: float = 1,
+        norm: Optional[float] = 1,
+        sparsity: float = 0.01,
+        window: _WindowSpec = 'hann',
+        scale: bool = True,
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
+        res_type: str = 'soxr_hq',
+    ) -> NDArray[np.complex128]:
         """Constant-Q transform, ``librosa.cqt``.
 
         ``res_type`` selects the crate's own resampler quality (soxr is not used):
@@ -2885,24 +3346,63 @@ class AudioSamples:
         """
         ...
 
+    @overload
     def vqt(
-        self,
+        self: AudioSamples[_UnknownDtype],
         *,
         hop_length: int = 512,
         fmin: Optional[float] = None,
         n_bins: Optional[int] = 84,
-        intervals: Literal["equal"] = "equal",
+        intervals: Literal['equal'] = 'equal',
         gamma: Optional[float] = None,
         bins_per_octave: int = 12,
         tuning: Optional[float] = 0.0,
         filter_scale: float = 1,
         norm: Optional[float] = 1,
         sparsity: float = 0.01,
-        window: WindowSpec = "hann",
+        window: _WindowSpec = 'hann',
         scale: bool = True,
-        pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
-        res_type: str = "soxr_hq",
-    ) -> NDArray[np.complexfloating]:
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
+        res_type: str = 'soxr_hq',
+    ) -> NDArray[Any]: ...
+    @overload
+    def vqt(  # type: ignore[overload-overlap]
+        self: AudioSamples[_SingleSample],
+        *,
+        hop_length: int = 512,
+        fmin: Optional[float] = None,
+        n_bins: Optional[int] = 84,
+        intervals: Literal['equal'] = 'equal',
+        gamma: Optional[float] = None,
+        bins_per_octave: int = 12,
+        tuning: Optional[float] = 0.0,
+        filter_scale: float = 1,
+        norm: Optional[float] = 1,
+        sparsity: float = 0.01,
+        window: _WindowSpec = 'hann',
+        scale: bool = True,
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
+        res_type: str = 'soxr_hq',
+    ) -> NDArray[np.complex64]: ...
+    @overload
+    def vqt(
+        self: AudioSamples[_DoubleSample],
+        *,
+        hop_length: int = 512,
+        fmin: Optional[float] = None,
+        n_bins: Optional[int] = 84,
+        intervals: Literal['equal'] = 'equal',
+        gamma: Optional[float] = None,
+        bins_per_octave: int = 12,
+        tuning: Optional[float] = 0.0,
+        filter_scale: float = 1,
+        norm: Optional[float] = 1,
+        sparsity: float = 0.01,
+        window: _WindowSpec = 'hann',
+        scale: bool = True,
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
+        res_type: str = 'soxr_hq',
+    ) -> NDArray[np.complex128]:
         """Variable-Q transform, ``librosa.vqt`` (``intervals="equal"`` only).
 
         Returns:
@@ -2910,8 +3410,9 @@ class AudioSamples:
         """
         ...
 
+    @overload
     def pseudo_cqt(
-        self,
+        self: AudioSamples[_UnknownDtype],
         *,
         hop_length: int = 512,
         fmin: Optional[float] = None,
@@ -2921,10 +3422,42 @@ class AudioSamples:
         filter_scale: float = 1,
         norm: Optional[float] = 1,
         sparsity: float = 0.01,
-        window: WindowSpec = "hann",
+        window: _WindowSpec = 'hann',
         scale: bool = True,
-        pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
-    ) -> NDArray[np.floating]:
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
+    ) -> NDArray[Any]: ...
+    @overload
+    def pseudo_cqt(  # type: ignore[overload-overlap]
+        self: AudioSamples[_SingleSample],
+        *,
+        hop_length: int = 512,
+        fmin: Optional[float] = None,
+        n_bins: Optional[int] = 84,
+        bins_per_octave: int = 12,
+        tuning: Optional[float] = 0.0,
+        filter_scale: float = 1,
+        norm: Optional[float] = 1,
+        sparsity: float = 0.01,
+        window: _WindowSpec = 'hann',
+        scale: bool = True,
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
+    ) -> NDArray[np.float32]: ...
+    @overload
+    def pseudo_cqt(
+        self: AudioSamples[_DoubleSample],
+        *,
+        hop_length: int = 512,
+        fmin: Optional[float] = None,
+        n_bins: Optional[int] = 84,
+        bins_per_octave: int = 12,
+        tuning: Optional[float] = 0.0,
+        filter_scale: float = 1,
+        norm: Optional[float] = 1,
+        sparsity: float = 0.01,
+        window: _WindowSpec = 'hann',
+        scale: bool = True,
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
+    ) -> NDArray[np.float64]:
         """Pseudo-CQT magnitude, ``librosa.pseudo_cqt``.
 
         Returns:
@@ -2932,8 +3465,9 @@ class AudioSamples:
         """
         ...
 
+    @overload
     def hybrid_cqt(
-        self,
+        self: AudioSamples[_UnknownDtype],
         *,
         hop_length: int = 512,
         fmin: Optional[float] = None,
@@ -2943,11 +3477,45 @@ class AudioSamples:
         filter_scale: float = 1,
         norm: Optional[float] = 1,
         sparsity: float = 0.01,
-        window: WindowSpec = "hann",
+        window: _WindowSpec = 'hann',
         scale: bool = True,
-        pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
-        res_type: str = "soxr_hq",
-    ) -> NDArray[np.floating]:
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
+        res_type: str = 'soxr_hq',
+    ) -> NDArray[Any]: ...
+    @overload
+    def hybrid_cqt(  # type: ignore[overload-overlap]
+        self: AudioSamples[_SingleSample],
+        *,
+        hop_length: int = 512,
+        fmin: Optional[float] = None,
+        n_bins: Optional[int] = 84,
+        bins_per_octave: int = 12,
+        tuning: Optional[float] = 0.0,
+        filter_scale: float = 1,
+        norm: Optional[float] = 1,
+        sparsity: float = 0.01,
+        window: _WindowSpec = 'hann',
+        scale: bool = True,
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
+        res_type: str = 'soxr_hq',
+    ) -> NDArray[np.float32]: ...
+    @overload
+    def hybrid_cqt(
+        self: AudioSamples[_DoubleSample],
+        *,
+        hop_length: int = 512,
+        fmin: Optional[float] = None,
+        n_bins: Optional[int] = 84,
+        bins_per_octave: int = 12,
+        tuning: Optional[float] = 0.0,
+        filter_scale: float = 1,
+        norm: Optional[float] = 1,
+        sparsity: float = 0.01,
+        window: _WindowSpec = 'hann',
+        scale: bool = True,
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
+        res_type: str = 'soxr_hq',
+    ) -> NDArray[np.float64]:
         """Hybrid CQT magnitude, ``librosa.hybrid_cqt``.
 
         Returns:
@@ -2956,6 +3524,45 @@ class AudioSamples:
         ...
 
     @staticmethod
+    @overload
+    def icqt(
+        C: NDArray[_UnknownDtype],
+        *,
+        sample_rate: int,
+        hop_length: int = 512,
+        fmin: Optional[float] = None,
+        bins_per_octave: int = 12,
+        tuning: float = 0.0,
+        filter_scale: float = 1,
+        norm: Optional[float] = 1,
+        sparsity: float = 0.01,
+        window: _WindowSpec = 'hann',
+        scale: bool = True,
+        length: Optional[int] = None,
+        res_type: str = 'soxr_hq',
+        dtype: None = None,
+    ) -> AudioSamples[Any]: ...
+    @staticmethod
+    @overload
+    def icqt(  # type: ignore[overload-overlap]
+        C: NDArray[np.complex64] | NDArray[np.float32],
+        *,
+        sample_rate: int,
+        hop_length: int = 512,
+        fmin: Optional[float] = None,
+        bins_per_octave: int = 12,
+        tuning: float = 0.0,
+        filter_scale: float = 1,
+        norm: Optional[float] = 1,
+        sparsity: float = 0.01,
+        window: _WindowSpec = 'hann',
+        scale: bool = True,
+        length: Optional[int] = None,
+        res_type: str = 'soxr_hq',
+        dtype: None = None,
+    ) -> AudioSamples[np.float32]: ...
+    @staticmethod
+    @overload
     def icqt(
         C: npt.ArrayLike,
         *,
@@ -2967,12 +3574,31 @@ class AudioSamples:
         filter_scale: float = 1,
         norm: Optional[float] = 1,
         sparsity: float = 0.01,
-        window: WindowSpec = "hann",
+        window: _WindowSpec = 'hann',
         scale: bool = True,
         length: Optional[int] = None,
-        res_type: str = "soxr_hq",
-        dtype: Optional[SampleType] = None,
-    ) -> AudioSamples:
+        res_type: str = 'soxr_hq',
+        dtype: None = None,
+    ) -> AudioSamples[np.float64]: ...
+    @staticmethod
+    @overload
+    def icqt(
+        C: npt.ArrayLike,
+        *,
+        sample_rate: int,
+        hop_length: int = 512,
+        fmin: Optional[float] = None,
+        bins_per_octave: int = 12,
+        tuning: float = 0.0,
+        filter_scale: float = 1,
+        norm: Optional[float] = 1,
+        sparsity: float = 0.01,
+        window: _WindowSpec = 'hann',
+        scale: bool = True,
+        length: Optional[int] = None,
+        res_type: str = 'soxr_hq',
+        dtype: SampleType,
+    ) -> AudioSamples[Any]:
         """Inverse CQT, ``librosa.icqt`` (static). ``C``: complex ``(n_bins, T)`` or
         ``(channels, n_bins, T)``.
 
@@ -2989,6 +3615,53 @@ class AudioSamples:
         ...
 
     @staticmethod
+    @overload
+    def griffinlim_cqt(
+        C: NDArray[_UnknownDtype],
+        *,
+        sample_rate: int,
+        n_iter: int = 32,
+        hop_length: int = 512,
+        fmin: Optional[float] = None,
+        bins_per_octave: int = 12,
+        tuning: float = 0.0,
+        filter_scale: float = 1,
+        norm: Optional[float] = 1,
+        sparsity: float = 0.01,
+        window: _WindowSpec = 'hann',
+        scale: bool = True,
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
+        res_type: str = 'soxr_hq',
+        length: Optional[int] = None,
+        momentum: float = 0.99,
+        init: None = None,
+        dtype: None = None,
+    ) -> AudioSamples[Any]: ...
+    @staticmethod
+    @overload
+    def griffinlim_cqt(  # type: ignore[overload-overlap]
+        C: NDArray[np.complex64] | NDArray[np.float32],
+        *,
+        sample_rate: int,
+        n_iter: int = 32,
+        hop_length: int = 512,
+        fmin: Optional[float] = None,
+        bins_per_octave: int = 12,
+        tuning: float = 0.0,
+        filter_scale: float = 1,
+        norm: Optional[float] = 1,
+        sparsity: float = 0.01,
+        window: _WindowSpec = 'hann',
+        scale: bool = True,
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
+        res_type: str = 'soxr_hq',
+        length: Optional[int] = None,
+        momentum: float = 0.99,
+        init: None = None,
+        dtype: None = None,
+    ) -> AudioSamples[np.float32]: ...
+    @staticmethod
+    @overload
     def griffinlim_cqt(
         C: npt.ArrayLike,
         *,
@@ -3001,15 +3674,38 @@ class AudioSamples:
         filter_scale: float = 1,
         norm: Optional[float] = 1,
         sparsity: float = 0.01,
-        window: WindowSpec = "hann",
+        window: _WindowSpec = 'hann',
         scale: bool = True,
-        pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
-        res_type: str = "soxr_hq",
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
+        res_type: str = 'soxr_hq',
         length: Optional[int] = None,
         momentum: float = 0.99,
         init: None = None,
-        dtype: Optional[SampleType] = None,
-    ) -> AudioSamples:
+        dtype: None = None,
+    ) -> AudioSamples[np.float64]: ...
+    @staticmethod
+    @overload
+    def griffinlim_cqt(
+        C: npt.ArrayLike,
+        *,
+        sample_rate: int,
+        n_iter: int = 32,
+        hop_length: int = 512,
+        fmin: Optional[float] = None,
+        bins_per_octave: int = 12,
+        tuning: float = 0.0,
+        filter_scale: float = 1,
+        norm: Optional[float] = 1,
+        sparsity: float = 0.01,
+        window: _WindowSpec = 'hann',
+        scale: bool = True,
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
+        res_type: str = 'soxr_hq',
+        length: Optional[int] = None,
+        momentum: float = 0.99,
+        init: None = None,
+        dtype: SampleType,
+    ) -> AudioSamples[Any]:
         """Griffin-Lim phase retrieval from a CQT magnitude, ``librosa.griffinlim_cqt(init=None)``
         (static). Only ``init=None`` (zero phase) is supported; librosa defaults to a
         random initial phase.
@@ -3026,8 +3722,9 @@ class AudioSamples:
         """
         ...
 
+    @overload
     def chroma_cqt(
-        self,
+        self: AudioSamples[_UnknownDtype],
         *,
         hop_length: int = 512,
         fmin: Optional[float] = None,
@@ -3038,8 +3735,38 @@ class AudioSamples:
         n_octaves: int = 7,
         window: None = None,
         bins_per_octave: Optional[int] = 36,
-        cqt_mode: Literal["full", "hybrid"] = "full",
-    ) -> NDArray[np.floating]:
+        cqt_mode: Literal['full', 'hybrid'] = 'full',
+    ) -> NDArray[Any]: ...
+    @overload
+    def chroma_cqt(  # type: ignore[overload-overlap]
+        self: AudioSamples[_SingleSample],
+        *,
+        hop_length: int = 512,
+        fmin: Optional[float] = None,
+        norm: Optional[float] = np.inf,
+        threshold: Optional[float] = 0.0,
+        tuning: Optional[float] = 0.0,
+        n_chroma: int = 12,
+        n_octaves: int = 7,
+        window: None = None,
+        bins_per_octave: Optional[int] = 36,
+        cqt_mode: Literal['full', 'hybrid'] = 'full',
+    ) -> NDArray[np.float32]: ...
+    @overload
+    def chroma_cqt(
+        self: AudioSamples[_DoubleSample],
+        *,
+        hop_length: int = 512,
+        fmin: Optional[float] = None,
+        norm: Optional[float] = np.inf,
+        threshold: Optional[float] = 0.0,
+        tuning: Optional[float] = 0.0,
+        n_chroma: int = 12,
+        n_octaves: int = 7,
+        window: None = None,
+        bins_per_octave: Optional[int] = 36,
+        cqt_mode: Literal['full', 'hybrid'] = 'full',
+    ) -> NDArray[np.float64]:
         """Constant-Q chromagram, ``librosa.feature.chroma_cqt`` (``window`` must be None).
 
         Returns:
@@ -3047,8 +3774,9 @@ class AudioSamples:
         """
         ...
 
+    @overload
     def chroma_cens(
-        self,
+        self: AudioSamples[_UnknownDtype],
         *,
         hop_length: int = 512,
         fmin: Optional[float] = None,
@@ -3056,12 +3784,44 @@ class AudioSamples:
         n_chroma: int = 12,
         n_octaves: int = 7,
         bins_per_octave: int = 36,
-        cqt_mode: Literal["full", "hybrid"] = "full",
+        cqt_mode: Literal['full', 'hybrid'] = 'full',
         window: None = None,
         norm: Optional[float] = 2,
         win_len_smooth: Optional[int] = 41,
-        smoothing_window: WindowSpec = "hann",
-    ) -> NDArray[np.floating]:
+        smoothing_window: _WindowSpec = 'hann',
+    ) -> NDArray[Any]: ...
+    @overload
+    def chroma_cens(  # type: ignore[overload-overlap]
+        self: AudioSamples[_SingleSample],
+        *,
+        hop_length: int = 512,
+        fmin: Optional[float] = None,
+        tuning: Optional[float] = 0.0,
+        n_chroma: int = 12,
+        n_octaves: int = 7,
+        bins_per_octave: int = 36,
+        cqt_mode: Literal['full', 'hybrid'] = 'full',
+        window: None = None,
+        norm: Optional[float] = 2,
+        win_len_smooth: Optional[int] = 41,
+        smoothing_window: _WindowSpec = 'hann',
+    ) -> NDArray[np.float32]: ...
+    @overload
+    def chroma_cens(
+        self: AudioSamples[_DoubleSample],
+        *,
+        hop_length: int = 512,
+        fmin: Optional[float] = None,
+        tuning: Optional[float] = 0.0,
+        n_chroma: int = 12,
+        n_octaves: int = 7,
+        bins_per_octave: int = 36,
+        cqt_mode: Literal['full', 'hybrid'] = 'full',
+        window: None = None,
+        norm: Optional[float] = 2,
+        win_len_smooth: Optional[int] = 41,
+        smoothing_window: _WindowSpec = 'hann',
+    ) -> NDArray[np.float64]:
         """CENS chroma features, ``librosa.feature.chroma_cens``.
 
         Returns:
@@ -3069,18 +3829,45 @@ class AudioSamples:
         """
         ...
 
+    @overload
     def chroma_vqt(
-        self,
+        self: AudioSamples[_UnknownDtype],
         *,
         hop_length: int = 512,
         fmin: Optional[float] = None,
-        intervals: Literal["equal"] = "equal",
+        intervals: Literal['equal'] = 'equal',
         norm: Optional[float] = np.inf,
         threshold: Optional[float] = 0.0,
         n_octaves: int = 7,
         bins_per_octave: int = 12,
         gamma: Optional[float] = 0,
-    ) -> NDArray[np.floating]:
+    ) -> NDArray[Any]: ...
+    @overload
+    def chroma_vqt(  # type: ignore[overload-overlap]
+        self: AudioSamples[_SingleSample],
+        *,
+        hop_length: int = 512,
+        fmin: Optional[float] = None,
+        intervals: Literal['equal'] = 'equal',
+        norm: Optional[float] = np.inf,
+        threshold: Optional[float] = 0.0,
+        n_octaves: int = 7,
+        bins_per_octave: int = 12,
+        gamma: Optional[float] = 0,
+    ) -> NDArray[np.float32]: ...
+    @overload
+    def chroma_vqt(
+        self: AudioSamples[_DoubleSample],
+        *,
+        hop_length: int = 512,
+        fmin: Optional[float] = None,
+        intervals: Literal['equal'] = 'equal',
+        norm: Optional[float] = np.inf,
+        threshold: Optional[float] = 0.0,
+        n_octaves: int = 7,
+        bins_per_octave: int = 12,
+        gamma: Optional[float] = 0,
+    ) -> NDArray[np.float64]:
         """Variable-Q chromagram, ``librosa.feature.chroma_vqt(intervals="equal")``.
 
         Returns:
@@ -3088,8 +3875,9 @@ class AudioSamples:
         """
         ...
 
+    @overload
     def tonnetz(
-        self,
+        self: AudioSamples[_UnknownDtype],
         *,
         hop_length: int = 512,
         fmin: Optional[float] = None,
@@ -3099,8 +3887,36 @@ class AudioSamples:
         n_chroma: int = 12,
         n_octaves: int = 7,
         bins_per_octave: Optional[int] = 36,
-        cqt_mode: Literal["full", "hybrid"] = "full",
-    ) -> NDArray[np.floating]:
+        cqt_mode: Literal['full', 'hybrid'] = 'full',
+    ) -> NDArray[Any]: ...
+    @overload
+    def tonnetz(  # type: ignore[overload-overlap]
+        self: AudioSamples[_SingleSample],
+        *,
+        hop_length: int = 512,
+        fmin: Optional[float] = None,
+        norm: Optional[float] = np.inf,
+        threshold: Optional[float] = 0.0,
+        tuning: Optional[float] = 0.0,
+        n_chroma: int = 12,
+        n_octaves: int = 7,
+        bins_per_octave: Optional[int] = 36,
+        cqt_mode: Literal['full', 'hybrid'] = 'full',
+    ) -> NDArray[np.float32]: ...
+    @overload
+    def tonnetz(
+        self: AudioSamples[_DoubleSample],
+        *,
+        hop_length: int = 512,
+        fmin: Optional[float] = None,
+        norm: Optional[float] = np.inf,
+        threshold: Optional[float] = 0.0,
+        tuning: Optional[float] = 0.0,
+        n_chroma: int = 12,
+        n_octaves: int = 7,
+        bins_per_octave: Optional[int] = 36,
+        cqt_mode: Literal['full', 'hybrid'] = 'full',
+    ) -> NDArray[np.float64]:
         """Tonal centroid features, ``librosa.feature.tonnetz`` (keywords go to ``chroma_cqt``).
 
         Returns:
@@ -3108,8 +3924,9 @@ class AudioSamples:
         """
         ...
 
+    @overload
     def yin(
-        self,
+        self: AudioSamples[_UnknownDtype],
         *,
         fmin: float,
         fmax: float,
@@ -3117,8 +3934,32 @@ class AudioSamples:
         hop_length: Optional[int] = None,
         trough_threshold: float = 0.1,
         center: bool = True,
-        pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
-    ) -> NDArray[np.floating]:
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
+    ) -> NDArray[Any]: ...
+    @overload
+    def yin(  # type: ignore[overload-overlap]
+        self: AudioSamples[_SingleSample],
+        *,
+        fmin: float,
+        fmax: float,
+        frame_length: int = 2048,
+        hop_length: Optional[int] = None,
+        trough_threshold: float = 0.1,
+        center: bool = True,
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
+    ) -> NDArray[np.float32]: ...
+    @overload
+    def yin(
+        self: AudioSamples[_DoubleSample],
+        *,
+        fmin: float,
+        fmax: float,
+        frame_length: int = 2048,
+        hop_length: Optional[int] = None,
+        trough_threshold: float = 0.1,
+        center: bool = True,
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
+    ) -> NDArray[np.float64]:
         """YIN f0 per frame, ``librosa.yin`` (``fmin``/``fmax`` required, as librosa).
 
         Returns:
@@ -3126,8 +3967,9 @@ class AudioSamples:
         """
         ...
 
+    @overload
     def pyin(
-        self,
+        self: AudioSamples[_UnknownDtype],
         *,
         fmin: float,
         fmax: float,
@@ -3142,9 +3984,49 @@ class AudioSamples:
         no_trough_prob: float = 0.01,
         fill_na: Optional[float] = np.nan,
         center: bool = True,
-        pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
-        transition_min_prob: Optional[float] = 1e-4,
-    ) -> tuple[NDArray[np.floating], NDArray[np.bool_], NDArray[np.floating]]:
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
+        transition_min_prob: Optional[float] = 0.0001,
+    ) -> tuple[NDArray[Any], NDArray[Any], NDArray[Any]]: ...
+    @overload
+    def pyin(  # type: ignore[overload-overlap]
+        self: AudioSamples[_SingleSample],
+        *,
+        fmin: float,
+        fmax: float,
+        frame_length: int = 2048,
+        hop_length: Optional[int] = None,
+        n_thresholds: int = 100,
+        beta_parameters: tuple[float, float] = (2, 18),
+        boltzmann_parameter: float = 2,
+        resolution: float = 0.1,
+        max_transition_rate: float = 35.92,
+        switch_prob: float = 0.01,
+        no_trough_prob: float = 0.01,
+        fill_na: Optional[float] = np.nan,
+        center: bool = True,
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
+        transition_min_prob: Optional[float] = 0.0001,
+    ) -> tuple[NDArray[np.float32], NDArray[np.bool_], NDArray[np.float32]]: ...
+    @overload
+    def pyin(
+        self: AudioSamples[_DoubleSample],
+        *,
+        fmin: float,
+        fmax: float,
+        frame_length: int = 2048,
+        hop_length: Optional[int] = None,
+        n_thresholds: int = 100,
+        beta_parameters: tuple[float, float] = (2, 18),
+        boltzmann_parameter: float = 2,
+        resolution: float = 0.1,
+        max_transition_rate: float = 35.92,
+        switch_prob: float = 0.01,
+        no_trough_prob: float = 0.01,
+        fill_na: Optional[float] = np.nan,
+        center: bool = True,
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
+        transition_min_prob: Optional[float] = 0.0001,
+    ) -> tuple[NDArray[np.float64], NDArray[np.bool_], NDArray[np.float64]]:
         """Probabilistic YIN, ``librosa.pyin``.
 
         Args:
@@ -3169,8 +4051,9 @@ class AudioSamples:
     # Free-function forms on arrays: ``audio_samples.rhythm``.
     # ------------------------------------------------------------------
 
+    @overload
     def onset_strength(
-        self,
+        self: AudioSamples[_UnknownDtype],
         *,
         lag: int = 1,
         max_size: int = 1,
@@ -3180,15 +4063,57 @@ class AudioSamples:
         n_fft: int = 2048,
         hop_length: int = 512,
         win_length: Optional[int] = None,
-        window: WindowSpec = "hann",
-        pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
+        window: _WindowSpec = 'hann',
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
         power: float = 2.0,
         n_mels: int = 128,
         fmin: float = 0.0,
         fmax: Optional[float] = None,
         htk: bool = False,
-        norm: MelNormSpec = "slaney",
-    ) -> NDArray[np.floating]:
+        norm: _MelNormSpec = 'slaney',
+    ) -> NDArray[Any]: ...
+    @overload
+    def onset_strength(  # type: ignore[overload-overlap]
+        self: AudioSamples[_SingleSample],
+        *,
+        lag: int = 1,
+        max_size: int = 1,
+        detrend: bool = False,
+        center: bool = True,
+        aggregate: Any = None,
+        n_fft: int = 2048,
+        hop_length: int = 512,
+        win_length: Optional[int] = None,
+        window: _WindowSpec = 'hann',
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
+        power: float = 2.0,
+        n_mels: int = 128,
+        fmin: float = 0.0,
+        fmax: Optional[float] = None,
+        htk: bool = False,
+        norm: _MelNormSpec = 'slaney',
+    ) -> NDArray[np.float32]: ...
+    @overload
+    def onset_strength(
+        self: AudioSamples[_DoubleSample],
+        *,
+        lag: int = 1,
+        max_size: int = 1,
+        detrend: bool = False,
+        center: bool = True,
+        aggregate: Any = None,
+        n_fft: int = 2048,
+        hop_length: int = 512,
+        win_length: Optional[int] = None,
+        window: _WindowSpec = 'hann',
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
+        power: float = 2.0,
+        n_mels: int = 128,
+        fmin: float = 0.0,
+        fmax: Optional[float] = None,
+        htk: bool = False,
+        norm: _MelNormSpec = 'slaney',
+    ) -> NDArray[np.float64]:
         """Onset strength envelope, ``librosa.onset.onset_strength(y=..., sr=...)``.
 
         Positive increase of the log-power mel spectrogram (``power_to_db``,
@@ -3200,8 +4125,9 @@ class AudioSamples:
         """
         ...
 
+    @overload
     def onset_strength_multi(
-        self,
+        self: AudioSamples[_UnknownDtype],
         *,
         channels: Optional[list[int]] = None,
         lag: int = 1,
@@ -3212,15 +4138,59 @@ class AudioSamples:
         n_fft: int = 2048,
         hop_length: int = 512,
         win_length: Optional[int] = None,
-        window: WindowSpec = "hann",
-        pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
+        window: _WindowSpec = 'hann',
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
         power: float = 2.0,
         n_mels: int = 128,
         fmin: float = 0.0,
         fmax: Optional[float] = None,
         htk: bool = False,
-        norm: MelNormSpec = "slaney",
-    ) -> NDArray[np.floating]:
+        norm: _MelNormSpec = 'slaney',
+    ) -> NDArray[Any]: ...
+    @overload
+    def onset_strength_multi(  # type: ignore[overload-overlap]
+        self: AudioSamples[_SingleSample],
+        *,
+        channels: Optional[list[int]] = None,
+        lag: int = 1,
+        max_size: int = 1,
+        detrend: bool = False,
+        center: bool = True,
+        aggregate: Any = None,
+        n_fft: int = 2048,
+        hop_length: int = 512,
+        win_length: Optional[int] = None,
+        window: _WindowSpec = 'hann',
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
+        power: float = 2.0,
+        n_mels: int = 128,
+        fmin: float = 0.0,
+        fmax: Optional[float] = None,
+        htk: bool = False,
+        norm: _MelNormSpec = 'slaney',
+    ) -> NDArray[np.float32]: ...
+    @overload
+    def onset_strength_multi(
+        self: AudioSamples[_DoubleSample],
+        *,
+        channels: Optional[list[int]] = None,
+        lag: int = 1,
+        max_size: int = 1,
+        detrend: bool = False,
+        center: bool = True,
+        aggregate: Any = None,
+        n_fft: int = 2048,
+        hop_length: int = 512,
+        win_length: Optional[int] = None,
+        window: _WindowSpec = 'hann',
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
+        power: float = 2.0,
+        n_mels: int = 128,
+        fmin: float = 0.0,
+        fmax: Optional[float] = None,
+        htk: bool = False,
+        norm: _MelNormSpec = 'slaney',
+    ) -> NDArray[np.float64]:
         """Multi-band onset strength, ``librosa.onset.onset_strength_multi``.
 
         ``channels`` are sub-band boundaries in mel bins; ``aggregate=False``
@@ -3258,15 +4228,36 @@ class AudioSamples:
         """
         ...
 
+    @overload
     def tempogram(
-        self,
+        self: AudioSamples[_UnknownDtype],
         *,
         hop_length: int = 512,
         win_length: int = 384,
         center: bool = True,
-        window: WindowSpec = "hann",
+        window: _WindowSpec = 'hann',
         norm: Optional[float] = np.inf,
-    ) -> NDArray[np.floating]:
+    ) -> NDArray[Any]: ...
+    @overload
+    def tempogram(  # type: ignore[overload-overlap]
+        self: AudioSamples[_SingleSample],
+        *,
+        hop_length: int = 512,
+        win_length: int = 384,
+        center: bool = True,
+        window: _WindowSpec = 'hann',
+        norm: Optional[float] = np.inf,
+    ) -> NDArray[np.float32]: ...
+    @overload
+    def tempogram(
+        self: AudioSamples[_DoubleSample],
+        *,
+        hop_length: int = 512,
+        win_length: int = 384,
+        center: bool = True,
+        window: _WindowSpec = 'hann',
+        norm: Optional[float] = np.inf,
+    ) -> NDArray[np.float64]:
         """Autocorrelation tempogram, ``librosa.feature.tempogram(y=..., sr=...)``.
 
         Returns:
@@ -3274,14 +4265,33 @@ class AudioSamples:
         """
         ...
 
+    @overload
     def fourier_tempogram(
-        self,
+        self: AudioSamples[_UnknownDtype],
         *,
         hop_length: int = 512,
         win_length: int = 384,
         center: bool = True,
-        window: WindowSpec = "hann",
-    ) -> NDArray[np.complexfloating]:
+        window: _WindowSpec = 'hann',
+    ) -> NDArray[Any]: ...
+    @overload
+    def fourier_tempogram(  # type: ignore[overload-overlap]
+        self: AudioSamples[_SingleSample],
+        *,
+        hop_length: int = 512,
+        win_length: int = 384,
+        center: bool = True,
+        window: _WindowSpec = 'hann',
+    ) -> NDArray[np.complex64]: ...
+    @overload
+    def fourier_tempogram(
+        self: AudioSamples[_DoubleSample],
+        *,
+        hop_length: int = 512,
+        win_length: int = 384,
+        center: bool = True,
+        window: _WindowSpec = 'hann',
+    ) -> NDArray[np.complex128]:
         """Fourier tempogram, ``librosa.feature.fourier_tempogram(y=..., sr=...)``.
 
         Returns:
@@ -3298,7 +4308,7 @@ class AudioSamples:
         std_bpm: float = 1.0,
         ac_size: float = 8.0,
         max_tempo: Optional[float] = 320.0,
-        aggregate: Any = "mean",
+        aggregate: Union[Callable[..., Any], Literal["mean", "median", "max", "min", "sum"]] = "mean",
         prior: Any = None,
     ) -> NDArray[np.float64]:
         """Tempo estimate, ``librosa.feature.tempo(y=..., sr=...)``.
@@ -3334,15 +4344,36 @@ class AudioSamples:
         """
         ...
 
+    @overload
     def plp(
-        self,
+        self: AudioSamples[_UnknownDtype],
         *,
         hop_length: int = 512,
         win_length: int = 384,
         tempo_min: Optional[float] = 30,
         tempo_max: Optional[float] = 300,
         prior: Any = None,
-    ) -> NDArray[np.floating]:
+    ) -> NDArray[Any]: ...
+    @overload
+    def plp(  # type: ignore[overload-overlap]
+        self: AudioSamples[_SingleSample],
+        *,
+        hop_length: int = 512,
+        win_length: int = 384,
+        tempo_min: Optional[float] = 30,
+        tempo_max: Optional[float] = 300,
+        prior: Any = None,
+    ) -> NDArray[np.float32]: ...
+    @overload
+    def plp(
+        self: AudioSamples[_DoubleSample],
+        *,
+        hop_length: int = 512,
+        win_length: int = 384,
+        tempo_min: Optional[float] = 30,
+        tempo_max: Optional[float] = 300,
+        prior: Any = None,
+    ) -> NDArray[np.float64]:
         """Predominant local pulse, ``librosa.beat.plp(y=..., sr=...)``.
 
         Returns:
@@ -3350,8 +4381,9 @@ class AudioSamples:
         """
         ...
 
+    @overload
     def tempogram_ratio(
-        self,
+        self: AudioSamples[_UnknownDtype],
         *,
         hop_length: int = 512,
         win_length: int = 384,
@@ -3362,10 +4394,44 @@ class AudioSamples:
         aggregate: Any = None,
         prior: Any = None,
         center: bool = True,
-        window: WindowSpec = "hann",
+        window: _WindowSpec = 'hann',
         fill_value: float = 0,
         norm: Optional[float] = np.inf,
-    ) -> NDArray[np.floating]:
+    ) -> NDArray[Any]: ...
+    @overload
+    def tempogram_ratio(  # type: ignore[overload-overlap]
+        self: AudioSamples[_SingleSample],
+        *,
+        hop_length: int = 512,
+        win_length: int = 384,
+        start_bpm: float = 120,
+        std_bpm: float = 1.0,
+        max_tempo: Optional[float] = 320.0,
+        factors: Optional[npt.ArrayLike] = None,
+        aggregate: Any = None,
+        prior: Any = None,
+        center: bool = True,
+        window: _WindowSpec = 'hann',
+        fill_value: float = 0,
+        norm: Optional[float] = np.inf,
+    ) -> NDArray[np.float32]: ...
+    @overload
+    def tempogram_ratio(
+        self: AudioSamples[_DoubleSample],
+        *,
+        hop_length: int = 512,
+        win_length: int = 384,
+        start_bpm: float = 120,
+        std_bpm: float = 1.0,
+        max_tempo: Optional[float] = 320.0,
+        factors: Optional[npt.ArrayLike] = None,
+        aggregate: Any = None,
+        prior: Any = None,
+        center: bool = True,
+        window: _WindowSpec = 'hann',
+        fill_value: float = 0,
+        norm: Optional[float] = np.inf,
+    ) -> NDArray[np.float64]:
         """Tempogram ratio, ``librosa.feature.tempogram_ratio(y=..., sr=...)``.
 
         Returns:
@@ -3374,14 +4440,33 @@ class AudioSamples:
         """
         ...
 
+    @overload
     def hybrid_tempogram(
-        self,
+        self: AudioSamples[_UnknownDtype],
         *,
         hop_length: int = 512,
         win_length: int = 384,
         center: bool = True,
-        window: WindowSpec = "hann",
-    ) -> NDArray[np.floating]:
+        window: _WindowSpec = 'hann',
+    ) -> NDArray[Any]: ...
+    @overload
+    def hybrid_tempogram(  # type: ignore[overload-overlap]
+        self: AudioSamples[_SingleSample],
+        *,
+        hop_length: int = 512,
+        win_length: int = 384,
+        center: bool = True,
+        window: _WindowSpec = 'hann',
+    ) -> NDArray[np.float32]: ...
+    @overload
+    def hybrid_tempogram(
+        self: AudioSamples[_DoubleSample],
+        *,
+        hop_length: int = 512,
+        win_length: int = 384,
+        center: bool = True,
+        window: _WindowSpec = 'hann',
+    ) -> NDArray[np.float64]:
         """Hybrid tempogram, ``librosa.feature.hybrid_tempogram(y=..., sr=...)``.
 
         Returns:
@@ -3406,10 +4491,10 @@ class AudioSamples:
         n_fft: int = 2048,
         hop_length: Optional[int] = None,
         win_length: Optional[int] = None,
-        window: WindowSpec = "hann",
+        window: _WindowSpec = "hann",
         center: bool = True,
         pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
-    ) -> AudioSamples:
+    ) -> Self:
         """``librosa.effects.time_stretch``: phase vocoder, exactly ``round(n / rate)`` samples."""
         ...
 
@@ -3420,7 +4505,7 @@ class AudioSamples:
         n_fft: int = 2048,
         hop_length: Optional[int] = None,
         win_length: Optional[int] = None,
-        window: WindowSpec = "hann",
+        window: _WindowSpec = "hann",
         center: bool = True,
         pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
     ) -> None:
@@ -3437,10 +4522,10 @@ class AudioSamples:
         n_fft: int = 2048,
         hop_length: Optional[int] = None,
         win_length: Optional[int] = None,
-        window: WindowSpec = "hann",
+        window: _WindowSpec = "hann",
         center: bool = True,
         pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
-    ) -> AudioSamples:
+    ) -> Self:
         """``librosa.effects.pitch_shift(y, sr=self.sample_rate, n_steps=...)``.
 
         The resampling step uses this library's resampler (``"soxr_hq"`` maps to
@@ -3459,14 +4544,14 @@ class AudioSamples:
         n_fft: int = 2048,
         hop_length: Optional[int] = None,
         win_length: Optional[int] = None,
-        window: WindowSpec = "hann",
+        window: _WindowSpec = "hann",
         center: bool = True,
         pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
     ) -> None:
         """In-place ``pitch_shift``."""
         ...
 
-    def preemphasis(self, *, coef: float = 0.97) -> AudioSamples:
+    def preemphasis(self, *, coef: float = 0.97) -> Self:
         """``librosa.effects.preemphasis`` on every channel (default initial state)."""
         ...
 
@@ -3474,7 +4559,7 @@ class AudioSamples:
         """In-place ``preemphasis``."""
         ...
 
-    def deemphasis(self, *, coef: float = 0.97) -> AudioSamples:
+    def deemphasis(self, *, coef: float = 0.97) -> Self:
         """``librosa.effects.deemphasis`` on every channel (inverse of ``preemphasis``)."""
         ...
 
@@ -3486,11 +4571,11 @@ class AudioSamples:
         self,
         *,
         top_db: float,
-        ref: DbRef = "max",
+        ref: _DbRef = "max",
         frame_length: int = 2048,
         hop_length: int = 512,
-        aggregate: Any = None,
-    ) -> tuple[AudioSamples, NDArray[np.int64]]:
+        aggregate: Optional[Callable[..., Any]] = None,
+    ) -> tuple[Self, NDArray[np.int64]]:
         """``librosa.effects.trim``: returns ``(trimmed, [start, end])``.
 
         ``top_db`` (dB below the reference) is required; librosa defaults to 60.
@@ -3505,10 +4590,10 @@ class AudioSamples:
         self,
         *,
         top_db: float,
-        ref: DbRef = "max",
+        ref: _DbRef = "max",
         frame_length: int = 2048,
         hop_length: int = 512,
-        aggregate: Any = None,
+        aggregate: Optional[Callable[..., Any]] = None,
     ) -> NDArray[np.int64]:
         """In-place ``trim_db``; returns ``[start, end]``."""
         ...
@@ -3517,17 +4602,17 @@ class AudioSamples:
         self,
         *,
         top_db: float,
-        ref: DbRef = "max",
+        ref: _DbRef = "max",
         frame_length: int = 2048,
         hop_length: int = 512,
-        aggregate: Any = None,
+        aggregate: Optional[Callable[..., Any]] = None,
     ) -> NDArray[np.int64]:
         """``librosa.effects.split``: int64 intervals of shape ``(n, 2)``.
 
         ``top_db`` is required (librosa defaults to 60)."""
         ...
 
-    def remix(self, intervals: npt.ArrayLike, *, align_zeros: bool = False) -> AudioSamples:
+    def remix(self, intervals: npt.ArrayLike, *, align_zeros: bool = False) -> Self:
         """``librosa.effects.remix``: concatenate ``(n, 2)`` sample intervals.
 
         ``align_zeros`` snaps the boundaries to zero crossings; it defaults to
@@ -3548,10 +4633,10 @@ class AudioSamples:
         n_fft: int = 2048,
         hop_length: Optional[int] = None,
         win_length: Optional[int] = None,
-        window: WindowSpec = "hann",
+        window: _WindowSpec = "hann",
         center: bool = True,
         pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
-    ) -> AudioSamples:
+    ) -> Self:
         """``librosa.effects.harmonic`` (``mask`` must be False; ``window`` is used,
         librosa ignores it)."""
         ...
@@ -3566,7 +4651,7 @@ class AudioSamples:
         n_fft: int = 2048,
         hop_length: Optional[int] = None,
         win_length: Optional[int] = None,
-        window: WindowSpec = "hann",
+        window: _WindowSpec = "hann",
         center: bool = True,
         pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
     ) -> None:
@@ -3583,10 +4668,10 @@ class AudioSamples:
         n_fft: int = 2048,
         hop_length: Optional[int] = None,
         win_length: Optional[int] = None,
-        window: WindowSpec = "hann",
+        window: _WindowSpec = "hann",
         center: bool = True,
         pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
-    ) -> AudioSamples:
+    ) -> Self:
         """``librosa.effects.percussive``; arguments as ``harmonic``."""
         ...
 
@@ -3600,7 +4685,7 @@ class AudioSamples:
         n_fft: int = 2048,
         hop_length: Optional[int] = None,
         win_length: Optional[int] = None,
-        window: WindowSpec = "hann",
+        window: _WindowSpec = "hann",
         center: bool = True,
         pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
     ) -> None:
@@ -3617,19 +4702,67 @@ class AudioSamples:
         n_fft: int = 2048,
         hop_length: Optional[int] = None,
         win_length: Optional[int] = None,
-        window: WindowSpec = "hann",
+        window: _WindowSpec = "hann",
         center: bool = True,
         pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
-    ) -> tuple[AudioSamples, AudioSamples]:
+    ) -> tuple[Self, Self]:
         """``librosa.effects.hpss``: ``(harmonic, percussive)`` (``hpss`` is the
         older non-librosa method)."""
         ...
 
-    def lpc(self, *, order: int) -> NDArray[np.floating]:
+    @overload
+    def lpc(self: AudioSamples[_UnknownDtype], *, order: int) -> NDArray[Any]: ...
+    @overload
+    def lpc(  # type: ignore[overload-overlap]
+        self: AudioSamples[_SingleSample],
+        *,
+        order: int,
+    ) -> NDArray[np.float32]: ...
+    @overload
+    def lpc(self: AudioSamples[_DoubleSample], *, order: int) -> NDArray[np.float64]:
         """``librosa.lpc`` (Burg) per channel: shape ``(channels, order + 1)``."""
         ...
 
     @staticmethod
+    @overload
+    def griffinlim_audio(
+        S: NDArray[_UnknownDtype],
+        *,
+        sample_rate: int,
+        n_iter: int = 32,
+        hop_length: Optional[int] = None,
+        win_length: Optional[int] = None,
+        n_fft: Optional[int] = None,
+        window: _WindowSpec = 'hann',
+        center: bool = True,
+        length: Optional[int] = None,
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
+        momentum: float = 0.99,
+        init: Optional[Literal['random']] = 'random',
+        rng: Optional[int] = 0,
+        dtype: None = None,
+    ) -> AudioSamples[Any]: ...
+    @staticmethod
+    @overload
+    def griffinlim_audio(  # type: ignore[overload-overlap]
+        S: NDArray[np.complex64] | NDArray[np.float32],
+        *,
+        sample_rate: int,
+        n_iter: int = 32,
+        hop_length: Optional[int] = None,
+        win_length: Optional[int] = None,
+        n_fft: Optional[int] = None,
+        window: _WindowSpec = 'hann',
+        center: bool = True,
+        length: Optional[int] = None,
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
+        momentum: float = 0.99,
+        init: Optional[Literal['random']] = 'random',
+        rng: Optional[int] = 0,
+        dtype: None = None,
+    ) -> AudioSamples[np.float32]: ...
+    @staticmethod
+    @overload
     def griffinlim_audio(
         S: npt.ArrayLike,
         *,
@@ -3638,15 +4771,34 @@ class AudioSamples:
         hop_length: Optional[int] = None,
         win_length: Optional[int] = None,
         n_fft: Optional[int] = None,
-        window: WindowSpec = "hann",
+        window: _WindowSpec = 'hann',
         center: bool = True,
         length: Optional[int] = None,
-        pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
         momentum: float = 0.99,
-        init: Optional[Literal["random"]] = "random",
+        init: Optional[Literal['random']] = 'random',
         rng: Optional[int] = 0,
-        dtype: Optional[SampleType] = None,
-    ) -> AudioSamples:
+        dtype: None = None,
+    ) -> AudioSamples[np.float64]: ...
+    @staticmethod
+    @overload
+    def griffinlim_audio(
+        S: npt.ArrayLike,
+        *,
+        sample_rate: int,
+        n_iter: int = 32,
+        hop_length: Optional[int] = None,
+        win_length: Optional[int] = None,
+        n_fft: Optional[int] = None,
+        window: _WindowSpec = 'hann',
+        center: bool = True,
+        length: Optional[int] = None,
+        pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
+        momentum: float = 0.99,
+        init: Optional[Literal['random']] = 'random',
+        rng: Optional[int] = 0,
+        dtype: SampleType,
+    ) -> AudioSamples[Any]:
         """``librosa.griffinlim`` returning ``AudioSamples`` (see
         ``audio_samples.effects.griffinlim``; ``rng`` defaults to the seed 0).
 
@@ -3662,7 +4814,7 @@ class AudioSamples:
         """
         ...
 
-    def to_format(self, dtype: SampleType) -> AudioSamples:
+    def to_format(self, dtype: SampleType) -> AudioSamples[Any]:
         """Audio-aware conversion to ``dtype``.
 
         Values are rescaled between full-scale ranges. Integer scaling is
@@ -3672,27 +4824,27 @@ class AudioSamples:
         """
         ...
 
-    def as_u8(self) -> AudioSamples:
+    def as_u8(self) -> AudioSamples[np.uint8]:
         """Audio-aware conversion to unsigned 8-bit integer; ``to_format(SampleType.U8)``."""
         ...
 
-    def as_i16(self) -> AudioSamples:
+    def as_i16(self) -> AudioSamples[np.int16]:
         """Audio-aware conversion to signed 16-bit integer; ``to_format(SampleType.I16)``."""
         ...
 
-    def as_i32(self) -> AudioSamples:
+    def as_i32(self) -> AudioSamples[np.int32]:
         """Audio-aware conversion to signed 32-bit integer; ``to_format(SampleType.I32)``."""
         ...
 
-    def as_f32(self) -> AudioSamples:
+    def as_f32(self) -> AudioSamples[np.float32]:
         """Audio-aware conversion to 32-bit floating point; ``to_format(SampleType.F32)``."""
         ...
 
-    def as_f64(self) -> AudioSamples:
+    def as_f64(self) -> AudioSamples[np.float64]:
         """Audio-aware conversion to 64-bit floating point; ``to_format(SampleType.F64)``."""
         ...
 
-    def cast_as(self, dtype: SampleType) -> AudioSamples:
+    def cast_as(self, dtype: SampleType) -> AudioSamples[Any]:
         """Raw numeric cast to ``dtype`` (no rescaling).
 
         Float-to-integer truncates toward zero and saturates, so float audio
@@ -3701,30 +4853,30 @@ class AudioSamples:
         """
         ...
 
-    def cast_as_u8(self) -> AudioSamples:
+    def cast_as_u8(self) -> AudioSamples[np.uint8]:
         """Cast audio samples to unsigned 8-bit integer format."""
         ...
 
-    def cast_as_i16(self) -> AudioSamples:
+    def cast_as_i16(self) -> AudioSamples[np.int16]:
         """Cast audio samples to signed 16-bit integer format."""
         ...
 
-    def cast_as_i32(self) -> AudioSamples:
+    def cast_as_i32(self) -> AudioSamples[np.int32]:
         """Cast audio samples to signed 32-bit integer format."""
         ...
 
-    def cast_as_f32(self) -> AudioSamples:
+    def cast_as_f32(self) -> AudioSamples[np.float32]:
         """Cast audio samples to 32-bit floating point format."""
         ...
 
-    def cast_as_f64(self) -> AudioSamples:
+    def cast_as_f64(self) -> AudioSamples[np.float64]:
         """Cast audio samples to 64-bit floating point format."""
         ...
 
     # Channel manipulation
     def to_mono(
         self, method: MonoConversionMethod = MonoConversionMethod.average
-    ) -> AudioSamples:
+    ) -> Self:
         """Convert to mono using specified method.
 
         Args:
@@ -3737,7 +4889,7 @@ class AudioSamples:
 
     def to_stereo(
         self, method: StereoConversionMethod = StereoConversionMethod.duplicate
-    ) -> AudioSamples:
+    ) -> Self:
         """Convert to stereo using specified method.
 
         Args:
@@ -3748,7 +4900,7 @@ class AudioSamples:
         """
         ...
 
-    def duplicate_to_channels(self, n_channels: int) -> AudioSamples:
+    def duplicate_to_channels(self, n_channels: int) -> Self:
         """Duplicate the buffer into the requested number of channels.
 
         Args:
@@ -3759,11 +4911,11 @@ class AudioSamples:
         """
         ...
 
-    def extract_channel(self, channel_index: int) -> AudioSamples:
+    def extract_channel(self, channel_index: int) -> Self:
         """Extract a single channel."""
         ...
 
-    def borrow_channel(self, channel_index: int) -> AudioSamples:
+    def borrow_channel(self, channel_index: int) -> Self:
         """Return a single channel as a new mono buffer.
 
         Copies the selected channel into an owned buffer before returning it.
@@ -3781,7 +4933,7 @@ class AudioSamples:
         ...
 
     @staticmethod
-    def interleave_channels(channels: list[AudioSamples]) -> AudioSamples:
+    def interleave_channels(channels: list[AudioSamples[_S]]) -> AudioSamples[_S]:
         """Combine multiple mono buffers into a single multi-channel buffer.
 
         The first buffer becomes channel 0, the second channel 1, and so on. All
@@ -3801,7 +4953,7 @@ class AudioSamples:
         """
         ...
 
-    def deinterleave_channels(self) -> list[AudioSamples]:
+    def deinterleave_channels(self) -> list[Self]:
         """Split a multi-channel buffer into individual mono buffers.
 
         Channel 0 becomes element 0, channel 1 becomes element 1, and so on. For
@@ -3837,15 +4989,19 @@ class AudioSamples:
         """Get the number of audio channels."""
         ...
 
-    def copy(self) -> AudioSamples:
+    def copy(self) -> Self:
         """Create a deep copy of the AudioSamples."""
+        ...
+
+    def __class_getitem__(cls, item: Any) -> GenericAlias:
+        """``AudioSamples[numpy.float32]`` names audio of that sample type in annotations."""
         ...
 
     def __len__(self) -> int:
         """Get the length of the audio (total number of samples)."""
         ...
 
-    def __getitem__(self, index: Any) -> AudioSamples:
+    def __getitem__(self, index: Any, /) -> Self:
         """Get a slice of the audio samples."""
         ...
 
@@ -3893,33 +5049,33 @@ class AudioSamples:
         """Nyquist frequency in Hz (``sample_rate / 2``)."""
         ...
 
-    def info(self) -> AudioSamplesInfo:
+    def info(self) -> _AudioSamplesInfo:
         """Summary of sample rate, channels, frames, duration and layout."""
         ...
 
     @staticmethod
-    def from_array(arr: npt.ArrayLike, sample_rate: int) -> AudioSamples:
+    def from_array(arr: NDArray[_S], sample_rate: int) -> AudioSamples[_S]:
         """Create an AudioSamples from a 1-D (mono) or 2-D ``(channels, samples)``
         NumPy array without copying it."""
         ...
 
-    def add_numpy_array(self, numpy_array: NDArray[Any]) -> AudioSamples:
+    def add_numpy_array(self, numpy_array: NDArray[Any]) -> Self:
         """Element-wise ``self + numpy_array`` (helper behind ``__add__``)."""
         ...
 
-    def sub_numpy_array(self, numpy_array: NDArray[Any]) -> AudioSamples:
+    def sub_numpy_array(self, numpy_array: NDArray[Any]) -> Self:
         """Element-wise ``self - numpy_array`` (helper behind ``__sub__``)."""
         ...
 
-    def mul_numpy_array(self, numpy_array: NDArray[Any]) -> AudioSamples:
+    def mul_numpy_array(self, numpy_array: NDArray[Any]) -> Self:
         """Element-wise ``self * numpy_array`` (helper behind ``__mul__``)."""
         ...
 
-    def div_numpy_array(self, numpy_array: NDArray[Any]) -> AudioSamples:
+    def div_numpy_array(self, numpy_array: NDArray[Any]) -> Self:
         """Element-wise ``self / numpy_array`` (helper behind ``__truediv__``)."""
         ...
 
-    def from_numpy_array_with_metadata(self, numpy_array: NDArray[Any]) -> AudioSamples:
+    def from_numpy_array_with_metadata(self, numpy_array: NDArray[_S]) -> AudioSamples[_S]:
         """Wrap ``numpy_array`` (same shape as this buffer) with this buffer's
         sample rate."""
         ...
@@ -3933,7 +5089,10 @@ class AudioSamples:
         (mono/stereo clips up to 30 s)."""
         ...
 
-    def __array__(self, dtype: Any = None, copy: Optional[bool] = None) -> NDArray[Any]:
+    @overload
+    def __array__(self, dtype: None=None, copy: Optional[bool]=None) -> NDArray[_S_co]: ...
+    @overload
+    def __array__(self, dtype: DTypeLike, copy: Optional[bool]=None) -> NDArray[Any]:
         """NumPy array protocol (``np.asarray(audio)``)."""
         ...
 
@@ -3962,21 +5121,37 @@ class AudioSamples:
     duration_seconds: float
     """Get the duration in seconds."""
 
-    def to_numpy(self) -> np.typing.NDArray:
+    def to_numpy(self) -> NDArray[_S_co]:
         """Convert AudioSamples to a numpy ndarray."""
 
-    def to_tensor(self, device: Optional[str] = None) -> "torch.Tensor":  # type: ignore # noqa: F821
+    def to_tensor(self, device: Optional[str]) -> Any:
         """Convert AudioSamples to a PyTorch tensor."""
 
-    def to_gpu_tensor(self, gpu_id: Optional[str] = None) -> "torch.Tensor":  # type: ignore # noqa: F821
+    def to_gpu_tensor(self, gpu_id: Optional[str] = None) -> Any:
         """Convert AudioSamples to a PyTorch tensor on the GPU if possible.
 
         If passing a ``gpu_id`` argument provide the full device name and id. e.g. cuda:1
         """
 
     # Arithmetic operators
-    def __add__(self, other: AudioSamples | NDArray[Any] | float) -> AudioSamples:
+    def __add__(self, other: AudioSamples | NDArray[Any] | _Scalar, /) -> Self:
         """Add AudioSamples with another AudioSamples, numpy array, or scalar.
+
+        The result has this audio's sample type. Integer results saturate at the type's limits.
+        On integer audio a float scalar is in the floating-point range, where 1.0 is full scale, and
+        must be within -1.0 to 1.0, or ``ValueError`` is raised. An int or NumPy integer scalar is a
+        number of sample steps relative to silence, so ``audio + 1`` on int16 adds one step, and
+        ``OverflowError`` is raised if it does not fit the sample type: int16 takes -32768 to 32767,
+        and uint8 takes -128 to 127. A NumPy uint8 scalar on uint8 audio is a sample instead, so
+        adding ``np.uint8(128)`` changes nothing. ``*`` and ``/`` are gains, so ``audio * 2`` equals
+        ``audio * 2.0``, and the result saturates. A scalar must be finite on integer audio, or
+        ``ValueError`` is raised, and dividing integer audio by a zero scalar raises
+        ``ZeroDivisionError``. Dividing by an array or other audio works sample by sample: a divisor
+        sample of silence gives the limit with the sign of the dividend, and silence over silence
+        gives silence, so ``s / s`` is defined. On float audio an int is the same number as
+        the float and the usual float rules apply. A NumPy array holds raw sample values, and audio
+        of another sample type is converted to this one first.
+        A bool scalar raises ``TypeError``.
 
         Raises:
             AudioParameterError: (a ``ValueError``) if two AudioSamples have
@@ -3985,453 +5160,96 @@ class AudioSamples:
         """
         ...
 
-    def __sub__(self, other: AudioSamples | NDArray[Any] | float) -> AudioSamples:
+    def __sub__(self, other: AudioSamples | NDArray[Any] | _Scalar, /) -> Self:
         """Subtract AudioSamples, numpy array, or scalar from AudioSamples."""
         ...
 
-    def __mul__(self, other: NDArray[Any] | float | AudioSamples) -> AudioSamples:
+    def __mul__(self, other: AudioSamples | NDArray[Any] | _Scalar, /) -> Self:
         """Multiply AudioSamples by a numpy array or scalar."""
         ...
 
-    def __truediv__(self, other: AudioSamples | NDArray[Any] | float) -> AudioSamples:
+    def __truediv__(self, other: AudioSamples | NDArray[Any] | _Scalar, /) -> Self:
         """Divide AudioSamples element-wise by another AudioSamples (same sample
         rate and length), a numpy array, or a scalar."""
         ...
 
-    def __pow__(self, exponent: float, modulo: Optional[float] = None) -> AudioSamples:
+    def __pow__(self, exponent: float, modulo: Optional[float] = None, /) -> Self:
         """Raise AudioSamples to a power (float types only)."""
         ...
 
+    # Unary operators
+    def __neg__(self) -> Self:
+        """``-audio`` in this sample type. Integer results saturate: ``-(-32768)`` is 32767 on int16.
+        uint8 mirrors about silence (128), so a stored 0 gives 255."""
+        ...
+
+    def __pos__(self) -> Self:
+        """``+audio``: a copy of this audio."""
+        ...
+
+    def __abs__(self) -> Self:
+        """``abs(audio)`` in this sample type. Integer results saturate: ``abs(-32768)`` is 32767 on
+        int16. uint8 is measured from silence (128), so a stored 100 gives 156."""
+        ...
+
     # Reverse arithmetic operators (for scalar on left side)
-    def __radd__(self, scalar: float) -> AudioSamples:
+    def __radd__(self, scalar: _Scalar, /) -> Self:
         """Add scalar to AudioSamples (scalar + audio)."""
         ...
 
-    def __rmul__(self, scalar: float) -> AudioSamples:
+    def __rmul__(self, scalar: _Scalar, /) -> Self:
         """Multiply scalar with AudioSamples (scalar * audio)."""
         ...
 
-    def __rsub__(self, scalar: float) -> AudioSamples:
+    def __rsub__(self, scalar: _Scalar, /) -> Self:
         """Subtract AudioSamples from scalar (scalar - audio)."""
         ...
 
-    def __rtruediv__(self, scalar: float) -> AudioSamples:
+    def __rtruediv__(self, scalar: float, /) -> NoReturn:
         """Divide scalar by AudioSamples (scalar / audio) - not implemented."""
         ...
 
     # In-place arithmetic operators
-    def __iadd__(self, other: AudioSamples | NDArray[Any] | float) -> None:
+    def __iadd__(self, other: AudioSamples | NDArray[Any] | _Scalar, /) -> Self:
         """In-place addition with AudioSamples, numpy array, or scalar."""
         ...
 
-    def __isub__(self, other: AudioSamples | NDArray[Any] | float) -> None:
+    def __isub__(self, other: AudioSamples | NDArray[Any] | _Scalar, /) -> Self:
         """In-place subtraction with AudioSamples, numpy array, or scalar."""
         ...
 
-    def __imul__(self, other: NDArray[Any] | float) -> None:
-        """In-place multiplication with numpy array or scalar."""
+    def __imul__(self, other: AudioSamples | NDArray[Any] | _Scalar, /) -> Self:
+        """In-place multiplication with AudioSamples, numpy array, or scalar."""
         ...
 
-    def __itruediv__(self, other: NDArray[Any] | float) -> None:
-        """In-place division by numpy array or scalar."""
+    def __itruediv__(self, other: AudioSamples | NDArray[Any] | _Scalar, /) -> Self:
+        """In-place division by AudioSamples, numpy array, or scalar."""
         ...
 
     def __str__(self) -> str:
         """String representation of the audio samples."""
         ...
 
-class IirFilterDesign:
-    """IIR (Infinite Impulse Response) filter design."""
-
-    def __init__(
-        self,
-        filter_type: IirFilterType,
-        response: FilterResponse | str,
-        order: int,
-        cutoff_frequency: Optional[float] = None,
-        low_frequency: Optional[float] = None,
-        high_frequency: Optional[float] = None,
-        passband_ripple: Optional[float] = None,
-        stopband_attenuation: Optional[float] = None,
-        bessel_norm: Optional[str] = None,
-    ) -> None:
-        """
-        Create IIR filter design (see ``audio_samples.types.IirFilterDesign``).
-
-        Args:
-            filter_type: IirFilterType (Butterworth, Chebyshev I/II, elliptic, Bessel)
-            response: 'lowpass', 'highpass', 'bandpass' or 'bandstop'
-            order: Filter order
-            cutoff_frequency: Cutoff frequency (for lowpass/highpass)
-            low_frequency: Low frequency (for bandpass/bandstop)
-            high_frequency: High frequency (for bandpass/bandstop)
-            passband_ripple: Passband ripple in dB (Chebyshev I, elliptic)
-            stopband_attenuation: Stopband attenuation in dB (Chebyshev II, elliptic)
-            bessel_norm: 'mag' (default), 'phase' (SciPy's default) or 'delay'
-        """
-        ...
-
-    def explain(
-        self,
-        sample_rate: Optional[float] = None,
-        *,
-        n_samples: Optional[int] = None,
-        n_channels: Optional[int] = None,
-        f0_range: Optional[tuple[float, float]] = None,
-    ) -> ExplainDoc:
-        """Explain what this IIR filter design will do (see ``audio_samples.explain``).
-
-        Args:
-            sample_rate: Sample rate in Hz of the signal it will be applied to.
-                Without it, quantities that need a sample rate are omitted.
-            n_samples: Signal length in samples per channel.
-            n_channels: Number of channels.
-            f0_range: Expected fundamental-frequency range ``(lowest, highest)`` in Hz.
-
-        Returns:
-            The explanation.
-        """
-        ...
-
-class EqBand:
-    """Equalizer band for parametric equalization."""
-
-    def __init__(
-        self, band_type: EqBandType, frequency: float, gain_db: float, q_factor: float
-    ) -> None:
-        """
-        Create EQ band.
-
-        Args:
-            band_type: defines how gain is applied across the frequency spectrum relative to a centre or cutoff frequency.
-            frequency: Center/cutoff frequency in Hz
-            gain_db: Gain in dB
-            q_factor: Q factor (bandwidth control)
-
-        Available band types:
-            - ``EqBandType.peak``
-            - ``EqBandType.low_shelf``
-            - ``EqBandType.high_shelf``
-            - ``EqBandType.low_pass``
-            - ``EqBandType.high_pass``
-            - ``EqBandType.band_pass``
-            - ``EqBandType.band_stop``
-        """
-        ...
-
-    def explain(
-        self,
-        sample_rate: Optional[float] = None,
-        *,
-        n_samples: Optional[int] = None,
-        n_channels: Optional[int] = None,
-        f0_range: Optional[tuple[float, float]] = None,
-    ) -> ExplainDoc:
-        """Explain what this EQ band will do (see ``audio_samples.explain``).
-
-        Args:
-            sample_rate: Sample rate in Hz of the signal it will be applied to.
-                Without it, quantities that need a sample rate are omitted.
-            n_samples: Signal length in samples per channel.
-            n_channels: Number of channels.
-            f0_range: Expected fundamental-frequency range ``(lowest, highest)`` in Hz.
-
-        Returns:
-            The explanation.
-        """
-        ...
-
-class ParametricEq:
-    """Parametric equalizer supporting multiple bands."""
-
-    def __init__(self) -> None:
-        """Create empty parametric equalizer."""
-        ...
-
-    def add_band(self, band: EqBand) -> None:
-        """Add an EQ band to the equalizer."""
-        ...
-
-class OnsetDetectionConfig:
-    """Configuration for onset detection."""
-
-    def __init__(
-        self,
-        cqt_params: CqtParams,
-        hop_size: int,
-        window_size: int,
-        threshold: float,
-        min_onset_interval_seconds: float,
-        pre_emphasis: float,
-        adaptive_threshold: bool,
-        median_filter_length: int,
-        adapative_threshold_multiplier: float,
-        peak_picking: PeakPickingConfig,
-    ) -> None:
-        """
-        Create onset detection configuration.
-
-        Args:
-        """
-        ...
-
-    @classmethod
-    def default(cls) -> OnsetDetectionConfig:
-        """Create default onset detection configuration."""
-        ...
-
-    @classmethod
-    def musical(cls) -> OnsetDetectionConfig:
-        """Preset optimized for musical content."""
-        ...
-
-    @classmethod
-    def percussive(cls) -> OnsetDetectionConfig:
-        """Preset optimized for percussive content."""
-        ...
-
-    @classmethod
-    def speech(cls) -> OnsetDetectionConfig:
-        """Preset optimized for speech."""
-        ...
-
-    def explain(
-        self,
-        sample_rate: Optional[float] = None,
-        *,
-        n_samples: Optional[int] = None,
-        n_channels: Optional[int] = None,
-        f0_range: Optional[tuple[float, float]] = None,
-    ) -> ExplainDoc:
-        """Explain what this onset-detection configuration will do (see ``audio_samples.explain``).
-
-        Args:
-            sample_rate: Sample rate in Hz of the signal it will be applied to.
-                Without it, quantities that need a sample rate are omitted.
-            n_samples: Signal length in samples per channel.
-            n_channels: Number of channels.
-            f0_range: Expected fundamental-frequency range ``(lowest, highest)`` in Hz.
-
-        Returns:
-            The explanation.
-        """
-        ...
-
-class ComplexOnsetConfig:
-    """Configuration for complex domain onset detection."""
-
-    def __init__(
-        self,
-        window_size: int = 2048,
-        hop_size: int = 512,
-        threshold: float = 0.3,
-        alpha: float = 0.5,
-    ) -> None:
-        """
-        Create complex onset detection configuration.
-
-        Args:
-            window_size: FFT window size in samples
-            hop_size: Hop size between analysis frames in samples
-            threshold: Peak picking threshold
-            alpha: Weight between magnitude and phase (0.0-1.0)
-        """
-        ...
-
-    # Presets are class attributes (no parentheses): ComplexOnsetConfig.musical
-    percussive: ComplexOnsetConfig
-    musical: ComplexOnsetConfig
-    speech: ComplexOnsetConfig
-
-class SpectralFluxConfig:
-    """Configuration for spectral flux onset detection."""
-
-    def __init__(
-        self,
-        cqt_params: CqtParams,
-        hop_size: int,
-        window_size: int,
-        flux_method: SpectralFluxMethod,
-        peak_picking: PeakPickingConfig,
-        rectify: bool,
-        log_compression: float,
-    ) -> None:
-        """
-        Create spectral flux configuration.
-
-        Args:
-            cqt_params: CQT parameters for spectral analysis
-            hop_size: Hop size between analysis frames in samples
-            window_size: FFT window size in samples
-            flux_method: Method for computing spectral flux
-            peak_picking: Configuration for peak picking after flux calculation
-            rectify: Whether to rectify the spectral flux values before peak picking
-            log_compression: Amount of log compression to apply to the flux values (0 = none)
-        """
-        ...
-
-    # Presets are class attributes (no parentheses): SpectralFluxConfig.musical
-    percussive: SpectralFluxConfig
-    musical: SpectralFluxConfig
-    complex: SpectralFluxConfig
-
-class SpectralFluxMethod:
-    """Method for computing spectral flux."""
-
-    energy: SpectralFluxMethod
-    """Use energy-based spectral flux."""
-
-    magnitude: SpectralFluxMethod
-    """Use magnitude-based spectral flux."""
-
-    complex_domain: SpectralFluxMethod
-    """Use complex domain spectral flux."""
-
-class DynamicRangeMethod:
-    """Detection method for dynamic range processing."""
-
-    peak: DynamicRangeMethod
-    """Use peak detection (absolute maximum)."""
-
-    rms: DynamicRangeMethod
-    """Use RMS (root mean square) detection."""
-
-    @staticmethod
-    def hybrid(peak_weight: float = 0.5) -> DynamicRangeMethod:
-        """Use hybrid detection combining peak and RMS.
-
-        Args:
-            peak_weight: Weight for peak vs RMS (0.0-1.0)
-        """
-        ...
-
-class EnvelopeFollower:
-    """Envelope follower for attack/release envelope tracking."""
-
-    def __init__(
-        self,
-        attack_ms: float,
-        release_ms: float,
-        sample_rate: float,
-        detection_method: DynamicRangeMethod,
-    ) -> None:
-        """
-        Create envelope follower.
-
-        Args:
-            attack_ms: Attack time in milliseconds
-            release_ms: Release time in milliseconds
-            sample_rate: Sample rate in Hz
-            detection_method: Detection method (Peak, Rms, or Hybrid)
-        """
-        ...
-
-    @classmethod
-    def default(cls) -> "EnvelopeFollower":
-        """Create default envelope follower (10ms attack, 100ms release at 44100 Hz)."""
-        ...
-
-    def process(self, input: float) -> float:
-        """Process one sample; returns the envelope level (stateful)."""
-        ...
-
-    def process_array(self, samples: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-        """Process a 1-D array; returns the envelope per sample (stateful)."""
-        ...
-
-    def reset(self) -> None:
-        """Reset the envelope to 0."""
-        ...
-
-class BeatTrackingConfig:
-    """Configuration for beat detection."""
-
-    def __init__(
-        self,
-        tempo_bpm: float,
-        onset_config: OnsetDetectionConfig,
-        tolerance: Optional[float] = None,
-    ) -> None:
-        """
-        Create beat tracking configuration.
-
-        Args:
-            tempo_bpm: Target tempo in beats per minute
-            onset_config: Configuration for onset detection
-            tolerance: Beat timing tolerance in seconds (defaults to 10% of inter-beat interval)
-        """
-        ...
-
-class BeatTrackingData:
-    """Beat tracking results containing tempo and beat timestamps."""
-
-    def __init__(
-        self, tempo_bpm: float, beat_times: list[float], config: BeatTrackingConfig
-    ) -> None:
-        """
-        Create beat tracking data.
-
-        Args:
-            tempo_bpm: Estimated tempo in beats per minute
-            beat_times: Beat timestamps in seconds
-            config: Configuration used for beat detection
-        """
-        ...
-
     @property
-    def tempo_bpm(self) -> float:
-        """Estimated tempo in BPM."""
+    def __array_interface__(self) -> dict[str, Any]:
+        """NumPy array interface of the samples, version 3."""
         ...
 
-    @property
-    def beat_times(self) -> list[float]:
-        """Beat timestamps in seconds."""
-        ...
 
-    @property
-    def config(self) -> BeatTrackingConfig:
-        """Configuration used."""
-        ...
 
-class VadMethod:
-    """VAD method for voice activity detection."""
 
-    energy: VadMethod
-    """Simple energy-based detection using RMS threshold."""
 
-    zero_crossing: VadMethod
-    """Zero crossing rate based detection."""
 
-    combined: VadMethod
-    """Combined energy and zero crossing rate."""
 
-    spectral: VadMethod
-    """Spectral-based detection using spectral features."""
 
-    default: VadMethod
-    """Default VAD method (Energy)."""
 
-class VadChannelPolicy:
-    """Multi-channel handling policy for Voice Activity Detection."""
 
-    average_to_mono: VadChannelPolicy
-    """Average all channels to a mono signal and run VAD once (default)."""
 
-    any_channel: VadChannelPolicy
-    """Run VAD per-channel and mark speech if any channel is active."""
 
-    all_channels: VadChannelPolicy
-    """Run VAD per-channel and mark speech only if all channels are active."""
 
-    default: VadChannelPolicy
-    """Default channel policy (AverageToMono)."""
 
-    @staticmethod
-    def channel(index: int) -> VadChannelPolicy:
-        """Run VAD on a specific channel index."""
-        ...
 
-class AudioSamplesInfo:
+class _AudioSamplesInfo:
     """Summary returned by ``AudioSamples.info()``."""
 
     sample_rate: int
@@ -4440,112 +5258,62 @@ class AudioSamplesInfo:
     duration_seconds: float
     layout: str
 
-class VadConfig:
-    """Configuration for Voice Activity Detection (VAD).
-
-    The VAD implementation is frame-based: it produces a boolean decision per frame
-    of length `frame_size` with step `hop_size`.
-
-    Defaults are chosen to work reasonably well for general audio, but you should
-    tune thresholds for your content and sample format.
-    """
-
-    def __init__(
-        self,
-        method: VadMethod,
-        channel_policy: VadChannelPolicy,
-        /,
-        frame_size: int,
-        hop_size: int,
-        pad_end: bool,
-        energy_threshold_db: float,
-        zcr_min: float,
-        zcr_max: float,
-        min_speech_frames: int,
-        min_silence_frames: int,
-        hangover_frames: int,
-        smooth_frames: int,
-        speech_band_low_hz: float,
-        speech_band_high_hz: float,
-        spectral_ratio_threshold: float,
-    ) -> None:
-        """
-        Create VAD configuration.
-
-        Args:
-            method: VAD method to use (positional-only)
-            channel_policy: Policy for multi-channel audio (positional-only)
-            frame_size: Frame size in samples
-            hop_size: Hop size in samples (frame step)
-            pad_end: Whether to include a final partial frame (zero-padded)
-            energy_threshold_db: Energy threshold in dBFS (RMS). Typical: -60.0 to -30.0
-            zcr_min: Minimum acceptable zero crossing rate in [0, 1]
-            zcr_max: Maximum acceptable zero crossing rate in [0, 1]
-            min_speech_frames: Minimum consecutive speech frames to keep a speech region
-            min_silence_frames: Minimum consecutive non-speech frames to keep silence
-            hangover_frames: Keep speech active for this many frames after energy drops
-            smooth_frames: Majority-vote smoothing window in frames (1 = no smoothing)
-            speech_band_low_hz: Lower bound of speech band (for Spectral method)
-            speech_band_high_hz: Upper bound of speech band (for Spectral method)
-            spectral_ratio_threshold: Threshold on speech-band energy ratio (for Spectral method)
-        """
-        ...
-
-    @classmethod
-    def default(cls) -> VadConfig:
-        """Create default VAD configuration (Energy method, 1024 frame size, 512 hop)."""
-        ...
-
-    energy_only: ClassVar[VadConfig]
-    """Preset using only energy-based detection (a class attribute, not a method)."""
-
-    # Read-only fields
-    method: VadMethod
-    channel_policy: VadChannelPolicy
-    frame_size: int
-    hop_size: int
-    pad_end: bool
-    energy_threshold_db: float
-    zcr_min: float
-    zcr_max: float
-    min_speech_frames: int
-    min_silence_frames: int
-    hangover_frames: int
-    smooth_frames: int
-    speech_band_low_hz: float
-    speech_band_high_hz: float
-    spectral_ratio_threshold: float
-
-    def validate(self) -> VadConfig:
-        """Validate configuration parameters.
-
-        Returns:
-            Self if valid
-
-        Raises:
-            ValueError: If parameters are invalid
-        """
-        ...
-
-    def explain(
-        self,
-        sample_rate: Optional[float] = None,
-        *,
-        n_samples: Optional[int] = None,
-        n_channels: Optional[int] = None,
-        f0_range: Optional[tuple[float, float]] = None,
-    ) -> ExplainDoc:
-        """Explain what this voice-activity-detection configuration will do (see ``audio_samples.explain``).
-
-        Args:
-            sample_rate: Sample rate in Hz of the signal it will be applied to.
-                Without it, quantities that need a sample rate are omitted.
-            n_samples: Signal length in samples per channel.
-            n_channels: Number of channels.
-            f0_range: Expected fundamental-frequency range ``(lowest, highest)`` in Hz.
-
-        Returns:
-            The explanation.
-        """
-        ...
-
+__all__ = [
+    "AudioSamples",
+    "IirFilterDesign",
+    "EqBand",
+    "ParametricEq",
+    "generation",
+    "io",
+    "utils",
+    "spectral",
+    "sequence",
+    "features",
+    "rhythm",
+    "effects",
+    "spectrograms",
+    "mpl",
+    "spectrograms",
+    "exceptions",
+    "explain",
+    "ExplainDoc",
+    "StftParams",
+    "SpectrogramParams",
+    "MelParams",
+    "MfccParams",
+    "LogParams",
+    "ChromaParams",
+    "CqtParams",
+    "ErbParams",
+    "MelNorm",
+    "StftResult",
+    "WindowType",
+    "AudioError",
+    "AudioParameterError",
+    "AudioLayoutError",
+    "AudioConversionError",
+    "AudioRuntimeError",
+    "AudioProcessingError",
+    "AudioFeatureError",
+    "AudioSpectrogramError",
+    "AudioIOError",
+    "AudioFileNotFoundError",
+    "AudioFormatError",
+    "AudioDecodeError",
+    "mu_law_encode",
+    "mu_law_decode",
+    "sine_wave",
+    "cosine_wave",
+    "sawtooth_wave",
+    "square_wave",
+    "triangle_wave",
+    "white_noise",
+    "pink_noise",
+    "brown_noise",
+    "impulse",
+    "silence",
+    "chirp",
+    "stereo_sine_wave",
+    "stereo_chirp",
+    "stereo_silence",
+]

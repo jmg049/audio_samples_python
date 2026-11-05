@@ -86,8 +86,9 @@ dependencies = [
 [tool.maturin]
 python-source = "."
 include = [
-    "*.pyi",
     "audio_samples/*.pyi",
+    "audio_samples/utils/*.pyi",
+    "audio_samples/mpl/*.pyi",
     "audio_samples/py.typed",
     { path = "CHANGELOG.md", format = "sdist" },
     { path = "Cargo.lock", format = "sdist" },
@@ -97,6 +98,40 @@ include = [
 ]
 exclude = ["tests/*", "examples/*", "benches/*", "docs/*", ".venv/**/*", "target/**/*"]
 
+# Settings for checking the type stubs (tests/hooks/check_stubs.sh). The modules listed have no
+# stubs of their own, so only their use of the stubs matters to these checks.
+[tool.mypy]
+python_version = "3.13"
+warn_unused_ignores = true
+
+[[tool.mypy.overrides]]
+module = [
+    "audio_samples.bench_resampling",
+    "audio_samples.benchmarks",
+    "audio_samples.io_benchmark",
+    "audio_samples.migrate",
+    "audio_samples._migrate_table",
+    "audio_samples._display",
+    "audio_samples.examples.*",
+    "audio_samples.mpl.comparison",
+    "audio_samples.mpl.dashboard",
+    "audio_samples.mpl.distributions",
+    "audio_samples.mpl.envelopes",
+    "audio_samples.mpl.events",
+    "audio_samples.mpl.harmonic",
+    "audio_samples.mpl.spectral",
+    "audio_samples.mpl.timefreq",
+    "audio_samples.mpl.vad",
+    "audio_samples.mpl.waveform",
+    "audio_samples.mpl._utils",
+]
+ignore_errors = true
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["matplotlib.*", "seaborn.*"]
+ignore_missing_imports = true
+
 [dependency-groups]
 dev = [
     "docutils>=0.20.1",
@@ -105,18 +140,21 @@ dev = [
     "ipywidgets>=8.1.8",
     "matplotlib>=3.7.5",
     "pandas>=2.0.3",
-    "pyqt6>=6.7.1",
     "rich>=14.3.3",
     "scikit-learn>=1.3.2",
     "seaborn>=0.13.2",
     "soundfile>=0.13.1",
-    "torchaudio>=2.5.1",
-    "torchcodec>=0.9.1",
     "tqdm>=4.67.1",
     "py-spy>=0.4.1",
     "pyspy>=0.1.1",
     "resampy>=0.4.3",
     "samplerate>=0.2.3",
+]
+# Large downloads that only audio_samples/io_benchmark.py and interactive plotting use.
+heavy = [
+    "pyqt6>=6.7.1",
+    "torchaudio>=2.5.1",
+    "torchcodec>=0.9.1",
 ]
 test = [
     "pytest>=7.4.0",
@@ -127,4 +165,15 @@ test = [
     "scipy>=1.10",
     "librosa>=0.10",
     "soundfile>=0.13.1",
+    "mypy>=1.18",
+    "pyright>=1.1.400",
+    "pre-commit>=4",
 ]
+
+[tool.pyright]
+include = ["audio_samples/*.pyi", "audio_samples/utils", "audio_samples/mpl/*.pyi", "tests/typing/usage.py"]
+typeCheckingMode = "standard"
+pythonVersion = "3.13"
+reportOverlappingOverload = "none"
+# Stub-only modules such as audio_samples.effects are attributes of the compiled extension.
+reportMissingModuleSource = "none"

@@ -23,33 +23,318 @@ from typing import Any, Callable, Literal, Optional, Union
 import numpy as np
 import numpy.typing as npt
 from numpy.typing import NDArray
+from typing import Any, overload, type_check_only
+from typing_extensions import TypeAlias
 
-Metric = Literal["euclidean", "sqeuclidean", "cosine", "cityblock", "chebyshev"]
-Mode = Literal["connectivity", "distance", "affinity"]
+#: Matches only an array whose dtype is unknown to the type checker (Any). The overloads use it so that
+#: such an array gives a result of unknown precision instead of the first overload's.
+@type_check_only
+class _UnknownDtype(np.generic):
+    def __new__(cls) -> _UnknownDtype: ...
+
+#: float32 and complex64 arrays are processed in float32. Anything else is converted to float64.
+_SingleArray: TypeAlias = NDArray[np.float32] | NDArray[np.complex64]
+
+
+_Metric = Literal["euclidean", "sqeuclidean", "cosine", "cityblock", "chebyshev"]
+_Mode = Literal["connectivity", "distance", "affinity"]
 #: Affinity bandwidth: None (``"med_k_scalar"``), a heuristic name, a positive
 #: number, or a per-link array.
-BandwidthSpec = Union[
+_BandwidthSpec = Union[
     None,
     float,
     Literal["med_k_scalar", "mean_k", "gmean_k", "mean_k_avg", "gmean_k_avg", "mean_k_avg_and_pair"],
     npt.ArrayLike,
 ]
 
+@overload
 def dtw(
-    X: Optional[npt.ArrayLike] = None,
-    Y: Optional[npt.ArrayLike] = None,
+    X: NDArray[_UnknownDtype],
+    Y: npt.ArrayLike,
     *,
-    C: Optional[npt.ArrayLike] = None,
-    metric: Metric = "euclidean",
+    C: None = None,
+    metric: _Metric = 'euclidean',
     step_sizes_sigma: Optional[npt.ArrayLike] = None,
     weights_add: Optional[npt.ArrayLike] = None,
     weights_mul: Optional[npt.ArrayLike] = None,
     subseq: bool = False,
-    backtrack: bool = True,
+    backtrack: Literal[True] = True,
+    global_constraints: bool = False,
+    band_rad: float = 0.25,
+    return_steps: Literal[False] = False,
+) -> tuple[NDArray[Any], NDArray[Any]]: ...
+@overload
+def dtw(
+    X: NDArray[_UnknownDtype],
+    Y: npt.ArrayLike,
+    *,
+    C: None = None,
+    metric: _Metric = 'euclidean',
+    step_sizes_sigma: Optional[npt.ArrayLike] = None,
+    weights_add: Optional[npt.ArrayLike] = None,
+    weights_mul: Optional[npt.ArrayLike] = None,
+    subseq: bool = False,
+    backtrack: Literal[True] = True,
+    global_constraints: bool = False,
+    band_rad: float = 0.25,
+    return_steps: Literal[True],
+) -> tuple[NDArray[Any], NDArray[Any], NDArray[Any]]: ...
+@overload
+def dtw(
+    X: NDArray[_UnknownDtype],
+    Y: npt.ArrayLike,
+    *,
+    C: None = None,
+    metric: _Metric = 'euclidean',
+    step_sizes_sigma: Optional[npt.ArrayLike] = None,
+    weights_add: Optional[npt.ArrayLike] = None,
+    weights_mul: Optional[npt.ArrayLike] = None,
+    subseq: bool = False,
+    backtrack: Literal[False],
     global_constraints: bool = False,
     band_rad: float = 0.25,
     return_steps: bool = False,
-) -> Any:
+) -> NDArray[Any]: ...
+@overload
+def dtw(
+    X: None = None,
+    Y: None = None,
+    *,
+    C: NDArray[_UnknownDtype],
+    metric: _Metric = 'euclidean',
+    step_sizes_sigma: Optional[npt.ArrayLike] = None,
+    weights_add: Optional[npt.ArrayLike] = None,
+    weights_mul: Optional[npt.ArrayLike] = None,
+    subseq: bool = False,
+    backtrack: Literal[True] = True,
+    global_constraints: bool = False,
+    band_rad: float = 0.25,
+    return_steps: Literal[False] = False,
+) -> tuple[NDArray[Any], NDArray[Any]]: ...
+@overload
+def dtw(
+    X: None = None,
+    Y: None = None,
+    *,
+    C: NDArray[_UnknownDtype],
+    metric: _Metric = 'euclidean',
+    step_sizes_sigma: Optional[npt.ArrayLike] = None,
+    weights_add: Optional[npt.ArrayLike] = None,
+    weights_mul: Optional[npt.ArrayLike] = None,
+    subseq: bool = False,
+    backtrack: Literal[True] = True,
+    global_constraints: bool = False,
+    band_rad: float = 0.25,
+    return_steps: Literal[True],
+) -> tuple[NDArray[Any], NDArray[Any], NDArray[Any]]: ...
+@overload
+def dtw(
+    X: None = None,
+    Y: None = None,
+    *,
+    C: NDArray[_UnknownDtype],
+    metric: _Metric = 'euclidean',
+    step_sizes_sigma: Optional[npt.ArrayLike] = None,
+    weights_add: Optional[npt.ArrayLike] = None,
+    weights_mul: Optional[npt.ArrayLike] = None,
+    subseq: bool = False,
+    backtrack: Literal[False],
+    global_constraints: bool = False,
+    band_rad: float = 0.25,
+    return_steps: bool = False,
+) -> NDArray[Any]: ...
+@overload
+def dtw(  # type: ignore[overload-overlap]
+    X: _SingleArray,
+    Y: npt.ArrayLike,
+    *,
+    C: None = None,
+    metric: _Metric = 'euclidean',
+    step_sizes_sigma: Optional[npt.ArrayLike] = None,
+    weights_add: Optional[npt.ArrayLike] = None,
+    weights_mul: Optional[npt.ArrayLike] = None,
+    subseq: bool = False,
+    backtrack: Literal[True] = True,
+    global_constraints: bool = False,
+    band_rad: float = 0.25,
+    return_steps: Literal[False] = False,
+) -> tuple[NDArray[np.float32], NDArray[np.int64]]: ...
+@overload
+def dtw(  # type: ignore[overload-overlap]
+    X: _SingleArray,
+    Y: npt.ArrayLike,
+    *,
+    C: None = None,
+    metric: _Metric = 'euclidean',
+    step_sizes_sigma: Optional[npt.ArrayLike] = None,
+    weights_add: Optional[npt.ArrayLike] = None,
+    weights_mul: Optional[npt.ArrayLike] = None,
+    subseq: bool = False,
+    backtrack: Literal[True] = True,
+    global_constraints: bool = False,
+    band_rad: float = 0.25,
+    return_steps: Literal[True],
+) -> tuple[NDArray[np.float32], NDArray[np.int64], NDArray[np.int64]]: ...
+@overload
+def dtw(  # type: ignore[overload-overlap]
+    X: _SingleArray,
+    Y: npt.ArrayLike,
+    *,
+    C: None = None,
+    metric: _Metric = 'euclidean',
+    step_sizes_sigma: Optional[npt.ArrayLike] = None,
+    weights_add: Optional[npt.ArrayLike] = None,
+    weights_mul: Optional[npt.ArrayLike] = None,
+    subseq: bool = False,
+    backtrack: Literal[False],
+    global_constraints: bool = False,
+    band_rad: float = 0.25,
+    return_steps: bool = False,
+) -> NDArray[np.float32]: ...
+@overload
+def dtw(
+    X: npt.ArrayLike,
+    Y: npt.ArrayLike,
+    *,
+    C: None = None,
+    metric: _Metric = 'euclidean',
+    step_sizes_sigma: Optional[npt.ArrayLike] = None,
+    weights_add: Optional[npt.ArrayLike] = None,
+    weights_mul: Optional[npt.ArrayLike] = None,
+    subseq: bool = False,
+    backtrack: Literal[True] = True,
+    global_constraints: bool = False,
+    band_rad: float = 0.25,
+    return_steps: Literal[False] = False,
+) -> tuple[NDArray[np.float64], NDArray[np.int64]]: ...
+@overload
+def dtw(
+    X: npt.ArrayLike,
+    Y: npt.ArrayLike,
+    *,
+    C: None = None,
+    metric: _Metric = 'euclidean',
+    step_sizes_sigma: Optional[npt.ArrayLike] = None,
+    weights_add: Optional[npt.ArrayLike] = None,
+    weights_mul: Optional[npt.ArrayLike] = None,
+    subseq: bool = False,
+    backtrack: Literal[True] = True,
+    global_constraints: bool = False,
+    band_rad: float = 0.25,
+    return_steps: Literal[True],
+) -> tuple[NDArray[np.float64], NDArray[np.int64], NDArray[np.int64]]: ...
+@overload
+def dtw(
+    X: npt.ArrayLike,
+    Y: npt.ArrayLike,
+    *,
+    C: None = None,
+    metric: _Metric = 'euclidean',
+    step_sizes_sigma: Optional[npt.ArrayLike] = None,
+    weights_add: Optional[npt.ArrayLike] = None,
+    weights_mul: Optional[npt.ArrayLike] = None,
+    subseq: bool = False,
+    backtrack: Literal[False],
+    global_constraints: bool = False,
+    band_rad: float = 0.25,
+    return_steps: bool = False,
+) -> NDArray[np.float64]: ...
+@overload
+def dtw(  # type: ignore[overload-overlap]
+    X: None = None,
+    Y: None = None,
+    *,
+    C: _SingleArray,
+    metric: _Metric = 'euclidean',
+    step_sizes_sigma: Optional[npt.ArrayLike] = None,
+    weights_add: Optional[npt.ArrayLike] = None,
+    weights_mul: Optional[npt.ArrayLike] = None,
+    subseq: bool = False,
+    backtrack: Literal[True] = True,
+    global_constraints: bool = False,
+    band_rad: float = 0.25,
+    return_steps: Literal[False] = False,
+) -> tuple[NDArray[np.float32], NDArray[np.int64]]: ...
+@overload
+def dtw(  # type: ignore[overload-overlap]
+    X: None = None,
+    Y: None = None,
+    *,
+    C: _SingleArray,
+    metric: _Metric = 'euclidean',
+    step_sizes_sigma: Optional[npt.ArrayLike] = None,
+    weights_add: Optional[npt.ArrayLike] = None,
+    weights_mul: Optional[npt.ArrayLike] = None,
+    subseq: bool = False,
+    backtrack: Literal[True] = True,
+    global_constraints: bool = False,
+    band_rad: float = 0.25,
+    return_steps: Literal[True],
+) -> tuple[NDArray[np.float32], NDArray[np.int64], NDArray[np.int64]]: ...
+@overload
+def dtw(  # type: ignore[overload-overlap]
+    X: None = None,
+    Y: None = None,
+    *,
+    C: _SingleArray,
+    metric: _Metric = 'euclidean',
+    step_sizes_sigma: Optional[npt.ArrayLike] = None,
+    weights_add: Optional[npt.ArrayLike] = None,
+    weights_mul: Optional[npt.ArrayLike] = None,
+    subseq: bool = False,
+    backtrack: Literal[False],
+    global_constraints: bool = False,
+    band_rad: float = 0.25,
+    return_steps: bool = False,
+) -> NDArray[np.float32]: ...
+@overload
+def dtw(
+    X: None = None,
+    Y: None = None,
+    *,
+    C: npt.ArrayLike,
+    metric: _Metric = 'euclidean',
+    step_sizes_sigma: Optional[npt.ArrayLike] = None,
+    weights_add: Optional[npt.ArrayLike] = None,
+    weights_mul: Optional[npt.ArrayLike] = None,
+    subseq: bool = False,
+    backtrack: Literal[True] = True,
+    global_constraints: bool = False,
+    band_rad: float = 0.25,
+    return_steps: Literal[False] = False,
+) -> tuple[NDArray[np.float64], NDArray[np.int64]]: ...
+@overload
+def dtw(
+    X: None = None,
+    Y: None = None,
+    *,
+    C: npt.ArrayLike,
+    metric: _Metric = 'euclidean',
+    step_sizes_sigma: Optional[npt.ArrayLike] = None,
+    weights_add: Optional[npt.ArrayLike] = None,
+    weights_mul: Optional[npt.ArrayLike] = None,
+    subseq: bool = False,
+    backtrack: Literal[True] = True,
+    global_constraints: bool = False,
+    band_rad: float = 0.25,
+    return_steps: Literal[True],
+) -> tuple[NDArray[np.float64], NDArray[np.int64], NDArray[np.int64]]: ...
+@overload
+def dtw(
+    X: None = None,
+    Y: None = None,
+    *,
+    C: npt.ArrayLike,
+    metric: _Metric = 'euclidean',
+    step_sizes_sigma: Optional[npt.ArrayLike] = None,
+    weights_add: Optional[npt.ArrayLike] = None,
+    weights_mul: Optional[npt.ArrayLike] = None,
+    subseq: bool = False,
+    backtrack: Literal[False],
+    global_constraints: bool = False,
+    band_rad: float = 0.25,
+    return_steps: bool = False,
+) -> NDArray[np.float64]:
     """Dynamic time warping, equivalent to ``librosa.sequence.dtw``.
 
     Pass ``X`` ``(n_features, N)`` and ``Y`` ``(n_features, M)``, or a cost matrix
@@ -80,14 +365,24 @@ def dtw_backtracking(
     """
     ...
 
+@overload
 def viterbi(
     prob: npt.ArrayLike,
     transition: npt.ArrayLike,
     *,
     p_init: Optional[npt.ArrayLike] = None,
-    return_logp: bool = False,
+    return_logp: Literal[False] = False,
     transition_min_prob: Optional[float] = None,
-) -> Any:
+) -> NDArray[np.int64]: ...
+@overload
+def viterbi(
+    prob: npt.ArrayLike,
+    transition: npt.ArrayLike,
+    *,
+    p_init: Optional[npt.ArrayLike] = None,
+    return_logp: Literal[True],
+    transition_min_prob: Optional[float] = None,
+) -> tuple[NDArray[np.int64], float]:
     """Viterbi decoding of an HMM (``librosa.sequence.viterbi``).
 
     Args:
@@ -105,15 +400,26 @@ def viterbi(
     """
     ...
 
+@overload
 def viterbi_discriminative(
     prob: npt.ArrayLike,
     transition: npt.ArrayLike,
     *,
     p_state: Optional[npt.ArrayLike] = None,
     p_init: Optional[npt.ArrayLike] = None,
-    return_logp: bool = False,
+    return_logp: Literal[False] = False,
     transition_min_prob: Optional[float] = None,
-) -> Any:
+) -> NDArray[np.int64]: ...
+@overload
+def viterbi_discriminative(
+    prob: npt.ArrayLike,
+    transition: npt.ArrayLike,
+    *,
+    p_state: Optional[npt.ArrayLike] = None,
+    p_init: Optional[npt.ArrayLike] = None,
+    return_logp: Literal[True],
+    transition_min_prob: Optional[float] = None,
+) -> tuple[NDArray[np.int64], float]:
     """Viterbi decoding from posterior state probabilities
     (``librosa.sequence.viterbi_discriminative``); each column of ``prob`` sums to 1.
 
@@ -123,6 +429,73 @@ def viterbi_discriminative(
     """
     ...
 
+@overload
+def viterbi_binary(
+    prob: npt.ArrayLike,
+    transition: npt.ArrayLike,
+    *,
+    p_state: Optional[Union[float, npt.ArrayLike]] = None,
+    p_init: Optional[Union[float, npt.ArrayLike]] = None,
+    return_logp: Literal[False] = False,
+    transition_min_prob: Optional[float] = None,
+    dtype: None = None,
+) -> NDArray[np.bool_]: ...
+@overload
+def viterbi_binary(
+    prob: npt.ArrayLike,
+    transition: npt.ArrayLike,
+    *,
+    p_state: Optional[Union[float, npt.ArrayLike]] = None,
+    p_init: Optional[Union[float, npt.ArrayLike]] = None,
+    return_logp: Literal[True],
+    transition_min_prob: Optional[float] = None,
+    dtype: None = None,
+) -> tuple[NDArray[np.bool_], NDArray[np.float64]]: ...
+@overload
+def viterbi_binary(
+    prob: npt.ArrayLike,
+    transition: npt.ArrayLike,
+    *,
+    p_state: Optional[Union[float, npt.ArrayLike]] = None,
+    p_init: Optional[Union[float, npt.ArrayLike]] = None,
+    return_logp: Literal[False] = False,
+    transition_min_prob: Optional[float] = None,
+    dtype: type[np.uint16],
+) -> NDArray[np.uint16]: ...
+@overload
+def viterbi_binary(
+    prob: npt.ArrayLike,
+    transition: npt.ArrayLike,
+    *,
+    p_state: Optional[Union[float, npt.ArrayLike]] = None,
+    p_init: Optional[Union[float, npt.ArrayLike]] = None,
+    return_logp: Literal[True],
+    transition_min_prob: Optional[float] = None,
+    dtype: type[np.uint16],
+) -> tuple[NDArray[np.uint16], NDArray[np.float64]]: ...
+@overload
+def viterbi_binary(
+    prob: npt.ArrayLike,
+    transition: npt.ArrayLike,
+    *,
+    p_state: Optional[Union[float, npt.ArrayLike]] = None,
+    p_init: Optional[Union[float, npt.ArrayLike]] = None,
+    return_logp: Literal[False] = False,
+    transition_min_prob: Optional[float] = None,
+    dtype: type[np.int64],
+) -> NDArray[np.int64]: ...
+@overload
+def viterbi_binary(
+    prob: npt.ArrayLike,
+    transition: npt.ArrayLike,
+    *,
+    p_state: Optional[Union[float, npt.ArrayLike]] = None,
+    p_init: Optional[Union[float, npt.ArrayLike]] = None,
+    return_logp: Literal[True],
+    transition_min_prob: Optional[float] = None,
+    dtype: type[np.int64],
+) -> tuple[NDArray[np.int64], NDArray[np.float64]]: ...
+@overload
 def viterbi_binary(
     prob: npt.ArrayLike,
     transition: npt.ArrayLike,
@@ -132,7 +505,7 @@ def viterbi_binary(
     return_logp: bool = False,
     transition_min_prob: Optional[float] = None,
     dtype: Optional[npt.DTypeLike] = None,
-) -> Any:
+) -> NDArray[Any] | tuple[NDArray[Any], NDArray[np.float64]]:
     """Independent off/on Viterbi per state (``librosa.sequence.viterbi_binary``).
 
     Args:
@@ -171,14 +544,60 @@ def transition_local(
     ``(n_states, n_states)``, row-stochastic."""
     ...
 
+@overload
+def rqa(
+    sim: NDArray[_UnknownDtype],
+    *,
+    gap_onset: float = 1.0,
+    gap_extend: float = 1.0,
+    knight_moves: bool = True,
+    backtrack: Literal[True] = True,
+) -> tuple[NDArray[Any], NDArray[Any]]: ...
+@overload
+def rqa(
+    sim: NDArray[_UnknownDtype],
+    *,
+    gap_onset: float = 1.0,
+    gap_extend: float = 1.0,
+    knight_moves: bool = True,
+    backtrack: Literal[False],
+) -> NDArray[Any]: ...
+@overload
+def rqa(  # type: ignore[overload-overlap]
+    sim: _SingleArray,
+    *,
+    gap_onset: float = 1.0,
+    gap_extend: float = 1.0,
+    knight_moves: bool = True,
+    backtrack: Literal[True] = True,
+) -> tuple[NDArray[np.float32], NDArray[np.int64]]: ...
+@overload
+def rqa(  # type: ignore[overload-overlap]
+    sim: _SingleArray,
+    *,
+    gap_onset: float = 1.0,
+    gap_extend: float = 1.0,
+    knight_moves: bool = True,
+    backtrack: Literal[False],
+) -> NDArray[np.float32]: ...
+@overload
 def rqa(
     sim: npt.ArrayLike,
     *,
     gap_onset: float = 1.0,
     gap_extend: float = 1.0,
     knight_moves: bool = True,
-    backtrack: bool = True,
-) -> Any:
+    backtrack: Literal[True] = True,
+) -> tuple[NDArray[np.float64], NDArray[np.int64]]: ...
+@overload
+def rqa(
+    sim: npt.ArrayLike,
+    *,
+    gap_onset: float = 1.0,
+    gap_extend: float = 1.0,
+    knight_moves: bool = True,
+    backtrack: Literal[False],
+) -> NDArray[np.float64]:
     """Recurrence quantification analysis (``librosa.sequence.rqa``).
 
     Returns:
@@ -187,21 +606,70 @@ def rqa(
     """
     ...
 
+@overload
+def recurrence_matrix(
+    data: NDArray[_UnknownDtype],
+    *,
+    k: Optional[int] = None,
+    width: int = 1,
+    metric: _Metric = 'euclidean',
+    sym: bool = False,
+    sparse: bool = False,
+    mode: Literal['distance', 'affinity'],
+    bandwidth: _BandwidthSpec = None,
+    self: bool = False,
+    axis: int = -1,
+    full: bool = False,
+    self_links: bool = False,
+) -> NDArray[Any]: ...
+@overload
 def recurrence_matrix(
     data: npt.ArrayLike,
     *,
     k: Optional[int] = None,
     width: int = 1,
-    metric: Metric = "euclidean",
+    metric: _Metric = 'euclidean',
     sym: bool = False,
     sparse: bool = False,
-    mode: Mode = "connectivity",
-    bandwidth: BandwidthSpec = None,
+    mode: Literal['connectivity'] = 'connectivity',
+    bandwidth: _BandwidthSpec = None,
     self: bool = False,
     axis: int = -1,
     full: bool = False,
     self_links: bool = False,
-) -> NDArray[Any]:
+) -> NDArray[np.bool_]: ...
+@overload
+def recurrence_matrix(  # type: ignore[overload-overlap]
+    data: _SingleArray,
+    *,
+    k: Optional[int] = None,
+    width: int = 1,
+    metric: _Metric = 'euclidean',
+    sym: bool = False,
+    sparse: bool = False,
+    mode: Literal['distance', 'affinity'],
+    bandwidth: _BandwidthSpec = None,
+    self: bool = False,
+    axis: int = -1,
+    full: bool = False,
+    self_links: bool = False,
+) -> NDArray[np.float32]: ...
+@overload
+def recurrence_matrix(
+    data: npt.ArrayLike,
+    *,
+    k: Optional[int] = None,
+    width: int = 1,
+    metric: _Metric = 'euclidean',
+    sym: bool = False,
+    sparse: bool = False,
+    mode: Literal['distance', 'affinity'],
+    bandwidth: _BandwidthSpec = None,
+    self: bool = False,
+    axis: int = -1,
+    full: bool = False,
+    self_links: bool = False,
+) -> NDArray[np.float64]:
     """Recurrence matrix (``librosa.segment.recurrence_matrix``, dense).
 
     ``self`` is librosa's keyword (whether the diagonal links each frame to
@@ -214,17 +682,54 @@ def recurrence_matrix(
     """
     ...
 
+@overload
+def cross_similarity(
+    data: NDArray[_UnknownDtype],
+    data_ref: npt.ArrayLike,
+    *,
+    k: Optional[int] = None,
+    metric: _Metric = 'euclidean',
+    sparse: bool = False,
+    mode: Literal['distance', 'affinity'],
+    bandwidth: _BandwidthSpec = None,
+    full: bool = False,
+) -> NDArray[Any]: ...
+@overload
 def cross_similarity(
     data: npt.ArrayLike,
     data_ref: npt.ArrayLike,
     *,
     k: Optional[int] = None,
-    metric: Metric = "euclidean",
+    metric: _Metric = 'euclidean',
     sparse: bool = False,
-    mode: Mode = "connectivity",
-    bandwidth: BandwidthSpec = None,
+    mode: Literal['connectivity'] = 'connectivity',
+    bandwidth: _BandwidthSpec = None,
     full: bool = False,
-) -> NDArray[Any]:
+) -> NDArray[np.bool_]: ...
+@overload
+def cross_similarity(  # type: ignore[overload-overlap]
+    data: _SingleArray,
+    data_ref: npt.ArrayLike,
+    *,
+    k: Optional[int] = None,
+    metric: _Metric = 'euclidean',
+    sparse: bool = False,
+    mode: Literal['distance', 'affinity'],
+    bandwidth: _BandwidthSpec = None,
+    full: bool = False,
+) -> NDArray[np.float32]: ...
+@overload
+def cross_similarity(
+    data: npt.ArrayLike,
+    data_ref: npt.ArrayLike,
+    *,
+    k: Optional[int] = None,
+    metric: _Metric = 'euclidean',
+    sparse: bool = False,
+    mode: Literal['distance', 'affinity'],
+    bandwidth: _BandwidthSpec = None,
+    full: bool = False,
+) -> NDArray[np.float64]:
     """Cross-similarity matrix (``librosa.segment.cross_similarity``, dense).
 
     Returns:
@@ -232,7 +737,29 @@ def cross_similarity(
     """
     ...
 
-def recurrence_to_lag(rec: npt.ArrayLike, *, pad: bool = True, axis: int = -1) -> NDArray[Any]:
+@overload
+def recurrence_to_lag(
+    rec: NDArray[_UnknownDtype],
+    *,
+    pad: bool = True,
+    axis: int = -1,
+) -> NDArray[Any]: ...
+@overload
+def recurrence_to_lag(  # type: ignore[overload-overlap]
+    rec: NDArray[np.bool_],
+    *,
+    pad: bool = True,
+    axis: int = -1,
+) -> NDArray[np.bool_]: ...
+@overload
+def recurrence_to_lag(  # type: ignore[overload-overlap]
+    rec: _SingleArray,
+    *,
+    pad: bool = True,
+    axis: int = -1,
+) -> NDArray[np.float32]: ...
+@overload
+def recurrence_to_lag(rec: npt.ArrayLike, *, pad: bool=True, axis: int=-1) -> NDArray[np.float64]:
     """Recurrence to time-lag matrix (``librosa.segment.recurrence_to_lag``):
     ``(2t, t)`` with ``pad`` else ``(t, t)``; bool in, bool out.
 
@@ -241,13 +768,47 @@ def recurrence_to_lag(rec: npt.ArrayLike, *, pad: bool = True, axis: int = -1) -
     """
     ...
 
-def lag_to_recurrence(lag: npt.ArrayLike, *, axis: int = -1) -> NDArray[Any]:
+@overload
+def lag_to_recurrence(lag: NDArray[_UnknownDtype], *, axis: int=-1) -> NDArray[Any]: ...
+@overload
+def lag_to_recurrence(  # type: ignore[overload-overlap]
+    lag: NDArray[np.bool_],
+    *,
+    axis: int = -1,
+) -> NDArray[np.bool_]: ...
+@overload
+def lag_to_recurrence(  # type: ignore[overload-overlap]
+    lag: _SingleArray,
+    *,
+    axis: int = -1,
+) -> NDArray[np.float32]: ...
+@overload
+def lag_to_recurrence(lag: npt.ArrayLike, *, axis: int=-1) -> NDArray[np.float64]:
     """Time-lag to recurrence matrix (``librosa.segment.lag_to_recurrence``), ``(t, t)``.
 
     ``axis`` is the time axis: ``-1``/``1`` (columns, default) or ``0``/``-2`` (rows).
     """
     ...
 
+@overload
+def sync(
+    data: NDArray[_UnknownDtype],
+    idx: npt.ArrayLike,
+    *,
+    aggregate: Union[None, str, Callable[..., Any]] = None,
+    pad: bool = True,
+    axis: int = -1,
+) -> NDArray[Any]: ...
+@overload
+def sync(  # type: ignore[overload-overlap]
+    data: _SingleArray,
+    idx: npt.ArrayLike,
+    *,
+    aggregate: Union[None, str, Callable[..., Any]] = None,
+    pad: bool = True,
+    axis: int = -1,
+) -> NDArray[np.float32]: ...
+@overload
 def sync(
     data: npt.ArrayLike,
     idx: npt.ArrayLike,
@@ -255,7 +816,7 @@ def sync(
     aggregate: Union[None, str, Callable[..., Any]] = None,
     pad: bool = True,
     axis: int = -1,
-) -> NDArray[np.floating]:
+) -> NDArray[np.float64]:
     """Aggregate frames between boundaries (``librosa.util.sync``, last axis).
 
     Args:
@@ -268,3 +829,22 @@ def sync(
         per segment.
     """
     ...
+
+__all__ = [
+    "__doc__",
+    "cross_similarity",
+    "dtw",
+    "dtw_backtracking",
+    "lag_to_recurrence",
+    "recurrence_matrix",
+    "recurrence_to_lag",
+    "rqa",
+    "sync",
+    "transition_cycle",
+    "transition_local",
+    "transition_loop",
+    "transition_uniform",
+    "viterbi",
+    "viterbi_binary",
+    "viterbi_discriminative",
+]

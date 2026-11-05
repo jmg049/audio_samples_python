@@ -10,6 +10,8 @@ top-level re-exports such as ``audio_samples.StftParams``) to
 This stub was derived from the ``spectrograms`` 1.4.0 package stub and checked
 against the names present at runtime; members added in 2.x are typed loosely.
 """
+from typing import final
+from typing_extensions import Self
 
 from typing import Optional, Any, ClassVar
 
@@ -51,6 +53,7 @@ class InternalError(SpectrogramError):
 # Parameter Classes
 # ============================================================================
 
+@final
 class WindowType:
     """Window function type for spectral analysis.
 
@@ -195,12 +198,13 @@ class WindowType:
         """
         ...
 
+@final
 class StftParams:
     """STFT parameters for spectrogram computation."""
 
-    def __init__(
-        self, n_fft: int, hop_size: int, window: WindowType, centre: bool = True
-    ) -> None:
+    def __new__(
+        cls, n_fft: int, hop_size: int, window: WindowType, centre: bool = True
+    ) -> Self:
         """Create STFT parameters.
 
         :param n_fft: FFT window size (must be > 0)
@@ -230,10 +234,11 @@ class StftParams:
         """Whether to center frames."""
         ...
 
+@final
 class LogParams:
     """Decibel conversion parameters."""
 
-    def __init__(self, floor_db: float) -> None:
+    def __new__(cls, floor_db: float) -> Self:
         """Create decibel conversion parameters.
 
         :param floor_db: Minimum power in decibels (values below this are clipped).
@@ -247,10 +252,11 @@ class LogParams:
         """Minimum power in decibels."""
         ...
 
+@final
 class SpectrogramParams:
     """Spectrogram computation parameters."""
 
-    def __init__(self, stft: StftParams, sample_rate: float) -> None:
+    def __new__(cls, stft: StftParams, sample_rate: float) -> Self:
         """Create spectrogram parameters.
 
         :param stft: STFT parameters
@@ -290,6 +296,7 @@ class SpectrogramParams:
         """
         ...
 
+@final
 class MelNorm:
     # Runtime also has ``MelNorm.None`` (no filter normalisation); it cannot be
     # declared here because ``None`` is a keyword. Use ``getattr(MelNorm, "None")``.
@@ -310,13 +317,14 @@ class MelNorm:
     l2: MelNorm
     """L2 normalization (Euclidean norm = 1.0)."""
 
+@final
 class MelParams:
     norm: MelNorm
     """Mel-scale filterbank parameters."""
 
-    def __init__(
-        self, n_mels: int, f_min: float, f_max: float, norm: Optional[MelNorm] = None
-    ) -> None:
+    def __new__(
+        cls, n_mels: int, f_min: float, f_max: float, norm: Optional[MelNorm] = None
+    ) -> Self:
         """Create mel filterbank parameters.
 
         :param n_mels: Number of mel bands
@@ -340,10 +348,11 @@ class MelParams:
         """Maximum frequency in Hz."""
         ...
 
+@final
 class ErbParams:
     """ERB-scale (Equivalent Rectangular Bandwidth) filterbank parameters."""
 
-    def __init__(self, n_filters: int, f_min: float, f_max: float) -> None:
+    def __new__(cls, n_filters: int, f_min: float, f_max: float) -> Self:
         """Create ERB filterbank parameters.
 
         :param n_filters: Number of ERB filters
@@ -367,10 +376,11 @@ class ErbParams:
         """Maximum frequency in Hz."""
         ...
 
+@final
 class LogHzParams:
     """Logarithmic frequency scale parameters."""
 
-    def __init__(self, n_bins: int, f_min: float, f_max: float) -> None:
+    def __new__(cls, n_bins: int, f_min: float, f_max: float) -> Self:
         """Create logarithmic Hz filterbank parameters.
 
         :param n_bins: Number of logarithmically-spaced frequency bins
@@ -394,10 +404,11 @@ class LogHzParams:
         """Maximum frequency in Hz."""
         ...
 
+@final
 class CqtParams:
     """Constant-Q Transform parameters."""
 
-    def __init__(self, bins_per_octave: int, n_octaves: int, f_min: float) -> None:
+    def __new__(cls, bins_per_octave: int, n_octaves: int, f_min: float) -> Self:
         """Create CQT parameters.
 
         :param bins_per_octave: Number of bins per octave (e.g., 12 for semitones)
@@ -411,16 +422,17 @@ class CqtParams:
         """Total number of CQT bins."""
         ...
 
+@final
 class ChromaParams:
     """Chromagram (pitch class profile) parameters."""
 
-    def __init__(
-        self,
+    def __new__(
+        cls,
         tuning: float = 440.0,
         f_min: float = 32.7,
         f_max: float = 4186.0,
         norm: Optional[str] = "l2",
-    ) -> None:
+    ) -> Self:
         """Create chromagram parameters.
 
         :param tuning: Reference tuning frequency in Hz (default: 440.0 for A4)
@@ -453,10 +465,11 @@ class ChromaParams:
         """Maximum frequency in Hz."""
         ...
 
+@final
 class MfccParams:
     """MFCC (Mel-Frequency Cepstral Coefficients) parameters."""
 
-    def __init__(self, n_mfcc: int = 13) -> None:
+    def __new__(cls, n_mfcc: int = 13) -> Self:
         """Create MFCC parameters.
 
         :param n_mfcc: Number of MFCC coefficients to compute (default: 13)
@@ -476,16 +489,17 @@ class MfccParams:
         """Number of MFCC coefficients."""
         ...
 
+@final
 class ITDSpectrogramParams:
     """ITD (Interaural Time Difference) spectrogram parameters."""
 
-    def __init__(
-        self,
+    def __new__(
+        cls,
         spectrogram_params: SpectrogramParams,
         start_freq: Optional[float] = 50.0,
         end_freq: Optional[float] = 620.0,
         magphase_power: int = 1,
-    ) -> None:
+    ) -> Self:
         """Create ITD spectrogram parameters.
 
         :param spectrogram_params: Base spectrogram parameters for STFT configuration
@@ -515,6 +529,7 @@ class ITDSpectrogramParams:
         """Power to raise magnitude values when combining with phase."""
         ...
 
+@final
 class StftResult:
     dtype: str
     frequencies: list[float]
@@ -559,8 +574,28 @@ class StftResult:
     def norm(self) -> npt.NDArray[np.float64]:
         """Compute the magnitude (|data|) as a real 2D array."""
         ...
-        
 
+    def __array__(self, dtype: DTypeLike | None = None) -> npt.NDArray[Any]:
+        """Convert to a NumPy array, ``float64`` unless ``dtype`` says otherwise."""
+        ...
+
+    @staticmethod
+    def __dlpack_device__() -> tuple[int, int]:
+        """Device type and device ID for the DLPack protocol: (1, 0), the CPU."""
+        ...
+
+    def __dlpack__(
+        self,
+        *,
+        stream: Optional[int] = None,
+        max_version: Optional[tuple[int, int]] = None,
+        dl_device: Optional[tuple[int, int]] = None,
+        copy: Optional[bool] = None,
+    ) -> Any:
+        """Export the data through the DLPack protocol."""
+        ...
+
+@final
 class Spectrogram:
     dtype: str
     """Spectrogram computation result.
@@ -617,7 +652,7 @@ class Spectrogram:
         """Get the number of time frames (length of the spectrogram)."""
         ...
 
-    def __getitem__(self, index: Any) -> npt.NDArray[np.float64]:
+    def __getitem__(self, index: Any, /) -> npt.NDArray[np.float64]:
         """Get a specific frame or slice of the spectrogram.
 
         :param index: Frame index or slice
@@ -625,7 +660,7 @@ class Spectrogram:
         """
         ...
 
-    def __array__(self, dtype: DTypeLike = np.float64) -> npt.NDArray[np.float64]:
+    def __array__(self, dtype: DTypeLike | None = None) -> npt.NDArray[Any]:
         """Convert the spectrogram to a NumPy array.
 
         :param dtype: Desired data type (default: np.float64)
@@ -649,7 +684,7 @@ class Spectrogram:
         """Get the computation parameters."""
         ...
 
-    def astype(self, dtype: DTypeLike) -> npt.NDArray:
+    def astype(self, dtype: DTypeLike) -> npt.NDArray[Any]:
         """Cast the spectrogram data to a different data type.
 
         :param dtype: Desired data type (e.g., np.float32, np.float64)
@@ -657,7 +692,8 @@ class Spectrogram:
         """
         ...
 
-    def __dlpack_device__(self) -> tuple[int, int]:
+    @staticmethod
+    def __dlpack_device__() -> tuple[int, int]:
         """Return the device type and device ID for DLPack protocol.
 
         Returns (1, 0) for CPU device.
@@ -692,6 +728,7 @@ class Spectrogram:
 # Planner and Plan Classes
 # ============================================================================
 
+@final
 class SpectrogramPlanner:
     """Spectrogram planner for creating reusable computation plans.
 
@@ -875,6 +912,7 @@ class SpectrogramPlanner:
         """
         ...
 
+@final
 class LinearPowerPlan:
     dtype: str
     """Plan for computing linear power spectrograms."""
@@ -906,6 +944,7 @@ class LinearPowerPlan:
         """
         ...
 
+@final
 class LinearMagnitudePlan:
     dtype: str
     """Plan for computing linear magnitude spectrograms."""
@@ -916,6 +955,7 @@ class LinearMagnitudePlan:
     ) -> npt.NDArray[np.float64]: ...
     def output_shape(self, signal_length: int) -> tuple[int, int]: ...
 
+@final
 class LinearDbPlan:
     dtype: str
     """Plan for computing linear decibel spectrograms."""
@@ -942,6 +982,7 @@ class LinearDbPlan:
         ...
     def output_shape(self, signal_length: int) -> tuple[int, int]: ...
 
+@final
 class MelPowerPlan:
     dtype: str
     """Plan for computing mel power spectrograms."""
@@ -968,6 +1009,7 @@ class MelPowerPlan:
         ...
     def output_shape(self, signal_length: int) -> tuple[int, int]: ...
 
+@final
 class MelMagnitudePlan:
     dtype: str
     """Plan for computing mel magnitude spectrograms."""
@@ -978,6 +1020,7 @@ class MelMagnitudePlan:
     ) -> npt.NDArray[np.float64]: ...
     def output_shape(self, signal_length: int) -> tuple[int, int]: ...
 
+@final
 class MelDbPlan:
     dtype: str
     """Plan for computing mel decibel spectrograms."""
@@ -988,6 +1031,7 @@ class MelDbPlan:
     ) -> npt.NDArray[np.float64]: ...
     def output_shape(self, signal_length: int) -> tuple[int, int]: ...
 
+@final
 class ErbPowerPlan:
     dtype: str
     """Plan for computing ERB power spectrograms."""
@@ -998,6 +1042,7 @@ class ErbPowerPlan:
     ) -> npt.NDArray[np.float64]: ...
     def output_shape(self, signal_length: int) -> tuple[int, int]: ...
 
+@final
 class ErbMagnitudePlan:
     dtype: str
     """Plan for computing ERB magnitude spectrograms."""
@@ -1008,6 +1053,7 @@ class ErbMagnitudePlan:
     ) -> npt.NDArray[np.float64]: ...
     def output_shape(self, signal_length: int) -> tuple[int, int]: ...
 
+@final
 class ErbDbPlan:
     dtype: str
     """Plan for computing ERB decibel spectrograms."""
@@ -1018,6 +1064,7 @@ class ErbDbPlan:
     ) -> npt.NDArray[np.float64]: ...
     def output_shape(self, signal_length: int) -> tuple[int, int]: ...
 
+@final
 class LogHzPowerPlan:
     dtype: str
     """Plan for computing logarithmic Hz power spectrograms."""
@@ -1028,6 +1075,7 @@ class LogHzPowerPlan:
     ) -> npt.NDArray[np.float64]: ...
     def output_shape(self, signal_length: int) -> tuple[int, int]: ...
 
+@final
 class LogHzMagnitudePlan:
     dtype: str
     """Plan for computing logarithmic Hz magnitude spectrograms."""
@@ -1038,6 +1086,7 @@ class LogHzMagnitudePlan:
     ) -> npt.NDArray[np.float64]: ...
     def output_shape(self, signal_length: int) -> tuple[int, int]: ...
 
+@final
 class LogHzDbPlan:
     dtype: str
     """Plan for computing logarithmic Hz decibel spectrograms."""
@@ -1048,6 +1097,7 @@ class LogHzDbPlan:
     ) -> npt.NDArray[np.float64]: ...
     def output_shape(self, signal_length: int) -> tuple[int, int]: ...
 
+@final
 class CqtPowerPlan:
     dtype: str
     """Plan for computing CQT power spectrograms."""
@@ -1058,6 +1108,7 @@ class CqtPowerPlan:
     ) -> npt.NDArray[np.float64]: ...
     def output_shape(self, signal_length: int) -> tuple[int, int]: ...
 
+@final
 class CqtMagnitudePlan:
     dtype: str
     """Plan for computing CQT magnitude spectrograms."""
@@ -1068,6 +1119,7 @@ class CqtMagnitudePlan:
     ) -> npt.NDArray[np.float64]: ...
     def output_shape(self, signal_length: int) -> tuple[int, int]: ...
 
+@final
 class CqtDbPlan:
     dtype: str
     """Plan for computing CQT decibel spectrograms."""
@@ -1346,16 +1398,17 @@ def compute_itd_spectrogram_diff(
 # IPD (Interaural Phase Difference) Spectrogram
 # ============================================================================
 
+@final
 class IPDSpectrogramParams:
     """IPD (Interaural Phase Difference) spectrogram parameters."""
 
-    def __init__(
-        self,
+    def __new__(
+        cls,
         spectrogram_params: SpectrogramParams,
         start_freq: float = 50.0,
         end_freq: float = 620.0,
         wrapped: bool = False,
-    ) -> None:
+    ) -> Self:
         """Create IPD spectrogram parameters.
 
         :param spectrogram_params: Base spectrogram parameters for STFT configuration
@@ -1401,15 +1454,16 @@ def compute_ipd_spectrogram(
 # ILD (Interaural Level Difference) Spectrogram
 # ============================================================================
 
+@final
 class ILDSpectrogramParams:
     """ILD (Interaural Level Difference) spectrogram parameters."""
 
-    def __init__(
-        self,
+    def __new__(
+        cls,
         spectrogram_params: SpectrogramParams,
         start_freq: float = 1700.0,
         end_freq: float = 4600.0,
-    ) -> None:
+    ) -> Self:
         """Create ILD spectrogram parameters.
 
         :param spectrogram_params: Base spectrogram parameters for STFT configuration
@@ -1449,15 +1503,16 @@ def compute_ild_spectrogram(
 # ILR (Interaural Level Ratio) Spectrogram
 # ============================================================================
 
+@final
 class ILRSpectrogramParams:
     """ILR (Interaural Level Ratio) spectrogram parameters."""
 
-    def __init__(
-        self,
+    def __new__(
+        cls,
         spectrogram_params: SpectrogramParams,
         start_freq: float = 1700.0,
         end_freq: float = 4600.0,
-    ) -> None:
+    ) -> Self:
         """Create ILR spectrogram parameters.
 
         :param spectrogram_params: Base spectrogram parameters for STFT configuration
@@ -1516,6 +1571,7 @@ def compute_ilr_spectrogram_diff(
 # MDCT (Modified Discrete Cosine Transform)
 # ============================================================================
 
+@final
 class MdctParams:
     """Parameters for MDCT/IMDCT computation.
 
@@ -1523,7 +1579,7 @@ class MdctParams:
     With a sine window and 50% hop, MDCT + IMDCT achieves perfect reconstruction.
     """
 
-    def __init__(self, window_size: int, hop_size: int, window: WindowType) -> None:
+    def __new__(cls, window_size: int, hop_size: int, window: WindowType) -> Self:
         """Create MDCT parameters.
 
         :param window_size: Total window size (2N). Must be even and >= 4.
@@ -1900,6 +1956,7 @@ def sharpen_fft(image: ArrayLike, amount: float) -> npt.NDArray[np.float64]:
 # 2D FFT Planner
 # ============================================================================
 
+@final
 class Fft2dPlanner:
     dtype: str
     """2D FFT planner for efficient batch processing.
@@ -1969,6 +2026,7 @@ def fft_plan_cache_info() -> tuple[int, int]:
 # Members present in the bundled spectrograms 2.x but not in the 1.4.0 stub
 # ============================================================================
 
+@final
 class Mfcc:
     """MFCC (Mel-Frequency Cepstral Coefficients) result."""
     data: Any
@@ -1978,6 +2036,27 @@ class Mfcc:
     params: Any
     shape: Any
 
+    def __array__(self, dtype: DTypeLike | None = None) -> npt.NDArray[Any]:
+        """Convert to a NumPy array, ``float64`` unless ``dtype`` says otherwise."""
+        ...
+
+    @staticmethod
+    def __dlpack_device__() -> tuple[int, int]:
+        """Device type and device ID for the DLPack protocol: (1, 0), the CPU."""
+        ...
+
+    def __dlpack__(
+        self,
+        *,
+        stream: Optional[int] = None,
+        max_version: Optional[tuple[int, int]] = None,
+        dl_device: Optional[tuple[int, int]] = None,
+        copy: Optional[bool] = None,
+    ) -> Any:
+        """Export the data through the DLPack protocol."""
+        ...
+
+@final
 class Chromagram:
     """Chromagram (pitch class profile) result."""
     data: Any
@@ -1988,6 +2067,27 @@ class Chromagram:
     params: Any
     shape: Any
 
+    def __array__(self, dtype: DTypeLike | None = None) -> npt.NDArray[Any]:
+        """Convert to a NumPy array, ``float64`` unless ``dtype`` says otherwise."""
+        ...
+
+    @staticmethod
+    def __dlpack_device__() -> tuple[int, int]:
+        """Device type and device ID for the DLPack protocol: (1, 0), the CPU."""
+        ...
+
+    def __dlpack__(
+        self,
+        *,
+        stream: Optional[int] = None,
+        max_version: Optional[tuple[int, int]] = None,
+        dl_device: Optional[tuple[int, int]] = None,
+        copy: Optional[bool] = None,
+    ) -> Any:
+        """Export the data through the DLPack protocol."""
+        ...
+
+@final
 class IldSpectrogram:
     """IldSpectrogram computation result."""
     data: Any
@@ -2009,7 +2109,27 @@ class IldSpectrogram:
         normalize: bool = False,
     ) -> npt.NDArray[np.float64]: ...
 
+    def __array__(self, dtype: DTypeLike | None = None) -> npt.NDArray[Any]:
+        """Convert to a NumPy array, ``float64`` unless ``dtype`` says otherwise."""
+        ...
 
+    @staticmethod
+    def __dlpack_device__() -> tuple[int, int]:
+        """Device type and device ID for the DLPack protocol: (1, 0), the CPU."""
+        ...
+
+    def __dlpack__(
+        self,
+        *,
+        stream: Optional[int] = None,
+        max_version: Optional[tuple[int, int]] = None,
+        dl_device: Optional[tuple[int, int]] = None,
+        copy: Optional[bool] = None,
+    ) -> Any:
+        """Export the data through the DLPack protocol."""
+        ...
+
+@final
 class IlrSpectrogram:
     """IlrSpectrogram computation result."""
     data: Any
@@ -2031,7 +2151,27 @@ class IlrSpectrogram:
         normalize: bool = False,
     ) -> npt.NDArray[np.float64]: ...
 
+    def __array__(self, dtype: DTypeLike | None = None) -> npt.NDArray[Any]:
+        """Convert to a NumPy array, ``float64`` unless ``dtype`` says otherwise."""
+        ...
 
+    @staticmethod
+    def __dlpack_device__() -> tuple[int, int]:
+        """Device type and device ID for the DLPack protocol: (1, 0), the CPU."""
+        ...
+
+    def __dlpack__(
+        self,
+        *,
+        stream: Optional[int] = None,
+        max_version: Optional[tuple[int, int]] = None,
+        dl_device: Optional[tuple[int, int]] = None,
+        copy: Optional[bool] = None,
+    ) -> Any:
+        """Export the data through the DLPack protocol."""
+        ...
+
+@final
 class IpdSpectrogram:
     """IpdSpectrogram computation result."""
     data: Any
@@ -2052,7 +2192,27 @@ class IpdSpectrogram:
         normalize: bool = False,
     ) -> npt.NDArray[np.float64]: ...
 
+    def __array__(self, dtype: DTypeLike | None = None) -> npt.NDArray[Any]:
+        """Convert to a NumPy array, ``float64`` unless ``dtype`` says otherwise."""
+        ...
 
+    @staticmethod
+    def __dlpack_device__() -> tuple[int, int]:
+        """Device type and device ID for the DLPack protocol: (1, 0), the CPU."""
+        ...
+
+    def __dlpack__(
+        self,
+        *,
+        stream: Optional[int] = None,
+        max_version: Optional[tuple[int, int]] = None,
+        dl_device: Optional[tuple[int, int]] = None,
+        copy: Optional[bool] = None,
+    ) -> Any:
+        """Export the data through the DLPack protocol."""
+        ...
+
+@final
 class ItdSpectrogram:
     """ItdSpectrogram computation result."""
     data: Any
@@ -2073,6 +2233,26 @@ class ItdSpectrogram:
         normalize: bool = False,
     ) -> npt.NDArray[np.float64]: ...
 
+    def __array__(self, dtype: DTypeLike | None = None) -> npt.NDArray[Any]:
+        """Convert to a NumPy array, ``float64`` unless ``dtype`` says otherwise."""
+        ...
+
+    @staticmethod
+    def __dlpack_device__() -> tuple[int, int]:
+        """Device type and device ID for the DLPack protocol: (1, 0), the CPU."""
+        ...
+
+    def __dlpack__(
+        self,
+        *,
+        stream: Optional[int] = None,
+        max_version: Optional[tuple[int, int]] = None,
+        dl_device: Optional[tuple[int, int]] = None,
+        copy: Optional[bool] = None,
+    ) -> Any:
+        """Export the data through the DLPack protocol."""
+        ...
+
 DLPACK_FLAG_BITMASK_IS_COPIED: int
 DLPACK_FLAG_BITMASK_READ_ONLY: int
 KDLCPU: int
@@ -2090,7 +2270,7 @@ KDLVPI: int
 KDLVULKAN: int
 KDLWEB_GPU: int
 
-
+@final
 class ChromaNorm:
     """Chroma vector normalisation for ``ChromaParams(norm=...)``.
 
@@ -2102,3 +2282,120 @@ class ChromaNorm:
     l1: ClassVar[ChromaNorm]
     l2: ClassVar[ChromaNorm]
     max: ClassVar[ChromaNorm]
+
+__all__ = [
+    "ChromaNorm",
+    "ChromaParams",
+    "Chromagram",
+    "CqtDbPlan",
+    "CqtMagnitudePlan",
+    "CqtParams",
+    "CqtPowerPlan",
+    "DLPACK_FLAG_BITMASK_IS_COPIED",
+    "DLPACK_FLAG_BITMASK_READ_ONLY",
+    "DimensionMismatchError",
+    "ErbDbPlan",
+    "ErbMagnitudePlan",
+    "ErbParams",
+    "ErbPowerPlan",
+    "FFTBackendError",
+    "Fft2dPlanner",
+    "ILDSpectrogramParams",
+    "ILRSpectrogramParams",
+    "IPDSpectrogramParams",
+    "ITDSpectrogramParams",
+    "IldSpectrogram",
+    "IlrSpectrogram",
+    "InternalError",
+    "InvalidInputError",
+    "IpdSpectrogram",
+    "ItdSpectrogram",
+    "KDLCPU",
+    "KDLCUDA",
+    "KDLCUDA_HOST",
+    "KDLCUDA_MANAGED",
+    "KDLEXT_DEV",
+    "KDLHEXAGON",
+    "KDLMETAL",
+    "KDLONE_API",
+    "KDLOPENCL",
+    "KDLROCM",
+    "KDLROCM_HOST",
+    "KDLVPI",
+    "KDLVULKAN",
+    "KDLWEB_GPU",
+    "LinearDbPlan",
+    "LinearMagnitudePlan",
+    "LinearPowerPlan",
+    "LogHzDbPlan",
+    "LogHzMagnitudePlan",
+    "LogHzParams",
+    "LogHzPowerPlan",
+    "LogParams",
+    "MdctParams",
+    "MelDbPlan",
+    "MelMagnitudePlan",
+    "MelNorm",
+    "MelParams",
+    "MelPowerPlan",
+    "Mfcc",
+    "MfccParams",
+    "Spectrogram",
+    "SpectrogramError",
+    "SpectrogramParams",
+    "SpectrogramPlanner",
+    "StftParams",
+    "StftResult",
+    "WindowType",
+    "bandpass_filter",
+    "clear_fft_plan_cache",
+    "compute_chromagram",
+    "compute_cqt_db_spectrogram",
+    "compute_cqt_magnitude_spectrogram",
+    "compute_cqt_power_spectrogram",
+    "compute_erb_db_spectrogram",
+    "compute_erb_magnitude_spectrogram",
+    "compute_erb_power_spectrogram",
+    "compute_fft",
+    "compute_ild_spectrogram",
+    "compute_ilr_spectrogram",
+    "compute_ilr_spectrogram_diff",
+    "compute_ipd_spectrogram",
+    "compute_irfft",
+    "compute_istft",
+    "compute_itd_spectrogram",
+    "compute_itd_spectrogram_diff",
+    "compute_linear_db_spectrogram",
+    "compute_linear_magnitude_spectrogram",
+    "compute_linear_power_spectrogram",
+    "compute_loghz_db_spectrogram",
+    "compute_loghz_magnitude_spectrogram",
+    "compute_loghz_power_spectrogram",
+    "compute_magnitude_spectrum",
+    "compute_mel_db_spectrogram",
+    "compute_mel_magnitude_spectrogram",
+    "compute_mel_power_spectrogram",
+    "compute_mfcc",
+    "compute_power_spectrum",
+    "compute_rfft",
+    "compute_stft",
+    "convolve_fft",
+    "detect_edges_fft",
+    "fft2d",
+    "fft_plan_cache_info",
+    "fftfreq",
+    "fftshift",
+    "fftshift_1d",
+    "gaussian_kernel_2d",
+    "highpass_filter",
+    "ifft2d",
+    "ifftshift",
+    "ifftshift_1d",
+    "imdct",
+    "lowpass_filter",
+    "magnitude_spectrum_2d",
+    "mdct",
+    "power_spectrum_2d",
+    "rfftfreq",
+    "sharpen_fft",
+]

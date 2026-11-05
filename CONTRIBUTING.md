@@ -9,6 +9,21 @@ welcome. For pull requests, please consider:
 * Ensure cargo fmt is run.
 * Documentation and tests are required.
 
+## Development setup
+
+With this repository, `audio_samples` and `audio_samples_io` checked out side by side:
+
+```bash
+python -m venv .venv && source .venv/bin/activate
+pip install maturin
+maturin develop --release --group test
+```
+
+This builds the extension into the environment and installs what the tests and hooks need. `pytest` then runs the
+tests and `pre-commit run --all-files` runs the hooks. Without `--group`, `maturin develop` installs the `dev` group
+instead, which holds the extras for notebooks and benchmarks. The `heavy` group (PyTorch and Qt) is needed only by
+`audio_samples/io_benchmark.py` and interactive plotting: add it with `--group test,heavy`.
+
 ## Building
 
 The bindings build against checkouts of

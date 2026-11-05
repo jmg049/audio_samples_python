@@ -45,7 +45,7 @@ use numpy::{
 };
 use pyo3::IntoPyObjectExt;
 use pyo3::exceptions::{PyTypeError, PyValueError};
-use pyo3::types::{PyAnyMethods, PyDict, PyInt, PyList, PyTuple};
+use pyo3::types::{PyAnyMethods, PyBool, PyDict, PyFloat, PyInt, PyList, PyTuple};
 use std::num::{NonZeroU32, NonZeroUsize};
 use std::ops::{Add, Mul, Sub};
 use std::{any::TypeId, fmt::Display};
@@ -1323,6 +1323,237 @@ impl PyAudioSamples {
         }
     }
 
+    /// `self <operation> other` for the operators, in-place ones included. The result has this
+    /// audio's sample type and integer results saturate. `other` is one of:
+    ///
+    /// - audio, converted to this sample type if it differs;
+    /// - a float scalar. For `+` and `-` on integer audio it is in the floating-point range and
+    ///   must be within -1 to 1; `*` and `/` take it as a gain. On integer audio it must be finite;
+    /// - an integer scalar. For `+` and `-` on integer audio it is a number of sample steps
+    ///   relative to silence and must fit the sample type (a NumPy `uint8` scalar on `u8` audio
+    ///   is a sample instead); `*` and `/` take it as the same gain as the float. On float audio
+    ///   it is that number for every operator;
+    /// - a NumPy array of raw sample values.
+    ///
+    /// Dividing integer audio by a zero scalar raises. A divisor sample of silence in an array or
+    /// in other audio gives the limit with the sign of the dividend, or silence for silence over
+    /// silence. A bool scalar raises `TypeError`: it is almost always a mistake, and neither reading
+    /// of `audio + True` is obvious.
+    fn arithmetic(
+        &self,
+        py: Python<'_>,
+        other: &Bound<'_, PyAny>,
+        operation: Arithmetic,
+    ) -> PyResult<Self> {
+        if other.is_instance_of::<Self>() {
+            return match other.extract::<PyRef<Self>>() {
+                Ok(other_audio) => self.arithmetic_with_audio(py, &other_audio, operation),
+                // Only an in-place operator's own receiver is borrowed mutably here: `a *= a`.
+                Err(_) => self.arithmetic_with_audio(py, self, operation),
+            };
+        }
+        match classify_scalar(other)? {
+            Some(Scalar::Integer(value)) => {
+                return if self.is_float_samples()
+                    || matches!(operation, Arithmetic::Mul | Arithmetic::Div)
+                {
+                    // Python's own conversion raises OverflowError for an int beyond f64.
+                    self.arithmetic_with_scalar(py, value.extract::<f64>()?, operation)
+                } else {
+                    self.arithmetic_with_integer(py, &value, operation.name())
+                };
+            }
+            Some(Scalar::Float(value)) => {
+                return self.arithmetic_with_scalar(py, value, operation);
+            }
+            None => {}
+        }
+        if let Ok(numpy_array) = other.cast::<PyUntypedArray>() {
+            return self.arithmetic_with_array(py, numpy_array.as_any(), operation);
+        }
+        Err(PyTypeError::new_err(format!(
+            "AudioSamples can only be {} another AudioSamples, a numeric scalar, or numpy array",
+            operation.phrase()
+        )))
+    }
+
+    /// `+`, `-` or reflected `-` of integer audio with a number of sample steps.
+    fn arithmetic_with_integer(
+        &self,
+        py: Python<'_>,
+        value: &Bound<'_, PyAny>,
+        operation: &str,
+    ) -> PyResult<Self> {
+        let result = py
+            .import("audio_samples._arith")?
+            .getattr("with_integer")?
+            .call1((self.to_numpy(py)?, value, operation, self.dtype_py()))?;
+        self.audio_from_samples(py, &result)
+    }
+
+    /// `other <operation> self`, for a scalar or a NumPy array on the left.
+    fn arithmetic_reflected(
+        &self,
+        py: Python<'_>,
+        other: &Bound<'_, PyAny>,
+        operation: Arithmetic,
+    ) -> PyResult<Self> {
+        if classify_scalar(other)?.is_some() {
+            return match operation {
+                Arithmetic::Add => self.__radd__(py, other),
+                Arithmetic::Mul => self.__rmul__(py, other),
+                Arithmetic::Sub => self.__rsub__(py, other),
+                Arithmetic::Div => self.__rtruediv__(py, 0.0),
+            };
+        }
+        let name = match operation {
+            Arithmetic::Add | Arithmetic::Mul => operation.name(),
+            Arithmetic::Sub => "rsub",
+            Arithmetic::Div => "rdiv",
+        };
+        let result = py
+            .import("audio_samples._arith")?
+            .getattr("apply")?
+            .call1((self.to_numpy(py)?, other, name, self.dtype_py()))?;
+        self.audio_from_samples(py, &result)
+    }
+
+    /// A new audio from `audio_samples._arith.<function>(samples, sample_type)`.
+    fn unary(&self, py: Python<'_>, function: &str) -> PyResult<Self> {
+        let result = py
+            .import("audio_samples._arith")?
+            .getattr(function)?
+            .call1((self.to_numpy(py)?, self.dtype_py()))?;
+        self.audio_from_samples(py, &result)
+    }
+
+    fn arithmetic_with_audio(
+        &self,
+        py: Python<'_>,
+        other: &Self,
+        operation: Arithmetic,
+    ) -> PyResult<Self> {
+        check_same_sample_rate(py, self, other, operation.verb())?;
+        if self.shape(py) != other.shape(py) {
+            return Err(PyValueError::new_err(format!(
+                "AudioSamples shapes are incompatible: {:?} vs {:?}",
+                self.shape(py),
+                other.shape(py)
+            )));
+        }
+        let converted = (self.dtype_py() != other.dtype_py())
+            .then(|| other.to_format(py, self.sample_type_py()));
+        let other = converted.as_ref().unwrap_or(other);
+        if self.is_float_samples() && !matches!(operation, Arithmetic::Div) {
+            return Ok(match operation {
+                Arithmetic::Add => self + other,
+                Arithmetic::Sub => self - other,
+                _ => self * other,
+            });
+        }
+        self.arithmetic_with_array(py, other.to_numpy(py)?.as_any(), operation)
+    }
+
+    fn arithmetic_with_scalar(
+        &self,
+        py: Python<'_>,
+        scalar: f64,
+        operation: Arithmetic,
+    ) -> PyResult<Self> {
+        if !self.is_float_samples() {
+            if !scalar.is_finite() {
+                return Err(PyValueError::new_err(format!(
+                    "{scalar} cannot be used with {} audio: a scalar must be finite",
+                    self.dtype_py()
+                )));
+            }
+            if matches!(operation, Arithmetic::Add | Arithmetic::Sub) && scalar.abs() > 1.0 {
+                return Err(PyValueError::new_err(format!(
+                    "{scalar} is outside the sample range of {} audio: a float scalar is in the \
+floating-point range, -1.0 to 1.0, where 1.0 is full scale",
+                    self.dtype_py()
+                )));
+            }
+        }
+        match operation {
+            Arithmetic::Mul => {
+                let mut scaled = self.clone_py(py);
+                scaled.scale(py, scalar);
+                Ok(scaled)
+            }
+            Arithmetic::Div => {
+                if scalar == 0.0 {
+                    return Err(pyo3::exceptions::PyZeroDivisionError::new_err(
+                        "division by zero",
+                    ));
+                }
+                let mut scaled = self.clone_py(py);
+                scaled.scale(py, 1.0 / scalar);
+                Ok(scaled)
+            }
+            Arithmetic::Add | Arithmetic::Sub if self.is_float_samples() => Ok(match operation {
+                Arithmetic::Add => self.clone_py(py) + scalar,
+                _ => self.clone_py(py) - scalar,
+            }),
+            Arithmetic::Add | Arithmetic::Sub => {
+                let samples = self.to_numpy(py)?;
+                let in_sample_units = py
+                    .import("audio_samples._arith")?
+                    .getattr("scalar_to_samples")?
+                    .call1((scalar, self.dtype_py(), samples.getattr("dtype")?))?;
+                self.arithmetic_with_array(py, &in_sample_units, operation)
+            }
+        }
+    }
+
+    fn arithmetic_with_array(
+        &self,
+        py: Python<'_>,
+        other: &Bound<'_, PyAny>,
+        operation: Arithmetic,
+    ) -> PyResult<Self> {
+        let result = py
+            .import("audio_samples._arith")?
+            .getattr("apply")?
+            .call1((self.to_numpy(py)?, other, operation.name(), self.dtype_py()))?;
+        self.audio_from_samples(py, &result)
+    }
+
+    /// Audio with this audio's sample rate, layout and sample type, from an array of samples.
+    fn audio_from_samples(&self, py: Python<'_>, samples: &Bound<'_, PyAny>) -> PyResult<Self> {
+        let samples = samples.cast::<PyUntypedArray>()?.clone();
+        let sample_rate = self.sample_rate(py);
+        let audio = if self.channels(py) == 1 {
+            Self::py_new_mono(py, samples, sample_rate)?
+        } else {
+            Self::py_new_multi(py, samples, sample_rate)?
+        };
+        // 24-bit samples travel through NumPy as int32.
+        Ok(if self.dtype_py() == audio.dtype_py() {
+            audio
+        } else {
+            audio.cast_as(py, self.sample_type_py())
+        })
+    }
+
+    const fn is_float_samples(&self) -> bool {
+        matches!(
+            self.inner,
+            PyAudioDataInner::F32(_) | PyAudioDataInner::F64(_)
+        )
+    }
+
+    const fn sample_type_py(&self) -> PySampleType {
+        match self.inner {
+            PyAudioDataInner::U8(_) => PySampleType::U8,
+            PyAudioDataInner::I16(_) => PySampleType::I16,
+            PyAudioDataInner::I24(_) => PySampleType::I24,
+            PyAudioDataInner::I32(_) => PySampleType::I32,
+            PyAudioDataInner::F32(_) => PySampleType::F32,
+            PyAudioDataInner::F64(_) => PySampleType::F64,
+        }
+    }
+
     // Internal dtype method for Rust-side use (not exposed to Python)
     pub fn dtype<'py>(&'py self, py: Python<'py>) -> Bound<'py, PyArrayDescr> {
         self.inner.dtype(py)
@@ -2098,6 +2329,19 @@ impl PyAudioSamples {
     ///     >>> stereo = aus.AudioSamples.from_array(np.zeros((2, 44100)), 44100)
     ///     >>> len(stereo)
     ///     88200
+    /// `AudioSamples[numpy.float32]` names audio of that sample type in annotations; the type
+    /// stubs use it to tie the precision of analysis results to the sample type.
+    #[classmethod]
+    fn __class_getitem__<'py>(
+        cls: &Bound<'py, pyo3::types::PyType>,
+        item: Bound<'py, PyAny>,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        cls.py()
+            .import("types")?
+            .getattr("GenericAlias")?
+            .call1((cls, item))
+    }
+
     fn __len__(&self, py: Python<'_>) -> usize {
         self.len(py)
     }
@@ -2302,115 +2546,19 @@ impl PyAudioSamples {
     }
 
     fn __add__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Self> {
-        if let Ok(other_audio) = other.extract::<PyRef<PyAudioSamples>>() {
-            check_same_sample_rate(py, self, &other_audio, "add")?;
-            // Check shape compatibility before adding to avoid panic
-            if self.len(py) != other_audio.len(py) {
-                return Err(PyValueError::new_err(format!(
-                    "AudioSamples shapes are incompatible: {} vs {}",
-                    self.len(py),
-                    other_audio.len(py)
-                )));
-            }
-            Ok(self + &*other_audio)
-        } else if let Ok(scalar) = other.extract::<f64>() {
-            // Adding a scalar
-            Ok(self.clone_py(py) + scalar)
-        } else if let Ok(numpy_array) = other.cast::<PyUntypedArray>() {
-            // Adding a numpy array - create AudioSamples from it and add
-            self.add_numpy_array(py, &numpy_array)
-        } else {
-            Err(PyTypeError::new_err(
-                "AudioSamples can only be added with another AudioSamples, scalar, or numpy array",
-            ))
-        }
+        self.arithmetic(py, other, Arithmetic::Add)
     }
 
     fn __mul__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Self> {
-        if let Ok(other_audio) = other.extract::<PyRef<PyAudioSamples>>() {
-            check_same_sample_rate(py, self, &other_audio, "multiply")?;
-            // Multiplying by another AudioSamples (element-wise)
-            // Check shape compatibility before multiplying to avoid panic
-            if self.len(py) != other_audio.len(py) {
-                return Err(PyValueError::new_err(format!(
-                    "AudioSamples shapes are incompatible: {} vs {}",
-                    self.len(py),
-                    other_audio.len(py)
-                )));
-            }
-            Ok(self * &*other_audio)
-        } else if let Ok(factor) = other.extract::<f64>() {
-            // Multiplying by a scalar
-            let mut c = self.clone_py(py);
-            c.scale(py, factor);
-            Ok(c)
-        } else if let Ok(numpy_array) = other.cast::<PyUntypedArray>() {
-            // Multiplying by a numpy array (element-wise)
-            self.mul_numpy_array(py, &numpy_array)
-        } else {
-            Err(PyTypeError::new_err(
-                "AudioSamples can only be multiplied with another AudioSamples, a scalar, or numpy array",
-            ))
-        }
+        self.arithmetic(py, other, Arithmetic::Mul)
     }
 
     fn __truediv__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Self> {
-        if let Ok(other_audio) = other.extract::<PyRef<PyAudioSamples>>() {
-            // Element-wise division by another AudioSamples (via NumPy).
-            check_same_sample_rate(py, self, &other_audio, "divide")?;
-            if self.len(py) != other_audio.len(py) {
-                return Err(PyValueError::new_err(format!(
-                    "AudioSamples shapes are incompatible: {:?} vs {:?}",
-                    self.shape(py),
-                    other_audio.shape(py)
-                )));
-            }
-            let other_np = other_audio.to_numpy(py)?;
-            return self.div_numpy_array(py, other_np.cast::<PyUntypedArray>()?);
-        }
-        if let Ok(divisor) = other.extract::<f64>() {
-            // Dividing by a scalar
-            if divisor == 0.0 {
-                return Err(pyo3::exceptions::PyZeroDivisionError::new_err(
-                    "division by zero",
-                ));
-            }
-            let mut c = self.clone_py(py);
-            c.scale(py, 1.0 / divisor);
-            Ok(c)
-        } else if let Ok(numpy_array) = other.cast::<PyUntypedArray>() {
-            // Dividing by a numpy array (element-wise)
-            self.div_numpy_array(py, &numpy_array)
-        } else {
-            Err(PyTypeError::new_err(
-                "AudioSamples can only be divided by another AudioSamples, a scalar, or numpy array",
-            ))
-        }
+        self.arithmetic(py, other, Arithmetic::Div)
     }
 
     fn __sub__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Self> {
-        if let Ok(other_audio) = other.extract::<PyRef<PyAudioSamples>>() {
-            check_same_sample_rate(py, self, &other_audio, "subtract")?;
-            // Check shape compatibility before subtracting to avoid panic
-            if self.len(py) != other_audio.len(py) {
-                return Err(PyValueError::new_err(format!(
-                    "AudioSamples shapes are incompatible: {} vs {}",
-                    self.len(py),
-                    other_audio.len(py)
-                )));
-            }
-            Ok(self - &*other_audio)
-        } else if let Ok(scalar) = other.extract::<f64>() {
-            // Subtracting a scalar
-            Ok(self.clone_py(py) - scalar)
-        } else if let Ok(numpy_array) = other.cast::<PyUntypedArray>() {
-            // Subtracting a numpy array
-            self.sub_numpy_array(py, &numpy_array)
-        } else {
-            Err(PyTypeError::new_err(
-                "AudioSamples can only subtract another AudioSamples, scalar, or numpy array",
-            ))
-        }
+        self.arithmetic(py, other, Arithmetic::Sub)
     }
 
     fn __pow__(&self, py: Python<'_>, exponent: f64, modulo: Option<f64>) -> Self {
@@ -2422,36 +2570,49 @@ impl PyAudioSamples {
         })
     }
 
+    /// `-audio`, in this audio's sample type. Integer results saturate, so `-(-32768)` is 32767 on
+    /// int16, and uint8 mirrors about silence (128), so a stored 0 gives 255.
+    fn __neg__(&self, py: Python<'_>) -> PyResult<Self> {
+        self.unary(py, "negative")
+    }
+
+    /// `+audio`: a copy of this audio.
+    fn __pos__(&self, py: Python<'_>) -> Self {
+        self.clone_py(py)
+    }
+
+    /// `abs(audio)`, in this audio's sample type. Integer results saturate, so `abs(-32768)` is
+    /// 32767 on int16, and uint8 is measured from silence (128), so a stored 100 gives 156.
+    fn __abs__(&self, py: Python<'_>) -> PyResult<Self> {
+        self.unary(py, "absolute")
+    }
+
     // Reverse operations for scalar operands on the left
-    fn __radd__(&self, py: Python<'_>, scalar: f64) -> PyResult<Self> {
-        // scalar + audio: create a numpy array of the same shape with the scalar value
-        let shape = if self.channels(py) == 1 {
-            vec![self.len(py)]
-        } else {
-            vec![self.channels(py), self.len(py) / self.channels(py)]
-        };
-
-        // Create a numpy array filled with the scalar value
-        let numpy_module = PyModule::import(py, "numpy")?;
-        let full_func = numpy_module.getattr("full")?;
-        let scalar_array = full_func.call((shape, scalar), None)?;
-        let numpy_array = scalar_array.cast::<PyUntypedArray>()?;
-
-        self.add_numpy_array(py, &numpy_array)
+    fn __radd__(&self, py: Python<'_>, scalar: &Bound<'_, PyAny>) -> PyResult<Self> {
+        // scalar + audio is the same as audio + scalar
+        self.__add__(py, scalar)
     }
 
-    fn __rmul__(&self, py: Python<'_>, scalar: f64) -> PyResult<Self> {
+    fn __rmul__(&self, py: Python<'_>, scalar: &Bound<'_, PyAny>) -> PyResult<Self> {
         // scalar * audio is the same as audio * scalar
-        let scalar_bound = scalar.into_pyobject(py)?;
-        self.__mul__(py, &scalar_bound)
+        self.__mul__(py, scalar)
     }
 
-    fn __rsub__(&self, py: Python<'_>, scalar: f64) -> PyResult<Self> {
-        // scalar - audio = -(audio - scalar) = -audio + scalar
-        let neg_one = (-1.0f64).into_pyobject(py)?;
-        let negated = self.__mul__(py, &neg_one)?;
-        let scalar_bound = scalar.into_pyobject(py)?;
-        negated.__add__(py, &scalar_bound)
+    fn __rsub__(&self, py: Python<'_>, scalar: &Bound<'_, PyAny>) -> PyResult<Self> {
+        match classify_scalar(scalar)? {
+            Some(Scalar::Integer(value)) if !self.is_float_samples() => {
+                self.arithmetic_with_integer(py, &value, "rsub")
+            }
+            Some(_) => {
+                // scalar - audio = -(audio - scalar) = -audio + scalar
+                let neg_one = (-1.0f64).into_pyobject(py)?;
+                let negated = self.__mul__(py, &neg_one)?;
+                negated.__add__(py, scalar)
+            }
+            None => Err(PyTypeError::new_err(
+                "only a numeric scalar can have AudioSamples subtracted from it",
+            )),
+        }
     }
 
     fn __rtruediv__(&self, _py: Python<'_>, _scalar: f64) -> PyResult<Self> {
@@ -2462,114 +2623,22 @@ impl PyAudioSamples {
 
     // In-place operations
     fn __iadd__(&mut self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<()> {
-        if let Ok(other_audio) = other.extract::<PyRef<PyAudioSamples>>() {
-            check_same_sample_rate(py, self, &other_audio, "add")?;
-            if self.len(py) != other_audio.len(py) {
-                return Err(PyValueError::new_err(format!(
-                    "AudioSamples shapes are incompatible: {:?} vs {:?}",
-                    self.shape(py),
-                    other_audio.shape(py)
-                )));
-            }
-            // For simplicity, only support same-type operations for now
-            let result = self.clone_py(py) + other_audio.clone_py(py);
-            *self = result;
-        } else if let Ok(scalar) = other.extract::<f64>() {
-            // Adding a scalar
-            let result = self.clone_py(py) + scalar;
-            *self = result;
-        } else if let Ok(numpy_array) = other.cast::<PyUntypedArray>() {
-            // Adding a numpy array
-            let result = self.add_numpy_array(py, &numpy_array)?;
-            *self = result;
-        } else {
-            return Err(PyTypeError::new_err(
-                "AudioSamples can only be added with another AudioSamples, numpy array, or a numeric scalar",
-            ));
-        }
+        *self = self.arithmetic(py, other, Arithmetic::Add)?;
         Ok(())
     }
 
     fn __isub__(&mut self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<()> {
-        if let Ok(other_audio) = other.extract::<PyRef<PyAudioSamples>>() {
-            check_same_sample_rate(py, self, &other_audio, "subtract")?;
-            if self.len(py) != other_audio.len(py) {
-                return Err(PyValueError::new_err(format!(
-                    "AudioSamples shapes are incompatible: {:?} vs {:?}",
-                    self.shape(py),
-                    other_audio.shape(py)
-                )));
-            }
-            // For simplicity, only support same-type operations for now
-            let result = self.clone_py(py) - other_audio.clone_py(py);
-            *self = result;
-        } else if let Ok(scalar) = other.extract::<f64>() {
-            // Subtracting a scalar
-            let result = self.clone_py(py) - scalar;
-            *self = result;
-        } else if let Ok(numpy_array) = other.cast::<PyUntypedArray>() {
-            // Subtracting a numpy array
-            let result = self.sub_numpy_array(py, &numpy_array)?;
-            *self = result;
-        } else {
-            return Err(PyTypeError::new_err(
-                "AudioSamples can only subtract another AudioSamples, numpy array, or a numeric scalar",
-            ));
-        }
+        *self = self.arithmetic(py, other, Arithmetic::Sub)?;
         Ok(())
     }
 
     fn __imul__(&mut self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<()> {
-        if let Ok(other_audio) = other.extract::<PyRef<PyAudioSamples>>() {
-            check_same_sample_rate(py, self, &other_audio, "multiply")?;
-            if self.len(py) != other_audio.len(py) {
-                return Err(PyValueError::new_err(format!(
-                    "AudioSamples shapes are incompatible: {:?} vs {:?}",
-                    self.shape(py),
-                    other_audio.shape(py)
-                )));
-            }
-            // For simplicity, only support same-type operations for now
-            let result = self.clone_py(py) * other_audio.clone_py(py);
-            *self = result;
-        } else if let Ok(scalar) = other.extract::<f64>() {
-            // Multiplying by a scalar
-            self.scale(py, scalar);
-        } else if let Ok(numpy_array) = other.cast::<PyUntypedArray>() {
-            // Multiplying by a numpy array
-            let result = self.mul_numpy_array(py, &numpy_array)?;
-            *self = result;
-        } else {
-            return Err(PyTypeError::new_err(
-                "AudioSamples can only be multiplied with another AudioSamples, a numeric scalar, or numpy array",
-            ));
-        }
+        *self = self.arithmetic(py, other, Arithmetic::Mul)?;
         Ok(())
     }
 
     fn __itruediv__(&mut self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<()> {
-        if other.is_instance_of::<PyAudioSamples>() {
-            let result = self.__truediv__(py, other)?;
-            *self = result;
-            return Ok(());
-        }
-        if let Ok(scalar) = other.extract::<f64>() {
-            // Dividing by a scalar
-            if scalar == 0.0 {
-                return Err(pyo3::exceptions::PyZeroDivisionError::new_err(
-                    "division by zero",
-                ));
-            }
-            self.scale(py, 1.0 / scalar);
-        } else if let Ok(numpy_array) = other.cast::<PyUntypedArray>() {
-            // Dividing by a numpy array
-            let result = self.div_numpy_array(py, &numpy_array)?;
-            *self = result;
-        } else {
-            return Err(PyTypeError::new_err(
-                "AudioSamples can only be divided by a numeric scalar or numpy array",
-            ));
-        }
+        *self = self.arithmetic(py, other, Arithmetic::Div)?;
         Ok(())
     }
 
@@ -2608,18 +2677,8 @@ impl PyAudioSamples {
         py: Python<'_>,
         numpy_array: &Bound<'_, PyUntypedArray>,
     ) -> PyResult<Self> {
-        // Perform element-wise addition with the numpy array
-        let self_numpy = self.to_numpy(py)?;
-        let result_numpy = self_numpy.add(numpy_array)?;
-        let result_array = result_numpy.as_any().cast::<PyUntypedArray>()?;
-
-        // Create new AudioSamples from the result with same metadata
-        let sample_rate = self.sample_rate(py);
-        if self.channels(py) == 1 {
-            Self::py_new_mono(py, result_array.clone(), sample_rate)
-        } else {
-            Self::py_new_multi(py, result_array.clone(), sample_rate)
-        }
+        // Element-wise addition; the result keeps this audio's sample type
+        self.arithmetic_with_array(py, numpy_array.as_any(), Arithmetic::Add)
     }
 
     fn sub_numpy_array(
@@ -2627,18 +2686,8 @@ impl PyAudioSamples {
         py: Python<'_>,
         numpy_array: &Bound<'_, PyUntypedArray>,
     ) -> PyResult<Self> {
-        // Perform element-wise subtraction with the numpy array
-        let self_numpy = self.to_numpy(py)?;
-        let result_numpy = self_numpy.sub(numpy_array)?;
-        let result_array = result_numpy.as_any().cast::<PyUntypedArray>()?;
-
-        // Create new AudioSamples from the result with same metadata
-        let sample_rate = self.sample_rate(py);
-        if self.channels(py) == 1 {
-            Self::py_new_mono(py, result_array.clone(), sample_rate)
-        } else {
-            Self::py_new_multi(py, result_array.clone(), sample_rate)
-        }
+        // Element-wise subtraction; the result keeps this audio's sample type
+        self.arithmetic_with_array(py, numpy_array.as_any(), Arithmetic::Sub)
     }
 
     fn mul_numpy_array(
@@ -2646,18 +2695,8 @@ impl PyAudioSamples {
         py: Python<'_>,
         numpy_array: &Bound<'_, PyUntypedArray>,
     ) -> PyResult<Self> {
-        // Perform element-wise multiplication with the numpy array
-        let self_numpy = self.to_numpy(py)?;
-        let result_numpy = self_numpy.mul(numpy_array)?;
-        let result_array = result_numpy.as_any().cast::<PyUntypedArray>()?;
-
-        // Create new AudioSamples from the result with same metadata
-        let sample_rate = self.sample_rate(py);
-        if self.channels(py) == 1 {
-            Self::py_new_mono(py, result_array.clone(), sample_rate)
-        } else {
-            Self::py_new_multi(py, result_array.clone(), sample_rate)
-        }
+        // Element-wise multiplication; the result keeps this audio's sample type
+        self.arithmetic_with_array(py, numpy_array.as_any(), Arithmetic::Mul)
     }
 
     fn div_numpy_array(
@@ -2665,18 +2704,8 @@ impl PyAudioSamples {
         py: Python<'_>,
         numpy_array: &Bound<'_, PyUntypedArray>,
     ) -> PyResult<Self> {
-        // Perform element-wise division with the numpy array
-        let self_numpy = self.to_numpy(py)?;
-        let result_numpy = self_numpy.div(numpy_array)?;
-        let result_array = result_numpy.as_any().cast::<PyUntypedArray>()?;
-
-        // Create new AudioSamples from the result with same metadata
-        let sample_rate = self.sample_rate(py);
-        if self.channels(py) == 1 {
-            Self::py_new_mono(py, result_array.clone(), sample_rate)
-        } else {
-            Self::py_new_multi(py, result_array.clone(), sample_rate)
-        }
+        // Element-wise division; the result keeps this audio's sample type
+        self.arithmetic_with_array(py, numpy_array.as_any(), Arithmetic::Div)
     }
 
     fn from_numpy_array_with_metadata(
@@ -2750,6 +2779,30 @@ impl PyAudioSamples {
         }
 
         let this = slf.borrow();
+        // Arithmetic with NumPy on the left means the same as the operators.
+        if let (Some(operation), "__call__", None, 2) = (
+            Arithmetic::from_ufunc(ufunc_name_raw(ufunc).as_str()),
+            method,
+            kwargs,
+            inputs.len(),
+        ) {
+            let (left, right) = (inputs.get_item(0)?, inputs.get_item(1)?);
+            if left.is_instance_of::<PyAudioSamples>() {
+                return Ok(left
+                    .cast::<PyAudioSamples>()?
+                    .borrow()
+                    .arithmetic(py, &right, operation)?
+                    .into_bound_py_any(py)?
+                    .unbind());
+            }
+            if left.is_instance_of::<PyUntypedArray>() || classify_scalar(&left)?.is_some() {
+                return Ok(this
+                    .arithmetic_reflected(py, &left, operation)?
+                    .into_bound_py_any(py)?
+                    .unbind());
+            }
+        }
+
         let sample_rate = this.sample_rate(py);
         let mut converted = Vec::with_capacity(inputs.len());
         for item in inputs.iter() {
@@ -3561,6 +3614,96 @@ it needs at least one sample per channel",
 
 /// Raise `AudioParameterError` (a `ValueError`) when two buffers combined in
 /// one operation have different sample rates.
+/// A scalar operand of an arithmetic operator.
+enum Scalar<'py> {
+    /// A Python int or NumPy integer scalar.
+    Integer(Bound<'py, PyAny>),
+    /// A Python float or NumPy float scalar.
+    Float(f64),
+}
+
+/// Sorts a scalar operand from anything else, which gives `None`. A bool raises `TypeError`.
+fn classify_scalar<'py>(value: &Bound<'py, PyAny>) -> PyResult<Option<Scalar<'py>>> {
+    if let Ok(float) = value.cast::<PyFloat>() {
+        return Ok(Some(Scalar::Float(float.value())));
+    }
+    if is_bool_scalar(value)? {
+        return Err(PyTypeError::new_err(
+            "AudioSamples arithmetic does not take a bool; use an int or a float",
+        ));
+    }
+    // Python ints and NumPy integer scalars. An integer array other than a 0-d one raises here.
+    if value.call_method0("__index__").is_ok() {
+        return Ok(Some(Scalar::Integer(value.clone())));
+    }
+    Ok(value.extract::<f64>().ok().map(Scalar::Float))
+}
+
+/// A Python bool, a NumPy bool scalar or a 0-d bool array.
+fn is_bool_scalar(value: &Bound<'_, PyAny>) -> PyResult<bool> {
+    if value.is_instance_of::<PyBool>() {
+        return Ok(true);
+    }
+    let Ok(dtype) = value.getattr("dtype") else {
+        return Ok(false);
+    };
+    Ok(dtype
+        .getattr("kind")
+        .is_ok_and(|kind| kind.eq("b").unwrap_or(false))
+        && value.getattr("ndim")?.extract::<usize>()? == 0)
+}
+
+/// The element-wise operators.
+#[derive(Clone, Copy)]
+enum Arithmetic {
+    Add,
+    Sub,
+    Mul,
+    Div,
+}
+
+impl Arithmetic {
+    /// From the name of a NumPy ufunc.
+    fn from_ufunc(name: &str) -> Option<Self> {
+        match name {
+            "add" => Some(Self::Add),
+            "subtract" => Some(Self::Sub),
+            "multiply" => Some(Self::Mul),
+            "divide" | "true_divide" => Some(Self::Div),
+            _ => None,
+        }
+    }
+
+    /// The name `audio_samples._arith` uses.
+    const fn name(self) -> &'static str {
+        match self {
+            Self::Add => "add",
+            Self::Sub => "sub",
+            Self::Mul => "mul",
+            Self::Div => "div",
+        }
+    }
+
+    /// As used in the sample rate error.
+    const fn verb(self) -> &'static str {
+        match self {
+            Self::Add => "add",
+            Self::Sub => "subtract",
+            Self::Mul => "multiply",
+            Self::Div => "divide",
+        }
+    }
+
+    const fn phrase(self) -> &'static str {
+        match self {
+            Self::Add => "added with",
+            Self::Sub => "subtracted by",
+            Self::Mul => "multiplied with",
+            Self::Div => "divided by",
+        }
+    }
+}
+
 fn check_same_sample_rate(
     py: Python<'_>,
     a: &PyAudioSamples,

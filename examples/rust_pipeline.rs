@@ -31,7 +31,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // S = librosa.feature.melspectrogram(y=y, sr=sr); librosa.power_to_db(S, ref=np.max)
     let s = y.melspectrogram(&MelSpectrogramConfig::librosa())?;
-    let db = DbConfig { reference: DbReference::Max, ..DbConfig::librosa_power() };
+    let db = DbConfig {
+        reference: DbReference::Max,
+        ..DbConfig::librosa_power()
+    };
     let s_db = power_to_db(&s, &db)?;
     println!("mel dB: {:?}", s_db.dim());
 
@@ -45,6 +48,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // tempo, beats = librosa.beat.beat_track(y=y, sr=sr, units="time")
     let track = y.beat_track(&BeatTrackConfig::librosa())?;
-    println!("tempo {:.1} BPM, {} beats", track.tempo, track.beats.times().len());
+    println!(
+        "tempo {:.1} BPM, {} beats",
+        track.tempo,
+        track.beats.times().len()
+    );
     Ok(())
 }

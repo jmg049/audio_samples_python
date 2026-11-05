@@ -9,8 +9,9 @@ from __future__ import annotations
 from typing import Optional
 
 import numpy
+import numpy.typing
 
-from . import AudioSamples
+from audio_samples import AudioSamples
 
 def detect_sample_rate(audio: AudioSamples) -> Optional[int]:
     """
@@ -163,7 +164,7 @@ def estimate_frequency_range(
     ...
 
 def analyze_spectrum_for_cutoff(
-    spectrum: numpy.ndarray,
+    spectrum: numpy.typing.NDArray[numpy.float64],
     nyquist_freq: float,
 ) -> Optional[int]:
     """
@@ -194,7 +195,7 @@ def analyze_spectrum_for_cutoff(
     ...
 
 def detect_fundamental_autocorrelation(
-    data: numpy.ndarray,
+    data: numpy.typing.NDArray[numpy.float64],
     sample_rate: float,
 ) -> Optional[float]:
     """
@@ -221,3 +222,15 @@ def detect_fundamental_autocorrelation(
         If ``data`` is empty or ``sample_rate`` is not finite and positive.
     """
     ...
+
+__all__ = [
+    "analyze_spectrum_for_cutoff",
+    "detect_clipping",
+    "detect_dynamic_range",
+    "detect_fundamental_autocorrelation",
+    "detect_fundamental_frequency",
+    "detect_sample_rate",
+    "detect_silence_regions",
+    "estimate_frequency_range",
+    "estimate_noise_floor",
+]

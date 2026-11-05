@@ -22,22 +22,55 @@ from typing import Any, Callable, Literal, Optional, Union
 import numpy as np
 import numpy.typing as npt
 from numpy.typing import NDArray
+from typing import Any, overload, type_check_only
+from typing_extensions import TypeAlias
+
+#: Matches only an array whose dtype is unknown to the type checker (Any). The overloads use it so that
+#: such an array gives a result of unknown precision instead of the first overload's.
+@type_check_only
+class _UnknownDtype(np.generic):
+    def __new__(cls) -> _UnknownDtype: ...
+
+#: float32 and complex64 arrays are processed in float32. Anything else is converted to float64.
+_SingleArray: TypeAlias = NDArray[np.float32] | NDArray[np.complex64]
+
 
 #: Window specification: a SciPy window name, ``(name, parameter)``, a number
 #: (Kaiser beta) or an array of coefficients.
-WindowSpec = Union[str, tuple[str, float], float, npt.ArrayLike]
+_WindowSpec = Union[str, tuple[str, float], float, npt.ArrayLike]
 #: STFT padding mode used when ``center=True``.
-PadMode = Literal["constant", "reflect", "edge", "symmetric"]
+_PadMode = Literal["constant", "reflect", "edge", "symmetric"]
 
+@overload
+def phase_vocoder(
+    D: NDArray[_UnknownDtype],
+    *,
+    rate: Optional[float] = None,
+    t_out: Optional[npt.ArrayLike] = None,
+    kind: Literal['linear'] = 'linear',
+    hop_length: Optional[int] = None,
+    n_fft: Optional[int] = None,
+) -> NDArray[Any]: ...
+@overload
+def phase_vocoder(  # type: ignore[overload-overlap]
+    D: _SingleArray,
+    *,
+    rate: Optional[float] = None,
+    t_out: Optional[npt.ArrayLike] = None,
+    kind: Literal['linear'] = 'linear',
+    hop_length: Optional[int] = None,
+    n_fft: Optional[int] = None,
+) -> NDArray[np.complex64]: ...
+@overload
 def phase_vocoder(
     D: npt.ArrayLike,
     *,
     rate: Optional[float] = None,
     t_out: Optional[npt.ArrayLike] = None,
-    kind: Literal["linear"] = "linear",
+    kind: Literal['linear'] = 'linear',
     hop_length: Optional[int] = None,
     n_fft: Optional[int] = None,
-) -> NDArray[np.complexfloating]:
+) -> NDArray[np.complex128]:
     """Phase-vocoder time stretch of an STFT, ``librosa.phase_vocoder``.
 
     Args:
@@ -55,13 +88,54 @@ def phase_vocoder(
     """
     ...
 
+@overload
+def preemphasis(
+    y: NDArray[_UnknownDtype],
+    *,
+    coef: float = 0.97,
+    zi: Optional[npt.ArrayLike] = None,
+    return_zf: Literal[False] = False,
+) -> NDArray[Any]: ...
+@overload
+def preemphasis(
+    y: NDArray[_UnknownDtype],
+    *,
+    coef: float = 0.97,
+    zi: Optional[npt.ArrayLike] = None,
+    return_zf: Literal[True],
+) -> tuple[NDArray[Any], NDArray[Any]]: ...
+@overload
+def preemphasis(  # type: ignore[overload-overlap]
+    y: _SingleArray,
+    *,
+    coef: float = 0.97,
+    zi: Optional[npt.ArrayLike] = None,
+    return_zf: Literal[False] = False,
+) -> NDArray[np.float32]: ...
+@overload
+def preemphasis(  # type: ignore[overload-overlap]
+    y: _SingleArray,
+    *,
+    coef: float = 0.97,
+    zi: Optional[npt.ArrayLike] = None,
+    return_zf: Literal[True],
+) -> tuple[NDArray[np.float32], NDArray[np.float32]]: ...
+@overload
 def preemphasis(
     y: npt.ArrayLike,
     *,
     coef: float = 0.97,
     zi: Optional[npt.ArrayLike] = None,
-    return_zf: bool = False,
-) -> Any:
+    return_zf: Literal[False] = False,
+) -> NDArray[np.float64]: ...
+@overload
+def preemphasis(
+    y: npt.ArrayLike,
+    *,
+    coef: float = 0.97,
+    zi: Optional[npt.ArrayLike] = None,
+    return_zf: Literal[True],
+) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
     """Pre-emphasis ``y[n] = x[n] - coef * x[n-1]``, ``librosa.effects.preemphasis``.
 
     Args:
@@ -76,13 +150,54 @@ def preemphasis(
     """
     ...
 
+@overload
+def deemphasis(
+    y: NDArray[_UnknownDtype],
+    *,
+    coef: float = 0.97,
+    zi: Optional[npt.ArrayLike] = None,
+    return_zf: Literal[False] = False,
+) -> NDArray[Any]: ...
+@overload
+def deemphasis(
+    y: NDArray[_UnknownDtype],
+    *,
+    coef: float = 0.97,
+    zi: Optional[npt.ArrayLike] = None,
+    return_zf: Literal[True],
+) -> tuple[NDArray[Any], NDArray[Any]]: ...
+@overload
+def deemphasis(  # type: ignore[overload-overlap]
+    y: _SingleArray,
+    *,
+    coef: float = 0.97,
+    zi: Optional[npt.ArrayLike] = None,
+    return_zf: Literal[False] = False,
+) -> NDArray[np.float32]: ...
+@overload
+def deemphasis(  # type: ignore[overload-overlap]
+    y: _SingleArray,
+    *,
+    coef: float = 0.97,
+    zi: Optional[npt.ArrayLike] = None,
+    return_zf: Literal[True],
+) -> tuple[NDArray[np.float32], NDArray[np.float32]]: ...
+@overload
 def deemphasis(
     y: npt.ArrayLike,
     *,
     coef: float = 0.97,
     zi: Optional[npt.ArrayLike] = None,
-    return_zf: bool = False,
-) -> Any:
+    return_zf: Literal[False] = False,
+) -> NDArray[np.float64]: ...
+@overload
+def deemphasis(
+    y: npt.ArrayLike,
+    *,
+    coef: float = 0.97,
+    zi: Optional[npt.ArrayLike] = None,
+    return_zf: Literal[True],
+) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
     """De-emphasis ``y[n] = x[n] + coef * y[n-1]``, ``librosa.effects.deemphasis``.
 
     Returns:
@@ -91,13 +206,30 @@ def deemphasis(
     """
     ...
 
+@overload
+def softmask(
+    X: NDArray[_UnknownDtype],
+    X_ref: npt.ArrayLike,
+    *,
+    power: float = 1,
+    split_zeros: bool = False,
+) -> NDArray[Any]: ...
+@overload
+def softmask(  # type: ignore[overload-overlap]
+    X: _SingleArray,
+    X_ref: npt.ArrayLike,
+    *,
+    power: float = 1,
+    split_zeros: bool = False,
+) -> NDArray[np.float32]: ...
+@overload
 def softmask(
     X: npt.ArrayLike,
     X_ref: npt.ArrayLike,
     *,
     power: float = 1,
     split_zeros: bool = False,
-) -> NDArray[Any]:
+) -> NDArray[np.float64]:
     """Soft mask ``X**p / (X**p + X_ref**p)``, ``librosa.util.softmask``.
 
     Returns:
@@ -106,6 +238,61 @@ def softmask(
     """
     ...
 
+@overload
+def hpss(
+    S: NDArray[_UnknownDtype],
+    *,
+    kernel_size: Union[int, tuple[int, int]] = 31,
+    power: float = 2.0,
+    mask: bool = False,
+    margin: Union[float, tuple[float, float]] = 1.0,
+) -> tuple[NDArray[Any], NDArray[Any]]: ...
+@overload
+def hpss(  # type: ignore[overload-overlap]
+    S: NDArray[np.float32],
+    *,
+    kernel_size: Union[int, tuple[int, int]] = 31,
+    power: float = 2.0,
+    mask: bool = False,
+    margin: Union[float, tuple[float, float]] = 1.0,
+) -> tuple[NDArray[np.float32], NDArray[np.float32]]: ...
+@overload
+def hpss(  # type: ignore[overload-overlap]
+    S: NDArray[np.complex64],
+    *,
+    kernel_size: Union[int, tuple[int, int]] = 31,
+    power: float = 2.0,
+    mask: Literal[False] = False,
+    margin: Union[float, tuple[float, float]] = 1.0,
+) -> tuple[NDArray[np.complex64], NDArray[np.complex64]]: ...
+@overload
+def hpss(  # type: ignore[overload-overlap]
+    S: NDArray[np.complex64],
+    *,
+    kernel_size: Union[int, tuple[int, int]] = 31,
+    power: float = 2.0,
+    mask: Literal[True],
+    margin: Union[float, tuple[float, float]] = 1.0,
+) -> tuple[NDArray[np.float32], NDArray[np.float32]]: ...
+@overload
+def hpss(  # type: ignore[overload-overlap]
+    S: NDArray[np.complex128],
+    *,
+    kernel_size: Union[int, tuple[int, int]] = 31,
+    power: float = 2.0,
+    mask: Literal[False] = False,
+    margin: Union[float, tuple[float, float]] = 1.0,
+) -> tuple[NDArray[np.complex128], NDArray[np.complex128]]: ...
+@overload
+def hpss(
+    S: NDArray[np.complex128],
+    *,
+    kernel_size: Union[int, tuple[int, int]] = 31,
+    power: float = 2.0,
+    mask: Literal[True],
+    margin: Union[float, tuple[float, float]] = 1.0,
+) -> tuple[NDArray[np.float64], NDArray[np.float64]]: ...
+@overload
 def hpss(
     S: npt.ArrayLike,
     *,
@@ -113,7 +300,7 @@ def hpss(
     power: float = 2.0,
     mask: bool = False,
     margin: Union[float, tuple[float, float]] = 1.0,
-) -> tuple[NDArray[Any], NDArray[Any]]:
+) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
     """Median-filtering harmonic/percussive separation, ``librosa.decompose.hpss``.
 
     Args:
@@ -132,14 +319,33 @@ def hpss(
     """
     ...
 
+@overload
+def nn_filter(
+    S: NDArray[_UnknownDtype],
+    *,
+    rec: Optional[npt.ArrayLike] = None,
+    aggregate: Optional[Union[Callable[..., Any], Literal['mean', 'median', 'average']]] = None,
+    axis: int = -1,
+    **kwargs: Any,
+) -> NDArray[Any]: ...
+@overload
+def nn_filter(
+    S: _SingleArray,
+    *,
+    rec: Optional[npt.ArrayLike] = None,
+    aggregate: Optional[Union[Callable[..., Any], Literal['mean', 'median', 'average']]] = None,
+    axis: int = -1,
+    **kwargs: Any,
+) -> NDArray[np.float32]: ...
+@overload
 def nn_filter(
     S: npt.ArrayLike,
     *,
     rec: Optional[npt.ArrayLike] = None,
-    aggregate: Optional[Union[Callable[..., Any], Literal["mean", "median", "average"]]] = None,
+    aggregate: Optional[Union[Callable[..., Any], Literal['mean', 'median', 'average']]] = None,
     axis: int = -1,
     **kwargs: Any,
-) -> NDArray[np.floating]:
+) -> NDArray[np.float64]:
     """Nearest-neighbour filtering, ``librosa.decompose.nn_filter``.
 
     Args:
@@ -157,6 +363,43 @@ def nn_filter(
     """
     ...
 
+@overload
+def griffinlim(
+    S: NDArray[_UnknownDtype],
+    *,
+    n_iter: int = 32,
+    hop_length: Optional[int] = None,
+    win_length: Optional[int] = None,
+    n_fft: Optional[int] = None,
+    window: _WindowSpec = 'hann',
+    center: bool = True,
+    dtype: Any = None,
+    length: Optional[int] = None,
+    pad_mode: _PadMode = 'constant',
+    momentum: float = 0.99,
+    init: Optional[Literal['random']] = 'random',
+    rng: Optional[int] = 0,
+    random_state: Optional[int] = None,
+) -> NDArray[Any]: ...
+@overload
+def griffinlim(  # type: ignore[overload-overlap]
+    S: _SingleArray,
+    *,
+    n_iter: int = 32,
+    hop_length: Optional[int] = None,
+    win_length: Optional[int] = None,
+    n_fft: Optional[int] = None,
+    window: _WindowSpec = 'hann',
+    center: bool = True,
+    dtype: Any = None,
+    length: Optional[int] = None,
+    pad_mode: _PadMode = 'constant',
+    momentum: float = 0.99,
+    init: Optional[Literal['random']] = 'random',
+    rng: Optional[int] = 0,
+    random_state: Optional[int] = None,
+) -> NDArray[np.float32]: ...
+@overload
 def griffinlim(
     S: npt.ArrayLike,
     *,
@@ -164,16 +407,16 @@ def griffinlim(
     hop_length: Optional[int] = None,
     win_length: Optional[int] = None,
     n_fft: Optional[int] = None,
-    window: WindowSpec = "hann",
+    window: _WindowSpec = 'hann',
     center: bool = True,
     dtype: Any = None,
     length: Optional[int] = None,
-    pad_mode: PadMode = "constant",
+    pad_mode: _PadMode = 'constant',
     momentum: float = 0.99,
-    init: Optional[Literal["random"]] = "random",
+    init: Optional[Literal['random']] = 'random',
     rng: Optional[int] = 0,
     random_state: Optional[int] = None,
-) -> NDArray[np.floating]:
+) -> NDArray[np.float64]:
     """Fast Griffin-Lim phase reconstruction, ``librosa.griffinlim``.
 
     ``init=None`` (zero phase) matches librosa to round-off. Random phases come
@@ -188,7 +431,17 @@ def griffinlim(
     """
     ...
 
-def lpc(y: npt.ArrayLike, *, order: int, axis: int = -1) -> NDArray[np.floating]:
+@overload
+def lpc(y: NDArray[_UnknownDtype], *, order: int, axis: int=-1) -> NDArray[Any]: ...
+@overload
+def lpc(  # type: ignore[overload-overlap]
+    y: _SingleArray,
+    *,
+    order: int,
+    axis: int = -1,
+) -> NDArray[np.float32]: ...
+@overload
+def lpc(y: npt.ArrayLike, *, order: int, axis: int=-1) -> NDArray[np.float64]:
     """Burg LPC coefficients ``[1, a_1, ..., a_order]``, ``librosa.lpc``.
 
     Returns:
@@ -196,6 +449,20 @@ def lpc(y: npt.ArrayLike, *, order: int, axis: int = -1) -> NDArray[np.floating]
     """
     ...
 
+@overload
+def clicks(  # type: ignore[overload-overlap]
+    *,
+    times: Optional[npt.ArrayLike] = None,
+    frames: Optional[npt.ArrayLike] = None,
+    sr: float,
+    hop_length: Optional[int] = None,
+    click_freq: float = 1000.0,
+    click_duration: float = 0.1,
+    click: Optional[npt.ArrayLike] = None,
+    length: Optional[int] = None,
+    dtype: type[np.float32],
+) -> NDArray[np.float32]: ...
+@overload
 def clicks(
     *,
     times: Optional[npt.ArrayLike] = None,
@@ -206,8 +473,8 @@ def clicks(
     click_duration: float = 0.1,
     click: Optional[npt.ArrayLike] = None,
     length: Optional[int] = None,
-    dtype: Optional[npt.DTypeLike] = None,
-) -> NDArray[np.floating]:
+    dtype: None | type[np.float64] = None,
+) -> NDArray[np.float64]:
     """Click track, ``librosa.clicks`` (float64 output by default; librosa returns float32).
 
     ``sr`` must be a positive integer (librosa defaults to 22050).
@@ -220,3 +487,16 @@ def clicks(
         numpy.ndarray[float64 | float32]: 1-D signal.
     """
     ...
+
+__all__ = [
+    "__doc__",
+    "clicks",
+    "deemphasis",
+    "griffinlim",
+    "hpss",
+    "lpc",
+    "nn_filter",
+    "phase_vocoder",
+    "preemphasis",
+    "softmask",
+]
