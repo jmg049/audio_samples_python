@@ -116,7 +116,8 @@ computations (STFT, CQT, features, pitch tracking, onset envelopes, beat trackin
 effects, DTW) run without the GIL, so several Python threads can analyse different
 signals in parallel. Exceptions that hold it: a Python callable given as ``aggregate``
 or ``prior``, ``tempo``'s tempo estimate (not its onset envelope) and
-``StreamedAudioReader``.
+``StreamedAudioReader``. See :doc:`free_threading` for what threads may share and for
+free-threaded Python.
 
 **Older methods keep their behaviour.** Where a librosa name clashed with an
 existing method, the librosa-compatible version takes a new name and the old

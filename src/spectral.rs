@@ -666,7 +666,9 @@ pub fn frame<'py>(
     let hop_length = positive("hop_length", hop_length)?;
     with_precision!(precision_of(x), |F| {
         // Fast path: a contiguous 1-D array of the right dtype is read in
-        // place (no conversion, no borrow bookkeeping).
+        // place (no conversion, no borrow bookkeeping). Without a GIL, reads go
+        // through the borrow below instead.
+        #[cfg(not(Py_GIL_DISABLED))]
         if let Ok(arr) = x.cast::<numpy::PyArray1<F>>() {
             if arr.is_contiguous() {
                 // SAFETY: the GIL is held for the lifetime of `data`, so no

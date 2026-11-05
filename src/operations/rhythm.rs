@@ -26,9 +26,7 @@ use crate::rhythm::{
     onset_peak_pick, parse_aggregate, parse_channels, parse_prior, plp_config, ratio_config,
     require_sparse, tempo_config, tempogram_config, track_beats,
 };
-use crate::{
-    PyAudioSamples, audio_err_to_py, dispatch_typed, dispatch_typed_detached, dispatch_with_view,
-};
+use crate::{PyAudioSamples, audio_err_to_py, dispatch_typed, dispatch_typed_detached};
 
 /// An onset envelope `(channels, n_frames)` in the float type of the audio's
 /// sample type.
@@ -78,7 +76,7 @@ fn envelope_config(hop_length: i64, aggregate: Aggregate) -> PyResult<OnsetStren
 
 impl PyAudioSamples {
     fn sample_rate_f64(&self, py: Python<'_>) -> f64 {
-        dispatch_with_view!(self, py, |audio| audio.sample_rate_hz())
+        crate::dispatch_without_borrow!(self, py, |audio| audio.sample_rate_hz())
     }
 
     /// Onset envelope `(channels, n_frames)` for `cfg`.

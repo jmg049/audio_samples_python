@@ -13,6 +13,7 @@ keywords = ["audio", "python", "bindings", "signal-processing", "multimedia"]
 categories = ["multimedia::audio", "api-bindings"]
 include = [
     "/src/**/*",
+    "/build.rs",
     "/Cargo.toml",
     "/README.md",
     "/LICENSE",
@@ -44,6 +45,10 @@ non-empty-slice = "0.6"
 num-complex = "0.4"
 # Diagnostic code/help of core errors are forwarded to Python exceptions.
 miette = { version = "7", default-features = false }
+
+[build-dependencies]
+# Sets the `Py_GIL_DISABLED` cfg when building for a free-threaded interpreter.
+pyo3-build-config = "0.29"
 
 # Build against sibling checkouts of audio_samples and audio_samples_io (the
 # bindings need fixes that are not on crates.io yet). Remove once the matching

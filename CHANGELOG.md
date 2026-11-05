@@ -46,6 +46,19 @@ has the full detail.
 - **Example clips.** `generation.example_clip` renders named clips of music and speech with known
   contents at any sample rate, duration and sample type. Nothing is stored or downloaded, and the same
   arguments give the same bytes on any platform with IEEE 754 arithmetic.
+- **Free-threaded Python.** The module now states `gil_used = false` after an audit and
+  a ThreadSanitizer run; on `python3.14t` the GIL stays off. A read that meets a concurrent
+  `SosFilter.process_samples_in_place` on the same array raises `TypeError` instead of
+  a `PanicException`. See the "Threads and free-threaded Python" page.
+- **Threads.** Streaming readers and writers work from any thread, one call at a time; they
+  no longer raise a `PanicException` on another thread. On a free-threaded build, an in-place
+  method on audio built on a NumPy array and reads of that array raise `TypeError` when they meet.
+- **Faster.** `hpss` on a spectrogram (median filter), `melspectrogram`, `mfcc_frames` and `to_mono`
+  of decoded stereo. Results are unchanged.
+- **Example gallery.** The docs have a gallery by task (`docs/gallery`, built with
+  sphinx-gallery): each entry runs during the docs build, and a failure stops it.
+- `AudioSamples.apply_compressor` and `apply_limiter` stubs match the methods, which take a
+  config object.
 - **librosa parity.** A librosa 1.0-compatible API alongside the existing one:
   librosa-style methods on `AudioSamples` and the new submodules
   `audio_samples.spectral`, `features`, `sequence`, `rhythm` and `effects`.

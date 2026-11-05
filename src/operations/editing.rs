@@ -233,12 +233,12 @@ impl PyAudioSamples {
                     .iter()
                     .map(|seg| {
                         if let PyAudioDataInner::U8(typed) = &seg.inner {
-                            typed.with_view(py, |audio| audio.clone().into_owned())
+                            typed.checked_with_view(py, |audio| audio.clone().into_owned())
                         } else {
                             unreachable!()
                         }
                     })
-                    .collect();
+                    .collect::<PyResult<Vec<_>>>()?;
                 // safety: have checked for non-empty already
                 let audio_segments = unsafe { NonEmptyVec::new_unchecked(audio_segments) };
                 let concatenated = <AudioSamples<u8> as AudioEditing>::concatenate(&audio_segments)
@@ -251,12 +251,12 @@ impl PyAudioSamples {
                     .iter()
                     .map(|seg| {
                         if let PyAudioDataInner::I16(typed) = &seg.inner {
-                            typed.with_view(py, |audio| audio.clone().into_owned())
+                            typed.checked_with_view(py, |audio| audio.clone().into_owned())
                         } else {
                             unreachable!()
                         }
                     })
-                    .collect();
+                    .collect::<PyResult<Vec<_>>>()?;
                 // safety: have checked for non-empty already
                 let audio_segments = unsafe { NonEmptyVec::new_unchecked(audio_segments) };
                 let concatenated =
@@ -270,12 +270,12 @@ impl PyAudioSamples {
                     .iter()
                     .map(|seg| {
                         if let PyAudioDataInner::I24(typed) = &seg.inner {
-                            typed.with_view(py, |audio| audio.clone().into_owned())
+                            typed.checked_with_view(py, |audio| audio.clone().into_owned())
                         } else {
                             unreachable!()
                         }
                     })
-                    .collect();
+                    .collect::<PyResult<Vec<_>>>()?;
                 // safety: have checked for non-empty already
                 let audio_segments = unsafe { NonEmptyVec::new_unchecked(audio_segments) };
                 let concatenated =
@@ -289,12 +289,12 @@ impl PyAudioSamples {
                     .iter()
                     .map(|seg| {
                         if let PyAudioDataInner::I32(typed) = &seg.inner {
-                            typed.with_view(py, |audio| audio.clone().into_owned())
+                            typed.checked_with_view(py, |audio| audio.clone().into_owned())
                         } else {
                             unreachable!()
                         }
                     })
-                    .collect();
+                    .collect::<PyResult<Vec<_>>>()?;
                 // safety: have checked for non-empty already
                 let audio_segments = unsafe { NonEmptyVec::new_unchecked(audio_segments) };
                 let concatenated =
@@ -308,12 +308,12 @@ impl PyAudioSamples {
                     .iter()
                     .map(|seg| {
                         if let PyAudioDataInner::F32(typed) = &seg.inner {
-                            typed.with_view(py, |audio| audio.clone().into_owned())
+                            typed.checked_with_view(py, |audio| audio.clone().into_owned())
                         } else {
                             unreachable!()
                         }
                     })
-                    .collect();
+                    .collect::<PyResult<Vec<_>>>()?;
                 // safety: have checked for non-empty already
                 let audio_segments = unsafe { NonEmptyVec::new_unchecked(audio_segments) };
                 let concatenated =
@@ -327,12 +327,12 @@ impl PyAudioSamples {
                     .iter()
                     .map(|seg| {
                         if let PyAudioDataInner::F64(typed) = &seg.inner {
-                            typed.with_view(py, |audio| audio.clone().into_owned())
+                            typed.checked_with_view(py, |audio| audio.clone().into_owned())
                         } else {
                             unreachable!()
                         }
                     })
-                    .collect();
+                    .collect::<PyResult<Vec<_>>>()?;
                 // safety: have checked for non-empty already
                 let audio_segments = unsafe { NonEmptyVec::new_unchecked(audio_segments) };
                 let concatenated =
@@ -433,12 +433,12 @@ impl PyAudioSamples {
                     .iter()
                     .map(|src| {
                         if let PyAudioDataInner::U8(typed) = &src.inner {
-                            typed.with_view(py, |audio| audio.clone().into_owned())
+                            typed.checked_with_view(py, |audio| audio.clone().into_owned())
                         } else {
                             unreachable!()
                         }
                     })
-                    .collect();
+                    .collect::<PyResult<Vec<_>>>()?;
                 // safety: have checked for non-empty already
                 let audio_sources = unsafe { NonEmptyVec::new_unchecked(audio_sources) };
                 let mixed = if let Some(w) = weights_slice {
@@ -456,12 +456,12 @@ impl PyAudioSamples {
                     .iter()
                     .map(|src| {
                         if let PyAudioDataInner::I16(typed) = &src.inner {
-                            typed.with_view(py, |audio| audio.clone().into_owned())
+                            typed.checked_with_view(py, |audio| audio.clone().into_owned())
                         } else {
                             unreachable!()
                         }
                     })
-                    .collect();
+                    .collect::<PyResult<Vec<_>>>()?;
                 // safety: have checked for non-empty already
                 let audio_sources = unsafe { NonEmptyVec::new_unchecked(audio_sources) };
                 let mixed = if let Some(w) = weights_slice {
@@ -479,12 +479,12 @@ impl PyAudioSamples {
                     .iter()
                     .map(|src| {
                         if let PyAudioDataInner::I24(typed) = &src.inner {
-                            typed.with_view(py, |audio| audio.clone().into_owned())
+                            typed.checked_with_view(py, |audio| audio.clone().into_owned())
                         } else {
                             unreachable!()
                         }
                     })
-                    .collect();
+                    .collect::<PyResult<Vec<_>>>()?;
                 // safety: have checked for non-empty already
                 let audio_sources = unsafe { NonEmptyVec::new_unchecked(audio_sources) };
                 let mixed = if let Some(w) = weights_slice {
@@ -502,12 +502,12 @@ impl PyAudioSamples {
                     .iter()
                     .map(|src| {
                         if let PyAudioDataInner::I32(typed) = &src.inner {
-                            typed.with_view(py, |audio| audio.clone().into_owned())
+                            typed.checked_with_view(py, |audio| audio.clone().into_owned())
                         } else {
                             unreachable!()
                         }
                     })
-                    .collect();
+                    .collect::<PyResult<Vec<_>>>()?;
                 // safety: have checked for non-empty already
                 let audio_sources = unsafe { NonEmptyVec::new_unchecked(audio_sources) };
                 let mixed = if let Some(w) = weights_slice {
@@ -525,12 +525,12 @@ impl PyAudioSamples {
                     .iter()
                     .map(|src| {
                         if let PyAudioDataInner::F32(typed) = &src.inner {
-                            typed.with_view(py, |audio| audio.clone().into_owned())
+                            typed.checked_with_view(py, |audio| audio.clone().into_owned())
                         } else {
                             unreachable!()
                         }
                     })
-                    .collect();
+                    .collect::<PyResult<Vec<_>>>()?;
 
                 // safety: have checked for non-empty already
                 let weights_slice = weights
@@ -553,12 +553,12 @@ impl PyAudioSamples {
                     .iter()
                     .map(|src| {
                         if let PyAudioDataInner::F64(typed) = &src.inner {
-                            typed.with_view(py, |audio| audio.clone().into_owned())
+                            typed.checked_with_view(py, |audio| audio.clone().into_owned())
                         } else {
                             unreachable!()
                         }
                     })
-                    .collect();
+                    .collect::<PyResult<Vec<_>>>()?;
                 // safety: have checked for non-empty already
                 let audio_sources = unsafe { NonEmptyVec::new_unchecked(audio_sources) };
                 let mixed = if let Some(w) = weights_slice {

@@ -245,7 +245,7 @@ impl PyAudioSamples {
         eq: PyParametricEq,
         frequencies: &Bound<'py, PyArray1<f64>>,
     ) -> PyResult<(Bound<'py, PyArray1<f64>>, Bound<'py, PyArray1<f64>>)> {
-        let freqs = frequencies.readonly().as_array().to_vec();
+        let freqs = frequencies.try_readonly()?.as_array().to_vec();
         let (magnitudes, phases) = dispatch_with_view!(self, py, |audio| {
             audio
                 .eq_frequency_response(&(*eq), &freqs)

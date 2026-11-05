@@ -193,7 +193,7 @@ pub fn py_analyze_spectrum_for_cutoff(
             "nyquist_freq must be finite",
         ));
     }
-    let data = spectrum.readonly().as_array().to_vec();
+    let data = spectrum.try_readonly()?.as_array().to_vec();
     let spectrum = NonEmptyVec::new(data)
         .map_err(|_| pyo3::exceptions::PyValueError::new_err("spectrum must be non-empty"))?;
     Ok(analyze_spectrum_for_cutoff(&spectrum, nyquist_freq))
@@ -224,7 +224,7 @@ pub fn py_detect_fundamental_autocorrelation(
             "sample_rate must be finite and positive",
         ));
     }
-    let buf = data.readonly().as_array().to_vec();
+    let buf = data.try_readonly()?.as_array().to_vec();
     let buf = NonEmptyVec::new(buf)
         .map_err(|_| pyo3::exceptions::PyValueError::new_err("data must be non-empty"))?;
     detect_fundamental_autocorrelation(&buf, sample_rate).map_err(audio_err_to_py)

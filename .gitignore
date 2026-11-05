@@ -61,6 +61,9 @@ coverage.xml
 
 # Sphinx documentation
 docs/build/
+# Written by sphinx-gallery from docs/gallery
+docs/source/gallery/
+docs/source/sg_execution_times.rst
 
 # PyCharm
 .idea/

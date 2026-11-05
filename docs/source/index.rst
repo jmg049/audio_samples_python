@@ -104,6 +104,7 @@ Table of Contents
    tutorials/index
    for_instructors
    examples/index
+   free_threading
    api/index
 
 .. toctree::

@@ -238,12 +238,12 @@ impl PyAudioSamples {
                     .iter()
                     .map(|seg| {
                         if let PyAudioDataInner::$variant(typed) = &seg.inner {
-                            typed.with_view(py, |audio| audio.clone().into_owned())
+                            typed.checked_with_view(py, |audio| audio.clone().into_owned())
                         } else {
                             unreachable!()
                         }
                     })
-                    .collect();
+                    .collect::<PyResult<Vec<_>>>()?;
                 let slice = NonEmptySlice::new(&owned)
                     .ok_or_else(|| PyValueError::new_err("Cannot interleave empty channel list"))?;
                 let interleaved =
