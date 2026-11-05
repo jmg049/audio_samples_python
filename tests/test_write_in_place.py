@@ -53,8 +53,7 @@ def test_svara_arrays_keep_shape_and_width():
     got = notation.midi_to_svara_h(midi, Sa=60.0, abbr=False, unicode=True)
     assert got.shape == (2, 2)
     assert got.dtype == np.dtype("<U3")
-    assert got.tolist() == [["Sa", "ṙe"], ["", "Ṣa"]] or got[0, 0] == "Sa"
-    assert got[1, 0] == ""
+    assert got.tolist() == [["Sa", "r\u0307e"], ["", "S\u0323a"]]
     assert notation.midi_to_svara_h(np.array([np.nan]), Sa=60.0).dtype == np.dtype("<U1")
     assert notation.midi_to_svara_h(67.0, Sa=60.0) == "P"
     assert isinstance(notation.mela_to_svara(29), list)

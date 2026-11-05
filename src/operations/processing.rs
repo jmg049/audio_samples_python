@@ -314,6 +314,53 @@ impl PyAudioSamples {
         .map_err(audio_err_to_py)
     }
 
+    /// ``resample`` returning the samples as an array of their own type. Float samples are
+    /// moved into the array rather than copied out of an ``AudioSamples``.
+    ///
+    /// Args:
+    ///     ``target_sample_rate`` (int): As ``resample``.
+    ///     quality (ResamplingQuality | str): As ``resample``.
+    ///
+    /// Returns:
+    ///     numpy.ndarray: Time on the last axis.
+    fn _resample_array<'py>(
+        &self,
+        py: Python<'py>,
+        target_sample_rate: Int,
+        quality: QualityArg,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        macro_rules! moved {
+            ($a:expr) => {{
+                let rate = u32::try_from(target_sample_rate.0)
+                    .ok()
+                    .and_then(std::num::NonZeroU32::new)
+                    .ok_or_else(|| {
+                        PyValueError::new_err(format!(
+                            "target_sample_rate: must be a positive integer, got {target_sample_rate}"
+                        ))
+                    })?;
+                let q = *quality.0;
+                let out = $a
+                    .with_view_detached(py, |audio| audio.resample(rate, q))
+                    .map_err(audio_err_to_py)?;
+                Ok(if out.is_mono() {
+                    let data = out.into_array1().expect("mono audio has one dimension");
+                    numpy::IntoPyArray::into_pyarray(data, py).into_any()
+                } else {
+                    let data = out.into_array2().expect("multi-channel audio has two dimensions");
+                    numpy::IntoPyArray::into_pyarray(data, py).into_any()
+                })
+            }};
+        }
+        match self.inner() {
+            crate::PyAudioDataInner::F32(a) => moved!(a),
+            crate::PyAudioDataInner::F64(a) => moved!(a),
+            _ => self
+                .resample(py, target_sample_rate, quality)?
+                .to_numpy(py),
+        }
+    }
+
     /// Resample the audio by a ratio of sample rates.
     ///
     /// The target rate is ``round(sample_rate * ratio)``; the conversion is then

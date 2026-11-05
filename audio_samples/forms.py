@@ -421,7 +421,7 @@ def resample(
         The resampled array, of ``y``'s dtype.
     """
     quality = {"soxr_hq": "high", "soxr_vhq": "high", "soxr_mq": "medium", "soxr_lq": "fast", "soxr_qq": "fast"}.get(res_type, res_type)
-    out = _from_rows(np.asarray(y), orig_sr).resample(target_sr, quality).to_numpy()
+    out = _from_rows(np.asarray(y), orig_sr)._resample_array(target_sr, quality)
     if scale:
         out /= np.sqrt(target_sr / orig_sr)
     return out
@@ -755,6 +755,7 @@ def chroma_cqt(
         C.shape[-2], bins_per_octave=bins_per_octave, n_chroma=n_chroma, fmin=fmin, window=window
     )
     chroma = basis.astype(C.dtype, copy=False) @ C
+    del basis
     if threshold is not None:
         chroma[chroma < threshold] = 0.0
     return _normalize(chroma, norm)
