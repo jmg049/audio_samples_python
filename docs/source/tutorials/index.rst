@@ -31,9 +31,7 @@ crate (`docs.rs <https://docs.rs/audio_samples/latest/audio_samples/guide/>`_,
 available from the next release; until then build the docs locally with
 ``cargo doc --features educational,full_no_plotting --open``) and its
 ``examples/tutorial_NN_*.rs`` labs. The Rust guide is also published as an
-illustrated book, with figures computed by the library: see the crate's
-`book/ directory <https://github.com/jmg049/audio_samples/tree/main/book>`_
-for how to build it (``book/build.sh``).
+`illustrated book <https://jmg049.github.io/audio_samples/>`_, with figures computed by the library.
 
 .. toctree::
    :maxdepth: 1

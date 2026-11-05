@@ -1,8 +1,5 @@
 File I/O Operations
 ===================
-.. automodule:: audio_samples.io
-   :members:
-
 .. currentmodule:: audio_samples.io
 
 The io module reads and writes WAV and FLAC files. Reading and writing preserve the audio properties,
@@ -43,8 +40,44 @@ Streaming I/O
 .. autoclass:: WavSink
    :members:
 
+.. autoclass:: StreamedFrameIterator
+   :members:
+
+Options and Metadata
+--------------------
+
+.. autoclass:: WriteOptions
+   :members:
+
+.. autoclass:: CompressionLevel
+   :members:
+
+.. autoclass:: WavMetadata
+   :members:
+
+.. autoclass:: InfoMetadata
+   :members:
+
+.. autoclass:: CuePoint
+   :members:
+
+.. autoclass:: VorbisComment
+   :members:
+
+.. autoclass:: StreamInfo
+   :members:
+
+.. autofunction:: read_flac_stream_info
+
+.. autofunction:: read_wav_cue_points
+
+.. autofunction:: read_wav_info_tags
+
 File Information
 ----------------
+
+.. autofunction:: info
+
 
 .. autoclass:: AudioInfo
    :members:
@@ -155,7 +188,7 @@ Process multiple files efficiently:
        print(f"Processed {wav_file.name}")
 
 Performance Considerations
-~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 To measure read speed:
 

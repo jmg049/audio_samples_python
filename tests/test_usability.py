@@ -403,6 +403,14 @@ def test_every_public_callable_has_a_parseable_signature():
     assert not failures, "\n".join(failures)
 
 
+def test_no_signature_left_in_a_docstring():
+    # CPython only splits a text_signature off the docstring if it ends at the closing
+    # parenthesis. Otherwise, as with "($self) -> float", it stays in __doc__ on every
+    # version and inspect.signature fails on 3.12 and older.
+    leaked = [name for name, obj in PUBLIC_CALLABLES if "\n--\n\n" in (obj.__doc__ or "")]
+    assert not leaked, "\n".join(leaked)
+
+
 def test_no_rust_type_names_leak_into_docs():
     for name, obj in PUBLIC_CALLABLES:
         doc = obj.__doc__ or ""

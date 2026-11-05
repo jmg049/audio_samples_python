@@ -1,6 +1,8 @@
 Signal Generation
 =================
 
+.. currentmodule:: audio_samples.generation
+
 The generation module provides functions to generate various audio waveforms and noise types with
 precise control over frequency, amplitude, and duration. All functions return AudioSamples objects
 with embedded metadata.
@@ -26,6 +28,37 @@ Advanced Signals
 .. autofunction:: impulse
 
 .. autofunction:: silence
+
+Band-limited Waveforms
+----------------------
+
+.. autofunction:: sawtooth_wave_bandlimited
+
+.. autofunction:: square_wave_bandlimited
+
+.. autofunction:: triangle_wave_bandlimited
+
+Modulated and Compound Signals
+------------------------------
+
+.. autofunction:: am_signal
+
+.. autofunction:: fm_signal
+
+.. autofunction:: compound_tone
+
+.. autofunction:: exponential_chirp
+
+.. autofunction:: exponential_bursts
+
+Stereo Signals
+--------------
+
+.. autofunction:: stereo_chirp
+
+.. autofunction:: stereo_silence
+
+.. autofunction:: stereo_sine_wave
 
 Noise Generators
 ----------------

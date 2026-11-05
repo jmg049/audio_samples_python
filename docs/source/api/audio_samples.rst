@@ -1,5 +1,5 @@
 AudioSamples Core
-================
+=================
 
 The AudioSamples class is the core of the library. It stores the samples together with their sample
 rate, channel layout and sample format, so these do not have to be passed alongside the data.
@@ -120,3 +120,12 @@ Filter and EQ Configuration Classes
    - Multiple EQ bands with independent configuration
    - Real-time frequency response calculation
    - Bands applied as a cascade of filters
+
+API Reference
+-------------
+
+.. currentmodule:: audio_samples
+
+.. autoclass:: AudioSamples
+   :members:
+   :undoc-members:

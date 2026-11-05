@@ -6,10 +6,7 @@ on:
   pull_request:
     branches: [ main ]
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
+permissions: {}
 
 concurrency:
   group: "pages"
@@ -17,44 +14,80 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
 
     steps:
-    - uses: actions/checkout@v4
+    # The extension builds next to sibling checkouts while Cargo.toml patches them,
+    # as in wheels.yml.
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        path: audio_samples_python
+        persist-credentials: false
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        repository: jmg049/audio_samples
+        path: audio_samples
+        persist-credentials: false
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        repository: jmg049/audio_samples_io
+        path: audio_samples_io
+        persist-credentials: false
+
+    - name: Install Rust
+      run: |
+        rustup toolchain install 1.99.1 --profile minimal --no-self-update
+        rustup default 1.99.1
 
     - name: Set up Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
       with:
-        python-version: '3.11'
+        python-version: '3.13'
+
+    - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      with:
+        workspaces: audio_samples_python
 
     - name: Install documentation dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install sphinx sphinx-autodoc-typehints sphinx-rtd-theme myst-parser myst-nb sphinx-copybutton linkify-it-py
-        pip install numpy>=1.24.4
+        pip install "maturin>=1.9,<2.0" "numpy>=1.24.4"
+        pip install -r audio_samples_python/docs/requirements.txt
+        pip install linkify-it-py ipykernel matplotlib scipy librosa soundfile
+
+    # autodoc imports the installed package, and the tutorials execute against it.
+    - name: Build and install the extension
+      working-directory: audio_samples_python
+      run: |
+        maturin build --out "$RUNNER_TEMP/dist"
+        pip install --no-deps "$RUNNER_TEMP"/dist/*.whl
 
     - name: Build documentation
-      run: |
-        cd docs
-        make html
+      working-directory: audio_samples_python/docs
+      run: make html SPHINXOPTS="-W --keep-going"
 
     - name: Setup Pages
-      uses: actions/configure-pages@v4
+      uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
 
     - name: Upload artifact
-      uses: actions/upload-pages-artifact@v3
+      uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
       with:
-        path: 'docs/build/html'
+        path: 'audio_samples_python/docs/build/html'
 
   deploy:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: build
+    permissions:
+      pages: write
+      id-token: write
     if: github.ref == 'refs/heads/main'
 
     steps:
     - name: Deploy to GitHub Pages
       id: deployment
-      uses: actions/deploy-pages@v4
+      uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

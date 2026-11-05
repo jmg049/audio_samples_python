@@ -52,6 +52,8 @@ dependencies = [
 "Documentation" = "https://jmg049.github.io/audio_samples_python"
 "Repository" = "https://github.com/jmg049/audio_samples_python"
 "Bug Reports" = "https://github.com/jmg049/audio_samples_python/issues"
+"Changelog" = "https://github.com/jmg049/audio_samples_python/blob/main/CHANGELOG.md"
+"Paper" = "https://doi.org/10.1145/3793853.3799811"
 
 [project.optional-dependencies]
 "mpl" = [
