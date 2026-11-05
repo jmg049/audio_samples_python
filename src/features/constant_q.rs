@@ -121,13 +121,6 @@ pub fn wavelet_lengths<'py>(
 ) -> PyResult<(Bound<'py, PyArray1<f64>>, f64)> {
     use numpy::PyArrayMethods;
     let cfg = wavelet_config(window, filter_scale, gamma, Some(1.0), true);
-    if let Some(a) = alpha.filter(|a| !a.is_none()) {
-        let f = super::args::f64_vec1(freqs, "freqs")?;
-        let bandwidths = alpha_per_frequency(a, f.len())?;
-        let (lengths, cutoff) =
-            cq::wavelet_lengths_with_alpha(&f, sr, &cfg, &bandwidths).map_err(audio_err_to_py)?;
-        return Ok((lengths.into_pyarray(py), cutoff));
-    }
     // A contiguous 1-D float64 array is read in place; the lengths are
     // written straight into a NumPy-allocated array.
     crate::args::with_float_view::<f64, _>(freqs, "freqs", |v| {
@@ -148,7 +141,32 @@ pub fn wavelet_lengths<'py>(
         let out = PyArray1::<f64>::zeros(py, f.len(), false);
         // SAFETY: the array was just created and is not shared yet.
         let lengths = unsafe { out.as_slice_mut() }.expect("a new array is contiguous");
-        let cutoff = cq::wavelet_lengths_into(f, sr, &cfg, lengths).map_err(audio_err_to_py)?;
+        let cutoff = match alpha.filter(|a| !a.is_none()) {
+            None => cq::wavelet_lengths_into(f, sr, &cfg, lengths).map_err(audio_err_to_py)?,
+            Some(a) if a.extract::<f64>().is_ok() => {
+                let bandwidths = alpha_per_frequency(a, f.len())?;
+                cq::wavelet_lengths_with_alpha_into(f, sr, &cfg, &bandwidths, lengths)
+                    .map_err(audio_err_to_py)?
+            }
+            Some(a) => crate::args::with_float_view::<f64, _>(a, "alpha", |b| {
+                if b.ndim() != 1 {
+                    return Err(crate::args::value_err(
+                        "alpha",
+                        format!("expected a 1-D array, got {} dimensions", b.ndim()),
+                    ));
+                }
+                let copied;
+                let bandwidths = match b.as_slice() {
+                    Some(s) => s,
+                    None => {
+                        copied = b.iter().copied().collect::<Vec<f64>>();
+                        &copied
+                    }
+                };
+                cq::wavelet_lengths_with_alpha_into(f, sr, &cfg, bandwidths, lengths)
+                    .map_err(audio_err_to_py)
+            })?,
+        };
         Ok((out, cutoff))
     })
 }
