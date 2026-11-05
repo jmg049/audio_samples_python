@@ -702,16 +702,20 @@ def reassigned_spectrogram(
             times = frame_times + np.real(transform(base * positions) / S_h) / sr
         else:
             times = np.broadcast_to(frame_times, mags.shape).copy()
-    power_threshold = ref_power(mags**2) if callable(ref_power) else ref_power
-    unset = mags**2 < power_threshold
-    freqs = np.where(unset, np.nan, freqs)
-    times = np.where(unset, np.nan, times)
+    power = mags * mags
+    power_threshold = ref_power(power) if callable(ref_power) else ref_power
+    unset = power < power_threshold
+    del power
+    freqs[unset] = np.nan
+    times[unset] = np.nan
     if fill_nan:
-        freqs = np.where(np.isnan(freqs), bins, freqs)
-        times = np.where(np.isnan(times), frame_times, times)
+        missing = np.isnan(freqs)
+        freqs[missing] = np.broadcast_to(bins, freqs.shape)[missing]
+        missing = np.isnan(times)
+        times[missing] = np.broadcast_to(frame_times, times.shape)[missing]
     if clip:
-        freqs = np.clip(freqs, 0.0, sr / 2.0)
-        times = np.clip(times, 0.0, data.shape[-1] / sr)
+        np.clip(freqs, 0.0, sr / 2.0, out=freqs)
+        np.clip(times, 0.0, data.shape[-1] / sr, out=times)
     return freqs, times, mags
 
 
@@ -743,7 +747,7 @@ def chroma_cqt(
     basis = _aus.features.cq_to_chroma(
         C.shape[-2], bins_per_octave=bins_per_octave, n_chroma=n_chroma, fmin=fmin, window=window
     )
-    chroma = np.einsum("cf,...ft->...ct", basis.astype(C.dtype, copy=False), C, optimize=True)
+    chroma = basis.astype(C.dtype, copy=False) @ C
     if threshold is not None:
         chroma[chroma < threshold] = 0.0
     return _normalize(chroma, norm)
