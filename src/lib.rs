@@ -21,21 +21,21 @@
 #![warn(clippy::multiple_unsafe_ops_per_block)]
 
 pub mod args;
+pub mod arrays;
 pub mod effects;
 pub mod explain;
+pub mod factorization;
 pub mod features;
+pub mod inverse;
 pub mod io;
 pub mod io_streaming;
-pub mod operations;
-pub mod rhythm;
-pub mod sequence;
 pub mod linalg;
-pub mod inverse;
-pub mod factorization;
-pub mod pitch_filterbank;
-pub mod segment;
-pub mod arrays;
 pub mod notation;
+pub mod operations;
+pub mod pitch_filterbank;
+pub mod rhythm;
+pub mod segment;
+pub mod sequence;
 pub mod spectral;
 pub mod types;
 pub mod utils;

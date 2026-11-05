@@ -1,12 +1,25 @@
 //! `audio_samples.factorization`: non-negative matrix factorisation of spectrograms.
 
+#![allow(
+    // Sizes and axes from Python are checked before these casts.
+    clippy::cast_possible_truncation,
+    clippy::cast_possible_wrap,
+    clippy::cast_sign_loss,
+    // Docstrings are the Python documentation; failures are listed under `Raises`.
+    clippy::missing_errors_doc,
+    // Indices come from lengths checked at the top of each function.
+    clippy::indexing_slicing
+)]
+
 use audio_samples::operations::factorization::{self as fa, NmfConfig, NmfInit, NmfSolver};
 use ndarray::{Array2, Ix2};
 use numpy::IntoPyArray;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyTuple};
 
-use crate::args::{Int, PyFloat, positive, precision_of, value_err, with_float_view, with_precision};
+use crate::args::{
+    Int, PyFloat, positive, precision_of, value_err, with_float_view, with_precision,
+};
 use crate::audio_err_to_py;
 
 fn parse_init(init: Option<&str>) -> PyResult<NmfInit> {
@@ -19,7 +32,9 @@ fn parse_init(init: Option<&str>) -> PyResult<NmfInit> {
         Some(other) => {
             return Err(value_err(
                 "init",
-                format!("unknown {other:?}; expected 'random', 'nndsvd', 'nndsvda', 'nndsvdar' or None"),
+                format!(
+                    "unknown {other:?}; expected 'random', 'nndsvd', 'nndsvda', 'nndsvdar' or None"
+                ),
             ));
         }
     })
@@ -29,7 +44,10 @@ fn parse_solver(solver: &str) -> PyResult<NmfSolver> {
     match solver {
         "cd" => Ok(NmfSolver::CoordinateDescent),
         "mu" => Ok(NmfSolver::Multiplicative),
-        other => Err(value_err("solver", format!("unknown {other:?}; expected 'cd' or 'mu'"))),
+        other => Err(value_err(
+            "solver",
+            format!("unknown {other:?}; expected 'cd' or 'mu'"),
+        )),
     }
 }
 
@@ -58,18 +76,18 @@ fn parse_alpha_h(alpha_h: &Bound<'_, PyAny>) -> PyResult<Option<f64>> {
 /// Non-negative matrix factorisation ``X = W H``.
 ///
 /// Args:
-///     n_components (int): Number of components.
+///     ``n_components`` (int): Number of components.
 ///     init (Optional[str]): ``"random"``, ``"nndsvd"``, ``"nndsvda"``, ``"nndsvdar"``, or
 ///         None: ``"nndsvda"`` when the components fit the matrix, else ``"random"``.
 ///     solver (str): ``"cd"`` (coordinate descent, default) or ``"mu"`` (multiplicative).
-///     beta_loss (float | str): β of the divergence, or ``"frobenius"``,
+///     ``beta_loss`` (float | str): β of the divergence, or ``"frobenius"``,
 ///         ``"kullback-leibler"``, ``"itakura-saito"``. Default ``"frobenius"``.
 ///     tol (float): Relative stopping tolerance. Default 1e-4.
-///     max_iter (int): Most iterations. Default 200.
-///     random_state (int): Seed. Default 0.
-///     alpha_W (float): Regularisation strength of ``W``. Default 0.
-///     alpha_H (float | str): Regularisation strength of ``H``; ``"same"`` uses ``alpha_W``.
-///     l1_ratio (float): Share of L1 in the regularisation. Default 0.
+///     ``max_iter`` (int): Most iterations. Default 200.
+///     ``random_state`` (int): Seed. Default 0.
+///     ``alpha_W`` (float): Regularisation strength of ``W``. Default 0.
+///     ``alpha_H`` (float | str): Regularisation strength of ``H``; ``"same"`` uses ``alpha_W``.
+///     ``l1_ratio`` (float): Share of L1 in the regularisation. Default 0.
 ///     shuffle (bool): Visit coordinates in random order. Default false.
 #[pyclass(module = "audio_samples.factorization", frozen)]
 pub struct Nmf {
@@ -101,8 +119,12 @@ impl Nmf {
         l1_ratio: f64,
         shuffle: bool,
     ) -> PyResult<Self> {
-        let beta = beta_loss.filter(|b| !b.is_none()).map_or(Ok(2.0), parse_beta)?;
-        let alpha_h = alpha_H.filter(|a| !a.is_none()).map_or(Ok(None), parse_alpha_h)?;
+        let beta = beta_loss
+            .filter(|b| !b.is_none())
+            .map_or(Ok(2.0), parse_beta)?;
+        let alpha_h = alpha_H
+            .filter(|a| !a.is_none())
+            .map_or(Ok(None), parse_alpha_h)?;
         let config = NmfConfig::new(positive("n_components", n_components)?.get())
             .with_init(parse_init(init)?)
             .with_solver(parse_solver(solver)?)
@@ -136,20 +158,28 @@ impl Nmf {
     #[getter]
     #[allow(non_snake_case)]
     fn n_iter_(&self) -> PyResult<usize> {
-        Ok(self.fitted.lock().map_err(|_| value_err("n_iter_", "poisoned"))?.0)
+        Ok(self
+            .fitted
+            .lock()
+            .map_err(|_| value_err("n_iter_", "poisoned"))?
+            .0)
     }
 
     /// The final error of the last fit.
     #[getter]
     #[allow(non_snake_case)]
     fn reconstruction_err_(&self) -> PyResult<f64> {
-        Ok(self.fitted.lock().map_err(|_| value_err("reconstruction_err_", "poisoned"))?.1)
+        Ok(self
+            .fitted
+            .lock()
+            .map_err(|_| value_err("reconstruction_err_", "poisoned"))?
+            .1)
     }
 
     /// Fits the factorisation and returns ``W``.
     ///
     /// Args:
-    ///     X (array_like): ``(n_samples, n_features)``, non-negative.
+    ///     X (``array_like)``: ``(n_samples, n_features)``, non-negative.
     ///     W (Optional[array_like]): Starting ``W``; give together with ``H``.
     ///     H (Optional[array_like]): Starting ``H``.
     ///
@@ -169,7 +199,7 @@ impl Nmf {
     /// Finds ``W`` for the fitted ``H``.
     ///
     /// Args:
-    ///     X (array_like): ``(n_samples, n_features)``, non-negative.
+    ///     X (``array_like)``: ``(n_samples, n_features)``, non-negative.
     ///
     /// Returns:
     ///     numpy.ndarray: ``(n_samples, n_components)``, of ``X``'s precision.
@@ -181,9 +211,15 @@ impl Nmf {
         with_precision!(precision_of(X), |F| {
             with_float_view::<F, _>(X, "X", |x| {
                 with_float_view::<F, _>(&h, "components_", |hv| {
-                    let x = x.into_dimensionality::<Ix2>().map_err(|_| value_err("X", "expected a 2-D matrix"))?;
-                    let hv = hv.into_dimensionality::<Ix2>().map_err(|e| value_err("components_", e))?;
-                    let w = py.detach(|| fa::nmf_transform(x, hv, &cfg)).map_err(audio_err_to_py)?;
+                    let x = x
+                        .into_dimensionality::<Ix2>()
+                        .map_err(|_| value_err("X", "expected a 2-D matrix"))?;
+                    let hv = hv
+                        .into_dimensionality::<Ix2>()
+                        .map_err(|e| value_err("components_", e))?;
+                    let w = py
+                        .detach(|| fa::nmf_transform(x, hv, &cfg))
+                        .map_err(audio_err_to_py)?;
                     Ok(w.into_pyarray(py).into_any())
                 })
             })
@@ -207,10 +243,14 @@ impl Nmf {
         let start = match (w.filter(|v| !v.is_none()), h.filter(|v| !v.is_none())) {
             (Some(w), Some(h)) => {
                 let w0: Array2<F> = with_float_view::<F, _>(w, "W", |v| {
-                    v.into_dimensionality::<Ix2>().map(|a| a.to_owned()).map_err(|e| value_err("W", e))
+                    v.into_dimensionality::<Ix2>()
+                        .map(|a| a.to_owned())
+                        .map_err(|e| value_err("W", e))
                 })?;
                 let h0: Array2<F> = with_float_view::<F, _>(h, "H", |v| {
-                    v.into_dimensionality::<Ix2>().map(|a| a.to_owned()).map_err(|e| value_err("H", e))
+                    v.into_dimensionality::<Ix2>()
+                        .map(|a| a.to_owned())
+                        .map_err(|e| value_err("H", e))
                 })?;
                 Some((w0, h0))
             }
@@ -218,15 +258,23 @@ impl Nmf {
             _ => return Err(value_err("W", "give W and H together")),
         };
         let r = with_float_view::<F, _>(x, "X", |v| {
-            let v = v.into_dimensionality::<Ix2>().map_err(|_| value_err("X", "expected a 2-D matrix"))?;
+            let v = v
+                .into_dimensionality::<Ix2>()
+                .map_err(|_| value_err("X", "expected a 2-D matrix"))?;
             py.detach(|| match start {
                 Some((w0, h0)) => fa::nmf_from(v, w0, h0, &cfg),
                 None => fa::nmf(v, &cfg),
             })
             .map_err(audio_err_to_py)
         })?;
-        *self.fitted.lock().map_err(|_| value_err("fit", "poisoned"))? = (r.n_iter, r.reconstruction_err);
-        *self.components.lock().map_err(|_| value_err("fit", "poisoned"))? =
+        *self
+            .fitted
+            .lock()
+            .map_err(|_| value_err("fit", "poisoned"))? = (r.n_iter, r.reconstruction_err);
+        *self
+            .components
+            .lock()
+            .map_err(|_| value_err("fit", "poisoned"))? =
             Some(r.h.into_pyarray(py).into_any().unbind());
         Ok(r.w.into_pyarray(py).into_any())
     }
@@ -235,9 +283,9 @@ impl Nmf {
 /// Factorises a spectrogram into templates and activations.
 ///
 /// Args:
-///     S (array_like): Non-negative ``(..., n_features, n_frames)`` spectrogram. Dimensions
+///     S (``array_like)``: Non-negative ``(..., n_features, n_frames)`` spectrogram. Dimensions
 ///         before the last are unrolled into one feature axis.
-///     n_components (Optional[int]): Number of components. Default: ``n_frames`` features
+///     ``n_components`` (Optional[int]): Number of components. Default: ``n_frames`` features
 ///         of the unrolled matrix.
 ///     transformer (Optional[object]): Any object with ``fit_transform``, ``transform``
 ///         and ``components_``. Default: a new :class:`Nmf`.
@@ -254,6 +302,7 @@ impl Nmf {
     text_signature = "(S, *, n_components=None, transformer=None, sort=False, fit=True, **kwargs)"
 )]
 #[allow(non_snake_case)]
+#[inline]
 pub fn decompose<'py>(
     S: &Bound<'py, PyAny>,
     n_components: Option<Int>,
@@ -275,7 +324,9 @@ pub fn decompose<'py>(
     let frames = shape[shape.len() - 1];
     let order_f = PyDict::new(py);
     order_f.set_item("order", "F")?;
-    let x = s.getattr("T")?.call_method("reshape", ((frames, -1_i64),), Some(&order_f))?;
+    let x = s
+        .getattr("T")?
+        .call_method("reshape", ((frames, -1_i64),), Some(&order_f))?;
     let features: usize = x.getattr("shape")?.get_item(1)?.extract()?;
     let k = match n_components {
         Some(v) => positive("n_components", v)?.get(),
@@ -319,9 +370,13 @@ pub fn decompose<'py>(
     pyo3::IntoPyObjectExt::into_bound_py_any((components, activations), py)
 }
 
+#[inline]
 pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     let m = PyModule::new(py, "factorization")?;
-    m.add("__doc__", "Non-negative matrix factorisation of spectrograms.")?;
+    m.add(
+        "__doc__",
+        "Non-negative matrix factorisation of spectrograms.",
+    )?;
     m.add_class::<Nmf>()?;
     m.add_function(wrap_pyfunction!(decompose, &m)?)?;
     parent.add_submodule(&m)?;

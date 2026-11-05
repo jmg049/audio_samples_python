@@ -1118,13 +1118,15 @@ fn exponential_bursts(
 ///     str: One sentence on the clip's known contents
 ///
 /// Raises:
-///     ValueError: Unknown name
+///     ``ValueError``: Unknown name
 #[pyfunction]
 fn example_clip_info(name: &str) -> PyResult<&'static str> {
-    ExampleClip::from_name(name).map(ExampleClip::description).ok_or_else(|| {
-        let names = ExampleClip::ALL.map(ExampleClip::name).join(", ");
-        PyValueError::new_err(format!(
-            "name: unknown example clip {name:?}; the clips are {names}"
-        ))
-    })
+    ExampleClip::from_name(name)
+        .map(ExampleClip::description)
+        .ok_or_else(|| {
+            let names = ExampleClip::ALL.map(ExampleClip::name).join(", ");
+            PyValueError::new_err(format!(
+                "name: unknown example clip {name:?}; the clips are {names}"
+            ))
+        })
 }

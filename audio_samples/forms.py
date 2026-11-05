@@ -40,23 +40,47 @@ __all__ = [
 ]
 
 
-def _fix_length(y: NDArray[Any], size: int) -> NDArray[Any]:
-    n = y.shape[-1]
-    if n == size:
-        return y
-    if n > size:
-        return y[..., :size]
-    pad = [(0, 0)] * (y.ndim - 1) + [(0, size - n)]
-    return np.pad(y, pad)
+def _checked(signals: Any) -> list[NDArray[Any]]:
+    """Float arrays of at least one dimension with finite samples."""
+    arrays = [np.atleast_1d(s) for s in signals]
+    for a in arrays:
+        _aus.arrays.valid_audio(a)
+    return arrays
 
 
-def _write(out: NDArray[Any] | None, value: NDArray[Any]) -> NDArray[Any]:
-    if out is None:
-        return value
-    if out.shape != value.shape:
-        raise ValueError(f"out: has shape {out.shape}, expected {value.shape}")
-    out[...] = value
+def _target(out: NDArray[Any], shape: tuple[int, ...]) -> NDArray[Any]:
+    if out.shape != shape:
+        raise ValueError(f"out: has shape {out.shape}, expected {shape}")
+    out[...] = 0
     return out
+
+
+def _add(dst: NDArray[Any], a: NDArray[Any], scale: float = 1.0) -> None:
+    """Adds ``a`` to the start of ``dst``, each trimmed to the shorter of the two."""
+    n = min(dst.shape[-1], a.shape[-1])
+    if scale == 1.0:
+        dst[..., :n] += a[..., :n]
+    else:
+        np.add(dst[..., :n], a[..., :n] * scale, out=dst[..., :n], casting="unsafe")
+
+
+def _mix_into(dst: NDArray[Any], arrays: list[NDArray[Any]], norm: bool) -> None:
+    """Sums the channels of each signal into ``dst``; ``norm`` averages channels and signals."""
+    if len(arrays) == 1:
+        a = arrays[0]
+        rows = a.reshape(-1, a.shape[-1])
+        for row in rows:
+            _add(dst, row)
+        if norm and rows.shape[0] > 1:
+            dst /= rows.shape[0]
+        return
+    for a in arrays:
+        rows = a.reshape(-1, a.shape[-1])
+        scale = 1.0 / rows.shape[0] if norm else 1.0
+        for row in rows:
+            _add(dst, row, scale)
+    if norm:
+        dst /= len(arrays)
 
 
 def to_mono(*signals: NDArray[Any], pad: bool = True, norm: bool = True, out: NDArray[Any] | None = None) -> NDArray[Any]:
@@ -76,21 +100,15 @@ def to_mono(*signals: NDArray[Any], pad: bool = True, norm: bool = True, out: ND
     """
     if not signals:
         raise ValueError("signals: at least one is needed")
-    arrays = [np.atleast_1d(s) for s in signals]
+    arrays = _checked(signals)
     lengths = [a.shape[-1] for a in arrays]
     size = max(lengths) if pad else min(lengths)
-    total = 0
-    mixed = None
-    for a in arrays:
-        channels = int(np.prod(a.shape[:-1], dtype=np.int64)) if a.ndim > 1 else 1
-        flat = a.reshape(-1, a.shape[-1]).sum(axis=0) if a.ndim > 1 else a
-        flat = _fix_length(flat, size)
-        mixed = flat.copy() if mixed is None else mixed + flat
-        total += channels
-    assert mixed is not None
-    if norm:
-        mixed = mixed / total
-    return _write(out, mixed)
+    dtype = arrays[0].dtype
+    for a in arrays[1:]:
+        dtype = np.promote_types(dtype, a.dtype)
+    mixed = np.zeros(size, dtype=dtype) if out is None else _target(out, (size,))
+    _mix_into(mixed, arrays, norm)
+    return mixed
 
 
 def to_stereo(
@@ -126,23 +144,22 @@ def to_stereo(
     lhs = np.zeros_like(right) if left is None else np.asarray(left)
     rhs = np.zeros_like(left) if right is None else np.asarray(right)
     size = max(lhs.shape[-1], rhs.shape[-1]) if pad else min(lhs.shape[-1], rhs.shape[-1])
-    lhs, rhs = _fix_length(lhs, size), _fix_length(rhs, size)
     dtype = np.promote_types(lhs.dtype, rhs.dtype)
-    output = np.zeros((2, size), dtype=dtype)
+    output = np.zeros((2, size), dtype=dtype) if out is None else _target(out, (2, size))
     if downmix:
-        output[0] = to_mono(lhs, norm=norm)
-        output[1] = to_mono(rhs, norm=norm)
+        _mix_into(output[0], [np.atleast_1d(lhs)], norm)
+        _mix_into(output[1], [np.atleast_1d(rhs)], norm)
     else:
         for side, a in enumerate((lhs, rhs)):
             if a.ndim == 1:
-                output[side] += a
+                _add(output[side], a)
             elif a.ndim == 2 and a.shape[0] == 2:
-                output += a
+                _add(output, a)
             else:
                 raise ValueError(f"left, right: unsupported shape {a.shape} for downmix=False")
         if norm and not one_sided:
-            output = output / 2
-    return _write(out, output)
+            output /= 2
+    return output
 
 
 def to_multi(
@@ -171,22 +188,28 @@ def to_multi(
     """
     if not signals:
         raise ValueError("signals: at least one is needed")
-    arrays = [np.asarray(s) for s in signals]
-    for a in arrays:
-        if not np.isfinite(a).all():
-            raise ValueError("signals: must be finite")
+    arrays = _checked(signals)
     lengths = [a.shape[-1] for a in arrays]
     size = max(lengths) if pad else min(lengths)
+    dtype = arrays[0].dtype
+    for a in arrays[1:]:
+        dtype = np.promote_types(dtype, a.dtype)
     if downmix:
-        output = np.stack([_fix_length(to_mono(a, norm=norm), size) for a in arrays])
-    else:
-        layout = arrays[0].shape[:-1]
-        if any(a.shape[:-1] != layout for a in arrays):
-            raise ValueError("signals: different channel layouts with downmix=False")
-        output = sum(_fix_length(a, size) for a in arrays)  # type: ignore[assignment]
-        if norm:
-            output = output / len(arrays)
-    return _write(out, output)
+        shape: tuple[int, ...] = (len(arrays), size)
+        output = np.zeros(shape, dtype=dtype) if out is None else _target(out, shape)
+        for row, a in zip(output, arrays):
+            _mix_into(row, [a], norm)
+        return output
+    layout = arrays[0].shape[:-1]
+    if any(a.shape[:-1] != layout for a in arrays):
+        raise ValueError("signals: different channel layouts with downmix=False")
+    shape = (*layout, size)
+    output = np.zeros(shape, dtype=dtype) if out is None else _target(out, shape)
+    for a in arrays:
+        _add(output, a)
+    if norm:
+        output /= len(arrays)
+    return output
 
 
 def get_duration(
@@ -222,10 +245,15 @@ def get_duration(
         return float(np.shape(y)[-1]) / sr
     if S is None:
         raise ValueError("y: give one of y, S or path")
-    samples = n_fft + hop_length * (np.shape(S)[-1] - 1)
+    samples = n_fft + hop_length * (S.shape[-1] - 1)
     if center:
         samples -= 2 * (n_fft // 2)
     return float(samples) / sr
+
+
+def _native_type(path: str) -> Any:
+    name = str(_aus.io.peek_native_type(path)).upper()
+    return getattr(_aus.SampleType, name)
 
 
 def read_segment(path: str | os.PathLike[str], *, offset: float = 0.0, duration: float | None = None, **kwargs: Any) -> Any:
@@ -235,25 +263,37 @@ def read_segment(path: str | os.PathLike[str], *, offset: float = 0.0, duration:
         path: The file.
         offset: Start in seconds.
         duration: Length in seconds. Default: to the end.
-        **kwargs: Passed to ``io.read``.
+        **kwargs: ``as_type`` is the sample type to read as; the file's by default.
 
     Returns:
-        ``AudioSamples`` of the part, with the file's rate and channels.
+        ``AudioSamples`` of the part, with the file's rate and channels. Only that part is
+        read.
 
     Raises:
         ValueError: A negative ``offset`` or ``duration``.
     """
     if offset < 0 or (duration is not None and duration < 0):
         raise ValueError("offset, duration: must not be negative")
-    audio = _aus.io.read(os.fspath(path), **kwargs)
-    rate = audio.sample_rate
-    data = audio.to_numpy()
-    start = int(offset * rate)
-    stop = data.shape[-1] if duration is None else start + int(duration * rate)
-    part = data[..., start:stop]
-    if part.ndim == 1:
-        return _aus.AudioSamples.new_mono(part, rate)
-    return _aus.AudioSamples.new_multi(part, rate)
+    as_type = kwargs.pop("as_type", None)
+    if kwargs:
+        raise TypeError(f"unexpected arguments {sorted(kwargs)}")
+    file = os.fspath(path)
+    dtype = as_type if as_type is not None else _native_type(file)
+    reader = _aus.io.StreamedAudioReader(file)
+    try:
+        rate = reader.sample_rate
+        start = int(offset * rate)
+        available = max(reader.total_frames - start, 0)
+        count = available if duration is None else min(int(duration * rate), available)
+        if count > 0:
+            reader.seek_to_frame(start)
+            part = reader.read_frames(count, dtype)
+            if part is not None:
+                return part
+    finally:
+        reader.close()
+    empty = np.zeros(0, dtype=np.float32)
+    return _aus.AudioSamples.new_mono(empty, rate)
 
 
 def stream_blocks(
@@ -293,21 +333,64 @@ def stream_blocks(
     for name, value in (("block_length", block_length), ("frame_length", frame_length), ("hop_length", hop_length)):
         if value <= 0:
             raise ValueError(f"{name}: must be positive")
-    audio = read_segment(path, offset=offset, duration=duration)
-    if sr is not None and sr != audio.sample_rate:
-        audio = audio.resample(sr, res_type if res_type in ("fast", "medium", "high") else "high")
-    data = audio.to_numpy()
-    if mono and data.ndim > 1:
-        data = data.mean(axis=0)
     block = frame_length + (block_length - 1) * hop_length
     step = block_length * hop_length
-    for start in range(0, data.shape[-1], step):
-        part = data[..., start : start + block]
-        if part.shape[-1] < block and fill_value is not None:
-            part = np.pad(part, [(0, 0)] * (part.ndim - 1) + [(0, block - part.shape[-1])], constant_values=fill_value)
-        yield part
-        if start + block >= data.shape[-1]:
-            break
+
+    def finished(part: NDArray[Any], last: bool) -> NDArray[Any]:
+        if last and fill_value is not None and part.shape[-1] < block:
+            width = [(0, 0)] * (part.ndim - 1) + [(0, block - part.shape[-1])]
+            return np.pad(part, width, constant_values=fill_value)
+        return part
+
+    file = os.fspath(path)
+    if sr is not None and sr != _aus.io.info(file).sample_rate:
+        audio = read_segment(file, offset=offset, duration=duration)
+        audio = audio.resample(sr, res_type if res_type in ("fast", "medium", "high") else "high")
+        data = audio.to_numpy()
+        if mono and data.ndim > 1:
+            data = data.mean(axis=0)
+        for start in range(0, data.shape[-1], step):
+            last = start + block >= data.shape[-1]
+            yield finished(data[..., start : start + block], last)
+            if last:
+                return
+        return
+    # The file's rate: each block reads only the samples it does not have yet.
+    reader = _aus.io.StreamedAudioReader(file)
+    try:
+        rate = reader.sample_rate
+        first = int(offset * rate)
+        if first >= reader.total_frames:
+            return
+        reader.seek_to_frame(first)
+        left = reader.total_frames - first
+        if duration is not None:
+            left = min(left, int(duration * rate))
+        dtype = _native_type(file)
+        kept: NDArray[Any] | None = None
+        while left > 0:
+            have = 0 if kept is None else kept.shape[-1]
+            count = min(block - have, left)
+            chunk = reader.read_frames(count, dtype) if count > 0 else None
+            if chunk is not None:
+                fresh = chunk.to_numpy()
+                left -= fresh.shape[-1]
+                kept = fresh if kept is None else np.concatenate([kept, fresh], axis=-1)
+            elif count > 0:
+                left = 0
+            if kept is None:
+                return
+            part = kept.mean(axis=0) if mono and kept.ndim > 1 else kept
+            yield finished(part, left <= 0)
+            if left <= 0:
+                return
+            kept = kept[..., step:] if step < kept.shape[-1] else None
+            if step > block:
+                skip = min(step - block, left)
+                left -= skip
+                reader.seek_to_frame(reader.current_frame + skip)
+    finally:
+        reader.close()
 
 
 def _from_rows(y: NDArray[Any], sr: int) -> Any:
@@ -340,7 +423,7 @@ def resample(
     quality = {"soxr_hq": "high", "soxr_vhq": "high", "soxr_mq": "medium", "soxr_lq": "fast", "soxr_qq": "fast"}.get(res_type, res_type)
     out = _from_rows(np.asarray(y), orig_sr).resample(target_sr, quality).to_numpy()
     if scale:
-        out = out / np.sqrt(target_sr / orig_sr)
+        out /= np.sqrt(target_sr / orig_sr)
     return out
 
 
@@ -361,8 +444,7 @@ def pitch_shift(y: NDArray[Any], *, sr: int, n_steps: float, bins_per_octave: in
     audio = _from_rows(np.asarray(y), sr)
     out = audio.pitch_shift(n_steps, bins_per_octave=bins_per_octave, **kwargs).to_numpy()
     if scale:
-        rate = 2.0 ** (-float(n_steps) / bins_per_octave)
-        out = out / np.sqrt(rate)
+        out /= np.sqrt(2.0 ** (-float(n_steps) / bins_per_octave))
     return out
 
 
@@ -389,16 +471,16 @@ def frame(x: NDArray[Any], *, frame_length: int, hop_length: int, axis: int = -1
         raise ValueError("frame_length, hop_length: must be positive")
     if array.shape[axis] < frame_length:
         raise ValueError(f"x: {array.shape[axis]} samples along axis {axis} are fewer than a frame")
-    windows = np.lib.stride_tricks.sliding_window_view(array, frame_length, axis=axis, subok=subok, writeable=writeable)
+    frames = 1 + (array.shape[axis] - frame_length) // hop_length
     position = axis if axis >= 0 else array.ndim + axis
-    slices = [slice(None)] * windows.ndim
-    slices[position] = slice(None, None, hop_length)
-    framed = windows[tuple(slices)]
+    stride = array.strides[position]
     if axis >= 0:
-        # (..., n_frames, ..., frame_length) to (..., n_frames, frame_length, ...)
-        return np.moveaxis(framed, -1, position + 1)
-    # (..., n_frames, frame_length) to (..., frame_length, n_frames)
-    return np.moveaxis(framed, -1, position)
+        shape = (*array.shape[:position], frames, frame_length, *array.shape[position + 1 :])
+        strides = (*array.strides[:position], stride * hop_length, stride, *array.strides[position + 1 :])
+    else:
+        shape = (*array.shape[:position], frame_length, frames, *array.shape[position + 1 :])
+        strides = (*array.strides[:position], stride, stride * hop_length, *array.strides[position + 1 :])
+    return np.lib.stride_tricks.as_strided(array, shape, strides, subok, writeable)
 
 
 def _mask(events: NDArray[Any], n: int) -> NDArray[np.bool_]:
@@ -661,7 +743,7 @@ def chroma_cqt(
     basis = _aus.features.cq_to_chroma(
         C.shape[-2], bins_per_octave=bins_per_octave, n_chroma=n_chroma, fmin=fmin, window=window
     )
-    chroma = np.einsum("cf,...ft->...ct", basis.astype(C.dtype), C, optimize=True)
+    chroma = np.einsum("cf,...ft->...ct", basis.astype(C.dtype, copy=False), C, optimize=True)
     if threshold is not None:
         chroma[chroma < threshold] = 0.0
     return _normalize(chroma, norm)

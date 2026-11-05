@@ -189,6 +189,9 @@ def test_channel_forms():
     _close(forms.to_multi(y, short, stereo, pad=False, norm=False), f["to_multi"])
     buffer = np.zeros_like(np.asarray(f["to_mono"]))
     assert forms.to_mono(stereo, out=buffer) is buffer
+    _close(forms.to_mono(stereo, y), f["to_mono_mixed"])
+    with pytest.raises(ValueError):
+        forms.to_mono(np.array([1.0, np.nan]))
 
 
 def test_scaled_resampling_and_pitch_shift():
@@ -239,5 +242,14 @@ def test_read_segment_and_stream(tmp_path):
     first = int(round(0.1 * sr))
     _close(piece.to_numpy(), y.astype(np.float32)[first : first + int(round(0.2 * sr))], 1e-6)
     blocks = list(forms.stream_blocks(path, block_length=2, frame_length=1024, hop_length=512))
+    data = y.astype(np.float32)
     assert all(b.shape[-1] <= 1024 + 512 for b in blocks)
+    assert blocks[0].dtype == np.float32
+    for index, block in enumerate(blocks):
+        _close(block, data[index * 1024 : index * 1024 + block.shape[-1]], 1e-6)
+    filled = list(forms.stream_blocks(path, block_length=2, frame_length=1024, hop_length=512, fill_value=0.0))
+    assert filled[-1].shape[-1] == 1024 + 512
+    skipping = list(forms.stream_blocks(path, block_length=1, frame_length=256, hop_length=1024))
+    for index, block in enumerate(skipping):
+        _close(block, data[index * 1024 : index * 1024 + block.shape[-1]], 1e-6)
     assert np.isclose(forms.get_duration(path=path), y.size / sr)

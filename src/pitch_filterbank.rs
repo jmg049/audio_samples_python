@@ -1,6 +1,19 @@
 //! `audio_samples.pitch_filterbank`: multirate semitone filterbank and the IIR
 //! time-frequency representation, and `spectral.mellin_transform`.
 
+#![allow(
+    // Sizes and axes from Python are checked before these casts.
+    clippy::cast_possible_truncation,
+    clippy::cast_possible_wrap,
+    clippy::cast_sign_loss,
+    // Docstrings are the Python documentation; failures are listed under `Raises`.
+    clippy::missing_errors_doc,
+    // Indices come from lengths checked at the top of each function.
+    clippy::indexing_slicing,
+    // A pair of NumPy arrays per filter, spelled out for PyO3.
+    clippy::type_complexity,
+)]
+
 use audio_samples::operations::mellin::{self, MellinConfig};
 use audio_samples::operations::pitch_filterbank::{
     self as pf, AudioPitchFilterbank, BandFilter, FilterLayout, IirtConfig, MultirateFilterConfig,
@@ -13,7 +26,9 @@ use pyo3::IntoPyObjectExt;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList, PyString};
 
-use crate::args::{Int, PyFloat, opt_positive, positive, precision_of, value_err, with_float_view, with_precision};
+use crate::args::{
+    Int, PyFloat, opt_positive, positive, precision_of, value_err, with_float_view, with_precision,
+};
 use crate::features::args::{f64_vec, parse_res_type, signal2, squeeze_out};
 use crate::{PyAudioSamples, audio_err_to_py, dispatch_typed};
 
@@ -26,12 +41,15 @@ use crate::{PyAudioSamples, audio_err_to_py, dispatch_typed};
 ///     tuple[numpy.ndarray[float64], numpy.ndarray[float64]]: Centre frequencies and sample
 ///     rates in Hz, 85 of each.
 #[pyfunction]
-pub fn mr_frequencies<'py>(py: Python<'py>, tuning: f64) -> PyResult<Bound<'py, PyAny>> {
+#[inline]
+pub fn mr_frequencies(py: Python<'_>, tuning: f64) -> PyResult<Bound<'_, PyAny>> {
     let (f, r) = pf::mr_frequencies(tuning);
     (PyArray1::from_slice(py, &f), PyArray1::from_slice(py, &r)).into_bound_py_any(py)
 }
 
-fn filter_config(kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<(MultirateFilterConfig, Option<(Vec<f64>, Vec<f64>)>)> {
+fn filter_config(
+    kwargs: Option<&Bound<'_, PyDict>>,
+) -> PyResult<(MultirateFilterConfig, Option<(Vec<f64>, Vec<f64>)>)> {
     let mut cfg = MultirateFilterConfig::new();
     let mut freqs = None;
     let mut rates = None;
@@ -51,7 +69,9 @@ fn filter_config(kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<(MultirateFilte
                         other => {
                             return Err(value_err(
                                 "ftype",
-                                format!("unknown {other:?}; expected 'ellip', 'butter', 'cheby1' or 'cheby2'"),
+                                format!(
+                                    "unknown {other:?}; expected 'ellip', 'butter', 'cheby1' or 'cheby2'"
+                                ),
                             ));
                         }
                     };
@@ -73,7 +93,12 @@ fn filter_config(kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<(MultirateFilte
     let bands = match (freqs, rates) {
         (Some(f), Some(r)) => Some((f, r)),
         (None, None) => None,
-        _ => return Err(value_err("center_freqs", "give center_freqs and sample_rates together")),
+        _ => {
+            return Err(value_err(
+                "center_freqs",
+                "give center_freqs and sample_rates together",
+            ));
+        }
     };
     Ok((cfg, bands))
 }
@@ -82,17 +107,20 @@ fn parse_layout(flayout: &str) -> PyResult<FilterLayout> {
     match flayout {
         "sos" => Ok(FilterLayout::Sos),
         "ba" => Ok(FilterLayout::Ba),
-        other => Err(value_err("flayout", format!("unknown {other:?}; expected 'sos' or 'ba'"))),
+        other => Err(value_err(
+            "flayout",
+            format!("unknown {other:?}; expected 'sos' or 'ba'"),
+        )),
     }
 }
 
 /// One band-pass filter per semitone, of minimum order for the specified response.
 ///
 /// Args:
-///     center_freqs (Optional[array_like]): Centre frequencies in Hz; give together with
+///     ``center_freqs`` (Optional[array_like]): Centre frequencies in Hz; give together with
 ///         ``sample_rates``. Default: :func:`mr_frequencies`.
 ///     tuning (float): Used when ``center_freqs`` is not given.
-///     sample_rates (Optional[array_like]): The sample rate of each band in Hz.
+///     ``sample_rates`` (Optional[array_like]): The sample rate of each band in Hz.
 ///     flayout (str): ``"sos"`` (default) or ``"ba"``. Polynomials lose precision at the
 ///         orders these narrow filters reach.
 ///     **kwargs: ``Q`` (25), ``passband_ripple`` (1 dB), ``stopband_attenuation`` (50 dB),
@@ -106,6 +134,7 @@ fn parse_layout(flayout: &str) -> PyResult<FilterLayout> {
     signature = (*, center_freqs = None, tuning = 0.0, sample_rates = None, flayout = "sos", **kwargs),
     text_signature = "(*, center_freqs=None, tuning=0.0, sample_rates=None, flayout='sos', **kwargs)"
 )]
+#[inline]
 pub fn semitone_filterbank<'py>(
     py: Python<'py>,
     center_freqs: Option<&Bound<'py, PyAny>>,
@@ -116,13 +145,21 @@ pub fn semitone_filterbank<'py>(
 ) -> PyResult<Bound<'py, PyAny>> {
     let (cfg, _) = filter_config(kwargs)?;
     let layout = parse_layout(flayout)?;
-    let (freqs, rates) = match (center_freqs.filter(|v| !v.is_none()), sample_rates.filter(|v| !v.is_none())) {
+    let (freqs, rates) = match (
+        center_freqs.filter(|v| !v.is_none()),
+        sample_rates.filter(|v| !v.is_none()),
+    ) {
         (Some(f), Some(r)) => (f64_vec(f, "center_freqs")?, f64_vec(r, "sample_rates")?),
         (None, None) => {
             let (f, r) = pf::mr_frequencies(tuning);
             (f.to_vec(), r.to_vec())
         }
-        _ => return Err(value_err("center_freqs", "give center_freqs and sample_rates together")),
+        _ => {
+            return Err(value_err(
+                "center_freqs",
+                "give center_freqs and sample_rates together",
+            ));
+        }
     };
     let bank = pf::semitone_filterbank(&freqs, &rates, &cfg, layout).map_err(audio_err_to_py)?;
     let out = PyList::empty(py);
@@ -178,15 +215,15 @@ fn iirt_config(
 /// The energy of each semitone band per frame.
 ///
 /// Args:
-///     y (array_like): Signal ``(n,)`` or ``(channels, n)``, finite.
+///     y (``array_like)``: Signal ``(n,)`` or ``(channels, n)``, finite.
 ///     sr (int): Sample rate in Hz.
-///     win_length (int): Frame length in samples. Default 2048.
-///     hop_length (Optional[int]): Samples between frames. Default ``win_length // 4``.
+///     ``win_length`` (int): Frame length in samples. Default 2048.
+///     ``hop_length`` (Optional[int]): Samples between frames. Default ``win_length // 4``.
 ///     center (bool): Pad so that frames are centred. Default true.
 ///     tuning (float): Deviation from A440 in fractions of a semitone.
-///     pad_mode (str): ``"constant"``, ``"edge"``, ``"reflect"``, ``"symmetric"``, ``"wrap"``.
+///     ``pad_mode`` (str): ``"constant"``, ``"edge"``, ``"reflect"``, ``"symmetric"``, ``"wrap"``.
 ///     flayout (str): ``"sos"`` (default) or ``"ba"``.
-///     res_type (str): Resampler quality, as for ``AudioSamples.resample``.
+///     ``res_type`` (str): Resampler quality, as for ``AudioSamples.resample``.
 ///     **kwargs: The filterbank's parameters; see :func:`semitone_filterbank`.
 ///
 /// Returns:
@@ -198,6 +235,7 @@ fn iirt_config(
     text_signature = "(y, *, sr, win_length=2048, hop_length=None, center=True, tuning=0.0, pad_mode='constant', flayout='sos', res_type='soxr_hq', **kwargs)"
 )]
 #[allow(clippy::too_many_arguments)]
+#[inline]
 pub fn iirt<'py>(
     py: Python<'py>,
     y: &Bound<'py, PyAny>,
@@ -211,12 +249,16 @@ pub fn iirt<'py>(
     res_type: &str,
     kwargs: Option<&Bound<'py, PyDict>>,
 ) -> PyResult<Bound<'py, PyAny>> {
-    let cfg = iirt_config(win_length, hop_length, center, tuning, pad_mode, flayout, res_type, kwargs)?;
+    let cfg = iirt_config(
+        win_length, hop_length, center, tuning, pad_mode, flayout, res_type, kwargs,
+    )?;
     let rate = crate::args::sample_rate_u32(sr)?;
     with_precision!(precision_of(y), |F| {
         let (s, nd) = signal2::<F>(y, "y")?;
         let view = s.view();
-        let out = py.detach(|| pf::iirt(view, rate, &cfg)).map_err(audio_err_to_py)?;
+        let out = py
+            .detach(|| pf::iirt(view, rate, &cfg))
+            .map_err(audio_err_to_py)?;
         Ok(squeeze_out(py, out.into_dyn(), nd == 1))
     })
 }
@@ -226,13 +268,13 @@ impl PyAudioSamples {
     /// The energy of each semitone band per frame.
     ///
     /// Args:
-    ///     win_length (int): Frame length in samples. Default 2048.
-    ///     hop_length (Optional[int]): Samples between frames. Default ``win_length // 4``.
+    ///     ``win_length`` (int): Frame length in samples. Default 2048.
+    ///     ``hop_length`` (Optional[int]): Samples between frames. Default ``win_length // 4``.
     ///     center (bool): Pad so that frames are centred. Default true.
     ///     tuning (float): Deviation from A440 in fractions of a semitone.
-    ///     pad_mode (str): ``"constant"``, ``"edge"``, ``"reflect"``, ``"symmetric"``, ``"wrap"``.
+    ///     ``pad_mode`` (str): ``"constant"``, ``"edge"``, ``"reflect"``, ``"symmetric"``, ``"wrap"``.
     ///     flayout (str): ``"sos"`` (default) or ``"ba"``.
-    ///     res_type (str): Resampler quality.
+    ///     ``res_type`` (str): Resampler quality.
     ///     **kwargs: The filterbank's parameters.
     ///
     /// Returns:
@@ -256,7 +298,9 @@ impl PyAudioSamples {
         res_type: &str,
         kwargs: Option<&Bound<'py, PyDict>>,
     ) -> PyResult<Bound<'py, PyAny>> {
-        let cfg = iirt_config(win_length, hop_length, center, tuning, pad_mode, flayout, res_type, kwargs)?;
+        let cfg = iirt_config(
+            win_length, hop_length, center, tuning, pad_mode, flayout, res_type, kwargs,
+        )?;
         dispatch_typed!(self, py, |audio| audio.iirt(&cfg), |r| r
             .map_err(audio_err_to_py)
             .map(|a| a.into_pyarray(py).into_any()))
@@ -303,12 +347,12 @@ where
 /// The fast Mellin (scale) transform along one axis.
 ///
 /// Args:
-///     y (array_like): Finite samples, at least 3 along ``axis``.
-///     t_min (float): Where the exponential grid starts, in samples. Default 0.5.
-///     n_fmt (Optional[int]): Grid points. Default: enough for the signal's resolution.
+///     y (``array_like)``: Finite samples, at least 3 along ``axis``.
+///     ``t_min`` (float): Where the exponential grid starts, in samples. Default 0.5.
+///     ``n_fmt`` (Optional[int]): Grid points. Default: enough for the signal's resolution.
 ///     kind (str): The interpolant, as for ``arrays.interp1d``. Default ``"cubic"``.
 ///     beta (float): Exponent of the weighting; 0.5 is the scale transform.
-///     over_sample (float): Oversampling of the grid. Default 1.
+///     ``over_sample`` (float): Oversampling of the grid. Default 1.
 ///     axis (int): The time axis. Default -1.
 ///
 /// Returns:
@@ -319,6 +363,7 @@ where
     signature = (y, *, t_min = 0.5, n_fmt = None, kind = "cubic", beta = 0.5, over_sample = 1.0, axis = Int(-1)),
     text_signature = "(y, *, t_min=0.5, n_fmt=None, kind='cubic', beta=0.5, over_sample=1.0, axis=-1)"
 )]
+#[inline]
 pub fn mellin_transform<'py>(
     y: &Bound<'py, PyAny>,
     t_min: f64,
@@ -342,6 +387,7 @@ pub fn mellin_transform<'py>(
     with_precision!(precision_of(y), |F| mellin_in::<F>(y, &cfg, axis))
 }
 
+#[inline]
 pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     let m = PyModule::new(py, "pitch_filterbank")?;
     m.add(

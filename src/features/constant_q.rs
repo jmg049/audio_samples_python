@@ -11,9 +11,7 @@ use numpy::{IntoPyArray, PyArray1, PyArray2};
 use pyo3::prelude::*;
 
 use super::args::{spec3, squeeze_out};
-use crate::args::{
-    WindowArg, non_negative, opt_positive, positive, precision_of, with_precision,
-};
+use crate::args::{WindowArg, non_negative, opt_positive, positive, precision_of, with_precision};
 use crate::audio_err_to_py;
 
 /// The CQT-to-chroma folding matrix, equivalent to
@@ -24,14 +22,14 @@ use crate::audio_err_to_py;
 ///     bins_per_octave (int): CQT bins per octave (a multiple of ``n_chroma``). Default 12.
 ///     n_chroma (int): Number of chroma bins. Default 12.
 ///     fmin (Optional[float]): Frequency of CQT bin 0 (Hz); None = C1.
-///     window (Optional[array_like]): Smooths each row by convolution with these weights.
+///     window (Optional[``array_like``]): Smooths each row by convolution with these weights.
 ///     base_c (bool): Chroma row 0 is C (default) or A.
 ///
 /// Returns:
 ///     numpy.ndarray[float64]: shape ``(n_chroma, n_input)`` of zeros and ones.
 ///
 /// Raises:
-///     ValueError: For invalid parameters.
+///     ``ValueError``: For invalid parameters.
 #[pyfunction]
 #[pyo3(
     signature = (n_input, *, bins_per_octave = Int(12), n_chroma = Int(12), fmin = None, window = None, base_c = true),
@@ -59,21 +57,7 @@ pub fn cq_to_chroma<'py>(
     )
     .map_err(audio_err_to_py)?;
     if let Some(w) = smoothing.filter(|w| !w.is_empty()) {
-        // Centred convolution along the input bins, keeping their number.
-        let start = (w.len() - 1) / 2;
-        for mut row in m.rows_mut() {
-            let source = row.to_vec();
-            for (j, slot) in row.iter_mut().enumerate() {
-                let position = j + start;
-                let mut sum = 0.0;
-                for (i, &weight) in w.iter().enumerate() {
-                    if position >= i && position - i < source.len() {
-                        sum += weight * source[position - i];
-                    }
-                }
-                *slot = sum;
-            }
-        }
+        cq::smooth_chroma_map(&mut m, &w);
     }
     Ok(m.into_pyarray(py))
 }
@@ -112,7 +96,7 @@ fn wavelet_config(
 ///     filter_scale (float): Filter-length scale. Default 1.
 ///     gamma (Optional[float]): Bandwidth offset (Hz); 0 (default) = constant Q,
 ///         None = ERB-derived.
-///     alpha (Optional[float | array_like]): Relative bandwidth, one value or one per
+///     alpha (Optional[float | ``array_like``]): Relative bandwidth, one value or one per
 ///         frequency. None derives it from the spacing of the frequencies.
 ///
 /// Returns:
@@ -120,7 +104,7 @@ fn wavelet_config(
 ///     each filter in samples and the highest cut-off frequency in Hz.
 ///
 /// Raises:
-///     ValueError: For invalid frequencies or parameters.
+///     ``ValueError``: For invalid frequencies or parameters.
 #[pyfunction]
 #[pyo3(
     signature = (*, freqs, sr, window = WindowArg(Window::Hann), filter_scale = 1.0, gamma = Some(0.0), alpha = None),
@@ -180,7 +164,7 @@ pub fn wavelet_lengths<'py>(
 ///     pad_fft (bool): Centre the filters in a power-of-two buffer. Default True.
 ///     norm (Optional[float]): Per-filter normalisation (p-norm). Default 1.
 ///     gamma (Optional[float]): Bandwidth offset (Hz). Default 0.
-///     alpha (Optional[float | array_like]): As ``wavelet_lengths``.
+///     alpha (Optional[float | ``array_like``]): As ``wavelet_lengths``.
 ///
 /// Returns:
 ///     tuple[numpy.ndarray[complex128], numpy.ndarray[float64]]: ``(filters,

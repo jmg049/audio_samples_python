@@ -1,16 +1,36 @@
 //! `audio_samples.arrays`: array helpers, binding `audio_samples::utils::array_ops`.
 //!
-//! Functions accept any NumPy numeric dtype and keep it where the result has the
+//! Functions accept any ``NumPy`` numeric dtype and keep it where the result has the
 //! input's element type. Results computed in floating point follow the precision
 //! rule of the other array modules: `float32` and `complex64` stay single precision,
 //! everything else is computed in `float64`.
+
+#![allow(
+    // Sizes and axes from Python are checked before these casts.
+    clippy::cast_possible_truncation,
+    clippy::cast_possible_wrap,
+    clippy::cast_sign_loss,
+    // Docstrings are the Python documentation; failures are listed under `Raises`.
+    clippy::missing_errors_doc,
+    // Indices come from lengths checked at the top of each function.
+    clippy::indexing_slicing,
+    // The conversions from Python mirror the NumPy calling conventions of each function.
+    clippy::suboptimal_flops,
+    clippy::items_after_statements,
+    clippy::option_if_let_else,
+    clippy::too_many_arguments,
+    clippy::needless_pass_by_value,
+    clippy::similar_names,
+    clippy::single_option_map,
+    clippy::multiple_unsafe_ops_per_block,
+)]
 
 use audio_samples::utils::array_ops::{
     self as ops, AxisSortKey, FindFilesConfig, InterpKind, PadMode,
 };
 use ndarray::{ArrayD, ArrayViewD, Axis, Ix2, Zip};
 use num_complex::Complex;
-use numpy::{
+use numpy::{PyArray2, 
     IntoPyArray, PyArray1, PyArrayDescr, PyArrayDescrMethods, PyArrayDyn, PyArrayMethods,
     PyUntypedArray, PyUntypedArrayMethods,
 };
@@ -22,7 +42,7 @@ use pyo3::sync::PyOnceLock;
 use pyo3::types::{PyBytes, PyComplex, PyDict, PyFloat, PyInt, PyList, PyString, PyTuple, PyType};
 
 use crate::args::{
-    FloatElement, Int, PyFloat as PyFloatElement, Precision, i64_vec, precision_of, value_err,
+    FloatElement, Int, Precision, PyFloat as PyFloatElement, i64_vec, precision_of, value_err,
     with_float_view, with_precision,
 };
 use crate::audio_err_to_py;
@@ -95,7 +115,7 @@ macro_rules! each_numeric {
     }};
 }
 
-fn unsupported_dtype<'py, R>(name: &str, arr: &Bound<'py, PyUntypedArray>) -> PyResult<R> {
+fn unsupported_dtype<R>(name: &str, arr: &Bound<'_, PyUntypedArray>) -> PyResult<R> {
     Err(PyTypeError::new_err(format!(
         "{name}: unsupported dtype {}",
         arr.dtype().str()?
@@ -108,13 +128,14 @@ fn unsupported_dtype<'py, R>(name: &str, arr: &Bound<'py, PyUntypedArray>) -> Py
 /// maximum; the last is when it exceeds its neighbour.
 ///
 /// Args:
-///     x (array_like): Values of any real dtype.
+///     x (``array_like)``: Values of any real dtype.
 ///     axis (int): Axis to compare along. Default 0.
 ///
 /// Returns:
 ///     numpy.ndarray[bool]: Same shape as ``x``.
 #[pyfunction]
 #[pyo3(signature = (x, *, axis = Int(0)), text_signature = "(x, *, axis=0)")]
+#[inline]
 pub fn localmax<'py>(x: &Bound<'py, PyAny>, axis: Int) -> PyResult<Bound<'py, PyAny>> {
     local_extrema(x, axis, true)
 }
@@ -125,13 +146,14 @@ pub fn localmax<'py>(x: &Bound<'py, PyAny>, axis: Int) -> PyResult<Bound<'py, Py
 /// minimum; the last is when it is below its neighbour.
 ///
 /// Args:
-///     x (array_like): Values of any real dtype.
+///     x (``array_like)``: Values of any real dtype.
 ///     axis (int): Axis to compare along. Default 0.
 ///
 /// Returns:
 ///     numpy.ndarray[bool]: Same shape as ``x``.
 #[pyfunction]
 #[pyo3(signature = (x, *, axis = Int(0)), text_signature = "(x, *, axis=0)")]
+#[inline]
 pub fn localmin<'py>(x: &Bound<'py, PyAny>, axis: Int) -> PyResult<Bound<'py, PyAny>> {
     local_extrema(x, axis, false)
 }
@@ -154,7 +176,7 @@ fn local_extrema<'py>(x: &Bound<'py, PyAny>, axis: Int, max: bool) -> PyResult<B
 /// Squared magnitude.
 ///
 /// Args:
-///     x (complex | array_like): Values. Complex input gives its real type; real input
+///     x (complex | ``array_like)``: Values. Complex input gives its real type; real input
 ///         keeps its dtype.
 ///     dtype (Optional[numpy.dtype]): Output dtype.
 ///
@@ -162,7 +184,11 @@ fn local_extrema<'py>(x: &Bound<'py, PyAny>, axis: Int, max: bool) -> PyResult<B
 ///     float | int | numpy.ndarray: ``x.real ** 2 + x.imag ** 2``.
 #[pyfunction]
 #[pyo3(signature = (x, dtype = None))]
-pub fn abs2<'py>(x: &Bound<'py, PyAny>, dtype: Option<&Bound<'py, PyAny>>) -> PyResult<Bound<'py, PyAny>> {
+#[inline]
+pub fn abs2<'py>(
+    x: &Bound<'py, PyAny>,
+    dtype: Option<&Bound<'py, PyAny>>,
+) -> PyResult<Bound<'py, PyAny>> {
     let py = x.py();
     let dtype = dtype.filter(|d| !d.is_none());
     if dtype.is_none() {
@@ -195,11 +221,15 @@ pub fn abs2<'py>(x: &Bound<'py, PyAny>, dtype: Option<&Bound<'py, PyAny>>) -> Py
     } else if let Ok(a) = arr.cast::<PyArrayDyn<f64>>() {
         // SAFETY: as in `local_extrema`.
         let v = unsafe { a.as_array() };
-        detached(py, v.len(), || v.mapv(|e| e * e)).into_pyarray(py).into_any()
+        detached(py, v.len(), || v.mapv(|e| e * e))
+            .into_pyarray(py)
+            .into_any()
     } else if let Ok(a) = arr.cast::<PyArrayDyn<f32>>() {
         // SAFETY: as in `local_extrema`.
         let v = unsafe { a.as_array() };
-        detached(py, v.len(), || v.mapv(|e| e * e)).into_pyarray(py).into_any()
+        detached(py, v.len(), || v.mapv(|e| e * e))
+            .into_pyarray(py)
+            .into_any()
     } else {
         numpy_attr(py, "square")?.call1((arr.as_any(),))?
     };
@@ -226,16 +256,18 @@ where
     })?;
     if let Some(m) = mag.filter(|m| !m.is_none()) {
         let complex_mag = m.is_instance_of::<PyComplex>()
-            || m.cast::<PyUntypedArray>().is_ok_and(|a| a.dtype().kind() == b'c');
+            || m.cast::<PyUntypedArray>()
+                .is_ok_and(|a| a.dtype().kind() == b'c');
         if complex_mag {
-            let as_complex = numpy_attr(py, "asarray")?.call1((m, numpy::dtype::<Complex<F>>(py)))?;
+            let as_complex =
+                numpy_attr(py, "asarray")?.call1((m, numpy::dtype::<Complex<F>>(py)))?;
             let a = as_complex.cast_into::<PyArrayDyn<Complex<F>>>()?;
             // SAFETY: `a` is a new reference held for the view's lifetime.
             let v = unsafe { a.as_array() };
             let v = v
                 .broadcast(z.raw_dim())
                 .ok_or_else(|| value_err("mag", "does not broadcast to the shape of angles"))?;
-            Zip::from(&mut z).and(&v).for_each(|o, &g| *o = *o * g);
+            Zip::from(&mut z).and(&v).for_each(|o, &g| *o *= g);
         } else {
             with_float_view::<F, _>(m, "mag", |v| {
                 let v = v
@@ -256,15 +288,19 @@ where
 /// Complex phasors ``mag * (cos(angles) + 1j * sin(angles))``.
 ///
 /// Args:
-///     angles (float | array_like): Angles in radians.
-///     mag (Optional[complex | array_like]): Multiplier, broadcast to ``angles``.
+///     angles (float | ``array_like)``: Angles in radians.
+///     mag (Optional[complex | ``array_like``]): Multiplier, broadcast to ``angles``.
 ///
 /// Returns:
 ///     complex | numpy.ndarray: ``complex64`` for ``float32`` angles, otherwise
 ///     ``complex128``.
 #[pyfunction]
 #[pyo3(signature = (angles, *, mag = None))]
-pub fn phasor<'py>(angles: &Bound<'py, PyAny>, mag: Option<&Bound<'py, PyAny>>) -> PyResult<Bound<'py, PyAny>> {
+#[inline]
+pub fn phasor<'py>(
+    angles: &Bound<'py, PyAny>,
+    mag: Option<&Bound<'py, PyAny>>,
+) -> PyResult<Bound<'py, PyAny>> {
     with_precision!(precision_of(angles), |F| phasor_in::<F>(angles, mag))
 }
 
@@ -287,13 +323,13 @@ fn zero_crossings_in<'py, F: PyFloatElement>(
 /// Marks the sign changes of a signal along one axis.
 ///
 /// Args:
-///     y (array_like): The signal, of any dimension.
+///     y (``array_like)``: The signal, of any dimension.
 ///     threshold (Optional[float]): Magnitudes up to this count as zero. None means 0.
 ///         Default 1e-10.
-///     ref_magnitude (Optional[float | Callable]): Scales ``threshold``. A callable receives
+///     ``ref_magnitude`` (Optional[float | Callable]): Scales ``threshold``. A callable receives
 ///         ``numpy.abs(y)`` and returns the scale.
 ///     pad (bool): The mark of the first element. Default True.
-///     zero_pos (bool): Zero counts as positive; otherwise it is a sign of its own.
+///     ``zero_pos`` (bool): Zero counts as positive; otherwise it is a sign of its own.
 ///         Default True.
 ///     axis (int): The time axis. Default -1.
 ///
@@ -304,6 +340,7 @@ fn zero_crossings_in<'py, F: PyFloatElement>(
     signature = (y, *, threshold = Some(1e-10), ref_magnitude = None, pad = true, zero_pos = true, axis = -1),
     text_signature = "(y, *, threshold=1e-10, ref_magnitude=None, pad=True, zero_pos=True, axis=-1)"
 )]
+#[inline]
 pub fn zero_crossings<'py>(
     y: &Bound<'py, PyAny>,
     threshold: Option<f64>,
@@ -330,7 +367,9 @@ pub fn zero_crossings<'py>(
 /// The number of samples of a generator, from its length or its duration.
 fn generated_length(sr: f64, length: Option<Int>, duration: Option<f64>) -> PyResult<usize> {
     match (length, duration) {
-        (Some(n), _) => usize::try_from(n.0).map_err(|_| value_err("length", "must not be negative")),
+        (Some(n), _) => {
+            usize::try_from(n.0).map_err(|_| value_err("length", "must not be negative"))
+        }
         (None, Some(d)) if d >= 0.0 => Ok((d * sr) as usize),
         (None, Some(_)) => Err(value_err("duration", "must not be negative")),
         (None, None) => Err(value_err("length", "give length or duration")),
@@ -354,14 +393,15 @@ fn generated_length(sr: f64, length: Option<Int>, duration: Option<f64>) -> PyRe
     signature = (frequency, *, sr = 22050.0, length = None, duration = None, phi = None),
     text_signature = "(frequency, *, sr=22050, length=None, duration=None, phi=None)"
 )]
-pub fn tone<'py>(
-    py: Python<'py>,
+#[inline]
+pub fn tone(
+    py: Python<'_>,
     frequency: f64,
     sr: f64,
     length: Option<Int>,
     duration: Option<f64>,
     phi: Option<f64>,
-) -> PyResult<Bound<'py, PyAny>> {
+) -> PyResult<Bound<'_, PyAny>> {
     let n = generated_length(sr, length, duration)?;
     let phi = phi.unwrap_or(-std::f64::consts::FRAC_PI_2);
     Ok(numpy::PyArray1::from_vec(py, ops::tone::<f64>(frequency, sr, n, phi)).into_any())
@@ -386,8 +426,9 @@ pub fn tone<'py>(
     text_signature = "(*, fmin, fmax, sr=22050, length=None, duration=None, linear=False, phi=None)"
 )]
 #[allow(clippy::too_many_arguments)]
-pub fn chirp<'py>(
-    py: Python<'py>,
+#[inline]
+pub fn chirp(
+    py: Python<'_>,
     fmin: f64,
     fmax: f64,
     sr: f64,
@@ -395,7 +436,7 @@ pub fn chirp<'py>(
     duration: Option<f64>,
     linear: bool,
     phi: Option<f64>,
-) -> PyResult<Bound<'py, PyAny>> {
+) -> PyResult<Bound<'_, PyAny>> {
     let n = generated_length(sr, length, duration)?;
     let phi = phi.unwrap_or(-std::f64::consts::FRAC_PI_2);
     let v = ops::chirp::<f64>(fmin, fmax, sr, n, linear, phi).map_err(audio_err_to_py)?;
@@ -405,12 +446,13 @@ pub fn chirp<'py>(
 /// The smallest positive normal value of the input's floating-point type.
 ///
 /// Args:
-///     x (complex | array_like | numpy.dtype-bearing value): Determines the type. Complex
+///     x (complex | ``array_like`` | numpy.dtype-bearing value): Determines the type. Complex
 ///         types use their real type; non-float input uses ``float32``.
 ///
 /// Returns:
-///     numpy.floating: The value, as a NumPy scalar of that type.
+///     numpy.floating: The value, as a ``NumPy`` scalar of that type.
 #[pyfunction]
+#[inline]
 pub fn tiny<'py>(x: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
     static F32: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
     static F64: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
@@ -418,7 +460,11 @@ pub fn tiny<'py>(x: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
     let single = |py: Python<'py>| -> PyResult<Bound<'py, PyAny>> {
         Ok(F32
             .get_or_try_init(py, || {
-                Ok::<_, PyErr>(numpy_attr(py, "float32")?.call1((f32::MIN_POSITIVE,))?.unbind())
+                Ok::<_, PyErr>(
+                    numpy_attr(py, "float32")?
+                        .call1((f32::MIN_POSITIVE,))?
+                        .unbind(),
+                )
             })?
             .bind(py)
             .clone())
@@ -426,7 +472,11 @@ pub fn tiny<'py>(x: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
     let double = |py: Python<'py>| -> PyResult<Bound<'py, PyAny>> {
         Ok(F64
             .get_or_try_init(py, || {
-                Ok::<_, PyErr>(numpy_attr(py, "float64")?.call1((f64::MIN_POSITIVE,))?.unbind())
+                Ok::<_, PyErr>(
+                    numpy_attr(py, "float64")?
+                        .call1((f64::MIN_POSITIVE,))?
+                        .unbind(),
+                )
             })?
             .bind(py)
             .clone())
@@ -460,7 +510,12 @@ pub fn tiny<'py>(x: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
 ///     numpy.ndarray: A view of the same data.
 #[pyfunction]
 #[pyo3(signature = (x, *, ndim, axes))]
-pub fn expand_to<'py>(x: &Bound<'py, PyAny>, ndim: Int, axes: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+#[inline]
+pub fn expand_to<'py>(
+    x: &Bound<'py, PyAny>,
+    ndim: Int,
+    axes: &Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyAny>> {
     let py = x.py();
     let arr = as_ndarray(x)?;
     let mut list = [0_isize; ops::MAX_DIMS];
@@ -491,7 +546,8 @@ pub fn expand_to<'py>(x: &Bound<'py, PyAny>, ndim: Int, axes: &Bound<'py, PyAny>
         return Err(value_err("ndim", "too many dimensions"));
     }
     let mut positions = [0_usize; ops::MAX_DIMS];
-    ops::expand_positions(arr.ndim(), ndim, &list[..count], &mut positions).map_err(audio_err_to_py)?;
+    ops::expand_positions(arr.ndim(), ndim, &list[..count], &mut positions)
+        .map_err(audio_err_to_py)?;
     let positions = &positions[..count];
     let mut shape = [1_usize; ops::MAX_DIMS];
     for (i, &p) in positions.iter().enumerate() {
@@ -512,7 +568,7 @@ pub fn expand_to<'py>(x: &Bound<'py, PyAny>, ndim: Int, axes: &Bound<'py, PyAny>
             let view = numpy::npyffi::PY_ARRAY_API.PyArray_Newshape(
                 py,
                 arr.as_array_ptr(),
-                &mut newdims,
+                &raw mut newdims,
                 numpy::npyffi::NPY_ORDER::NPY_CORDER,
             );
             Bound::from_owned_ptr_or_err(py, view)
@@ -528,13 +584,14 @@ pub fn expand_to<'py>(x: &Bound<'py, PyAny>, ndim: Int, axes: &Bound<'py, PyAny>
 /// Stacks arrays of one shape along a new axis.
 ///
 /// Args:
-///     arrays (sequence of array_like): At least one array.
+///     arrays (sequence of ``array_like)``: At least one array.
 ///     axis (int): Position of the new axis. Default 0.
 ///
 /// Returns:
 ///     numpy.ndarray: The stacked array, of the arrays' common dtype.
 #[pyfunction]
 #[pyo3(signature = (arrays, *, axis = Int(0)), text_signature = "(arrays, *, axis=0)")]
+#[inline]
 pub fn stack<'py>(arrays: &Bound<'py, PyAny>, axis: Int) -> PyResult<Bound<'py, PyAny>> {
     let py = arrays.py();
     if arrays.len()? == 0 {
@@ -545,7 +602,7 @@ pub fn stack<'py>(arrays: &Bound<'py, PyAny>, axis: Int) -> PyResult<Bound<'py, 
     numpy_attr(py, "stack")?.call((arrays,), Some(&kwargs))
 }
 
-fn parse_pad_mode<'py>(kwargs: Option<&Bound<'py, PyDict>>) -> PyResult<Option<(&'static str, f64)>> {
+fn parse_pad_mode(kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Option<(&'static str, f64)>> {
     let Some(kw) = kwargs else {
         return Ok(Some(("constant", 0.0)));
     };
@@ -591,6 +648,7 @@ fn parse_pad_mode<'py>(kwargs: Option<&Bound<'py, PyDict>>) -> PyResult<Option<(
 ///     numpy.ndarray: The padded array, of the input's dtype.
 #[pyfunction]
 #[pyo3(signature = (data, *, size, axis = Int(-1), **kwargs), text_signature = "(data, *, size, axis=-1, **kwargs)")]
+#[inline]
 pub fn pad_center<'py>(
     data: &Bound<'py, PyAny>,
     size: Int,
@@ -603,12 +661,21 @@ pub fn pad_center<'py>(
     let n = arr.shape()[ax.index()];
     let size_u = usize::try_from(size.0).map_err(|_| value_err("size", "must not be negative"))?;
     if size_u < n {
-        return Err(value_err("size", format!("target size {size_u} is below the input size {n}")));
+        return Err(value_err(
+            "size",
+            format!("target size {size_u} is below the input size {n}"),
+        ));
     }
     let through_numpy = || -> PyResult<Bound<'py, PyAny>> {
         let lpad = (size_u - n) / 2;
         let widths: Vec<(usize, usize)> = (0..arr.ndim())
-            .map(|i| if i == ax.index() { (lpad, size_u - n - lpad) } else { (0, 0) })
+            .map(|i| {
+                if i == ax.index() {
+                    (lpad, size_u - n - lpad)
+                } else {
+                    (0, 0)
+                }
+            })
             .collect();
         let kw = PyDict::new(py);
         if let Some(k) = kwargs {
@@ -665,15 +732,16 @@ fn opt_i64(obj: Option<Int>) -> Option<i64> {
 /// sorts.
 ///
 /// Args:
-///     frames (array_like[int]): Non-negative frame indices.
-///     x_min (Optional[int]): Lower bound. Default 0.
-///     x_max (Optional[int]): Upper bound.
+///     frames (``array_like[int]``): Non-negative frame indices.
+///     ``x_min`` (Optional[int]): Lower bound. Default 0.
+///     ``x_max`` (Optional[int]): Upper bound.
 ///     pad (bool): Clip to the bounds and include them, rather than only filter.
 ///
 /// Returns:
 ///     numpy.ndarray[int64]: Sorted, unique indices.
 #[pyfunction]
 #[pyo3(signature = (frames, *, x_min = Some(Int(0)), x_max = None, pad = true), text_signature = "(frames, *, x_min=0, x_max=None, pad=True)")]
+#[inline]
 pub fn fix_frames<'py>(
     frames: &Bound<'py, PyAny>,
     x_min: Option<Int>,
@@ -682,16 +750,17 @@ pub fn fix_frames<'py>(
 ) -> PyResult<Bound<'py, PyAny>> {
     let py = frames.py();
     let list = i64_vec(frames, "frames")?;
-    let out = ops::fix_frames(&list, opt_i64(x_min), opt_i64(x_max), pad).map_err(audio_err_to_py)?;
+    let out =
+        ops::fix_frames(&list, opt_i64(x_min), opt_i64(x_max), pad).map_err(audio_err_to_py)?;
     Ok(PyArray1::from_vec(py, out).into_any())
 }
 
 /// Converts boundary indices to the slices between consecutive boundaries.
 ///
 /// Args:
-///     idx (array_like[int]): Boundary indices.
-///     idx_min (Optional[int]): Lower bound.
-///     idx_max (Optional[int]): Upper bound.
+///     idx (``array_like[int]``): Boundary indices.
+///     ``idx_min`` (Optional[int]): Lower bound.
+///     ``idx_max`` (Optional[int]): Upper bound.
 ///     step (Optional[int]): Step of each slice.
 ///     pad (bool): Clip to the bounds and include them, rather than only filter.
 ///
@@ -699,6 +768,7 @@ pub fn fix_frames<'py>(
 ///     list[slice]: One slice per pair of consecutive boundaries.
 #[pyfunction]
 #[pyo3(signature = (idx, *, idx_min = None, idx_max = None, step = None, pad = true), text_signature = "(idx, *, idx_min=None, idx_max=None, step=None, pad=True)")]
+#[inline]
 pub fn index_to_slice<'py>(
     idx: &Bound<'py, PyAny>,
     idx_min: Option<Int>,
@@ -710,11 +780,19 @@ pub fn index_to_slice<'py>(
     let fixed = crate::args::with_i64_view(idx, "idx", |v| {
         let flat = v.to_shape(v.len()).map_err(|e| value_err("idx", e))?;
         let flat = flat.as_standard_layout();
-        let slice = flat.as_slice().ok_or_else(|| value_err("idx", "expected a contiguous array"))?;
+        let slice = flat
+            .as_slice()
+            .ok_or_else(|| value_err("idx", "expected a contiguous array"))?;
         ops::fix_frames(slice, opt_i64(idx_min), opt_i64(idx_max), pad).map_err(audio_err_to_py)
     })?;
     let out = PyList::empty(py);
-    let step = step.map_or_else(|| py.None().into_bound(py), |s| s.0.into_bound_py_any(py).unwrap_or_else(|_| py.None().into_bound(py)));
+    let step = step.map_or_else(
+        || py.None().into_bound(py),
+        |s| {
+            s.0.into_bound_py_any(py)
+                .unwrap_or_else(|_| py.None().into_bound(py))
+        },
+    );
     for w in fixed.windows(2) {
         let (start, stop) = (w[0].into_bound_py_any(py)?, w[1].into_bound_py_any(py)?);
         // SAFETY: the three arguments are valid objects for the duration of the call, and
@@ -746,6 +824,7 @@ pub fn index_to_slice<'py>(
 #[pyfunction]
 #[pyo3(name = "axis_sort", signature = (S, *, axis = Int(-1), index = false, value = None), text_signature = "(S, *, axis=-1, index=False, value=None)")]
 #[allow(non_snake_case)]
+#[inline]
 pub fn axis_sort<'py>(
     S: &Bound<'py, PyAny>,
     axis: Int,
@@ -808,6 +887,7 @@ pub fn axis_sort<'py>(
 #[pyfunction]
 #[pyo3(name = "shear", signature = (X, *, factor = Int(1), axis = Int(-1)), text_signature = "(X, *, factor=1, axis=-1)")]
 #[allow(non_snake_case)]
+#[inline]
 pub fn shear<'py>(X: &Bound<'py, PyAny>, factor: Int, axis: Int) -> PyResult<Bound<'py, PyAny>> {
     let py = X.py();
     if let Ok(rows) = X.cast::<SparseRows>() {
@@ -815,7 +895,11 @@ pub fn shear<'py>(X: &Bound<'py, PyAny>, factor: Int, axis: Int) -> PyResult<Bou
     }
     if X.hasattr("tocsc")? {
         let ax = norm_axis("axis", axis.0, 2)?;
-        let source = if ax.index() == 0 { X.getattr("T")? } else { X.clone() };
+        let source = if ax.index() == 0 {
+            X.getattr("T")?
+        } else {
+            X.clone()
+        };
         let csc = source.call_method0("tocsc")?;
         let (rows, cols): (usize, usize) = csc.getattr("shape")?.extract()?;
         let indptr = i64_vec(&csc.getattr("indptr")?, "X.indptr")?;
@@ -835,7 +919,11 @@ pub fn shear<'py>(X: &Bound<'py, PyAny>, factor: Int, axis: Int) -> PyResult<Bou
         let kw = PyDict::new(py);
         kw.set_item("shape", (rows, cols))?;
         let out = csc.get_type().call((parts,), Some(&kw))?;
-        let out = if ax.index() == 0 { out.getattr("T")? } else { out };
+        let out = if ax.index() == 0 {
+            out.getattr("T")?
+        } else {
+            out
+        };
         return out.call_method1("asformat", (X.getattr("format")?,));
     }
     let arr = as_ndarray(X)?;
@@ -854,9 +942,9 @@ pub fn shear<'py>(X: &Bound<'py, PyAny>, factor: Int, axis: Int) -> PyResult<Bou
 
 /// A matrix in compressed sparse row form.
 ///
-/// ``data``, ``indices`` and ``indptr`` are NumPy arrays with the usual meaning.
-/// ``toarray()`` gives the dense form without needing SciPy; ``tocsr()`` gives a
-/// ``scipy.sparse.csr_array`` and needs SciPy.
+/// ``data``, ``indices`` and ``indptr`` are ``NumPy`` arrays with the usual meaning.
+/// ``toarray()`` gives the dense form without needing ``SciPy``; ``tocsr()`` gives a
+/// ``scipy.sparse.csr_array`` and needs ``SciPy``.
 #[pyclass(module = "audio_samples.arrays", frozen)]
 pub struct SparseRows {
     /// Stored values.
@@ -899,7 +987,11 @@ impl SparseRows {
         let kw = PyDict::new(py);
         kw.set_item("shape", self.shape)?;
         py.import("scipy.sparse")?.getattr("csr_array")?.call(
-            ((self.data.bind(py), self.indices.bind(py), self.indptr.bind(py)),),
+            ((
+                self.data.bind(py),
+                self.indices.bind(py),
+                self.indptr.bind(py),
+            ),),
             Some(&kw),
         )
     }
@@ -916,25 +1008,48 @@ impl SparseRows {
 
 /// The non-zero entries of a dense matrix as [`SparseRows`].
 pub(crate) fn dense_to_rows<'py>(dense: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+    fn compress<'py, T: numpy::Element + Copy + PartialEq + Default>(
+        py: Python<'py>,
+        dense: &Bound<'py, PyArray2<T>>,
+    ) -> PyResult<(Bound<'py, PyAny>, Bound<'py, PyAny>, Bound<'py, PyAny>, (usize, usize))> {
+        let view = dense.try_readonly()?;
+        let m = view.as_array();
+        let zero = T::default();
+        let stored = m.iter().filter(|&&v| v != zero).count();
+        let mut data = Vec::with_capacity(stored);
+        let mut indices = Vec::with_capacity(stored);
+        let mut indptr = Vec::with_capacity(m.nrows() + 1);
+        indptr.push(0_i32);
+        for row in m.rows() {
+            for (column, &v) in row.iter().enumerate() {
+                if v != zero {
+                    data.push(v);
+                    indices.push(column as i32);
+                }
+            }
+            indptr.push(indices.len() as i32);
+        }
+        Ok((
+            PyArray1::from_vec(py, data).into_any(),
+            PyArray1::from_vec(py, indices).into_any(),
+            PyArray1::from_vec(py, indptr).into_any(),
+            m.dim(),
+        ))
+    }
     let py = dense.py();
-    let shape: (usize, usize) = dense.getattr("shape")?.extract()?;
-    let nonzero = numpy_attr(py, "nonzero")?.call1((dense,))?;
-    let rows = i64_vec(&nonzero.get_item(0)?, "rows")?;
-    let data = dense.get_item(&nonzero)?;
-    let mut indptr = vec![0_i32; shape.0 + 1];
-    for &r in &rows {
-        indptr[r as usize + 1] += 1;
-    }
-    for r in 0..shape.0 {
-        indptr[r + 1] += indptr[r];
-    }
-    let indices = nonzero.get_item(1)?.call_method1("astype", ("int32",))?;
+    let (data, indices, indptr, shape) = if let Ok(a) = dense.cast::<PyArray2<bool>>() {
+        compress(py, a)?
+    } else if let Ok(a) = dense.cast::<PyArray2<f32>>() {
+        compress(py, a)?
+    } else {
+        compress(py, dense.cast::<PyArray2<f64>>()?)?
+    };
     Ok(Py::new(
         py,
         SparseRows {
             data: data.unbind(),
             indices: indices.unbind(),
-            indptr: PyArray1::from_vec(py, indptr).into_any().unbind(),
+            indptr: indptr.unbind(),
             shape,
         },
     )?
@@ -949,15 +1064,16 @@ pub(crate) fn dense_to_rows<'py>(dense: &Bound<'py, PyAny>) -> PyResult<Bound<'p
 /// ``quantile`` are dropped.
 ///
 /// Args:
-///     x (array_like): 1-D or 2-D values; 1-D is one row.
+///     x (``array_like)``: 1-D or 2-D values; 1-D is one row.
 ///     quantile (float): Fraction of each row's total magnitude that may be discarded,
 ///         in ``[0, 1)``. Default 0.01.
 ///     dtype (Optional[numpy.dtype]): dtype of the stored values. Default: the input's.
 ///
 /// Returns:
-///     SparseRows: The kept entries.
+///     ``SparseRows``: The kept entries.
 #[pyfunction]
 #[pyo3(signature = (x, *, quantile = 0.01, dtype = None))]
+#[inline]
 pub fn sparsify_rows<'py>(
     x: &Bound<'py, PyAny>,
     quantile: f64,
@@ -966,22 +1082,41 @@ pub fn sparsify_rows<'py>(
     let py = x.py();
     let arr = as_ndarray(x)?;
     let arr = match arr.ndim() {
-        1 => arr.call_method1("reshape", ((1_i64, -1_i64),))?.cast_into::<PyUntypedArray>()?,
+        1 => arr
+            .call_method1("reshape", ((1_i64, -1_i64),))?
+            .cast_into::<PyUntypedArray>()?,
         2 => arr,
-        n => return Err(value_err("x", format!("expected at most 2 dimensions, got {n}"))),
+        n => {
+            return Err(value_err(
+                "x",
+                format!("expected at most 2 dimensions, got {n}"),
+            ));
+        }
     };
     macro_rules! sparse {
         ($a:expr) => {{
             let a = $a;
             // SAFETY: as in `local_extrema`.
             let v = unsafe { a.as_array() };
-            let v = v.into_dimensionality::<Ix2>().map_err(|e| value_err("x", e))?;
-            let m = detached(py, v.len(), || ops::sparsify_rows(v, quantile)).map_err(audio_err_to_py)?;
+            let v = v
+                .into_dimensionality::<Ix2>()
+                .map_err(|e| value_err("x", e))?;
+            let m = detached(py, v.len(), || ops::sparsify_rows(v, quantile))
+                .map_err(audio_err_to_py)?;
             (
                 m.shape,
                 PyArray1::from_vec(py, m.data).into_any(),
-                PyArray1::from_vec(py, m.indices.into_iter().map(|i| i as i32).collect::<Vec<i32>>()),
-                PyArray1::from_vec(py, m.indptr.into_iter().map(|i| i as i32).collect::<Vec<i32>>()),
+                PyArray1::from_vec(
+                    py,
+                    m.indices
+                        .into_iter()
+                        .map(|i| i as i32)
+                        .collect::<Vec<i32>>(),
+                ),
+                PyArray1::from_vec(
+                    py,
+                    m.indptr.into_iter().map(|i| i as i32).collect::<Vec<i32>>(),
+                ),
             )
         }};
     }
@@ -997,7 +1132,12 @@ pub fn sparsify_rows<'py>(
         let as64 = arr.call_method1("astype", ("float64",))?;
         let as64 = as64.cast_into::<PyArrayDyn<f64>>()?;
         let (shape, data, indices, indptr) = sparse!(&as64);
-        (shape, data.call_method1("astype", (arr.dtype(),))?, indices, indptr)
+        (
+            shape,
+            data.call_method1("astype", (arr.dtype(),))?,
+            indices,
+            indptr,
+        )
     };
     let data = match dtype.filter(|d| !d.is_none()) {
         Some(d) => data.call_method1("astype", (d,))?,
@@ -1017,9 +1157,9 @@ pub fn sparsify_rows<'py>(
 /// Central-difference gradient of periodic data along one axis.
 ///
 /// Args:
-///     data (array_like): Values. ``float32`` and ``complex64`` keep their precision;
+///     data (``array_like)``: Values. ``float32`` and ``complex64`` keep their precision;
 ///         anything else is computed in ``float64``.
-///     edge_order (int): 1 or 2. Accepted for both orders: wrapped central differences
+///     ``edge_order`` (int): 1 or 2. Accepted for both orders: wrapped central differences
 ///         have no edges, so the result does not depend on it.
 ///     axis (int): The periodic axis. Default -1.
 ///
@@ -1027,7 +1167,12 @@ pub fn sparsify_rows<'py>(
 ///     numpy.ndarray: Same shape as ``data``.
 #[pyfunction]
 #[pyo3(signature = (data, *, edge_order = Int(1), axis = Int(-1)), text_signature = "(data, *, edge_order=1, axis=-1)")]
-pub fn cyclic_gradient<'py>(data: &Bound<'py, PyAny>, edge_order: Int, axis: Int) -> PyResult<Bound<'py, PyAny>> {
+#[inline]
+pub fn cyclic_gradient<'py>(
+    data: &Bound<'py, PyAny>,
+    edge_order: Int,
+    axis: Int,
+) -> PyResult<Bound<'py, PyAny>> {
     let py = data.py();
     if !matches!(edge_order.0, 1 | 2) {
         return Err(value_err("edge_order", "must be 1 or 2"));
@@ -1041,18 +1186,25 @@ pub fn cyclic_gradient<'py>(data: &Bound<'py, PyAny>, edge_order: Int, axis: Int
                 let re = ops::cyclic_gradient(&v.mapv(|z| z.re), ax).map_err(audio_err_to_py)?;
                 let im = ops::cyclic_gradient(&v.mapv(|z| z.im), ax).map_err(audio_err_to_py)?;
                 let mut out = v.to_owned();
-                Zip::from(&mut out).and(&re).and(&im).for_each(|o, &r, &i| *o = Complex::new(r, i));
+                Zip::from(&mut out)
+                    .and(&re)
+                    .and(&im)
+                    .for_each(|o, &r, &i| *o = Complex::new(r, i));
                 return Ok(out.into_pyarray(py).into_any());
             }
         };
     }
     complex!(f64);
     complex!(f32);
-    fn run<'py, F: PyFloatElement>(data: &Bound<'py, PyAny>, axis: Int) -> PyResult<Bound<'py, PyAny>> {
+    fn run<'py, F: PyFloatElement>(
+        data: &Bound<'py, PyAny>,
+        axis: Int,
+    ) -> PyResult<Bound<'py, PyAny>> {
         let py = data.py();
         with_float_view::<F, _>(data, "data", |v| {
             let ax = norm_axis("axis", axis.0, v.ndim())?;
-            let out = detached(py, v.len(), || ops::cyclic_gradient(&v, ax)).map_err(audio_err_to_py)?;
+            let out =
+                detached(py, v.len(), || ops::cyclic_gradient(&v, ax)).map_err(audio_err_to_py)?;
             Ok(out.into_pyarray(py).into_any())
         })
     }
@@ -1067,6 +1219,7 @@ pub fn cyclic_gradient<'py>(data: &Bound<'py, PyAny>, edge_order: Int, axis: Int
 ///     value (number): The value written outside the band. Default 0.
 #[pyfunction]
 #[pyo3(signature = (x, *, radius, value = None))]
+#[inline]
 pub fn fill_off_diagonal<'py>(
     x: &Bound<'py, PyAny>,
     radius: f64,
@@ -1095,13 +1248,14 @@ pub fn fill_off_diagonal<'py>(
 /// Counts the distinct values in each lane along an axis.
 ///
 /// Args:
-///     data (array_like): Values of any numeric dtype. All NaNs count as one value.
+///     data (``array_like)``: Values of any numeric dtype. All NaNs count as one value.
 ///     axis (int): The axis of the lanes. Default -1.
 ///
 /// Returns:
 ///     numpy.ndarray[int64]: The input's shape without ``axis``.
 #[pyfunction]
 #[pyo3(signature = (data, *, axis = Int(-1)), text_signature = "(data, *, axis=-1)")]
+#[inline]
 pub fn count_unique<'py>(data: &Bound<'py, PyAny>, axis: Int) -> PyResult<Bound<'py, PyAny>> {
     let py = data.py();
     let arr = as_ndarray(data)?;
@@ -1117,13 +1271,14 @@ pub fn count_unique<'py>(data: &Bound<'py, PyAny>, axis: Int) -> PyResult<Bound<
 /// Tells for each lane along an axis whether all its values are distinct.
 ///
 /// Args:
-///     data (array_like): Values of any numeric dtype. All NaNs count as one value.
+///     data (``array_like)``: Values of any numeric dtype. All NaNs count as one value.
 ///     axis (int): The axis of the lanes. Default -1.
 ///
 /// Returns:
 ///     numpy.ndarray[bool]: The input's shape without ``axis``.
 #[pyfunction]
 #[pyo3(signature = (data, *, axis = Int(-1)), text_signature = "(data, *, axis=-1)")]
+#[inline]
 pub fn is_unique<'py>(data: &Bound<'py, PyAny>, axis: Int) -> PyResult<Bound<'py, PyAny>> {
     let py = data.py();
     let arr = as_ndarray(data)?;
@@ -1143,7 +1298,10 @@ pub(crate) fn parse_kind(kind: &Bound<'_, PyAny>) -> PyResult<InterpKind> {
             1 => Ok(InterpKind::SLinear),
             2 => Ok(InterpKind::Quadratic),
             3 => Ok(InterpKind::Cubic),
-            _ => Err(value_err("kind", format!("spline order {k} is not 0, 1, 2 or 3"))),
+            _ => Err(value_err(
+                "kind",
+                format!("spline order {k} is not 0, 1, 2 or 3"),
+            )),
         };
     }
     let s: String = kind.extract()?;
@@ -1157,20 +1315,25 @@ pub(crate) fn parse_kind(kind: &Bound<'_, PyAny>) -> PyResult<InterpKind> {
         "cubic" => InterpKind::Cubic,
         "previous" => InterpKind::Previous,
         "next" => InterpKind::Next,
-        other => return Err(value_err("kind", format!("unknown interpolation kind {other:?}"))),
+        other => {
+            return Err(value_err(
+                "kind",
+                format!("unknown interpolation kind {other:?}"),
+            ));
+        }
     })
 }
 
 /// Interpolates sampled data along one axis.
 ///
 /// Args:
-///     x (array_like): Sample positions, 1-D, in any order.
-///     y (array_like): Samples; ``axis`` has one element per position.
-///     xi (array_like): Query positions, of any shape.
+///     x (``array_like)``: Sample positions, 1-D, in any order.
+///     y (``array_like)``: Samples; ``axis`` has one element per position.
+///     xi (``array_like)``: Query positions, of any shape.
 ///     kind (str | int): ``"linear"``, ``"nearest"``, ``"nearest-up"``, ``"zero"``,
 ///         ``"slinear"``, ``"quadratic"``, ``"cubic"``, ``"previous"``, ``"next"``, or a
 ///         spline order 0 to 3. Default ``"linear"``.
-///     fill_value (float): Result outside the range of ``x``. Default 0.
+///     ``fill_value`` (float): Result outside the range of ``x``. Default 0.
 ///     axis (int): The axis of ``y`` that follows ``x``. Default -1.
 ///
 /// Returns:
@@ -1178,6 +1341,7 @@ pub(crate) fn parse_kind(kind: &Bound<'_, PyAny>) -> PyResult<InterpKind> {
 ///     ``float32`` for ``float32`` ``y``, otherwise ``float64``.
 #[pyfunction]
 #[pyo3(signature = (x, y, xi, *, kind = None, fill_value = 0.0, axis = Int(-1)), text_signature = "(x, y, xi, *, kind=None, fill_value=0.0, axis=-1)")]
+#[inline]
 pub fn interp1d<'py>(
     x: &Bound<'py, PyAny>,
     y: &Bound<'py, PyAny>,
@@ -1187,7 +1351,9 @@ pub fn interp1d<'py>(
     axis: Int,
 ) -> PyResult<Bound<'py, PyAny>> {
     let py = x.py();
-    let kind = kind.filter(|k| !k.is_none()).map_or(Ok(InterpKind::Linear), parse_kind)?;
+    let kind = kind
+        .filter(|k| !k.is_none())
+        .map_or(Ok(InterpKind::Linear), parse_kind)?;
     fn run<'py, F: PyFloatElement>(
         x: &Bound<'py, PyAny>,
         y: &Bound<'py, PyAny>,
@@ -1202,30 +1368,41 @@ pub fn interp1d<'py>(
             with_float_view::<f64, _>(x, "x", |pos| {
                 with_float_view::<f64, _>(xi, "xi", |q| {
                     let pos_cow = pos.as_standard_layout();
-                    let slice = pos_cow.as_slice().ok_or_else(|| value_err("x", "expected 1-D"))?;
-                    let out = detached(py, y.len(), || ops::interp1d(slice, y.view(), q.view(), kind, fill, ax))
-                        .map_err(audio_err_to_py)?;
+                    let slice = pos_cow
+                        .as_slice()
+                        .ok_or_else(|| value_err("x", "expected 1-D"))?;
+                    let out = detached(py, y.len(), || {
+                        ops::interp1d(slice, y.view(), q.view(), kind, fill, ax)
+                    })
+                    .map_err(audio_err_to_py)?;
                     Ok(out.into_pyarray(py).into_any())
                 })
             })
         })
     }
     let _ = py;
-    with_precision!(precision_of(y), |F| run::<F>(x, y, xi, kind, F::from_f64(fill_value), axis))
+    with_precision!(precision_of(y), |F| run::<F>(
+        x,
+        y,
+        xi,
+        kind,
+        F::from_f64(fill_value),
+        axis
+    ))
 }
 
 /// Interpolates two arrays sampled on different grids onto one grid and combines them.
 ///
 /// Args:
-///     x1 (array_like): The first array.
-///     x1_pos (array_like): Its sample positions along ``axis``.
-///     x2 (array_like): The second array.
-///     x2_pos (array_like): Its sample positions along ``axis``.
-///     interp_pos (Optional[array_like]): The common positions. Default ``x1_pos``.
+///     x1 (``array_like)``: The first array.
+///     ``x1_pos`` (``array_like)``: Its sample positions along ``axis``.
+///     x2 (``array_like)``: The second array.
+///     ``x2_pos`` (``array_like)``: Its sample positions along ``axis``.
+///     ``interp_pos`` (Optional[array_like]): The common positions. Default ``x1_pos``.
 ///     op (Callable | str | None): Combines the two interpolated arrays. ``"multiply"``
 ///         (the default) multiplies with broadcasting; ``None`` returns both arrays.
 ///     kind (str | int): As for :func:`interp1d`. Default ``"linear"``.
-///     fill_value (float): Result outside the range of each grid. Default 0.
+///     ``fill_value`` (float): Result outside the range of each grid. Default 0.
 ///     axis (int): The interpolated axis. Default -2.
 ///
 /// Returns:
@@ -1233,6 +1410,7 @@ pub fn interp1d<'py>(
 ///     arrays when ``op`` is ``None``.
 #[pyfunction]
 #[pyo3(signature = (*, x1, x1_pos, x2, x2_pos, interp_pos = None, op = "multiply".to_string().into(), kind = None, fill_value = 0.0, axis = Int(-2)), text_signature = "(*, x1, x1_pos, x2, x2_pos, interp_pos=None, op='multiply', kind=None, fill_value=0.0, axis=-2)")]
+#[inline]
 pub fn interp_broadcast<'py>(
     x1: &Bound<'py, PyAny>,
     x1_pos: &Bound<'py, PyAny>,
@@ -1245,7 +1423,9 @@ pub fn interp_broadcast<'py>(
     axis: Int,
 ) -> PyResult<Bound<'py, PyAny>> {
     let py = x1.py();
-    let kind = kind.filter(|k| !k.is_none()).map_or(Ok(InterpKind::Linear), parse_kind)?;
+    let kind = kind
+        .filter(|k| !k.is_none())
+        .map_or(Ok(InterpKind::Linear), parse_kind)?;
     let single = precision_of(x1) == Precision::F32 && precision_of(x2) == Precision::F32;
     fn pos_vec(obj: &Bound<'_, PyAny>, name: &str) -> PyResult<Vec<f64>> {
         with_float_view::<f64, _>(obj, name, |v| Ok(v.iter().copied().collect()))
@@ -1272,24 +1452,38 @@ pub fn interp_broadcast<'py>(
                         .map_err(audio_err_to_py)
                 };
                 match q {
-                    Some(q) => with_float_view::<f64, _>(q, "interp_pos", |v| interp(Some(v.view()))),
+                    Some(q) => {
+                        with_float_view::<f64, _>(q, "interp_pos", |v| interp(Some(v.view())))
+                    }
                     None => interp(None),
                 }
             })
         })?;
         match op.kind(py)? {
             OpKind::Multiply if y1.shape() == y2.shape() => {
-                Zip::from(&mut y1).and(&y2).for_each(|a, &b| *a = *a * b);
+                Zip::from(&mut y1).and(&y2).for_each(|a, &b| *a *= b);
                 Ok(y1.into_pyarray(py).into_any())
             }
-            OpKind::Multiply => numpy_attr(py, "multiply")?.call1((y1.into_pyarray(py), y2.into_pyarray(py))),
+            OpKind::Multiply => {
+                numpy_attr(py, "multiply")?.call1((y1.into_pyarray(py), y2.into_pyarray(py)))
+            }
             OpKind::Tuple => (y1.into_pyarray(py), y2.into_pyarray(py)).into_bound_py_any(py),
             OpKind::Call(f) => f.call1((y1.into_pyarray(py), y2.into_pyarray(py))),
         }
     }
     let _ = py;
     if single {
-        run::<f32>(x1, &p1, x2, &p2, q, kind, fill_value as f32, axis.0 as isize, op)
+        run::<f32>(
+            x1,
+            &p1,
+            x2,
+            &p2,
+            q,
+            kind,
+            fill_value as f32,
+            axis.0 as isize,
+            op,
+        )
     } else {
         run::<f64>(x1, &p1, x2, &p2, q, kind, fill_value, axis.0 as isize, op)
     }
@@ -1299,6 +1493,7 @@ pub fn interp_broadcast<'py>(
 pub struct OpArg<'py>(Option<Bound<'py, PyAny>>);
 
 impl From<String> for OpArg<'_> {
+    #[inline]
     fn from(_: String) -> Self {
         Self(None)
     }
@@ -1306,6 +1501,7 @@ impl From<String> for OpArg<'_> {
 
 impl<'a, 'py> FromPyObject<'a, 'py> for OpArg<'py> {
     type Error = PyErr;
+    #[inline]
     fn extract(obj: pyo3::Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
         Ok(Self(Some(obj.to_owned())))
     }
@@ -1370,7 +1566,11 @@ fn default_dtype<'py>(
 ///     numpy.dtype: The real dtype.
 #[pyfunction]
 #[pyo3(signature = (d, *, default = None))]
-pub fn dtype_c2r<'py>(d: &Bound<'py, PyAny>, default: Option<&Bound<'py, PyAny>>) -> PyResult<Bound<'py, PyArrayDescr>> {
+#[inline]
+pub fn dtype_c2r<'py>(
+    d: &Bound<'py, PyAny>,
+    default: Option<&Bound<'py, PyAny>>,
+) -> PyResult<Bound<'py, PyArrayDescr>> {
     let py = d.py();
     let dt = numpy_dtype(d)?;
     match (dt.kind(), dt.itemsize()) {
@@ -1392,7 +1592,11 @@ pub fn dtype_c2r<'py>(d: &Bound<'py, PyAny>, default: Option<&Bound<'py, PyAny>>
 ///     numpy.dtype: The complex dtype.
 #[pyfunction]
 #[pyo3(signature = (d, *, default = None))]
-pub fn dtype_r2c<'py>(d: &Bound<'py, PyAny>, default: Option<&Bound<'py, PyAny>>) -> PyResult<Bound<'py, PyArrayDescr>> {
+#[inline]
+pub fn dtype_r2c<'py>(
+    d: &Bound<'py, PyAny>,
+    default: Option<&Bound<'py, PyAny>>,
+) -> PyResult<Bound<'py, PyArrayDescr>> {
     let py = d.py();
     let dt = numpy_dtype(d)?;
     match (dt.kind(), dt.itemsize()) {
@@ -1407,7 +1611,7 @@ pub fn dtype_r2c<'py>(d: &Bound<'py, PyAny>, default: Option<&Bound<'py, PyAny>>
 ///
 /// Args:
 ///     x (bytes-like | numpy.ndarray): The buffer.
-///     n_bytes (int): Bytes per sample: 1, 2, 3, 4 or 8. Default 2.
+///     ``n_bytes`` (int): Bytes per sample: 1, 2, 3, 4 or 8. Default 2.
 ///     dtype (Optional[numpy.dtype]): Output dtype. Default ``float32`` up to 3 bytes per
 ///         sample, otherwise ``float64``, so that the conversion loses no bits it need
 ///         not.
@@ -1416,6 +1620,7 @@ pub fn dtype_r2c<'py>(d: &Bound<'py, PyAny>, default: Option<&Bound<'py, PyAny>>
 ///     numpy.ndarray: One float per sample.
 #[pyfunction]
 #[pyo3(signature = (x, *, n_bytes = Int(2), dtype = None), text_signature = "(x, *, n_bytes=2, dtype=None)")]
+#[inline]
 pub fn buf_to_float<'py>(
     x: &Bound<'py, PyAny>,
     n_bytes: Int,
@@ -1423,40 +1628,65 @@ pub fn buf_to_float<'py>(
 ) -> PyResult<Bound<'py, PyAny>> {
     let py = x.py();
     let n = usize::try_from(n_bytes.0).map_err(|_| value_err("n_bytes", "must not be negative"))?;
-    let dtype = dtype.filter(|d| !d.is_none()).map(numpy_dtype).transpose()?;
+    let dtype = dtype
+        .filter(|d| !d.is_none())
+        .map(numpy_dtype)
+        .transpose()?;
     let double = match &dtype {
         Some(d) => d.is_equiv_to(&numpy::dtype::<f64>(py)),
         None => n > 3,
     };
-    let single = dtype.as_ref().is_none_or(|d| d.is_equiv_to(&numpy::dtype::<f32>(py)));
+    let single = dtype
+        .as_ref()
+        .is_none_or(|d| d.is_equiv_to(&numpy::dtype::<f32>(py)));
     if !double && !single {
         return Err(value_err("dtype", "expected float32, float64 or None"));
     }
-    fn decode<'py, F: PyFloatElement>(py: Python<'py>, bytes: &[u8], n: usize) -> PyResult<Bound<'py, PyAny>> {
+    fn decode<'py, F: PyFloatElement>(
+        py: Python<'py>,
+        bytes: &[u8],
+        n: usize,
+    ) -> PyResult<Bound<'py, PyAny>> {
         if !matches!(n, 1 | 2 | 3 | 4 | 8) {
-            return Err(value_err("n_bytes", format!("must be 1, 2, 3, 4 or 8, got {n}")));
+            return Err(value_err(
+                "n_bytes",
+                format!("must be 1, 2, 3, 4 or 8, got {n}"),
+            ));
         }
         // SAFETY: `buf_to_float_into` writes every element, or the error drops the array.
         let out = unsafe { PyArray1::<F>::new(py, bytes.len() / n, false) };
         // SAFETY: the array was just created and is contiguous, so nothing else refers to it.
         let slice = unsafe { out.as_slice_mut() }.map_err(|e| value_err("x", e))?;
-        detached(py, bytes.len(), || ops::buf_to_float_into(bytes, n, slice)).map_err(audio_err_to_py)?;
+        detached(py, bytes.len(), || ops::buf_to_float_into(bytes, n, slice))
+            .map_err(audio_err_to_py)?;
         Ok(out.into_any())
     }
     let run = |bytes: &[u8]| {
-        if double { decode::<f64>(py, bytes, n) } else { decode::<f32>(py, bytes, n) }
+        if double {
+            decode::<f64>(py, bytes, n)
+        } else {
+            decode::<f32>(py, bytes, n)
+        }
     };
     if let Ok(b) = x.cast::<PyBytes>() {
         return run(b.as_bytes());
     }
-    let view = py.get_type::<pyo3::types::PyMemoryView>().call1((x,))?.call_method1("cast", ("B",))?;
+    let view = py
+        .get_type::<pyo3::types::PyMemoryView>()
+        .call1((x,))?
+        .call_method1("cast", ("B",))?;
     let buffer = PyBuffer::<u8>::get(&view)?;
     if !buffer.is_c_contiguous() {
         return Err(value_err("x", "expected a contiguous buffer"));
     }
     // SAFETY: the buffer is C-contiguous bytes, held for the call, and the GIL or the
     // buffer export keeps it alive while it is read.
-    let bytes = unsafe { std::slice::from_raw_parts(buffer.buf_ptr().cast::<u8>().cast_const(), buffer.len_bytes()) };
+    let bytes = unsafe {
+        std::slice::from_raw_parts(
+            buffer.buf_ptr().cast::<u8>().cast_const(),
+            buffer.len_bytes(),
+        )
+    };
     run(bytes)
 }
 
@@ -1467,7 +1697,7 @@ pub fn buf_to_float<'py>(
 ///     ext (Optional[str | list[str]]): Extensions without the dot. Default: ``aac``,
 ///         ``au``, ``flac``, ``m4a``, ``mp3``, ``ogg``, ``wav``.
 ///     recurse (bool): Search subdirectories. Default true.
-///     case_sensitive (bool): Compare extensions exactly; otherwise any letter case
+///     ``case_sensitive`` (bool): Compare extensions exactly; otherwise any letter case
 ///         matches. Default false.
 ///     limit (Optional[int]): Keep at most this many paths after ``offset``; a negative
 ///         value drops that many from the end.
@@ -1477,6 +1707,7 @@ pub fn buf_to_float<'py>(
 ///     list[str]: Sorted absolute paths.
 #[pyfunction]
 #[pyo3(signature = (directory, *, ext = None, recurse = true, case_sensitive = false, limit = None, offset = Int(0)), text_signature = "(directory, *, ext=None, recurse=True, case_sensitive=False, limit=None, offset=0)")]
+#[inline]
 pub fn find_files<'py>(
     directory: std::path::PathBuf,
     ext: Option<&Bound<'py, PyAny>>,
@@ -1501,9 +1732,15 @@ pub fn find_files<'py>(
     let out = PyList::empty(py);
     let mut failure = None;
     if negative {
-        let files = py.detach(|| ops::find_files(&directory, &cfg)).map_err(audio_err_to_py)?;
+        let files = py
+            .detach(|| ops::find_files(&directory, &cfg))
+            .map_err(audio_err_to_py)?;
         let n = files.len() as i64;
-        let start = if offset.0 < 0 { (n + offset.0).max(0) } else { offset.0.min(n) };
+        let start = if offset.0 < 0 {
+            (n + offset.0).max(0)
+        } else {
+            offset.0.min(n)
+        };
         let remaining = n - start;
         let keep = match limit {
             None => remaining,
@@ -1540,9 +1777,10 @@ pub fn find_files<'py>(
 ///     bool: ``True``.
 ///
 /// Raises:
-///     TypeError: ``y`` is not a floating-point ``numpy.ndarray``.
-///     ValueError: ``y`` is 0-D or holds a NaN or infinity.
+///     ``TypeError``: ``y`` is not a floating-point ``numpy.ndarray``.
+///     ``ValueError``: ``y`` is 0-D or holds a NaN or infinity.
 #[pyfunction]
+#[inline]
 pub fn valid_audio(y: &Bound<'_, PyAny>) -> PyResult<bool> {
     let py = y.py();
     let arr = y
@@ -1561,9 +1799,14 @@ pub fn valid_audio(y: &Bound<'_, PyAny>) -> PyResult<bool> {
         detached(py, v.len(), || ops::valid_audio(&v)).map_err(audio_err_to_py)?;
     } else {
         if arr.ndim() == 0 {
-            return Err(value_err("y", "audio data must be at least one-dimensional"));
+            return Err(value_err(
+                "y",
+                "audio data must be at least one-dimensional",
+            ));
         }
-        let finite = numpy_attr(py, "isfinite")?.call1((arr,))?.call_method0("all")?;
+        let finite = numpy_attr(py, "isfinite")?
+            .call1((arr,))?
+            .call_method0("all")?;
         if !finite.is_truthy()? {
             return Err(value_err("y", "audio buffer is not finite everywhere"));
         }
@@ -1574,14 +1817,15 @@ pub fn valid_audio(y: &Bound<'_, PyAny>) -> PyResult<bool> {
 /// Checks that intervals have shape ``(n, 2)`` and non-negative durations.
 ///
 /// Args:
-///     intervals (array_like): One ``[start, end]`` row per interval.
+///     intervals (``array_like)``: One ``[start, end]`` row per interval.
 ///
 /// Returns:
 ///     bool: ``True``.
 ///
 /// Raises:
-///     ValueError: The shape is wrong or a duration is negative.
+///     ``ValueError``: The shape is wrong or a duration is negative.
 #[pyfunction]
+#[inline]
 pub fn valid_intervals(intervals: &Bound<'_, PyAny>) -> PyResult<bool> {
     with_float_view::<f64, _>(intervals, "intervals", |v| {
         let v = v
@@ -1601,6 +1845,7 @@ pub fn valid_intervals(intervals: &Bound<'_, PyAny>) -> PyResult<bool> {
 /// Returns:
 ///     bool: The answer.
 #[pyfunction]
+#[inline]
 pub fn is_positive_int(x: &Bound<'_, PyAny>) -> PyResult<bool> {
     static INTEGER: PyOnceLock<Py<PyType>> = PyOnceLock::new();
     let py = x.py();
@@ -1629,10 +1874,14 @@ pub fn is_positive_int(x: &Bound<'_, PyAny>) -> PyResult<bool> {
 ///     int: The integer.
 ///
 /// Raises:
-///     TypeError: ``cast`` is not callable.
+///     ``TypeError``: ``cast`` is not callable.
 #[pyfunction]
 #[pyo3(signature = (x, *, cast = None))]
-pub fn valid_int<'py>(x: &Bound<'py, PyAny>, cast: Option<&Bound<'py, PyAny>>) -> PyResult<Bound<'py, PyAny>> {
+#[inline]
+pub fn valid_int<'py>(
+    x: &Bound<'py, PyAny>,
+    cast: Option<&Bound<'py, PyAny>>,
+) -> PyResult<Bound<'py, PyAny>> {
     let py = x.py();
     if let Some(f) = cast.filter(|c| !c.is_none()) {
         if !f.is_callable() {
@@ -1656,8 +1905,8 @@ fn f64_vec(obj: &Bound<'_, PyAny>, name: &str) -> PyResult<Vec<f64>> {
 /// Matches each source event to the nearest target event.
 ///
 /// Args:
-///     events_from (array_like): Source events, in any order.
-///     events_to (array_like): Target events, in any order.
+///     ``events_from`` (``array_like)``: Source events, in any order.
+///     ``events_to`` (``array_like)``: Target events, in any order.
 ///     left (bool): A source event may match a target before it. Default true.
 ///     right (bool): A source event may match a target after it. Default true.
 ///
@@ -1666,9 +1915,10 @@ fn f64_vec(obj: &Bound<'_, PyAny>, name: &str) -> PyResult<Vec<f64>> {
 ///     event half-way between two targets goes to the later one.
 ///
 /// Raises:
-///     ValueError: A list is empty, or the restrictions leave an event without a match.
+///     ``ValueError``: A list is empty, or the restrictions leave an event without a match.
 #[pyfunction]
 #[pyo3(signature = (events_from, events_to, left = true, right = true))]
+#[inline]
 pub fn match_events<'py>(
     events_from: &Bound<'py, PyAny>,
     events_to: &Bound<'py, PyAny>,
@@ -1678,7 +1928,8 @@ pub fn match_events<'py>(
     let py = events_from.py();
     let a = f64_vec(events_from, "events_from")?;
     let b = f64_vec(events_to, "events_to")?;
-    let out = detached(py, a.len(), || ops::match_events(&a, &b, left, right)).map_err(audio_err_to_py)?;
+    let out = detached(py, a.len(), || ops::match_events(&a, &b, left, right))
+        .map_err(audio_err_to_py)?;
     Ok(PyArray1::from_vec(py, out.into_iter().map(|i| i as i64).collect()).into_any())
 }
 
@@ -1687,8 +1938,8 @@ pub fn match_events<'py>(
 /// Overlap is the Jaccard index; on a tie the lowest target index wins.
 ///
 /// Args:
-///     intervals_from (array_like): Source intervals, ``(n, 2)``.
-///     intervals_to (array_like): Target intervals, ``(m, 2)``.
+///     ``intervals_from`` (``array_like)``: Source intervals, ``(n, 2)``.
+///     ``intervals_to`` (``array_like)``: Target intervals, ``(m, 2)``.
 ///     strict (bool): A source interval that overlaps nothing is an error; when false it
 ///         matches the nearest target (the earlier at equal distance). Default true.
 ///
@@ -1696,10 +1947,11 @@ pub fn match_events<'py>(
 ///     numpy.ndarray[int64]: For each source interval, an index into ``intervals_to``.
 ///
 /// Raises:
-///     ValueError: A list is empty or invalid, or with ``strict`` an interval overlaps
+///     ``ValueError``: A list is empty or invalid, or with ``strict`` an interval overlaps
 ///     no target.
 #[pyfunction]
 #[pyo3(signature = (intervals_from, intervals_to, strict = true))]
+#[inline]
 pub fn match_intervals<'py>(
     intervals_from: &Bound<'py, PyAny>,
     intervals_to: &Bound<'py, PyAny>,
@@ -1708,14 +1960,20 @@ pub fn match_intervals<'py>(
     let py = intervals_from.py();
     with_float_view::<f64, _>(intervals_from, "intervals_from", |a| {
         with_float_view::<f64, _>(intervals_to, "intervals_to", |b| {
-            let a = a.into_dimensionality::<Ix2>().map_err(|_| value_err("intervals_from", "must have shape (n, 2)"))?;
-            let b = b.into_dimensionality::<Ix2>().map_err(|_| value_err("intervals_to", "must have shape (m, 2)"))?;
-            let out = detached(py, a.len(), || ops::match_intervals(a, b, strict)).map_err(audio_err_to_py)?;
+            let a = a
+                .into_dimensionality::<Ix2>()
+                .map_err(|_| value_err("intervals_from", "must have shape (n, 2)"))?;
+            let b = b
+                .into_dimensionality::<Ix2>()
+                .map_err(|_| value_err("intervals_to", "must have shape (m, 2)"))?;
+            let out = detached(py, a.len(), || ops::match_intervals(a, b, strict))
+                .map_err(audio_err_to_py)?;
             Ok(PyArray1::from_vec(py, out.into_iter().map(|i| i as i64).collect()).into_any())
         })
     })
 }
 
+#[inline]
 pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     let m = PyModule::new(py, "arrays")?;
     m.add(

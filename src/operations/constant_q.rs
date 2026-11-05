@@ -40,9 +40,11 @@ fn interval_ratios(
         audio_samples::utils::notation::TuningSystem::Custom(r) => r.len(),
         _ => crate::args::non_negative("bins_per_octave", bins_per_octave)?,
     };
-    audio_samples::utils::notation::interval_frequencies(per_octave, 1.0, &system, per_octave, 0.0, true)
-        .map(Some)
-        .map_err(crate::audio_err_to_py)
+    audio_samples::utils::notation::interval_frequencies(
+        per_octave, 1.0, &system, per_octave, 0.0, true,
+    )
+    .map(Some)
+    .map_err(crate::audio_err_to_py)
 }
 
 fn cqt_config(

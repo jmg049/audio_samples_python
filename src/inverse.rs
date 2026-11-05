@@ -1,15 +1,29 @@
 //! `audio_samples.inverse`: inversion of mel spectrograms and MFCCs to spectrograms and audio.
 
+#![allow(
+    // Sizes and axes from Python are checked before these casts.
+    clippy::cast_possible_truncation,
+    clippy::cast_possible_wrap,
+    clippy::cast_sign_loss,
+    // Docstrings are the Python documentation; failures are listed under `Raises`.
+    clippy::missing_errors_doc,
+    // Indices come from lengths checked at the top of each function.
+    clippy::indexing_slicing
+)]
+
 use audio_samples::operations::effects::GriffinLimConfig;
 use audio_samples::operations::filterbanks::Window;
 use audio_samples::operations::inverse::{self as inv, MelInversionConfig, MfccInversionConfig};
 use audio_samples::operations::linalg::NnlsConfig;
 use pyo3::prelude::*;
 
-use crate::args::{Int, MelNormArg, PyFloat, WindowArg, mel_config, positive, precision_of, stft_config, with_precision};
+use crate::args::{
+    Int, MelNormArg, PyFloat, WindowArg, mel_config, positive, precision_of, stft_config,
+    with_precision,
+};
 use crate::audio_err_to_py;
 use crate::effects::{RngArg, griffinlim_init};
-use crate::features::args::{squeeze_out, spec3};
+use crate::features::args::{spec3, squeeze_out};
 use crate::operations::spectrum::{parse_dct_norm, parse_dct_type};
 
 #[allow(clippy::too_many_arguments)]
@@ -34,10 +48,10 @@ fn mel_inversion(
 /// Estimates an STFT magnitude from a mel spectrogram by non-negative least squares.
 ///
 /// Args:
-///     M (array_like): Mel spectrogram ``(n_mels, n_frames)`` or
+///     M (``array_like)``: Mel spectrogram ``(n_mels, n_frames)`` or
 ///         ``(channels, n_mels, n_frames)``.
 ///     sr (float): Sample rate in Hz.
-///     n_fft (int): FFT size of the spectrogram to estimate. Default 2048.
+///     ``n_fft`` (int): FFT size of the spectrogram to estimate. Default 2048.
 ///     power (float): Exponent that was applied to the magnitude. Default 2.
 ///     fmin, fmax, htk, norm: The filterbank, as ``spectral.mel_filterbank``.
 ///
@@ -50,6 +64,7 @@ fn mel_inversion(
     text_signature = "(M, *, sr, n_fft=2048, power=2.0, fmin=0.0, fmax=None, htk=False, norm='slaney')"
 )]
 #[allow(non_snake_case, clippy::too_many_arguments)]
+#[inline]
 pub fn mel_to_stft<'py>(
     M: &Bound<'py, PyAny>,
     sr: f64,
@@ -65,7 +80,9 @@ pub fn mel_to_stft<'py>(
         let (m, nd) = spec3::<F>(M, "M")?;
         let view = m.view();
         let cfg = mel_inversion(view.dim().1, sr, n_fft, power, fmin, fmax, htk, norm)?;
-        let out = py.detach(|| inv::mel_to_stft(view, &cfg)).map_err(audio_err_to_py)?;
+        let out = py
+            .detach(|| inv::mel_to_stft(view, &cfg))
+            .map_err(audio_err_to_py)?;
         Ok(squeeze_out(py, out.into_dyn(), nd == 2))
     })
 }
@@ -88,23 +105,25 @@ fn griffin_config(
         .with_n_iter(crate::args::non_negative("n_iter", n_iter)?)
         .with_momentum(momentum)
         .with_init(griffinlim_init(init, rng)?)
-        .with_stft(stft_config(n_fft, hop_length, win_length, window, center, pad_mode)?)
+        .with_stft(stft_config(
+            n_fft, hop_length, win_length, window, center, pad_mode,
+        )?)
         .with_length(crate::args::opt_positive("length", length)?.map(std::num::NonZeroUsize::get)))
 }
 
-fn rows_out<'py, F: PyFloat>(py: Python<'py>, y: ndarray::Array2<F>, squeeze: bool) -> Bound<'py, PyAny> {
+fn rows_out<F: PyFloat>(py: Python<'_>, y: ndarray::Array2<F>, squeeze: bool) -> Bound<'_, PyAny> {
     squeeze_out(py, y.into_dyn(), squeeze)
 }
 
 /// Estimates audio from a mel spectrogram: least squares, then fast Griffin-Lim.
 ///
 /// Args:
-///     M (array_like): Mel spectrogram ``(n_mels, n_frames)`` or
+///     M (``array_like)``: Mel spectrogram ``(n_mels, n_frames)`` or
 ///         ``(channels, n_mels, n_frames)``.
 ///     sr (float): Sample rate in Hz.
-///     n_fft, hop_length, win_length, window, center, pad_mode: STFT parameters.
+///     ``n_fft``, ``hop_length``, ``win_length``, window, center, ``pad_mode``: STFT parameters.
 ///     power (float): Exponent that was applied to the magnitude. Default 2.
-///     n_iter (int): Griffin-Lim iterations. Default 32.
+///     ``n_iter`` (int): Griffin-Lim iterations. Default 32.
 ///     length (Optional[int]): Exact output length.
 ///     momentum (float): Fast Griffin-Lim momentum. Default 0.99.
 ///     init (Optional[str]): ``"random"`` (default) or None (zero phase).
@@ -119,6 +138,7 @@ fn rows_out<'py, F: PyFloat>(py: Python<'py>, y: ndarray::Array2<F>, squeeze: bo
     text_signature = "(M, *, sr, n_fft=2048, hop_length=None, win_length=None, window='hann', center=True, pad_mode='constant', power=2.0, n_iter=32, length=None, momentum=0.99, init='random', rng=0, fmin=0.0, fmax=None, htk=False, norm='slaney')"
 )]
 #[allow(non_snake_case, clippy::too_many_arguments)]
+#[inline]
 pub fn mel_to_audio<'py>(
     M: &Bound<'py, PyAny>,
     sr: f64,
@@ -140,12 +160,17 @@ pub fn mel_to_audio<'py>(
     norm: MelNormArg,
 ) -> PyResult<Bound<'py, PyAny>> {
     let py = M.py();
-    let gl = griffin_config(n_fft, hop_length, win_length, window, center, pad_mode, n_iter, length, momentum, init, rng)?;
+    let gl = griffin_config(
+        n_fft, hop_length, win_length, window, center, pad_mode, n_iter, length, momentum, init,
+        rng,
+    )?;
     with_precision!(precision_of(M), |F| {
         let (m, nd) = spec3::<F>(M, "M")?;
         let view = m.view();
         let cfg = mel_inversion(view.dim().1, sr, n_fft, power, fmin, fmax, htk, norm)?;
-        let y = py.detach(|| inv::mel_to_audio(view, &cfg, &gl)).map_err(audio_err_to_py)?;
+        let y = py
+            .detach(|| inv::mel_to_audio(view, &cfg, &gl))
+            .map_err(audio_err_to_py)?;
         Ok(rows_out(py, y, nd == 2))
     })
 }
@@ -168,9 +193,9 @@ fn mfcc_inversion(
 /// Recovers a mel power spectrogram from MFCCs.
 ///
 /// Args:
-///     mfcc (array_like): ``(n_mfcc, n_frames)`` or ``(channels, n_mfcc, n_frames)``.
-///     n_mels (int): Mel bands to recover. Default 128.
-///     dct_type (int): 1, 2 or 3. Default 2.
+///     mfcc (``array_like)``: ``(n_mfcc, n_frames)`` or ``(channels, n_mfcc, n_frames)``.
+///     ``n_mels`` (int): Mel bands to recover. Default 128.
+///     ``dct_type`` (int): 1, 2 or 3. Default 2.
 ///     norm (Optional[str]): ``"ortho"`` or None. Default ``"ortho"``.
 ///     ref (float): The reference of the decibel scale. Default 1.
 ///     lifter (float): The liftering coefficient to undo. Default 0.
@@ -183,6 +208,7 @@ fn mfcc_inversion(
     signature = (mfcc, *, n_mels = Int(128), dct_type = Int(2), norm = Some("ortho"), r#ref = 1.0, lifter = 0.0),
     text_signature = "(mfcc, *, n_mels=128, dct_type=2, norm='ortho', ref=1.0, lifter=0.0)"
 )]
+#[inline]
 pub fn mfcc_to_mel<'py>(
     mfcc: &Bound<'py, PyAny>,
     n_mels: Int,
@@ -196,7 +222,9 @@ pub fn mfcc_to_mel<'py>(
     with_precision!(precision_of(mfcc), |F| {
         let (m, nd) = spec3::<F>(mfcc, "mfcc")?;
         let view = m.view();
-        let out = py.detach(|| inv::mfcc_to_mel(view, &cfg)).map_err(audio_err_to_py)?;
+        let out = py
+            .detach(|| inv::mfcc_to_mel(view, &cfg))
+            .map_err(audio_err_to_py)?;
         Ok(squeeze_out(py, out.into_dyn(), nd == 2))
     })
 }
@@ -204,11 +232,11 @@ pub fn mfcc_to_mel<'py>(
 /// Estimates audio from MFCCs: :func:`mfcc_to_mel`, then :func:`mel_to_audio`.
 ///
 /// Args:
-///     mfcc (array_like): ``(n_mfcc, n_frames)`` or ``(channels, n_mfcc, n_frames)``.
+///     mfcc (``array_like)``: ``(n_mfcc, n_frames)`` or ``(channels, n_mfcc, n_frames)``.
 ///     sr (float): Sample rate in Hz.
-///     n_mels, dct_type, norm, ref, lifter: As for :func:`mfcc_to_mel`.
-///     n_fft, hop_length, win_length, window, center, pad_mode, power, n_iter, length,
-///         momentum, init, rng, fmin, fmax, htk, mel_norm: As for :func:`mel_to_audio`,
+///     ``n_mels``, ``dct_type``, norm, ref, lifter: As for :func:`mfcc_to_mel`.
+///     ``n_fft``, ``hop_length``, ``win_length``, window, center, ``pad_mode``, power, ``n_iter``, length,
+///         momentum, init, rng, fmin, fmax, htk, ``mel_norm``: As for :func:`mel_to_audio`,
 ///         where ``mel_norm`` is its ``norm``.
 ///
 /// Returns:
@@ -219,6 +247,7 @@ pub fn mfcc_to_mel<'py>(
     text_signature = "(mfcc, *, sr, n_mels=128, dct_type=2, norm='ortho', ref=1.0, lifter=0.0, n_fft=2048, hop_length=None, win_length=None, window='hann', center=True, pad_mode='constant', power=2.0, n_iter=32, length=None, momentum=0.99, init='random', rng=0, fmin=0.0, fmax=None, htk=False, mel_norm='slaney')"
 )]
 #[allow(clippy::too_many_arguments)]
+#[inline]
 pub fn mfcc_to_audio<'py>(
     mfcc: &Bound<'py, PyAny>,
     sr: f64,
@@ -246,8 +275,20 @@ pub fn mfcc_to_audio<'py>(
 ) -> PyResult<Bound<'py, PyAny>> {
     let py = mfcc.py();
     let m_cfg = mfcc_inversion(n_mels, dct_type, norm, r#ref, lifter)?;
-    let gl = griffin_config(n_fft, hop_length, win_length, window, center, pad_mode, n_iter, length, momentum, init, rng)?;
-    let cfg = mel_inversion(m_cfg.n_mels.get(), sr, n_fft, power, fmin, fmax, htk, mel_norm)?;
+    let gl = griffin_config(
+        n_fft, hop_length, win_length, window, center, pad_mode, n_iter, length, momentum, init,
+        rng,
+    )?;
+    let cfg = mel_inversion(
+        m_cfg.n_mels.get(),
+        sr,
+        n_fft,
+        power,
+        fmin,
+        fmax,
+        htk,
+        mel_norm,
+    )?;
     with_precision!(precision_of(mfcc), |F| {
         let (m, nd) = spec3::<F>(mfcc, "mfcc")?;
         let view = m.view();
@@ -258,9 +299,13 @@ pub fn mfcc_to_audio<'py>(
     })
 }
 
+#[inline]
 pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     let m = PyModule::new(py, "inverse")?;
-    m.add("__doc__", "Inversion of mel spectrograms and MFCCs to spectrograms and audio.")?;
+    m.add(
+        "__doc__",
+        "Inversion of mel spectrograms and MFCCs to spectrograms and audio.",
+    )?;
     m.add_function(wrap_pyfunction!(mel_to_stft, &m)?)?;
     m.add_function(wrap_pyfunction!(mel_to_audio, &m)?)?;
     m.add_function(wrap_pyfunction!(mfcc_to_mel, &m)?)?;

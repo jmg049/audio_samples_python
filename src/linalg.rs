@@ -1,13 +1,29 @@
 //! `audio_samples.linalg`: non-negative least squares, the pseudo-inverse, the symmetric
 //! eigenproblem and the singular value decomposition.
 
+#![allow(
+    // Sizes and axes from Python are checked before these casts.
+    clippy::cast_possible_truncation,
+    clippy::cast_possible_wrap,
+    clippy::cast_sign_loss,
+    // Docstrings are the Python documentation; failures are listed under `Raises`.
+    clippy::missing_errors_doc,
+    // Indices come from lengths checked at the top of each function.
+    clippy::indexing_slicing,
+    // Names follow the matrix notation of the solvers.
+    clippy::many_single_char_names,
+    clippy::option_if_let_else,
+)]
+
 use audio_samples::operations::linalg::{self as la, NnlsConfig, NnlsSolver};
 use ndarray::{Array2, Ix1, Ix2};
 use numpy::IntoPyArray;
 use pyo3::IntoPyObjectExt;
 use pyo3::prelude::*;
 
-use crate::args::{Int, PyFloat, non_negative, positive, precision_of, value_err, with_float_view, with_precision};
+use crate::args::{
+    Int, PyFloat, non_negative, positive, precision_of, value_err, with_float_view, with_precision,
+};
 use crate::audio_err_to_py;
 
 fn nnls_in<'py, F: PyFloat>(
@@ -25,13 +41,19 @@ fn nnls_in<'py, F: PyFloat>(
             let cfg = NnlsConfig::new().with_max_iter(max_iter).with_tol(tol);
             match bv.ndim() {
                 1 => {
-                    let bv = bv.into_dimensionality::<Ix1>().map_err(|e| value_err("B", e))?;
+                    let bv = bv
+                        .into_dimensionality::<Ix1>()
+                        .map_err(|e| value_err("B", e))?;
                     let x = py.detach(|| la::nnls(av, bv)).map_err(audio_err_to_py)?;
                     Ok(x.into_pyarray(py).into_any())
                 }
                 2 => {
-                    let bv = bv.into_dimensionality::<Ix2>().map_err(|e| value_err("B", e))?;
-                    let x = py.detach(|| la::nnls_matrix(av, bv, &cfg)).map_err(audio_err_to_py)?;
+                    let bv = bv
+                        .into_dimensionality::<Ix2>()
+                        .map_err(|e| value_err("B", e))?;
+                    let x = py
+                        .detach(|| la::nnls_matrix(av, bv, &cfg))
+                        .map_err(audio_err_to_py)?;
                     Ok(x.into_pyarray(py).into_any())
                 }
                 _ => {
@@ -46,12 +68,18 @@ fn nnls_in<'py, F: PyFloat>(
                     let n = av.ncols();
                     let planes = bv.len() / (m * t);
                     let flat = bv.as_standard_layout();
-                    let flat = flat.as_slice().ok_or_else(|| value_err("B", "expected contiguous data"))?;
+                    let flat = flat
+                        .as_slice()
+                        .ok_or_else(|| value_err("B", "expected contiguous data"))?;
                     let mut out = Vec::with_capacity(planes * n * t);
                     for p in 0..planes {
-                        let plane = ndarray::ArrayView2::from_shape((m, t), &flat[p * m * t..(p + 1) * m * t])
-                            .map_err(|e| value_err("B", e))?;
-                        let x: Array2<F> = py.detach(|| solver.solve(plane)).map_err(audio_err_to_py)?;
+                        let plane = ndarray::ArrayView2::from_shape(
+                            (m, t),
+                            &flat[p * m * t..(p + 1) * m * t],
+                        )
+                        .map_err(|e| value_err("B", e))?;
+                        let x: Array2<F> =
+                            py.detach(|| solver.solve(plane)).map_err(audio_err_to_py)?;
                         out.extend(x.iter().copied());
                     }
                     let mut full = shape;
@@ -74,9 +102,9 @@ fn nnls_in<'py, F: PyFloat>(
 /// ``A`` has more columns than rows.
 ///
 /// Args:
-///     A (array_like): ``(m, n)`` matrix.
-///     B (array_like): ``(m,)`` or ``(..., m, t)``.
-///     max_iter (int): Most sweeps per column of a 2-D ``B``. Default 200.
+///     A (``array_like)``: ``(m, n)`` matrix.
+///     B (``array_like)``: ``(m,)`` or ``(..., m, t)``.
+///     ``max_iter`` (int): Most sweeps per column of a 2-D ``B``. Default 200.
 ///     tol (float): Stop a column when no sweep changes ``A x`` by more than this
 ///         fraction of ``max|B|``. Default 1e-5.
 ///
@@ -84,10 +112,11 @@ fn nnls_in<'py, F: PyFloat>(
 ///     numpy.ndarray: ``(n,)`` or ``(..., n, t)``, of ``B``'s precision.
 ///
 /// Raises:
-///     ValueError: Dimensions disagree or an input is not finite.
+///     ``ValueError``: Dimensions disagree or an input is not finite.
 #[pyfunction]
 #[pyo3(name = "nnls", signature = (A, B, *, max_iter = Int(200), tol = 1e-5), text_signature = "(A, B, *, max_iter=200, tol=1e-05)")]
 #[allow(non_snake_case)]
+#[inline]
 pub fn nnls<'py>(
     A: &Bound<'py, PyAny>,
     B: &Bound<'py, PyAny>,
@@ -108,7 +137,7 @@ pub fn nnls<'py>(
 /// The Moore-Penrose pseudo-inverse.
 ///
 /// Args:
-///     a (array_like): ``(m, n)`` matrix.
+///     a (``array_like)``: ``(m, n)`` matrix.
 ///     rcond (float): Singular values below this fraction of the largest count as zero.
 ///         Values below about 1.5e-8 act as that limit. Default 1e-15.
 ///
@@ -116,6 +145,7 @@ pub fn nnls<'py>(
 ///     numpy.ndarray: ``(n, m)``, of ``a``'s precision.
 #[pyfunction]
 #[pyo3(signature = (a, *, rcond = 1e-15), text_signature = "(a, *, rcond=1e-15)")]
+#[inline]
 pub fn pinv<'py>(a: &Bound<'py, PyAny>, rcond: f64) -> PyResult<Bound<'py, PyAny>> {
     let py = a.py();
     with_precision!(precision_of(a), |F| {
@@ -132,12 +162,13 @@ pub fn pinv<'py>(a: &Bound<'py, PyAny>, rcond: f64) -> PyResult<Bound<'py, PyAny
 /// Eigenvalues and eigenvectors of a symmetric matrix; only the lower triangle is read.
 ///
 /// Args:
-///     a (array_like): ``(n, n)`` symmetric matrix.
+///     a (``array_like)``: ``(n, n)`` symmetric matrix.
 ///
 /// Returns:
 ///     tuple[numpy.ndarray, numpy.ndarray]: Increasing eigenvalues, and the matching
 ///     eigenvectors in the columns, both ``float64``.
 #[pyfunction]
+#[inline]
 pub fn eigh<'py>(a: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
     let py = a.py();
     with_float_view::<f64, _>(a, "a", |v| {
@@ -156,16 +187,22 @@ pub fn eigh<'py>(a: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
 /// finding, deterministically for a given ``seed``.
 ///
 /// Args:
-///     a (array_like): ``(m, n)`` matrix.
+///     a (``array_like)``: ``(m, n)`` matrix.
 ///     k (Optional[int]): Number of leading triplets. Default: all.
-///     n_iter (int): Power iterations of the truncated form. Default 4.
+///     ``n_iter`` (int): Power iterations of the truncated form. Default 4.
 ///     seed (int): Seed of the truncated form. Default 0.
 ///
 /// Returns:
 ///     tuple[numpy.ndarray, numpy.ndarray, numpy.ndarray]: ``u``, ``s``, ``vt``, ``float64``.
 #[pyfunction]
 #[pyo3(signature = (a, *, k = None, n_iter = Int(4), seed = 0), text_signature = "(a, *, k=None, n_iter=4, seed=0)")]
-pub fn svd<'py>(a: &Bound<'py, PyAny>, k: Option<Int>, n_iter: Int, seed: u64) -> PyResult<Bound<'py, PyAny>> {
+#[inline]
+pub fn svd<'py>(
+    a: &Bound<'py, PyAny>,
+    k: Option<Int>,
+    n_iter: Int,
+    seed: u64,
+) -> PyResult<Bound<'py, PyAny>> {
     let py = a.py();
     let n_iter = non_negative("n_iter", n_iter)?;
     let k = k.map(|v| positive("k", v)).transpose()?;
@@ -179,10 +216,16 @@ pub fn svd<'py>(a: &Bound<'py, PyAny>, k: Option<Int>, n_iter: Int, seed: u64) -
                 None => la::svd(v),
             })
             .map_err(audio_err_to_py)?;
-        (d.u.into_pyarray(py), d.s.into_pyarray(py), d.vt.into_pyarray(py)).into_bound_py_any(py)
+        (
+            d.u.into_pyarray(py),
+            d.s.into_pyarray(py),
+            d.vt.into_pyarray(py),
+        )
+            .into_bound_py_any(py)
     })
 }
 
+#[inline]
 pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     let m = PyModule::new(py, "linalg")?;
     m.add(

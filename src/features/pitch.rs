@@ -285,7 +285,7 @@ fn check_kind_axis(kind: &str, axis: i64, ndim: usize) -> PyResult<()> {
 
 /// Whether the native harmonic kernels apply: linear interpolation on the frequency axis.
 fn native_kind_axis(kind: &str, axis: i64, ndim: usize) -> bool {
-    kind == "linear" && (axis == -2 || axis == ndim as i64 - 2)
+    kind == "linear" && (axis == -2 || usize::try_from(axis).is_ok_and(|a| a + 2 == ndim))
 }
 
 /// `harmonics * freqs` by any interpolant along any axis of `x`.
@@ -303,8 +303,12 @@ fn interp_harmonics_any<'py, F: crate::args::PyFloat>(
     let parsed = crate::arrays::parse_kind(pyo3::types::PyString::new(py, kind).as_any())?;
     crate::args::with_float_view::<F, _>(x, "x", |v| {
         let ax = crate::arrays::norm_axis("axis", axis, v.ndim())?;
-        let grid = super::args::f64_vec1(freqs, "freqs")
-            .map_err(|_| value_err("freqs", "other interpolants and axes need a 1-D frequency grid"))?;
+        let grid = super::args::f64_vec1(freqs, "freqs").map_err(|_| {
+            value_err(
+                "freqs",
+                "other interpolants and axes need a 1-D frequency grid",
+            )
+        })?;
         let n = grid.len();
         let mut xi = ndarray::Array2::<f64>::zeros((harmonics.len(), n));
         for (mut row, &h) in xi.rows_mut().into_iter().zip(harmonics) {
@@ -312,8 +316,15 @@ fn interp_harmonics_any<'py, F: crate::args::PyFloat>(
                 *o = h * f;
             }
         }
-        let out = ops::interp1d(&grid, v, xi.view().into_dyn(), parsed, <F as crate::args::FloatElement>::from_f64(fill_value), ax)
-            .map_err(audio_err_to_py)?;
+        let out = ops::interp1d(
+            &grid,
+            v,
+            xi.view().into_dyn(),
+            parsed,
+            <F as crate::args::FloatElement>::from_f64(fill_value),
+            ax,
+        )
+        .map_err(audio_err_to_py)?;
         Ok(out.into_pyarray(py).into_any())
     })
 }
@@ -333,10 +344,13 @@ fn f0_harmonics_any<'py, F: crate::args::PyFloat>(
     use numpy::IntoPyArray;
     let py = x.py();
     let parsed = crate::arrays::parse_kind(pyo3::types::PyString::new(py, kind).as_any())?;
-    let grid = super::args::f64_vec1(freqs, "freqs")
-        .map_err(|_| value_err("freqs", "other interpolants and axes need a 1-D frequency grid"))?;
-    let keep: Vec<usize> = (0..grid.len()).filter(|&i| grid[i].is_finite()).collect();
-    let positions: Vec<f64> = keep.iter().map(|&i| grid[i]).collect();
+    let grid = super::args::f64_vec1(freqs, "freqs").map_err(|_| {
+        value_err(
+            "freqs",
+            "other interpolants and axes need a 1-D frequency grid",
+        )
+    })?;
+    let positions: Vec<f64> = grid.iter().copied().filter(|f| f.is_finite()).collect();
     let f0_values = super::args::f64_vec(f0, "f0")?;
     crate::args::with_float_view::<F, _>(x, "x", |v| {
         let ax = crate::arrays::norm_axis("axis", axis, v.ndim())?;
@@ -346,24 +360,43 @@ fn f0_harmonics_any<'py, F: crate::args::PyFloat>(
         let lanes = v_lane_first.lanes(Axis(v.ndim() - 1));
         let count = lanes.clone().into_iter().count();
         if count != f0_values.len() {
-            return Err(value_err("f0", format!("{} values for {count} frames", f0_values.len())));
+            return Err(value_err(
+                "f0",
+                format!("{} values for {count} frames", f0_values.len()),
+            ));
         }
         let mut shape = v_lane_first.shape().to_vec();
-        let last = shape.len() - 1;
-        shape[last] = harmonics.len();
+        shape.pop();
+        shape.push(harmonics.len());
         let mut flat = Vec::with_capacity(count * harmonics.len());
         let fill = <F as crate::args::FloatElement>::from_f64(fill_value);
         for (lane, &f) in lanes.into_iter().zip(&f0_values) {
-            let data: ndarray::Array1<F> = keep.iter().map(|&i| lane[i]).collect();
+            let data: ndarray::Array1<F> = lane
+                .iter()
+                .zip(&grid)
+                .filter(|(_, f)| f.is_finite())
+                .map(|(&e, _)| e)
+                .collect();
             let xi: ndarray::Array1<f64> = harmonics.iter().map(|&h| h * f).collect();
-            let y = ops::interp1d(&positions, data.into_dyn().view(), xi.into_dyn().view(), parsed, fill, Axis(0))
-                .map_err(audio_err_to_py)?;
+            let y = ops::interp1d(
+                &positions,
+                data.into_dyn().view(),
+                xi.into_dyn().view(),
+                parsed,
+                fill,
+                Axis(0),
+            )
+            .map_err(audio_err_to_py)?;
             flat.extend(y.iter().map(|&e| if e.is_finite() { e } else { fill }));
         }
         let mut out = ndarray::ArrayD::from_shape_vec(ndarray::IxDyn(&shape), flat)
             .map_err(|e| value_err("x", e))?;
-        out.swap_axes(ax.index(), last);
-        Ok(out.as_standard_layout().into_owned().into_pyarray(py).into_any())
+        out.swap_axes(ax.index(), v.ndim() - 1);
+        Ok(out
+            .as_standard_layout()
+            .into_owned()
+            .into_pyarray(py)
+            .into_any())
     })
 }
 
@@ -461,7 +494,9 @@ pub fn interp_harmonics<'py>(
     axis: Int,
 ) -> PyResult<Bound<'py, PyAny>> {
     let h = super::args::f64_vec(harmonics, "harmonics")?;
-    let nd = x.cast::<numpy::PyUntypedArray>().map_or(2, |a| numpy::PyUntypedArrayMethods::ndim(a));
+    let nd = x
+        .cast::<numpy::PyUntypedArray>()
+        .map_or(2, numpy::PyUntypedArrayMethods::ndim);
     if !native_kind_axis(kind, axis.0, nd) {
         return with_precision!(precision_of(x), |F| {
             interp_harmonics_any::<F>(x, freqs, &h, kind, fill_value, axis.0)
@@ -511,7 +546,9 @@ pub fn f0_harmonics<'py>(
     axis: Int,
 ) -> PyResult<Bound<'py, PyAny>> {
     let h = super::args::f64_vec(harmonics, "harmonics")?;
-    let nd = x.cast::<numpy::PyUntypedArray>().map_or(2, |a| numpy::PyUntypedArrayMethods::ndim(a));
+    let nd = x
+        .cast::<numpy::PyUntypedArray>()
+        .map_or(2, numpy::PyUntypedArrayMethods::ndim);
     if !native_kind_axis(kind, axis.0, nd) {
         return with_precision!(precision_of(x), |F| {
             f0_harmonics_any::<F>(x, f0, freqs, &h, kind, fill_value, axis.0)

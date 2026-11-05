@@ -783,10 +783,24 @@ pub fn recurrence_matrix<'py>(
     kwargs: Option<&Bound<'py, PyDict>>,
 ) -> PyResult<Bound<'py, PyAny>> {
     if axis != Int(-1) && axis != Int(1) {
-        let moved = py.import("numpy")?.getattr("moveaxis")?.call1((data, axis.0, -1))?;
-        let kw = kwargs.map_or_else(|| PyDict::new(py), |k| k.clone());
+        let moved = py
+            .import("numpy")?
+            .getattr("moveaxis")?
+            .call1((data, axis.0, -1))?;
+        let kw = kwargs.map_or_else(|| PyDict::new(py), std::clone::Clone::clone);
         return recurrence_matrix(
-            py, &moved, k, width, metric, sym, sparse, mode, bandwidth, self_links, Int(-1), full,
+            py,
+            &moved,
+            k,
+            width,
+            metric,
+            sym,
+            sparse,
+            mode,
+            bandwidth,
+            self_links,
+            Int(-1),
+            full,
             Some(&kw),
         );
     }

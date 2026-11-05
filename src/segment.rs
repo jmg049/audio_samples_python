@@ -1,6 +1,19 @@
 //! `audio_samples.segment`: path enhancement, temporally constrained clustering,
 //! subsegmentation and lag-domain filtering; and `sequence.path_to_steps`.
 
+#![allow(
+    // Sizes and axes from Python are checked before these casts.
+    clippy::cast_possible_truncation,
+    clippy::cast_possible_wrap,
+    clippy::cast_sign_loss,
+    // Docstrings are the Python documentation; failures are listed under `Raises`.
+    clippy::missing_errors_doc,
+    // Indices come from lengths checked at the top of each function.
+    clippy::indexing_slicing,
+    // PyO3 passes extracted arguments by value.
+    clippy::needless_pass_by_value,
+)]
+
 use audio_samples::operations::filterbanks::Window;
 use audio_samples::operations::segment::{self as sg, BoundaryMode, PathEnhanceConfig};
 use audio_samples::operations::sequence as seq;
@@ -9,17 +22,20 @@ use numpy::{IntoPyArray, PyArray1, PyUntypedArray, PyUntypedArrayMethods};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList, PyTuple};
 
-use crate::args::{Int, PyFloat, WindowArg, i64_vec, positive, precision_of, value_err, with_float_view, with_precision};
+use crate::args::{
+    Int, PyFloat, WindowArg, i64_vec, positive, precision_of, value_err, with_float_view,
+    with_precision,
+};
 use crate::audio_err_to_py;
 
 /// A normalised smoothing kernel along a line through the origin.
 ///
 /// Args:
-///     window (str | tuple | array_like): The window along the line.
+///     window (str | tuple | ``array_like)``: The window along the line.
 ///     n (int): Its length, before rotation.
 ///     slope (float): The line's slope; 1 is the main diagonal. Default 1.
 ///     angle (Optional[float]): The line's angle in radians, in place of ``slope``.
-///     zero_mean (bool): Subtract the mean. Default false.
+///     ``zero_mean`` (bool): Subtract the mean. Default false.
 ///
 /// Returns:
 ///     numpy.ndarray[float64]: The kernel.
@@ -28,14 +44,15 @@ use crate::audio_err_to_py;
     signature = (window, n, *, slope = 1.0, angle = None, zero_mean = false),
     text_signature = "(window, n, *, slope=1.0, angle=None, zero_mean=False)"
 )]
-pub fn diagonal_filter<'py>(
-    py: Python<'py>,
+#[inline]
+pub fn diagonal_filter(
+    py: Python<'_>,
     window: WindowArg,
     n: Int,
     slope: f64,
     angle: Option<f64>,
     zero_mean: bool,
-) -> PyResult<Bound<'py, PyAny>> {
+) -> PyResult<Bound<'_, PyAny>> {
     let n = positive("n", n)?.get();
     let k = sg::diagonal_filter(&window.0, n, slope, angle, zero_mean).map_err(audio_err_to_py)?;
     Ok(k.into_pyarray(py).into_any())
@@ -88,14 +105,20 @@ fn enhance<'py, F: PyFloat>(
             return Err(value_err("R", "expected at least 2 dimensions"));
         }
         if v.ndim() == 2 {
-            let m = v.into_dimensionality::<Ix2>().map_err(|e| value_err("R", e))?;
-            let out = py.detach(|| sg::path_enhance(m, n, cfg)).map_err(audio_err_to_py)?;
+            let m = v
+                .into_dimensionality::<Ix2>()
+                .map_err(|e| value_err("R", e))?;
+            let out = py
+                .detach(|| sg::path_enhance(m, n, cfg))
+                .map_err(audio_err_to_py)?;
             return Ok(out.into_pyarray(py).into_any());
         }
         let shape = v.shape().to_vec();
         let (rows, cols) = (shape[shape.len() - 2], shape[shape.len() - 1]);
         let flat = v.as_standard_layout();
-        let flat = flat.as_slice().ok_or_else(|| value_err("R", "expected contiguous data"))?;
+        let flat = flat
+            .as_slice()
+            .ok_or_else(|| value_err("R", "expected contiguous data"))?;
         let mut out = Vec::with_capacity(flat.len());
         let mut failure = None;
         py.detach(|| {
@@ -116,7 +139,8 @@ fn enhance<'py, F: PyFloat>(
         if let Some(e) = failure {
             return Err(value_err("R", e));
         }
-        let a = ndarray::ArrayD::from_shape_vec(IxDyn(&shape), out).map_err(|e| value_err("R", e))?;
+        let a =
+            ndarray::ArrayD::from_shape_vec(IxDyn(&shape), out).map_err(|e| value_err("R", e))?;
         Ok(a.into_pyarray(py).into_any())
     })
 }
@@ -124,13 +148,13 @@ fn enhance<'py, F: PyFloat>(
 /// The largest response of a recurrence matrix to diagonal kernels of several slopes.
 ///
 /// Args:
-///     R (array_like): ``(..., n, n)`` or lag matrix.
+///     R (``array_like)``: ``(..., n, n)`` or lag matrix.
 ///     n (int): Length of each kernel, before rotation.
-///     window (str | tuple | array_like): The window along each diagonal. Default ``"hann"``.
-///     max_ratio (float): Largest slope. Default 2.
-///     min_ratio (Optional[float]): Smallest slope. Default ``1 / max_ratio``.
-///     n_filters (int): Number of slopes. Default 7.
-///     zero_mean (bool): Subtract each kernel's mean. Default false.
+///     window (str | tuple | ``array_like)``: The window along each diagonal. Default ``"hann"``.
+///     ``max_ratio`` (float): Largest slope. Default 2.
+///     ``min_ratio`` (Optional[float]): Smallest slope. Default ``1 / max_ratio``.
+///     ``n_filters`` (int): Number of slopes. Default 7.
+///     ``zero_mean`` (bool): Subtract each kernel's mean. Default false.
 ///     clip (bool): Set negative results to zero. Default true.
 ///     **kwargs: ``mode`` (``"reflect"``, ``"constant"``, ``"nearest"``, ``"mirror"``,
 ///         ``"wrap"``), ``cval`` and ``origin``.
@@ -143,6 +167,7 @@ fn enhance<'py, F: PyFloat>(
     text_signature = "(R, n, *, window='hann', max_ratio=2.0, min_ratio=None, n_filters=7, zero_mean=False, clip=True, **kwargs)"
 )]
 #[allow(non_snake_case, clippy::too_many_arguments)]
+#[inline]
 pub fn path_enhance<'py>(
     R: &Bound<'py, PyAny>,
     n: Int,
@@ -158,7 +183,11 @@ pub fn path_enhance<'py>(
     let (mode, origin) = parse_boundary(kwargs)?;
     let cfg = PathEnhanceConfig::new()
         .with_window(window.0)
-        .with_ratios(max_ratio, min_ratio, positive("n_filters", n_filters)?.get())
+        .with_ratios(
+            max_ratio,
+            min_ratio,
+            positive("n_filters", n_filters)?.get(),
+        )
         .with_zero_mean(zero_mean)
         .with_clip(clip)
         .with_mode(mode)
@@ -185,7 +214,10 @@ impl TimelagFiltered {
         kwargs: Option<&Bound<'py, PyDict>>,
     ) -> PyResult<Bound<'py, PyAny>> {
         let input = args.get_item(self.index).map_err(|_| {
-            value_err("index", format!("the call has no positional argument {}", self.index))
+            value_err(
+                "index",
+                format!("the call has no positional argument {}", self.index),
+            )
         })?;
         let lag = crate::sequence::recurrence_to_lag(py, &input, self.pad, Int(-1))?;
         let call_args = PyList::empty(py);
@@ -218,6 +250,7 @@ impl TimelagFiltered {
 ///     Callable: Takes the same arguments as ``function`` and returns a recurrence matrix.
 #[pyfunction]
 #[pyo3(signature = (function, pad = true, index = Int(0)), text_signature = "(function, pad=True, index=0)")]
+#[inline]
 pub fn timelag_filter(function: Py<PyAny>, pad: bool, index: Int) -> PyResult<TimelagFiltered> {
     Ok(TimelagFiltered {
         function,
@@ -243,17 +276,19 @@ fn frames_last<'py>(data: &Bound<'py, PyAny>, axis: Int) -> PyResult<Bound<'py, 
     let frames: usize = swapped.getattr("shape")?.get_item(0)?.extract()?;
     let kw = PyDict::new(py);
     kw.set_item("order", "F")?;
-    swapped.call_method("reshape", ((frames, -1_i64),), Some(&kw))?.getattr("T")
+    swapped
+        .call_method("reshape", ((frames, -1_i64),), Some(&kw))?
+        .getattr("T")
 }
 
-fn boundaries_out<'py>(py: Python<'py>, v: Vec<usize>) -> Bound<'py, PyAny> {
+fn boundaries_out(py: Python<'_>, v: Vec<usize>) -> Bound<'_, PyAny> {
     PyArray1::from_vec(py, v.into_iter().map(|i| i as i64).collect::<Vec<i64>>()).into_any()
 }
 
 /// Segment boundaries from Ward clustering in which only neighbouring segments merge.
 ///
 /// Args:
-///     data (array_like): Features with time along ``axis``.
+///     data (``array_like)``: Features with time along ``axis``.
 ///     k (int): Number of segments.
 ///     clusterer (Optional[object]): Any object with ``fit`` and ``labels_``, in place of
 ///         the built-in clustering.
@@ -266,6 +301,7 @@ fn boundaries_out<'py>(py: Python<'py>, v: Vec<usize>) -> Bound<'py, PyAny> {
     signature = (data, k, *, clusterer = None, axis = Int(-1)),
     text_signature = "(data, k, *, clusterer=None, axis=-1)"
 )]
+#[inline]
 pub fn agglomerative<'py>(
     data: &Bound<'py, PyAny>,
     k: Int,
@@ -278,14 +314,24 @@ pub fn agglomerative<'py>(
         model.call_method1("fit", (features.getattr("T")?,))?;
         let labels = i64_vec(&model.getattr("labels_")?, "labels_")?;
         let mut out = vec![0_usize];
-        out.extend(labels.windows(2).enumerate().filter(|(_, w)| w[0] != w[1]).map(|(i, _)| i + 1));
+        out.extend(
+            labels
+                .windows(2)
+                .enumerate()
+                .filter(|(_, w)| w[0] != w[1])
+                .map(|(i, _)| i + 1),
+        );
         return Ok(boundaries_out(py, out));
     }
     let k = positive("k", k)?.get();
     with_precision!(precision_of(&features), |F| {
         with_float_view::<F, _>(&features, "data", |v| {
-            let v = v.into_dimensionality::<Ix2>().map_err(|e| value_err("data", e))?;
-            let b = py.detach(|| sg::agglomerative(v, k)).map_err(audio_err_to_py)?;
+            let v = v
+                .into_dimensionality::<Ix2>()
+                .map_err(|e| value_err("data", e))?;
+            let b = py
+                .detach(|| sg::agglomerative(v, k))
+                .map_err(audio_err_to_py)?;
             Ok(boundaries_out(py, b))
         })
     })
@@ -294,9 +340,9 @@ pub fn agglomerative<'py>(
 /// Subdivides each interval of a segmentation with :func:`agglomerative`.
 ///
 /// Args:
-///     data (array_like): Features with time along ``axis``.
-///     frames (array_like[int]): Segment boundaries; the ends are added.
-///     n_segments (int): The most subsegments per interval. Default 4.
+///     data (``array_like)``: Features with time along ``axis``.
+///     frames (``array_like[int]``): Segment boundaries; the ends are added.
+///     ``n_segments`` (int): The most subsegments per interval. Default 4.
 ///     axis (int): The time axis. Default -1.
 ///
 /// Returns:
@@ -306,6 +352,7 @@ pub fn agglomerative<'py>(
     signature = (data, frames, *, n_segments = Int(4), axis = Int(-1)),
     text_signature = "(data, frames, *, n_segments=4, axis=-1)"
 )]
+#[inline]
 pub fn subsegment<'py>(
     data: &Bound<'py, PyAny>,
     frames: &Bound<'py, PyAny>,
@@ -318,8 +365,12 @@ pub fn subsegment<'py>(
     let n = positive("n_segments", n_segments)?.get();
     with_precision!(precision_of(&features), |F| {
         with_float_view::<F, _>(&features, "data", |v| {
-            let v = v.into_dimensionality::<Ix2>().map_err(|e| value_err("data", e))?;
-            let b = py.detach(|| sg::subsegment(v, &bounds, n)).map_err(audio_err_to_py)?;
+            let v = v
+                .into_dimensionality::<Ix2>()
+                .map_err(|e| value_err("data", e))?;
+            let b = py
+                .detach(|| sg::subsegment(v, &bounds, n))
+                .map_err(audio_err_to_py)?;
             Ok(boundaries_out(py, b))
         })
     })
@@ -328,24 +379,29 @@ pub fn subsegment<'py>(
 /// The fractional index on one side of an alignment path for each frame on the other.
 ///
 /// Args:
-///     path (array_like): ``(n, 2)`` index pairs, as ``sequence.dtw`` gives.
+///     path (``array_like)``: ``(n, 2)`` index pairs, as ``sequence.dtw`` gives.
 ///     inverse (bool): False gives column 0 for each frame of column 1. Default false.
 ///
 /// Returns:
 ///     numpy.ndarray[float64]: One value per frame on the path.
 #[pyfunction]
 #[pyo3(signature = (path, *, inverse = false), text_signature = "(path, *, inverse=False)")]
+#[inline]
 pub fn path_to_steps<'py>(path: &Bound<'py, PyAny>, inverse: bool) -> PyResult<Bound<'py, PyAny>> {
     let py = path.py();
     let values = i64_vec(path, "path")?;
     if values.len() % 2 != 0 || values.iter().any(|&v| v < 0) {
         return Err(value_err("path", "expected (n, 2) non-negative indices"));
     }
-    let pairs: Vec<[usize; 2]> = values.chunks_exact(2).map(|c| [c[0] as usize, c[1] as usize]).collect();
+    let pairs: Vec<[usize; 2]> = values
+        .chunks_exact(2)
+        .map(|c| [c[0] as usize, c[1] as usize])
+        .collect();
     let out = seq::path_to_steps(&pairs, inverse).map_err(audio_err_to_py)?;
     Ok(out.into_pyarray(py).into_any())
 }
 
+#[inline]
 pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     let m = PyModule::new(py, "segment")?;
     m.add(
