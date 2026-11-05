@@ -86,6 +86,9 @@ if _so_files:
     features = _ext.features
     rhythm = _ext.rhythm
     effects = _ext.effects
+    linalg = _ext.linalg
+    inverse = _ext.inverse
+    factorization = _ext.factorization
     arrays = _ext.arrays
     mu_law_encode = _ext.mu_law_encode
     mu_law_decode = _ext.mu_law_decode
@@ -108,6 +111,9 @@ if _so_files:
         "features": _ext.features,
         "rhythm": _ext.rhythm,
         "effects": _ext.effects,
+        "linalg": _ext.linalg,
+        "inverse": _ext.inverse,
+        "factorization": _ext.factorization,
         "arrays": _ext.arrays,
     }.items():
         _sys.modules.setdefault(f"audio_samples.{_subname}", _submod)
@@ -210,6 +216,9 @@ __all__ = [
     "features",
     "rhythm",
     "effects",
+    "linalg",
+    "inverse",
+    "factorization",
     "arrays",
     "spectrograms",
     "mpl",

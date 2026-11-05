@@ -147,6 +147,9 @@ from . import spectral as spectral
 from . import sequence as sequence
 from . import rhythm as rhythm
 from . import effects as effects
+from . import linalg as linalg
+from . import inverse as inverse
+from . import factorization as factorization
 from . import arrays as arrays
 from . import features as features
 from .utils import mu_law_encode as mu_law_encode, mu_law_decode as mu_law_decode
@@ -5272,6 +5275,9 @@ __all__ = [
     "features",
     "rhythm",
     "effects",
+    "linalg",
+    "inverse",
+    "factorization",
     "arrays",
     "spectrograms",
     "mpl",

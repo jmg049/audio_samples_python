@@ -29,6 +29,9 @@ pub mod io_streaming;
 pub mod operations;
 pub mod rhythm;
 pub mod sequence;
+pub mod linalg;
+pub mod inverse;
+pub mod factorization;
 pub mod arrays;
 pub mod spectral;
 pub mod types;
@@ -734,6 +737,9 @@ fn audio_samples_python(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()>
     features::register(py, m)?;
     rhythm::register(py, m)?;
     effects::register(py, m)?;
+    linalg::register(py, m)?;
+    inverse::register(py, m)?;
+    factorization::register(py, m)?;
     arrays::register(py, m)?;
 
     // Explanations (audio_samples.explain); ExplainDoc is re-exported at top level.
