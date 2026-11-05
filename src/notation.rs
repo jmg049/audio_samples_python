@@ -19,7 +19,7 @@
 use std::collections::BTreeMap;
 
 use audio_samples::utils::notation::{self as nt, TuningSystem};
-use numpy::PyArray1;
+use numpy::{PyArray1, PyUntypedArray, PyUntypedArrayMethods};
 use pyo3::IntoPyObjectExt;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList, PyString};
@@ -332,6 +332,68 @@ fn map_names<'py>(
     })
 }
 
+/// A new Unicode array of the given shape holding the names, as wide as the widest one.
+///
+/// `names` must yield one name per element, in C order.
+fn svara_array<'py>(
+    py: Python<'py>,
+    shape: &[usize],
+    widest: usize,
+    names: impl Iterator<Item = PyResult<nt::Svara>>,
+) -> PyResult<Bound<'py, PyAny>> {
+    let width = widest.max(1);
+    let array = py
+        .import("numpy")?
+        .getattr("empty")?
+        .call1((shape.to_vec(), format!("<U{width}")))?;
+    let cells = array.cast::<PyUntypedArray>()?;
+    let total = shape.iter().product::<usize>() * width;
+    // SAFETY: the array was just created with `total` code points of 4-byte aligned,
+    // contiguous storage, and nothing else refers to it yet.
+    let cells = unsafe {
+        std::slice::from_raw_parts_mut((*cells.as_array_ptr()).data.cast::<u32>(), total)
+    };
+    for (cell, name) in cells.chunks_exact_mut(width).zip(names) {
+        let name = name?;
+        let mut chars = name.chars();
+        for slot in cell {
+            *slot = chars.next().map_or(0, u32::from);
+        }
+    }
+    Ok(array)
+}
+
+/// Maps a function giving a svara over a scalar or an array, returning a `str` or an array
+/// of the input's shape. Each array element is named twice: once to find the widest name,
+/// once to write it, so that no list of names is held.
+fn map_svaras<'py>(
+    values: &Bound<'py, PyAny>,
+    name: &str,
+    f: impl Fn(f64) -> PyResult<nt::Svara>,
+) -> PyResult<Bound<'py, PyAny>> {
+    let py = values.py();
+    if is_scalar(values)? {
+        let v: f64 = values.extract().or_else(|_| {
+            crate::args::with_float_view::<f64, _>(values, name, |a| {
+                a.first()
+                    .copied()
+                    .ok_or_else(|| value_err(name, "is empty"))
+            })
+        })?;
+        return Ok(PyString::new(py, f(v)?.as_str()).into_any());
+    }
+    crate::args::with_float_view::<f64, _>(values, name, |a| {
+        if a.is_empty() {
+            return strings_out(py, Vec::new(), a.shape());
+        }
+        let mut widest = 0;
+        for &v in &a {
+            widest = widest.max(f(v)?.chars().count());
+        }
+        svara_array(py, a.shape(), widest, a.iter().map(|&v| f(v)))
+    })
+}
+
 fn strings_out<'py>(
     py: Python<'py>,
     names: Vec<String>,
@@ -429,7 +491,7 @@ pub fn list_thaat(py: Python<'_>) -> PyResult<Bound<'_, PyList>> {
 #[inline]
 pub fn thaat_to_degrees<'py>(py: Python<'py>, thaat: &str) -> PyResult<Bound<'py, PyAny>> {
     let d = nt::thaat_to_degrees(thaat).map_err(audio_err_to_py)?;
-    Ok(PyArray1::from_iter(py, d.iter().map(|&v| i64::from(v))).into_any())
+    Ok(PyArray1::from_slice(py, &d.map(i64::from)).into_any())
 }
 
 /// The 72 melakarta ragas and their numbers.
@@ -477,7 +539,7 @@ fn mela_arg(mela: &Bound<'_, PyAny>) -> PyResult<u8> {
 #[inline]
 pub fn mela_to_degrees<'py>(mela: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
     let d = nt::mela_to_degrees(mela_arg(mela)?).map_err(audio_err_to_py)?;
-    Ok(PyArray1::from_iter(mela.py(), d.iter().map(|&v| i64::from(v))).into_any())
+    Ok(PyArray1::from_slice(mela.py(), &d.map(i64::from)).into_any())
 }
 
 /// The names of the twelve svaras of a melakarta raga, from Sa.
@@ -492,8 +554,13 @@ pub fn mela_to_degrees<'py>(mela: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyA
 #[pyfunction]
 #[pyo3(signature = (mela, *, abbr = true, unicode = true), text_signature = "(mela, *, abbr=True, unicode=True)")]
 #[inline]
-pub fn mela_to_svara(mela: &Bound<'_, PyAny>, abbr: bool, unicode: bool) -> PyResult<Vec<String>> {
-    nt::mela_to_svara(mela_arg(mela)?, abbr, unicode).map_err(audio_err_to_py)
+pub fn mela_to_svara<'py>(
+    mela: &Bound<'py, PyAny>,
+    abbr: bool,
+    unicode: bool,
+) -> PyResult<Bound<'py, PyList>> {
+    let names = nt::mela_to_svara(mela_arg(mela)?, abbr, unicode).map_err(audio_err_to_py)?;
+    PyList::new(mela.py(), names.iter().map(nt::Svara::as_str))
 }
 
 /// The Hindustani svara of MIDI numbers.
@@ -521,7 +588,7 @@ pub fn midi_to_svara_h<'py>(
     octave: bool,
     unicode: bool,
 ) -> PyResult<Bound<'py, PyAny>> {
-    map_names(midi, "midi", |m| {
+    map_svaras(midi, "midi", |m| {
         Ok(nt::midi_to_svara_h(m, Sa, abbr, octave, unicode))
     })
 }
@@ -552,7 +619,7 @@ pub fn midi_to_svara_c<'py>(
     unicode: bool,
 ) -> PyResult<Bound<'py, PyAny>> {
     let m = mela_arg(mela)?;
-    map_names(midi, "midi", |v| {
+    map_svaras(midi, "midi", |v| {
         nt::midi_to_svara_c(v, Sa, m, abbr, octave, unicode).map_err(audio_err_to_py)
     })
 }
@@ -580,7 +647,7 @@ pub fn hz_to_svara_h<'py>(
     octave: bool,
     unicode: bool,
 ) -> PyResult<Bound<'py, PyAny>> {
-    map_names(frequencies, "frequencies", |h| {
+    map_svaras(frequencies, "frequencies", |h| {
         Ok(nt::hz_to_svara_h(h, Sa, abbr, octave, unicode))
     })
 }
@@ -611,27 +678,30 @@ pub fn hz_to_svara_c<'py>(
     unicode: bool,
 ) -> PyResult<Bound<'py, PyAny>> {
     let m = mela_arg(mela)?;
-    map_names(frequencies, "frequencies", |h| {
+    map_svaras(frequencies, "frequencies", |h| {
         nt::hz_to_svara_c(h, Sa, m, abbr, octave, unicode).map_err(audio_err_to_py)
     })
 }
 
-/// Maps a note name or sequence of names to a string, or an array of strings.
+/// Maps a note name or sequence of names to a `str`, or an array of them.
 fn map_notes<'py>(
     notes: &Bound<'py, PyAny>,
-    f: impl Fn(&str) -> PyResult<String>,
+    f: impl Fn(&str) -> PyResult<nt::Svara>,
 ) -> PyResult<Bound<'py, PyAny>> {
     let py = notes.py();
     if let Ok(s) = notes.cast::<PyString>() {
-        return f(&s.to_cow()?)?.into_bound_py_any(py);
+        return Ok(PyString::new(py, f(&s.to_cow()?)?.as_str()).into_any());
     }
     let mut out = Vec::new();
     for n in notes.try_iter()? {
         let n = n?;
         out.push(f(&n.cast::<PyString>()?.to_cow()?)?);
     }
-    let count = out.len();
-    strings_out(py, out, &[count])
+    if out.is_empty() {
+        return strings_out(py, Vec::new(), &[0]);
+    }
+    let widest = out.iter().map(|n| n.chars().count()).max().unwrap_or(0);
+    svara_array(py, &[out.len()], widest, out.iter().map(|n| Ok(*n)))
 }
 
 /// The Hindustani svara of note names.
