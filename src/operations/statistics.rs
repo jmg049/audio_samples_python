@@ -15,12 +15,14 @@ impl PyAudioSamples {
     ///
     /// Returns:
     ///     int | float: Maximum absolute amplitude present in the buffer.
-    fn peak<'py>(&self, py: Python<'py>) -> Bound<'py, PyAny> {
-        dispatch_with_view!(self, py, |audio| {
-            audio
-                .peak()
-                .into_bound_py_any(py)
-                .expect("Numbers should always be able to be converted to a pyobject.")
+    fn peak<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        Ok({
+            dispatch_with_view!(self, py, |audio| {
+                audio
+                    .peak()
+                    .into_bound_py_any(py)
+                    .expect("Numbers should always be able to be converted to a pyobject.")
+            })
         })
     }
 
@@ -29,12 +31,14 @@ impl PyAudioSamples {
     ///
     /// Returns:
     ///     int | float: Lowest signed amplitude value found in the buffer.
-    fn min_sample<'py>(&self, py: Python<'py>) -> Bound<'py, PyAny> {
-        dispatch_with_view!(self, py, |audio| {
-            audio
-                .min_sample()
-                .into_bound_py_any(py)
-                .expect("Numbers should always be able to be converted to a pyobject.")
+    fn min_sample<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        Ok({
+            dispatch_with_view!(self, py, |audio| {
+                audio
+                    .min_sample()
+                    .into_bound_py_any(py)
+                    .expect("Numbers should always be able to be converted to a pyobject.")
+            })
         })
     }
 
@@ -43,12 +47,14 @@ impl PyAudioSamples {
     ///
     /// Returns:
     ///     int | float: Highest signed amplitude value found in the buffer.
-    fn max_sample<'py>(&self, py: Python<'py>) -> Bound<'py, PyAny> {
-        dispatch_with_view!(self, py, |audio| {
-            audio
-                .max_sample()
-                .into_bound_py_any(py)
-                .expect("Numbers should always be able to be converted to a pyobject.")
+    fn max_sample<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        Ok({
+            dispatch_with_view!(self, py, |audio| {
+                audio
+                    .max_sample()
+                    .into_bound_py_any(py)
+                    .expect("Numbers should always be able to be converted to a pyobject.")
+            })
         })
     }
 
@@ -57,8 +63,8 @@ impl PyAudioSamples {
     ///
     /// Returns:
     ///     float: Mean amplitude across all samples and channels.
-    fn mean(&self, py: Python<'_>) -> f64 {
-        dispatch_with_view!(self, py, |audio| audio.mean())
+    fn mean(&self, py: Python<'_>) -> PyResult<f64> {
+        Ok({ dispatch_with_view!(self, py, |audio| audio.mean()) })
     }
 
     #[pyo3(signature = ())]
@@ -66,8 +72,8 @@ impl PyAudioSamples {
     ///
     /// Returns:
     ///     Optional[float]: Median amplitude if the view is non-empty, None otherwise.
-    fn median(&self, py: Python<'_>) -> Option<f64> {
-        dispatch_with_view!(self, py, |audio| audio.midpoint_sample())
+    fn median(&self, py: Python<'_>) -> PyResult<Option<f64>> {
+        Ok({ dispatch_with_view!(self, py, |audio| audio.midpoint_sample()) })
     }
 
     #[pyo3(signature = ())]
@@ -75,8 +81,8 @@ impl PyAudioSamples {
     ///
     /// Returns:
     ///     float: RMS amplitude across all samples and channels.
-    fn rms(&self, py: Python<'_>) -> f64 {
-        dispatch_with_view!(self, py, |audio| audio.rms())
+    fn rms(&self, py: Python<'_>) -> PyResult<f64> {
+        Ok({ dispatch_with_view!(self, py, |audio| audio.rms()) })
     }
 
     #[pyo3(signature = ())]
@@ -84,8 +90,8 @@ impl PyAudioSamples {
     ///
     /// Returns:
     ///     float: Variance of amplitudes across all samples and channels.
-    fn variance(&self, py: Python<'_>) -> f64 {
-        dispatch_with_view!(self, py, |audio| audio.variance())
+    fn variance(&self, py: Python<'_>) -> PyResult<f64> {
+        Ok({ dispatch_with_view!(self, py, |audio| audio.variance()) })
     }
 
     #[pyo3(signature = ())]
@@ -93,8 +99,8 @@ impl PyAudioSamples {
     ///
     /// Returns:
     ///     float: Standard deviation derived from the variance.
-    fn std_dev(&self, py: Python<'_>) -> f64 {
-        self.variance(py).sqrt()
+    fn std_dev(&self, py: Python<'_>) -> PyResult<f64> {
+        Ok(self.variance(py)?.sqrt())
     }
 
     #[pyo3(signature = ())]
@@ -106,8 +112,8 @@ impl PyAudioSamples {
     ///
     /// Returns:
     ///     int: Number of crossings (summed over channels).
-    fn zero_crossings(&self, py: Python<'_>) -> usize {
-        dispatch_with_view!(self, py, |audio| audio.zero_crossings())
+    fn zero_crossings(&self, py: Python<'_>) -> PyResult<usize> {
+        Ok({ dispatch_with_view!(self, py, |audio| audio.zero_crossings()) })
     }
 
     #[pyo3(signature = (), text_signature = "($self)")]
@@ -126,8 +132,8 @@ impl PyAudioSamples {
     ///     float: Zero crossings **per second** (crossings / duration),
     ///         averaged over channels. ``librosa.feature.zero_crossing_rate`` is
     ///         instead a per-frame fraction of samples.
-    fn zero_crossing_rate(&self, py: Python<'_>) -> f64 {
-        dispatch_with_view!(self, py, |audio| audio.zero_crossing_rate())
+    fn zero_crossing_rate(&self, py: Python<'_>) -> PyResult<f64> {
+        Ok({ dispatch_with_view!(self, py, |audio| audio.zero_crossing_rate()) })
     }
 
     #[pyo3(signature = (max_lag))]
@@ -285,6 +291,7 @@ channels, got {self_ch} and {other_ch}; use to_mono() or extract_channel() first
                     // Mixed backings (e.g. one owned, one NumPy-backed) or
                     // interleaved NumPy arrays: materialise both as owned
                     // buffers and correlate those.
+                    let _guards = (a.read_guard(py)?, b.read_guard(py)?);
                     let owned_a = a.with_view(py, |audio| audio.into_owned());
                     let owned_b = b.with_view(py, |audio| audio.into_owned());
                     owned_a.cross_correlation(&owned_b, max_lag)
@@ -504,8 +511,8 @@ channels, got {self_ch} and {other_ch}; use to_mono() or extract_channel() first
     /// Returns:
     ///     Optional[float]: Midpoint value for mono audio, or None if the signal
     ///         is multi-channel.
-    fn midpoint_sample(&self, py: Python<'_>) -> Option<f64> {
-        dispatch_with_view!(self, py, |audio| audio.midpoint_sample())
+    fn midpoint_sample(&self, py: Python<'_>) -> PyResult<Option<f64>> {
+        Ok({ dispatch_with_view!(self, py, |audio| audio.midpoint_sample()) })
     }
 
     #[pyo3(signature = ())]
@@ -518,14 +525,16 @@ channels, got {self_ch} and {other_ch}; use to_mono() or extract_channel() first
     ///     tuple[float, int | float]: A ``(rms, peak)`` pair where ``rms`` is the
     ///         root-mean-square as a float and ``peak`` is the maximum absolute
     ///         sample value in the native sample type.
-    fn rms_and_peak<'py>(&self, py: Python<'py>) -> (f64, Bound<'py, PyAny>) {
-        dispatch_with_view!(self, py, |audio| {
-            let (rms, peak) = audio.rms_and_peak();
-            (
-                rms,
-                peak.into_bound_py_any(py)
-                    .expect("Numbers should always be able to be converted to a pyobject."),
-            )
+    fn rms_and_peak<'py>(&self, py: Python<'py>) -> PyResult<(f64, Bound<'py, PyAny>)> {
+        Ok({
+            dispatch_with_view!(self, py, |audio| {
+                let (rms, peak) = audio.rms_and_peak();
+                (
+                    rms,
+                    peak.into_bound_py_any(py)
+                        .expect("Numbers should always be able to be converted to a pyobject."),
+                )
+            })
         })
     }
 
@@ -537,12 +546,14 @@ channels, got {self_ch} and {other_ch}; use to_mono() or extract_channel() first
     ///
     /// Returns:
     ///     int | float: Maximum absolute amplitude present in the buffer.
-    fn amplitude<'py>(&self, py: Python<'py>) -> Bound<'py, PyAny> {
-        dispatch_with_view!(self, py, |audio| {
-            audio
-                .amplitude()
-                .into_bound_py_any(py)
-                .expect("Numbers should always be able to be converted to a pyobject.")
+    fn amplitude<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        Ok({
+            dispatch_with_view!(self, py, |audio| {
+                audio
+                    .amplitude()
+                    .into_bound_py_any(py)
+                    .expect("Numbers should always be able to be converted to a pyobject.")
+            })
         })
     }
 }

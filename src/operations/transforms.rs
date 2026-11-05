@@ -535,6 +535,7 @@ fn convolve_or_deconvolve(
     {
         // Materialise both views as owned 'static buffers so the borrowed view
         // lifetimes do not entangle the 'static result of convolve/deconvolve.
+        let _guards = (a.read_guard(py)?, b.read_guard(py)?);
         let owned_a: AudioSamples<'static, T> = a.with_view(py, |audio| audio.into_owned());
         let owned_b: AudioSamples<'static, T> = b.with_view(py, |audio| audio.into_owned());
         let result = match op {

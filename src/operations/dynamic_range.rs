@@ -26,31 +26,37 @@ macro_rules! dispatch_sidechain {
         let __sc = $sidechain;
         match (__self.inner(), __sc.inner()) {
             (PyAudioDataInner::U8(a), PyAudioDataInner::U8(s)) => {
+                let _guards = (a.read_guard($py)?, s.read_guard($py)?);
                 let $audio = a.with_view($py, |v| v.clone().into_owned());
                 let $sc = s.with_view($py, |v| v.clone().into_owned());
                 $body.map(PyAudioSamples::from_audio_samples)
             }
             (PyAudioDataInner::I16(a), PyAudioDataInner::I16(s)) => {
+                let _guards = (a.read_guard($py)?, s.read_guard($py)?);
                 let $audio = a.with_view($py, |v| v.clone().into_owned());
                 let $sc = s.with_view($py, |v| v.clone().into_owned());
                 $body.map(PyAudioSamples::from_audio_samples)
             }
             (PyAudioDataInner::I24(a), PyAudioDataInner::I24(s)) => {
+                let _guards = (a.read_guard($py)?, s.read_guard($py)?);
                 let $audio = a.with_view($py, |v| v.clone().into_owned());
                 let $sc = s.with_view($py, |v| v.clone().into_owned());
                 $body.map(PyAudioSamples::from_audio_samples)
             }
             (PyAudioDataInner::I32(a), PyAudioDataInner::I32(s)) => {
+                let _guards = (a.read_guard($py)?, s.read_guard($py)?);
                 let $audio = a.with_view($py, |v| v.clone().into_owned());
                 let $sc = s.with_view($py, |v| v.clone().into_owned());
                 $body.map(PyAudioSamples::from_audio_samples)
             }
             (PyAudioDataInner::F32(a), PyAudioDataInner::F32(s)) => {
+                let _guards = (a.read_guard($py)?, s.read_guard($py)?);
                 let $audio = a.with_view($py, |v| v.clone().into_owned());
                 let $sc = s.with_view($py, |v| v.clone().into_owned());
                 $body.map(PyAudioSamples::from_audio_samples)
             }
             (PyAudioDataInner::F64(a), PyAudioDataInner::F64(s)) => {
+                let _guards = (a.read_guard($py)?, s.read_guard($py)?);
                 let $audio = a.with_view($py, |v| v.clone().into_owned());
                 let $sc = s.with_view($py, |v| v.clone().into_owned());
                 $body.map(PyAudioSamples::from_audio_samples)

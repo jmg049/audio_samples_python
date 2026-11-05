@@ -228,6 +228,42 @@ macro_rules! dispatch_with_view {
         let __samples = &$samples;
         use crate::PyAudioDataInner;
         match __samples.inner() {
+            PyAudioDataInner::U8(a) => {
+                let _guard = a.read_guard($py)?;
+                a.with_view($py, |$audio| $body)
+            }
+            PyAudioDataInner::I16(a) => {
+                let _guard = a.read_guard($py)?;
+                a.with_view($py, |$audio| $body)
+            }
+            PyAudioDataInner::I24(a) => {
+                let _guard = a.read_guard($py)?;
+                a.with_view($py, |$audio| $body)
+            }
+            PyAudioDataInner::I32(a) => {
+                let _guard = a.read_guard($py)?;
+                a.with_view($py, |$audio| $body)
+            }
+            PyAudioDataInner::F32(a) => {
+                let _guard = a.read_guard($py)?;
+                a.with_view($py, |$audio| $body)
+            }
+            PyAudioDataInner::F64(a) => {
+                let _guard = a.read_guard($py)?;
+                a.with_view($py, |$audio| $body)
+            }
+        }
+    }};
+}
+
+/// [`dispatch_with_view!`] for bodies that read only metadata (rate, shape), not
+/// samples, which no writer changes while the object is borrowed.
+macro_rules! dispatch_without_borrow {
+    ($samples:expr, $py:expr, |$audio:ident| $body:expr) => {{
+        // Force a reference without moving.
+        let __samples = &$samples;
+        use crate::PyAudioDataInner;
+        match __samples.inner() {
             PyAudioDataInner::U8(a) => a.with_view($py, |$audio| $body),
             PyAudioDataInner::I16(a) => a.with_view($py, |$audio| $body),
             PyAudioDataInner::I24(a) => a.with_view($py, |$audio| $body),
@@ -246,12 +282,30 @@ macro_rules! dispatch_with_view_detached {
         let __samples = &$samples;
         use crate::PyAudioDataInner;
         match __samples.inner() {
-            PyAudioDataInner::U8(a) => a.with_view_detached($py, |$audio| $body),
-            PyAudioDataInner::I16(a) => a.with_view_detached($py, |$audio| $body),
-            PyAudioDataInner::I24(a) => a.with_view_detached($py, |$audio| $body),
-            PyAudioDataInner::I32(a) => a.with_view_detached($py, |$audio| $body),
-            PyAudioDataInner::F32(a) => a.with_view_detached($py, |$audio| $body),
-            PyAudioDataInner::F64(a) => a.with_view_detached($py, |$audio| $body),
+            PyAudioDataInner::U8(a) => {
+                let _guard = a.read_guard($py)?;
+                a.with_view_detached($py, |$audio| $body)
+            }
+            PyAudioDataInner::I16(a) => {
+                let _guard = a.read_guard($py)?;
+                a.with_view_detached($py, |$audio| $body)
+            }
+            PyAudioDataInner::I24(a) => {
+                let _guard = a.read_guard($py)?;
+                a.with_view_detached($py, |$audio| $body)
+            }
+            PyAudioDataInner::I32(a) => {
+                let _guard = a.read_guard($py)?;
+                a.with_view_detached($py, |$audio| $body)
+            }
+            PyAudioDataInner::F32(a) => {
+                let _guard = a.read_guard($py)?;
+                a.with_view_detached($py, |$audio| $body)
+            }
+            PyAudioDataInner::F64(a) => {
+                let _guard = a.read_guard($py)?;
+                a.with_view_detached($py, |$audio| $body)
+            }
         }
     }};
 }
@@ -266,26 +320,32 @@ macro_rules! dispatch_typed_detached {
         let __samples = &$samples;
         match __samples.inner() {
             PyAudioDataInner::U8(a) => {
+                let _guard = a.read_guard($py)?;
                 let $out = a.with_view_detached($py, |$audio| $body);
                 $post
             }
             PyAudioDataInner::I16(a) => {
+                let _guard = a.read_guard($py)?;
                 let $out = a.with_view_detached($py, |$audio| $body);
                 $post
             }
             PyAudioDataInner::I24(a) => {
+                let _guard = a.read_guard($py)?;
                 let $out = a.with_view_detached($py, |$audio| $body);
                 $post
             }
             PyAudioDataInner::I32(a) => {
+                let _guard = a.read_guard($py)?;
                 let $out = a.with_view_detached($py, |$audio| $body);
                 $post
             }
             PyAudioDataInner::F32(a) => {
+                let _guard = a.read_guard($py)?;
                 let $out = a.with_view_detached($py, |$audio| $body);
                 $post
             }
             PyAudioDataInner::F64(a) => {
+                let _guard = a.read_guard($py)?;
                 let $out = a.with_view_detached($py, |$audio| $body);
                 $post
             }
@@ -301,26 +361,32 @@ macro_rules! dispatch_typed {
         let __samples = &$samples;
         match __samples.inner() {
             PyAudioDataInner::U8(a) => {
+                let _guard = a.read_guard($py)?;
                 let $out = a.with_view($py, |$audio| $body);
                 $post
             }
             PyAudioDataInner::I16(a) => {
+                let _guard = a.read_guard($py)?;
                 let $out = a.with_view($py, |$audio| $body);
                 $post
             }
             PyAudioDataInner::I24(a) => {
+                let _guard = a.read_guard($py)?;
                 let $out = a.with_view($py, |$audio| $body);
                 $post
             }
             PyAudioDataInner::I32(a) => {
+                let _guard = a.read_guard($py)?;
                 let $out = a.with_view($py, |$audio| $body);
                 $post
             }
             PyAudioDataInner::F32(a) => {
+                let _guard = a.read_guard($py)?;
                 let $out = a.with_view($py, |$audio| $body);
                 $post
             }
             PyAudioDataInner::F64(a) => {
+                let _guard = a.read_guard($py)?;
                 let $out = a.with_view($py, |$audio| $body);
                 $post
             }
@@ -347,12 +413,30 @@ macro_rules! dispatch_with_view_mut {
         let __samples = $samples;
         use crate::PyAudioDataInner;
         match __samples.inner_mut() {
-            PyAudioDataInner::U8(a) => a.with_view_mut($py, |mut $audio| $body),
-            PyAudioDataInner::I16(a) => a.with_view_mut($py, |mut $audio| $body),
-            PyAudioDataInner::I24(a) => a.with_view_mut($py, |mut $audio| $body),
-            PyAudioDataInner::I32(a) => a.with_view_mut($py, |mut $audio| $body),
-            PyAudioDataInner::F32(a) => a.with_view_mut($py, |mut $audio| $body),
-            PyAudioDataInner::F64(a) => a.with_view_mut($py, |mut $audio| $body),
+            PyAudioDataInner::U8(a) => {
+                let _guard = a.write_guard($py)?;
+                a.with_view_mut($py, |mut $audio| $body)
+            }
+            PyAudioDataInner::I16(a) => {
+                let _guard = a.write_guard($py)?;
+                a.with_view_mut($py, |mut $audio| $body)
+            }
+            PyAudioDataInner::I24(a) => {
+                let _guard = a.write_guard($py)?;
+                a.with_view_mut($py, |mut $audio| $body)
+            }
+            PyAudioDataInner::I32(a) => {
+                let _guard = a.write_guard($py)?;
+                a.with_view_mut($py, |mut $audio| $body)
+            }
+            PyAudioDataInner::F32(a) => {
+                let _guard = a.write_guard($py)?;
+                a.with_view_mut($py, |mut $audio| $body)
+            }
+            PyAudioDataInner::F64(a) => {
+                let _guard = a.write_guard($py)?;
+                a.with_view_mut($py, |mut $audio| $body)
+            }
         }
     }};
 }
@@ -363,6 +447,7 @@ pub(crate) use dispatch_typed_detached;
 pub(crate) use dispatch_with_view;
 pub(crate) use dispatch_with_view_detached;
 pub(crate) use dispatch_with_view_mut;
+pub(crate) use dispatch_without_borrow;
 
 /// Python source of the `audio_samples.exceptions` module.
 ///
@@ -1962,7 +2047,7 @@ impl PyAudioSamples {
     ///     44100
     #[getter]
     fn sample_rate(&self, py: Python<'_>) -> NonZeroU32 {
-        dispatch_with_view!(self, py, |audio| audio.sample_rate())
+        dispatch_without_borrow!(self, py, |audio| audio.sample_rate())
     }
 
     /// Number of audio channels.
@@ -1977,7 +2062,7 @@ impl PyAudioSamples {
     ///     2
     #[getter]
     fn num_channels(&self, py: Python<'_>) -> usize {
-        dispatch_with_view!(self, py, |audio| audio.num_channels().get() as usize)
+        dispatch_without_borrow!(self, py, |audio| audio.num_channels().get() as usize)
     }
 
     /// Alias for num_channels.
@@ -1989,7 +2074,7 @@ impl PyAudioSamples {
     /// Total number of samples across all channels (same as ``len(audio)``).
     #[getter]
     fn len(&self, py: Python<'_>) -> usize {
-        dispatch_with_view!(self, py, |audio| audio.len().get())
+        dispatch_without_borrow!(self, py, |audio| audio.len().get())
     }
 
     /// Total number of samples across all channels (NumPy-style alias of ``len``).
@@ -2012,7 +2097,7 @@ impl PyAudioSamples {
     ///     44100
     #[pyo3(signature = ())]
     fn samples_per_channel(&self, py: Python<'_>) -> usize {
-        dispatch_with_view!(self, py, |audio| audio.samples_per_channel().get())
+        dispatch_without_borrow!(self, py, |audio| audio.samples_per_channel().get())
     }
 
     /// Total number of samples across all channels.
@@ -2025,7 +2110,7 @@ impl PyAudioSamples {
     ///     88200
     #[getter]
     fn total_samples(&self, py: Python<'_>) -> usize {
-        dispatch_with_view!(self, py, |audio| audio.total_samples().get())
+        dispatch_without_borrow!(self, py, |audio| audio.total_samples().get())
     }
 
     /// Shape of the audio data.
@@ -2040,17 +2125,17 @@ impl PyAudioSamples {
     ///     [2, 44100]
     #[getter]
     fn shape(&self, py: Python<'_>) -> Vec<usize> {
-        dispatch_with_view!(self, py, |audio| audio.shape().to_vec())
+        dispatch_without_borrow!(self, py, |audio| audio.shape().to_vec())
     }
 
     #[pyo3(signature = ())]
     fn is_mono(&self, py: Python<'_>) -> bool {
-        dispatch_with_view!(self, py, |audio| audio.is_mono())
+        dispatch_without_borrow!(self, py, |audio| audio.is_mono())
     }
 
     #[pyo3(signature = ())]
     fn is_multi_channel(&self, py: Python<'_>) -> bool {
-        dispatch_with_view!(self, py, |audio| audio.is_multi_channel())
+        dispatch_without_borrow!(self, py, |audio| audio.is_multi_channel())
     }
 
     /// Duration of the audio in seconds.
@@ -2069,7 +2154,7 @@ impl PyAudioSamples {
     ///     3.0
     #[getter]
     fn duration_seconds(&self, py: Python<'_>) -> f64 {
-        dispatch_with_view!(self, py, |audio| audio.duration_seconds())
+        dispatch_without_borrow!(self, py, |audio| audio.duration_seconds())
     }
 
     /// Duration of the audio in milliseconds (``duration_seconds * 1000``).
@@ -2345,7 +2430,7 @@ impl PyAudioSamples {
         } else if let Ok(factor) = other.extract::<f64>() {
             // Multiplying by a scalar
             let mut c = self.clone_py(py);
-            c.scale(py, factor);
+            c.scale(py, factor)?;
             Ok(c)
         } else if let Ok(numpy_array) = other.cast::<PyUntypedArray>() {
             // Multiplying by a numpy array (element-wise)
@@ -2379,7 +2464,7 @@ impl PyAudioSamples {
                 ));
             }
             let mut c = self.clone_py(py);
-            c.scale(py, 1.0 / divisor);
+            c.scale(py, 1.0 / divisor)?;
             Ok(c)
         } else if let Ok(numpy_array) = other.cast::<PyUntypedArray>() {
             // Dividing by a numpy array (element-wise)
@@ -2416,12 +2501,14 @@ impl PyAudioSamples {
         }
     }
 
-    fn __pow__(&self, py: Python<'_>, exponent: f64, modulo: Option<f64>) -> Self {
-        dispatch_with_view!(self, py, |audio| {
-            let powered = audio
-                .powf(exponent, modulo.map(|m| m.convert_to()))
-                .into_owned();
-            PyAudioSamples::from_audio_samples(powered)
+    fn __pow__(&self, py: Python<'_>, exponent: f64, modulo: Option<f64>) -> PyResult<Self> {
+        Ok({
+            dispatch_with_view!(self, py, |audio| {
+                let powered = audio
+                    .powf(exponent, modulo.map(|m| m.convert_to()))
+                    .into_owned();
+                PyAudioSamples::from_audio_samples(powered)
+            })
         })
     }
 
@@ -2537,7 +2624,7 @@ impl PyAudioSamples {
             *self = result;
         } else if let Ok(scalar) = other.extract::<f64>() {
             // Multiplying by a scalar
-            self.scale(py, scalar);
+            self.scale(py, scalar)?;
         } else if let Ok(numpy_array) = other.cast::<PyUntypedArray>() {
             // Multiplying by a numpy array
             let result = self.mul_numpy_array(py, &numpy_array)?;
@@ -2563,7 +2650,7 @@ impl PyAudioSamples {
                     "division by zero",
                 ));
             }
-            self.scale(py, 1.0 / scalar);
+            self.scale(py, 1.0 / scalar)?;
         } else if let Ok(numpy_array) = other.cast::<PyUntypedArray>() {
             // Dividing by a numpy array
             let result = self.div_numpy_array(py, &numpy_array)?;
@@ -3065,7 +3152,7 @@ impl PyAudioSamples {
     #[pyo3(name = "nyquist", signature=())]
     /// Nyquist frequency in Hz (``sample_rate / 2``).
     fn py_nyquist(&self, py: Python<'_>) -> f64 {
-        dispatch_with_view!(self, py, |audio| { audio.nyquist() })
+        dispatch_without_borrow!(self, py, |audio| { audio.nyquist() })
     }
 
     /// Convert to another sample type with audio-aware scaling.
@@ -3093,16 +3180,18 @@ impl PyAudioSamples {
     ///     >>> x.to_format(aus.SampleType.I16).to_numpy()
     ///     array([-32768, -16384,      0,  16384,  32767], dtype=int16)
     #[pyo3(signature = (dtype))]
-    fn to_format(&self, py: Python<'_>, dtype: PySampleType) -> PyAudioSamples {
-        dispatch_with_view!(self, py, |audio| {
-            match dtype {
-                PySampleType::U8 => PyAudioSamples::from_audio_samples(audio.as_u8()),
-                PySampleType::I16 => PyAudioSamples::from_audio_samples(audio.as_i16()),
-                PySampleType::I24 => PyAudioSamples::from_audio_samples(audio.as_i24()),
-                PySampleType::I32 => PyAudioSamples::from_audio_samples(audio.as_i32()),
-                PySampleType::F32 => PyAudioSamples::from_audio_samples(audio.as_f32()),
-                PySampleType::F64 => PyAudioSamples::from_audio_samples(audio.as_f64()),
-            }
+    fn to_format(&self, py: Python<'_>, dtype: PySampleType) -> PyResult<PyAudioSamples> {
+        Ok({
+            dispatch_with_view!(self, py, |audio| {
+                match dtype {
+                    PySampleType::U8 => PyAudioSamples::from_audio_samples(audio.as_u8()),
+                    PySampleType::I16 => PyAudioSamples::from_audio_samples(audio.as_i16()),
+                    PySampleType::I24 => PyAudioSamples::from_audio_samples(audio.as_i24()),
+                    PySampleType::I32 => PyAudioSamples::from_audio_samples(audio.as_i32()),
+                    PySampleType::F32 => PyAudioSamples::from_audio_samples(audio.as_f32()),
+                    PySampleType::F64 => PyAudioSamples::from_audio_samples(audio.as_f64()),
+                }
+            })
         })
     }
 
@@ -3112,7 +3201,7 @@ impl PyAudioSamples {
     /// (asymmetric: int16 ``-32768``/``32767``); see :meth:`to_format`.
     /// Use ``cast_as_u8`` for a raw numeric cast instead.
     #[pyo3(signature = ())]
-    fn as_u8(&self, py: Python<'_>) -> PyAudioSamples {
+    fn as_u8(&self, py: Python<'_>) -> PyResult<PyAudioSamples> {
         self.to_format(py, PySampleType::U8)
     }
 
@@ -3122,7 +3211,7 @@ impl PyAudioSamples {
     /// (asymmetric: int16 ``-32768``/``32767``); see :meth:`to_format`.
     /// Use ``cast_as_i16`` for a raw numeric cast instead.
     #[pyo3(signature = ())]
-    fn as_i16(&self, py: Python<'_>) -> PyAudioSamples {
+    fn as_i16(&self, py: Python<'_>) -> PyResult<PyAudioSamples> {
         self.to_format(py, PySampleType::I16)
     }
 
@@ -3132,7 +3221,7 @@ impl PyAudioSamples {
     /// (asymmetric: int16 ``-32768``/``32767``); see :meth:`to_format`.
     /// Use ``cast_as_i32`` for a raw numeric cast instead.
     #[pyo3(signature = ())]
-    fn as_i32(&self, py: Python<'_>) -> PyAudioSamples {
+    fn as_i32(&self, py: Python<'_>) -> PyResult<PyAudioSamples> {
         self.to_format(py, PySampleType::I32)
     }
 
@@ -3142,7 +3231,7 @@ impl PyAudioSamples {
     /// (asymmetric: int16 ``-32768``/``32767``); see :meth:`to_format`.
     /// Use ``cast_as_f32`` for a raw numeric cast instead.
     #[pyo3(signature = ())]
-    fn as_f32(&self, py: Python<'_>) -> PyAudioSamples {
+    fn as_f32(&self, py: Python<'_>) -> PyResult<PyAudioSamples> {
         self.to_format(py, PySampleType::F32)
     }
 
@@ -3152,7 +3241,7 @@ impl PyAudioSamples {
     /// (asymmetric: int16 ``-32768``/``32767``); see :meth:`to_format`.
     /// Use ``cast_as_f64`` for a raw numeric cast instead.
     #[pyo3(signature = ())]
-    fn as_f64(&self, py: Python<'_>) -> PyAudioSamples {
+    fn as_f64(&self, py: Python<'_>) -> PyResult<PyAudioSamples> {
         self.to_format(py, PySampleType::F64)
     }
 
@@ -3180,16 +3269,18 @@ impl PyAudioSamples {
     ///     >>> x.to_format(aus.SampleType.F64).to_numpy()
     ///     array([ 0.50001526, -1.        ])
     #[pyo3(signature = (dtype))]
-    fn cast_as(&self, py: Python<'_>, dtype: PySampleType) -> PyAudioSamples {
-        dispatch_with_view!(self, py, |audio| {
-            match dtype {
-                PySampleType::U8 => PyAudioSamples::from_audio_samples(audio.cast_as::<u8>()),
-                PySampleType::I16 => PyAudioSamples::from_audio_samples(audio.cast_as::<i16>()),
-                PySampleType::I24 => PyAudioSamples::from_audio_samples(audio.cast_as::<I24>()),
-                PySampleType::I32 => PyAudioSamples::from_audio_samples(audio.cast_as::<i32>()),
-                PySampleType::F32 => PyAudioSamples::from_audio_samples(audio.cast_as::<f32>()),
-                PySampleType::F64 => PyAudioSamples::from_audio_samples(audio.cast_as::<f64>()),
-            }
+    fn cast_as(&self, py: Python<'_>, dtype: PySampleType) -> PyResult<PyAudioSamples> {
+        Ok({
+            dispatch_with_view!(self, py, |audio| {
+                match dtype {
+                    PySampleType::U8 => PyAudioSamples::from_audio_samples(audio.cast_as::<u8>()),
+                    PySampleType::I16 => PyAudioSamples::from_audio_samples(audio.cast_as::<i16>()),
+                    PySampleType::I24 => PyAudioSamples::from_audio_samples(audio.cast_as::<I24>()),
+                    PySampleType::I32 => PyAudioSamples::from_audio_samples(audio.cast_as::<i32>()),
+                    PySampleType::F32 => PyAudioSamples::from_audio_samples(audio.cast_as::<f32>()),
+                    PySampleType::F64 => PyAudioSamples::from_audio_samples(audio.cast_as::<f64>()),
+                }
+            })
         })
     }
 
@@ -3197,7 +3288,7 @@ impl PyAudioSamples {
     /// ``cast_as(SampleType.U8)``. See :meth:`cast_as`; use ``as_u8``
     /// for audio-aware conversion.
     #[pyo3(signature = ())]
-    fn cast_as_u8(&self, py: Python<'_>) -> PyAudioSamples {
+    fn cast_as_u8(&self, py: Python<'_>) -> PyResult<PyAudioSamples> {
         self.cast_as(py, PySampleType::U8)
     }
 
@@ -3205,7 +3296,7 @@ impl PyAudioSamples {
     /// ``cast_as(SampleType.I16)``. See :meth:`cast_as`; use ``as_i16``
     /// for audio-aware conversion.
     #[pyo3(signature = ())]
-    fn cast_as_i16(&self, py: Python<'_>) -> PyAudioSamples {
+    fn cast_as_i16(&self, py: Python<'_>) -> PyResult<PyAudioSamples> {
         self.cast_as(py, PySampleType::I16)
     }
 
@@ -3213,7 +3304,7 @@ impl PyAudioSamples {
     /// ``cast_as(SampleType.I32)``. See :meth:`cast_as`; use ``as_i32``
     /// for audio-aware conversion.
     #[pyo3(signature = ())]
-    fn cast_as_i32(&self, py: Python<'_>) -> PyAudioSamples {
+    fn cast_as_i32(&self, py: Python<'_>) -> PyResult<PyAudioSamples> {
         self.cast_as(py, PySampleType::I32)
     }
 
@@ -3221,7 +3312,7 @@ impl PyAudioSamples {
     /// ``cast_as(SampleType.F32)``. See :meth:`cast_as`; use ``as_f32``
     /// for audio-aware conversion.
     #[pyo3(signature = ())]
-    fn cast_as_f32(&self, py: Python<'_>) -> PyAudioSamples {
+    fn cast_as_f32(&self, py: Python<'_>) -> PyResult<PyAudioSamples> {
         self.cast_as(py, PySampleType::F32)
     }
 
@@ -3229,7 +3320,7 @@ impl PyAudioSamples {
     /// ``cast_as(SampleType.F64)``. See :meth:`cast_as`; use ``as_f64``
     /// for audio-aware conversion.
     #[pyo3(signature = ())]
-    fn cast_as_f64(&self, py: Python<'_>) -> PyAudioSamples {
+    fn cast_as_f64(&self, py: Python<'_>) -> PyResult<PyAudioSamples> {
         self.cast_as(py, PySampleType::F64)
     }
 
@@ -3248,7 +3339,7 @@ impl PyAudioSamples {
         match dtype {
             Some(dt) if !dt.is_equiv_to(&self.dtype(py)) => {
                 // Cast to requested dtype first
-                let casted = self.cast_as(py, PySampleType::from_numpy(py, dt)?);
+                let casted = self.cast_as(py, PySampleType::from_numpy(py, dt)?)?;
                 casted.__array__(py, None, None)
             }
             _ => {
@@ -3296,7 +3387,7 @@ impl PyAudioSamples {
                 // C-contiguous so it can be shared through the buffer protocol.
                 let arr = py
                     .import("numpy")?
-                    .call_method1("ascontiguousarray", (self.cast_as_i32(py).to_numpy(py)?,))?;
+                    .call_method1("ascontiguousarray", (self.cast_as_i32(py)?.to_numpy(py)?,))?;
                 let iface = arr
                     .getattr("__array_interface__")?
                     .cast_into::<PyDict>()
@@ -3412,7 +3503,7 @@ impl PyAudioSamples {
             },
             PyAudioDataInner::I24(_) => {
                 // Convert I24 to i32 for numpy compatibility
-                self.cast_as_i32(py).to_numpy(py)
+                self.cast_as_i32(py)?.to_numpy(py)
             }
             PyAudioDataInner::I32(typed) => match &typed.backing {
                 NumpyMono(handle) => Ok(handle.bind(py).clone().into_any()),
@@ -3707,6 +3798,72 @@ impl<T: StandardSample + Element> Clone for PyAudioBacking<T> {
                 })
             }
         }
+    }
+}
+
+/// Holds a rust-numpy borrow of a NumPy-backed `AudioSamples` for one call on a
+/// free-threaded build, so that a concurrent writer and reader of the same memory
+/// find each other and one raises. With the GIL an in-place method cannot overlap
+/// an attached reader, and this holds nothing.
+#[cfg(Py_GIL_DISABLED)]
+pub(crate) enum ArrayBorrow<'py, T: Element> {
+    None,
+    ReadMono(numpy::PyReadonlyArray1<'py, T>),
+    ReadMulti(numpy::PyReadonlyArray2<'py, T>),
+    WriteMono(numpy::PyReadwriteArray1<'py, T>),
+    WriteMulti(numpy::PyReadwriteArray2<'py, T>),
+}
+
+impl<T: StandardSample + Element> TypedAudioSamples<T> {
+    /// A read borrow of the backing array for the duration of a read.
+    #[cfg(Py_GIL_DISABLED)]
+    pub(crate) fn read_guard<'py>(&self, py: Python<'py>) -> PyResult<ArrayBorrow<'py, T>> {
+        use PyAudioBacking::*;
+        Ok(match &self.backing {
+            OwnedMono(_) | OwnedMulti(_) => ArrayBorrow::None,
+            NumpyMono(h) => ArrayBorrow::ReadMono(h.bind(py).try_readonly()?),
+            NumpyMulti(h) | NumpyInterleaved(h) => {
+                ArrayBorrow::ReadMulti(h.bind(py).try_readonly()?)
+            }
+        })
+    }
+
+    /// A write borrow of the backing array for the duration of an in-place call,
+    /// after replacing a read-only array with a private copy.
+    #[cfg(Py_GIL_DISABLED)]
+    pub(crate) fn write_guard<'py>(&mut self, py: Python<'py>) -> PyResult<ArrayBorrow<'py, T>> {
+        use PyAudioBacking::*;
+        self.backing.ensure_writeable(py);
+        Ok(match &self.backing {
+            OwnedMono(_) | OwnedMulti(_) => ArrayBorrow::None,
+            NumpyMono(h) => ArrayBorrow::WriteMono(h.bind(py).try_readwrite()?),
+            NumpyMulti(h) | NumpyInterleaved(h) => {
+                ArrayBorrow::WriteMulti(h.bind(py).try_readwrite()?)
+            }
+        })
+    }
+
+    /// [`Self::with_view`] under a read borrow.
+    #[inline]
+    pub(crate) fn checked_with_view<R>(
+        &self,
+        py: Python<'_>,
+        f: impl for<'a> FnOnce(AudioSamples<'a, T>) -> R,
+    ) -> PyResult<R> {
+        let _guard = self.read_guard(py)?;
+        Ok(self.with_view(py, f))
+    }
+
+    #[cfg(not(Py_GIL_DISABLED))]
+    #[inline(always)]
+    pub(crate) fn read_guard(&self, _py: Python<'_>) -> PyResult<()> {
+        Ok(())
+    }
+
+    #[cfg(not(Py_GIL_DISABLED))]
+    #[inline(always)]
+    pub(crate) fn write_guard(&mut self, _py: Python<'_>) -> PyResult<()> {
+        Ok(())
     }
 }
 

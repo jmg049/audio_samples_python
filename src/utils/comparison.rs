@@ -51,6 +51,7 @@ pub fn correlation(py: Python, a: &PyAudioSamples, b: &PyAudioSamples) -> PyResu
 
     match (a_inner, b_inner) {
         (PyAudioDataInner::U8(a_data), PyAudioDataInner::U8(b_data)) => {
+            let _guards = (a_data.read_guard(py)?, b_data.read_guard(py)?);
             a_data.with_view(py, |a_view| {
                 b_data.with_view(py, |b_view| {
                     comparison::correlation(&a_view, &b_view).map_err(audio_err_to_py)
@@ -58,6 +59,7 @@ pub fn correlation(py: Python, a: &PyAudioSamples, b: &PyAudioSamples) -> PyResu
             })
         }
         (PyAudioDataInner::I16(a_data), PyAudioDataInner::I16(b_data)) => {
+            let _guards = (a_data.read_guard(py)?, b_data.read_guard(py)?);
             a_data.with_view(py, |a_view| {
                 b_data.with_view(py, |b_view| {
                     comparison::correlation(&a_view, &b_view).map_err(audio_err_to_py)
@@ -65,6 +67,7 @@ pub fn correlation(py: Python, a: &PyAudioSamples, b: &PyAudioSamples) -> PyResu
             })
         }
         (PyAudioDataInner::I24(a_data), PyAudioDataInner::I24(b_data)) => {
+            let _guards = (a_data.read_guard(py)?, b_data.read_guard(py)?);
             a_data.with_view(py, |a_view| {
                 b_data.with_view(py, |b_view| {
                     comparison::correlation(&a_view, &b_view).map_err(audio_err_to_py)
@@ -72,6 +75,7 @@ pub fn correlation(py: Python, a: &PyAudioSamples, b: &PyAudioSamples) -> PyResu
             })
         }
         (PyAudioDataInner::I32(a_data), PyAudioDataInner::I32(b_data)) => {
+            let _guards = (a_data.read_guard(py)?, b_data.read_guard(py)?);
             a_data.with_view(py, |a_view| {
                 b_data.with_view(py, |b_view| {
                     comparison::correlation(&a_view, &b_view).map_err(audio_err_to_py)
@@ -79,6 +83,7 @@ pub fn correlation(py: Python, a: &PyAudioSamples, b: &PyAudioSamples) -> PyResu
             })
         }
         (PyAudioDataInner::F32(a_data), PyAudioDataInner::F32(b_data)) => {
+            let _guards = (a_data.read_guard(py)?, b_data.read_guard(py)?);
             a_data.with_view(py, |a_view| {
                 b_data.with_view(py, |b_view| {
                     comparison::correlation(&a_view, &b_view).map_err(audio_err_to_py)
@@ -86,6 +91,7 @@ pub fn correlation(py: Python, a: &PyAudioSamples, b: &PyAudioSamples) -> PyResu
             })
         }
         (PyAudioDataInner::F64(a_data), PyAudioDataInner::F64(b_data)) => {
+            let _guards = (a_data.read_guard(py)?, b_data.read_guard(py)?);
             a_data.with_view(py, |a_view| {
                 b_data.with_view(py, |b_view| {
                     comparison::correlation(&a_view, &b_view).map_err(audio_err_to_py)
@@ -135,6 +141,7 @@ pub fn mse(py: Python, a: &PyAudioSamples, b: &PyAudioSamples) -> PyResult<f64> 
 
     match (a_inner, b_inner) {
         (PyAudioDataInner::U8(a_data), PyAudioDataInner::U8(b_data)) => {
+            let _guards = (a_data.read_guard(py)?, b_data.read_guard(py)?);
             a_data.with_view(py, |a_view| {
                 b_data.with_view(py, |b_view| {
                     comparison::mse(&a_view, &b_view).map_err(audio_err_to_py)
@@ -142,6 +149,7 @@ pub fn mse(py: Python, a: &PyAudioSamples, b: &PyAudioSamples) -> PyResult<f64> 
             })
         }
         (PyAudioDataInner::I16(a_data), PyAudioDataInner::I16(b_data)) => {
+            let _guards = (a_data.read_guard(py)?, b_data.read_guard(py)?);
             a_data.with_view(py, |a_view| {
                 b_data.with_view(py, |b_view| {
                     comparison::mse(&a_view, &b_view).map_err(audio_err_to_py)
@@ -149,6 +157,7 @@ pub fn mse(py: Python, a: &PyAudioSamples, b: &PyAudioSamples) -> PyResult<f64> 
             })
         }
         (PyAudioDataInner::I24(a_data), PyAudioDataInner::I24(b_data)) => {
+            let _guards = (a_data.read_guard(py)?, b_data.read_guard(py)?);
             a_data.with_view(py, |a_view| {
                 b_data.with_view(py, |b_view| {
                     comparison::mse(&a_view, &b_view).map_err(audio_err_to_py)
@@ -156,6 +165,7 @@ pub fn mse(py: Python, a: &PyAudioSamples, b: &PyAudioSamples) -> PyResult<f64> 
             })
         }
         (PyAudioDataInner::I32(a_data), PyAudioDataInner::I32(b_data)) => {
+            let _guards = (a_data.read_guard(py)?, b_data.read_guard(py)?);
             a_data.with_view(py, |a_view| {
                 b_data.with_view(py, |b_view| {
                     comparison::mse(&a_view, &b_view).map_err(audio_err_to_py)
@@ -163,6 +173,7 @@ pub fn mse(py: Python, a: &PyAudioSamples, b: &PyAudioSamples) -> PyResult<f64> 
             })
         }
         (PyAudioDataInner::F32(a_data), PyAudioDataInner::F32(b_data)) => {
+            let _guards = (a_data.read_guard(py)?, b_data.read_guard(py)?);
             a_data.with_view(py, |a_view| {
                 b_data.with_view(py, |b_view| {
                     comparison::mse(&a_view, &b_view).map_err(audio_err_to_py)
@@ -170,6 +181,7 @@ pub fn mse(py: Python, a: &PyAudioSamples, b: &PyAudioSamples) -> PyResult<f64> 
             })
         }
         (PyAudioDataInner::F64(a_data), PyAudioDataInner::F64(b_data)) => {
+            let _guards = (a_data.read_guard(py)?, b_data.read_guard(py)?);
             a_data.with_view(py, |a_view| {
                 b_data.with_view(py, |b_view| {
                     comparison::mse(&a_view, &b_view).map_err(audio_err_to_py)

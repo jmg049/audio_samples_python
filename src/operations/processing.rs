@@ -49,11 +49,13 @@ impl PyAudioSamples {
     /// Args:
     ///     factor (float): Multiplier applied to every sample; values above 1.0 amplify and below 1.0 attenuate.
     #[pyo3(signature = (factor: "float"))]
-    pub fn scale(&mut self, py: Python<'_>, factor: f64) {
-        let result = dispatch_with_view!(self, py, |audio| {
-            PyAudioSamples::from_audio_samples(audio.scale(factor).into_owned())
-        });
-        *self = result;
+    pub fn scale(&mut self, py: Python<'_>, factor: f64) -> PyResult<()> {
+        Ok({
+            let result = dispatch_with_view!(self, py, |audio| {
+                PyAudioSamples::from_audio_samples(audio.scale(factor).into_owned())
+            });
+            *self = result;
+        })
     }
 
     /// Normalize samples in-place using one of the supported strategies.
