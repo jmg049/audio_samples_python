@@ -72,7 +72,7 @@ macro_rules! each_ordered {
     }};
     (@try $o:ident, $a:ident, $T:ident, $body:expr, $other:expr, $t0:ty $(, $t:ty)*) => {
         if let Ok($a) = $o.cast::<PyArrayDyn<$t0>>() {
-            #[allow(dead_code)]
+            #[allow(dead_code, reason = "a body need not name the alias")]
             type $T = $t0;
             $body
         } else {
@@ -87,11 +87,11 @@ macro_rules! each_numeric {
     ($arr:expr, |$a:ident, $T:ident| $body:expr, else $other:expr) => {{
         let __o = $arr;
         if let Ok($a) = __o.cast::<PyArrayDyn<Complex<f64>>>() {
-            #[allow(dead_code)]
+            #[allow(dead_code, reason = "a body need not name the alias")]
             type $T = Complex<f64>;
             $body
         } else if let Ok($a) = __o.cast::<PyArrayDyn<Complex<f32>>>() {
-            #[allow(dead_code)]
+            #[allow(dead_code, reason = "a body need not name the alias")]
             type $T = Complex<f32>;
             $body
         } else {

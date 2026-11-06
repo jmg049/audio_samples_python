@@ -914,14 +914,13 @@ fn blocks_map<'py>(
 ///     int | numpy.ndarray[int64]: Frame indices, same shape as the input.
 #[pyfunction]
 #[pyo3(signature = (blocks, *, block_length), text_signature = "(blocks, *, block_length)")]
-#[allow(clippy::cast_possible_wrap, clippy::missing_errors_doc)] // Block sizes fit an i64; failures are under `Raises`.
 #[inline]
 pub fn blocks_to_frames<'py>(
     blocks: &Bound<'py, PyAny>,
     block_length: Int,
 ) -> PyResult<Bound<'py, PyAny>> {
     let length = positive("block_length", block_length)?;
-    blocks_map(blocks, length.get() as i64, |b| {
+    blocks_map(blocks, size_i64(length.get()), |b| {
         audio_math::blocks_to_frames(b, length)
     })
 }
@@ -939,7 +938,6 @@ pub fn blocks_to_frames<'py>(
 ///     int | numpy.ndarray[int64]: Sample indices, same shape as the input.
 #[pyfunction]
 #[pyo3(signature = (blocks, *, block_length, hop_length), text_signature = "(blocks, *, block_length, hop_length)")]
-#[allow(clippy::cast_possible_wrap, clippy::missing_errors_doc)] // Block sizes fit an i64; failures are under `Raises`.
 #[inline]
 pub fn blocks_to_samples<'py>(
     blocks: &Bound<'py, PyAny>,
@@ -950,7 +948,7 @@ pub fn blocks_to_samples<'py>(
     let hop = positive("hop_length", hop_length)?;
     blocks_map(
         blocks,
-        (length.get() as i64).saturating_mul(hop.get() as i64),
+        size_i64(length.get()).saturating_mul(size_i64(hop.get())),
         |b| audio_math::blocks_to_samples(b, length, hop),
     )
 }
@@ -969,7 +967,6 @@ pub fn blocks_to_samples<'py>(
 ///     float | numpy.ndarray[float64]: Times in seconds, same shape as the input.
 #[pyfunction]
 #[pyo3(signature = (blocks, *, block_length, hop_length, sample_rate), text_signature = "(blocks, *, block_length, hop_length, sample_rate)")]
-#[allow(clippy::missing_errors_doc)] // Failures are under `Raises`.
 #[inline]
 pub fn blocks_to_time<'py>(
     blocks: &Bound<'py, PyAny>,

@@ -1226,7 +1226,10 @@ pub fn tempogram<'py>(
     signature = (*, onset_envelope, sr, hop_length = Int(512), win_length = Int(384), center = true, window = WindowArg(Window::Hann)),
     text_signature = "(*, onset_envelope, sr, hop_length=512, win_length=384, center=True, window='hann')"
 )]
-#[allow(unused_variables)]
+#[allow(
+    unused_variables,
+    reason = "sr and hop_length belong to the Python signature; the envelope fixes the frame rate"
+)]
 pub fn fourier_tempogram<'py>(
     py: Python<'py>,
     onset_envelope: &Bound<'py, PyAny>,

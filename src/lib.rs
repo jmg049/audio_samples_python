@@ -661,7 +661,6 @@ fn audio_err_to_py(e: audio_samples::AudioSampleError) -> PyErr {
             PyRuntimeError::new_err,
         ),
         // Catch-all for any future variants (serialization, etc.)
-        #[allow(unreachable_patterns)]
         _ => ("AudioRuntimeError", e.to_string(), PyRuntimeError::new_err),
     };
     make_audio_err(class_name, message, code, help, fallback)
@@ -4369,7 +4368,7 @@ where
     /// pure-Rust computations (STFT, CQT, pYIN, HPSS, ...), so other Python
     /// threads keep running.
     ///
-    /// Safe for the same reasons as [`Self::with_view_mut_detached`]: owned
+    /// Safe because owned
     /// data is borrowed through `&self` (the pyclass borrow keeps Rust-side
     /// mutation out), and a NumPy-backed view stays valid because the
     /// `Py<PyArray>` handle keeps the array alive. `f` must not call back into
@@ -4429,22 +4428,6 @@ where
             sample_rate: self.sample_rate,
             layout: self.layout,
         }
-    }
-
-    /// Execute a mutable operation while releasing the GIL for CPU-intensive work.
-    /// This is safe because:
-    /// - For Owned variants, we have exclusive ownership
-    /// - For Numpy variants, the Py<PyArray> handle keeps the array alive
-    ///   and the view remains valid even without the GIL
-    #[allow(unused)]
-    pub fn with_view_mut_detached<R: Send>(
-        &mut self,
-        py: Python<'_>,
-        f: impl FnOnce(AudioSamples<'_, T>) -> R + Send,
-    ) -> R {
-        let sr = self.sample_rate;
-        let view = self.backing_view_mut(py);
-        py.detach(move || f(AudioSamples::new(view.into_audio_data(), sr)))
     }
 }
 
@@ -4539,7 +4522,6 @@ where
 }
 
 #[derive(Debug, Clone)]
-#[allow(unused)] // for U8
 pub(crate) enum PyAudioDataInner {
     U8(TypedAudioSamples<u8>),
     I16(TypedAudioSamples<i16>),
@@ -4850,27 +4832,6 @@ mod tests {
                 }
                 _ => unreachable!("Unexpected backing type"),
             }
-        });
-    }
-
-    #[test]
-    fn test_with_view_mut_detached_releases_gil() {
-        Python::initialize();
-        Python::attach(|py| {
-            let data = Array1::<f32>::zeros(1000);
-            let mut typed = TypedAudioSamples {
-                backing: PyAudioBacking::OwnedMono(data),
-                sample_rate: NonZeroU32::new(44100).unwrap(),
-                layout: ChannelLayout::NonInterleaved,
-            };
-
-            // This should release GIL during the operation
-            let result = typed.with_view_mut_detached(py, |audio| {
-                // Simulate CPU-intensive work
-                let _ = audio_samples::AudioProcessing::scale(&audio, 2.0);
-                42
-            });
-            assert_eq!(result, 42);
         });
     }
 }

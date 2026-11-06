@@ -234,12 +234,12 @@ macro_rules! with_precision {
     ($prec:expr, |$F:ident| $body:expr) => {
         match $prec {
             $crate::args::Precision::F32 => {
-                #[allow(dead_code)]
+                #[allow(dead_code, reason = "a body need not name the alias")]
                 type $F = f32;
                 $body
             }
             $crate::args::Precision::F64 => {
-                #[allow(dead_code)]
+                #[allow(dead_code, reason = "a body need not name the alias")]
                 type $F = f64;
                 $body
             }
