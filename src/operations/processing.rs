@@ -355,9 +355,7 @@ impl PyAudioSamples {
         match self.inner() {
             crate::PyAudioDataInner::F32(a) => moved!(a),
             crate::PyAudioDataInner::F64(a) => moved!(a),
-            _ => self
-                .resample(py, target_sample_rate, quality)?
-                .to_numpy(py),
+            _ => self.resample(py, target_sample_rate, quality)?.to_numpy(py),
         }
     }
 

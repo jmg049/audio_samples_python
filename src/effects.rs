@@ -11,11 +11,11 @@
 use crate::args::Int;
 use std::num::NonZeroUsize;
 
+use audio_samples::AudioFloat;
 use audio_samples::operations::effects::{
     self as fx, ClickPositions, ClicksConfig, GriffinLimConfig, GriffinLimInit, HpssMaskConfig,
     NnAggregate,
 };
-use audio_samples::AudioFloat;
 use audio_samples::operations::filterbanks::Window;
 use audio_samples::operations::sequence::RecurrenceConfig;
 use ndarray::{Array2, Array3, Ix2};
@@ -27,8 +27,8 @@ use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyString};
 
 use crate::args::{
-    FloatElement, PyFloat, WindowArg, f64_array, float_array_as, i64_vec, is_scalar, non_negative, positive,
-    precision_of, stft_config, value_err, with_precision,
+    FloatElement, PyFloat, WindowArg, f64_array, float_array_as, i64_vec, is_scalar, non_negative,
+    positive, precision_of, stft_config, value_err, with_precision,
 };
 use crate::audio_err_to_py;
 use crate::rhythm::{cplanes, out3, planes, rows};
@@ -558,7 +558,12 @@ fn nn_call<'py, F: FloatElement>(
     let res = float_array_as::<F>(&res, "aggregate")?;
     let res = res.as_array();
     match res.ndim() {
-        0 => frame.fill(res.iter().copied().next().expect("a 0-d array holds a value")),
+        0 => frame.fill(
+            res.iter()
+                .copied()
+                .next()
+                .expect("a 0-d array holds a value"),
+        ),
         1 if res.len() == frame.len() => {
             for (o, &v) in frame.iter_mut().zip(res.iter()) {
                 *o = v;
@@ -711,8 +716,16 @@ pub fn nn_filter<'py>(
                 _ => None,
             };
             let slice_of = |e| value_err("rec", e);
-            let v32 = w32.as_ref().map(|w| w.as_slice()).transpose().map_err(slice_of)?;
-            let v64 = w64.as_ref().map(|w| w.as_slice()).transpose().map_err(slice_of)?;
+            let v32 = w32
+                .as_ref()
+                .map(|w| w.as_slice())
+                .transpose()
+                .map_err(slice_of)?;
+            let v64 = w64
+                .as_ref()
+                .map(|w| w.as_slice())
+                .transpose()
+                .map_err(slice_of)?;
             macro_rules! with_values {
                 ($int:ty, $values:expr) => {{
                     let indptr = sp.indptr.extract::<numpy::PyReadonlyArray1<'_, $int>>()?;
@@ -736,7 +749,11 @@ pub fn nn_filter<'py>(
                     }
                 }};
             }
-            if sp.indptr.extract::<numpy::PyReadonlyArray1<'_, i32>>().is_ok() {
+            if sp
+                .indptr
+                .extract::<numpy::PyReadonlyArray1<'_, i32>>()
+                .is_ok()
+            {
                 filtered!(i32)
             } else {
                 filtered!(i64)

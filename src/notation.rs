@@ -512,7 +512,10 @@ pub fn list_mela(py: Python<'_>) -> PyResult<Bound<'_, PyDict>> {
         // dict does not touch their reference counts.
         let items: Vec<String> = ordered.iter().map(|(k, v)| format!("{k:?}: {v}")).collect();
         let source = std::ffi::CString::new(format!("{{{}}}", items.join(", ")))?;
-        Ok(py.eval(&source, None, None)?.cast_into::<PyDict>()?.unbind())
+        Ok(py
+            .eval(&source, None, None)?
+            .cast_into::<PyDict>()?
+            .unbind())
     })?;
     melas.bind(py).copy()
 }

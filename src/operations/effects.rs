@@ -10,8 +10,7 @@
 
 use crate::args::Int;
 use audio_samples::operations::effects::{
-    split_db_with, trim_db_with,
-    HarmonicPercussiveConfig, PitchShiftConfig, SilenceConfig,
+    HarmonicPercussiveConfig, PitchShiftConfig, SilenceConfig, split_db_with, trim_db_with,
 };
 use audio_samples::operations::filterbanks::Window;
 use audio_samples::operations::spectrum::DbReference;
@@ -26,8 +25,8 @@ use pyo3::types::{PyDict, PyString};
 use std::cell::RefCell;
 
 use crate::args::{
-    FloatElement, WindowArg, float_array_as, i64_vec, non_negative, output_sample_type, positive, stft_config,
-    value_err, with_sample_type,
+    FloatElement, WindowArg, float_array_as, i64_vec, non_negative, output_sample_type, positive,
+    stft_config, value_err, with_sample_type,
 };
 use crate::effects::{RngArg, effects_err, griffinlim_config, hpss_mask_config};
 use crate::rhythm::planes;
@@ -193,11 +192,13 @@ fn silence_levels<'py, F: FloatElement + AudioFloat>(
     }
     let Some(f) = &args.aggregate else {
         let n = F::of_usize(db.nrows());
-        return Ok(db.map_axis(ndarray::Axis(0), |c| match args.config.aggregate {
-            ChannelAggregate::Max => c.iter().copied().fold(F::neg_infinity(), F::max),
-            ChannelAggregate::Min => c.iter().copied().fold(F::infinity(), F::min),
-            ChannelAggregate::Mean => c.iter().copied().sum::<F>() / n,
-        }));
+        return Ok(
+            db.map_axis(ndarray::Axis(0), |c| match args.config.aggregate {
+                ChannelAggregate::Max => c.iter().copied().fold(F::neg_infinity(), F::max),
+                ChannelAggregate::Min => c.iter().copied().fold(F::infinity(), F::min),
+                ChannelAggregate::Mean => c.iter().copied().sum::<F>() / n,
+            }),
+        );
     };
     let arr = db.to_owned().into_pyarray(py);
     let res = f.bind(py).call1((arr, 0))?;

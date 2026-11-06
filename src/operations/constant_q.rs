@@ -9,11 +9,11 @@
 //! librosa by about 1e-4 of the peak.
 
 use crate::args::Int;
+use audio_samples::operations::constant_q::griffinlim_cqt_random;
 use audio_samples::operations::constant_q::{
     AudioConstantQ, ChromaCensConfig, ChromaCqtConfig, ChromaVqtConfig, CqtConfig, TonnetzConfig,
     VqtConfig, vqt_with_intervals,
 };
-use audio_samples::operations::constant_q::griffinlim_cqt_random;
 use audio_samples::operations::effects::GriffinLimInit;
 use audio_samples::operations::filterbanks::Window;
 use audio_samples::{AudioSample, AudioSamples};
@@ -502,12 +502,14 @@ impl PyAudioSamples {
             let m = float_array_as::<<T as AudioSample>::Float>(C, "C")?;
             let m3 = to_3d(m.as_array(), "C")?;
             let y = match init {
-                GriffinLimInit::ZeroPhase => <AudioSamples<'static, T> as AudioConstantQ>::griffinlim_cqt(
-                    &m3, &cfg, sr, n_iter, momentum, length,
-                ),
-                GriffinLimInit::Random(seed) => griffinlim_cqt_random::<T>(
-                    &m3, &cfg, sr, n_iter, momentum, length, seed,
-                ),
+                GriffinLimInit::ZeroPhase => {
+                    <AudioSamples<'static, T> as AudioConstantQ>::griffinlim_cqt(
+                        &m3, &cfg, sr, n_iter, momentum, length,
+                    )
+                }
+                GriffinLimInit::Random(seed) => {
+                    griffinlim_cqt_random::<T>(&m3, &cfg, sr, n_iter, momentum, length, seed)
+                }
             }
             .map_err(audio_err_to_py)?;
             Ok(Self::from_audio_samples(y))

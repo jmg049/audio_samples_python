@@ -12,8 +12,7 @@
 use crate::args::Int;
 use audio_samples::operations::filterbanks::Window;
 use audio_samples::operations::spectrum::{
-    stft_n_frames,
-    DbConfig, DctNorm, DctType, MelSpectrogramConfig, MfccConfig,
+    DbConfig, DctNorm, DctType, MelSpectrogramConfig, MfccConfig, stft_n_frames,
 };
 use audio_samples::{AudioSample, AudioSamples, AudioSpectrum};
 use ndarray::{Axis, Ix3};
@@ -26,7 +25,9 @@ use crate::args::{
     stft_config, to_3d, value_err, with_sample_type,
 };
 use crate::types::PySampleType;
-use crate::{PyAudioDataInner, PyAudioSamples, audio_err_to_py, dispatch_array_detached, nzu32_or_err};
+use crate::{
+    PyAudioDataInner, PyAudioSamples, audio_err_to_py, dispatch_array_detached, nzu32_or_err,
+};
 
 /// Parses `dct_type` (1, 2 or 3).
 pub(crate) fn parse_dct_type(dct_type: i64) -> PyResult<DctType> {
@@ -165,7 +166,11 @@ impl PyAudioSamples {
                         return Err(pyo3::exceptions::PyValueError::new_err(format!(
                             "out: has shape {:?}, expected at least {:?}",
                             array.shape(),
-                            if array.ndim() == 2 { &expected[1..] } else { &expected[..] }
+                            if array.ndim() == 2 {
+                                &expected[1..]
+                            } else {
+                                &expected[..]
+                            }
                         )));
                     }
                     let view = view

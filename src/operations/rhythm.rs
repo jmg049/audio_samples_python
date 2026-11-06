@@ -22,9 +22,9 @@ use pyo3::prelude::*;
 
 use crate::args::{MelNormArg, WindowArg, mel_config, positive, stft_config, value_err};
 use crate::rhythm::{
-    AggregateArg, CallbackScope, ChannelsArg, detect_onsets, fourier_tempogram_config, hybrid_tempogram_config,
-    onset_peak_pick, parse_aggregate, parse_channels, parse_prior, plp_config, ratio_config,
-    require_sparse, tempo_config, tempogram_config, track_beats,
+    AggregateArg, CallbackScope, ChannelsArg, detect_onsets, fourier_tempogram_config,
+    hybrid_tempogram_config, onset_peak_pick, parse_aggregate, parse_channels, parse_prior,
+    plp_config, ratio_config, require_sparse, tempo_config, tempogram_config, track_beats,
 };
 use crate::{PyAudioSamples, audio_err_to_py, dispatch_typed, dispatch_typed_detached};
 
@@ -306,7 +306,8 @@ impl PyAudioSamples {
             py,
             |audio| match &bands {
                 ChannelsArg::Bounds(bounds) => audio.onset_strength_multi(&cfg, bounds.as_deref()),
-                ChannelsArg::Slices(slices) => rh::onset_strength_multi_slices(&audio, &cfg, slices),
+                ChannelsArg::Slices(slices) =>
+                    rh::onset_strength_multi_slices(&audio, &cfg, slices),
             },
             |r| scope.finish(r).map(|env| env.into_pyarray(py).into_any())
         )

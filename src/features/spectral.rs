@@ -15,7 +15,7 @@ use pyo3::IntoPyObjectExt;
 use pyo3::prelude::*;
 
 use super::args::{
-    bin_frequencies, freq_is_matrix, freq3, freq_matrix, parse_weighting, spec3, squeeze_out,
+    bin_frequencies, freq_is_matrix, freq_matrix, freq3, parse_weighting, spec3, squeeze_out,
 };
 use crate::args::{
     DbRefArg, FloatElement, f64_array, float_array_as, is_scalar, positive, precision_of,

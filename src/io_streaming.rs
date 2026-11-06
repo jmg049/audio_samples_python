@@ -115,10 +115,16 @@ impl Read for PyFileSource {
                 return copy(bytes.as_bytes());
             }
             // Any other object with the buffer protocol; `str` from a text file is not.
-            match pyo3::types::PyBytes::new(py, &[]).get_type().call1((&data,)) {
-                Ok(bytes) if !data.is_instance_of::<PyString>() => {
-                    copy(bytes.cast::<PyBytes>().map_err(|e| std::io::Error::other(PyErr::from(e)))?.as_bytes())
-                }
+            match pyo3::types::PyBytes::new(py, &[])
+                .get_type()
+                .call1((&data,))
+            {
+                Ok(bytes) if !data.is_instance_of::<PyString>() => copy(
+                    bytes
+                        .cast::<PyBytes>()
+                        .map_err(|e| std::io::Error::other(PyErr::from(e)))?
+                        .as_bytes(),
+                ),
                 _ => Err(std::io::Error::other(PyTypeError::new_err(
                     "fp: read() must return bytes; open the file in binary mode",
                 ))),
