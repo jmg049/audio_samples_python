@@ -415,7 +415,8 @@ def resample(
         res_type: ``"soxr_hq"``, ``"soxr_mq"``, ``"soxr_lq"``, ``"high"``, ``"medium"`` or ``"fast"``.
         fix: The length is ``ceil(n * target_sr / orig_sr)``. The resampler always gives this
             length, so this has no other value.
-        scale: Divide by the square root of the ratio, which keeps total energy.
+        scale: Divide by the square root of the ratio, which keeps total energy (as one
+            multiplication by its reciprocal: within one rounding of the quotient).
 
     Returns:
         The resampled array, of ``y``'s dtype.
@@ -423,7 +424,8 @@ def resample(
     quality = {"soxr_hq": "high", "soxr_vhq": "high", "soxr_mq": "medium", "soxr_lq": "fast", "soxr_qq": "fast"}.get(res_type, res_type)
     out = _from_rows(np.asarray(y), orig_sr)._resample_array(target_sr, quality)
     if scale:
-        out /= np.sqrt(target_sr / orig_sr)
+        # A multiplication is several times cheaper than a division per sample.
+        out *= 1.0 / np.sqrt(target_sr / orig_sr)
     return out
 
 
@@ -444,7 +446,7 @@ def pitch_shift(y: NDArray[Any], *, sr: int, n_steps: float, bins_per_octave: in
     audio = _from_rows(np.asarray(y), sr)
     out = audio.pitch_shift(n_steps, bins_per_octave=bins_per_octave, **kwargs).to_numpy()
     if scale:
-        out /= np.sqrt(2.0 ** (-float(n_steps) / bins_per_octave))
+        out *= 1.0 / np.sqrt(2.0 ** (-float(n_steps) / bins_per_octave))
     return out
 
 
