@@ -524,11 +524,21 @@ const LIST_MELA_DOC: &std::ffi::CStr = c"list_mela()\n--\n\nThe 72 melakarta rag
 
 /// `list_mela()`: a copy of the melakarta dict. A plain C function: a call is
 /// one dict copy, without argument parsing or panic handling, since nothing
-/// here can fail other than the copy itself.
+/// here can fail other than the copy itself. It takes the fast-call
+/// convention, which the interpreter calls through its specialised path for
+/// built-in functions.
 unsafe extern "C" fn list_mela_raw(
     _module: *mut pyo3::ffi::PyObject,
-    _unused: *mut pyo3::ffi::PyObject,
+    _args: *mut *mut pyo3::ffi::PyObject,
+    nargs: pyo3::ffi::Py_ssize_t,
 ) -> *mut pyo3::ffi::PyObject {
+    if nargs != 0 {
+        // SAFETY: a static of the interpreter, set before any call.
+        let exc = unsafe { pyo3::ffi::PyExc_TypeError };
+        // SAFETY: the interpreter calls this with an attached thread state.
+        unsafe { pyo3::ffi::PyErr_SetString(exc, c"list_mela() takes no arguments".as_ptr()) };
+        return std::ptr::null_mut();
+    }
     // SAFETY: the interpreter calls this with an attached thread state, and
     // `MELAS` holds a strong reference to a dict before the function exists.
     unsafe { pyo3::ffi::PyDict_Copy(MELAS.load(std::sync::atomic::Ordering::Acquire)) }
@@ -564,9 +574,9 @@ fn add_list_mela(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     let def = Box::leak(Box::new(pyo3::ffi::PyMethodDef {
         ml_name: c"list_mela".as_ptr(),
         ml_meth: pyo3::ffi::PyMethodDefPointer {
-            PyCFunction: list_mela_raw,
+            PyCFunctionFast: list_mela_raw,
         },
-        ml_flags: pyo3::ffi::METH_NOARGS,
+        ml_flags: pyo3::ffi::METH_FASTCALL,
         ml_doc: LIST_MELA_DOC.as_ptr(),
     }));
     let name = m.name()?;
