@@ -161,7 +161,8 @@ def read_and_resample(
         fp: Path to the audio file.
         target_sr: Target sample rate in Hz; must be greater than zero.
         quality: Resampling quality/speed trade-off. Defaults to ``ResamplingQuality.high``.
-        as_type: Sample type for the returned audio. Defaults to ``f32``.
+        as_type: Sample type for the returned audio. Defaults to the file's sample type,
+            as ``read`` does; the resampler works on every sample type.
 
     Returns:
         The resampled audio.

@@ -647,6 +647,18 @@ def test_stream_native_type_is_the_file_data(tmp_path):
         assert r.read_frames(600, aus.SampleType.I16) is None
 
 
+def test_read_and_resample_keeps_the_file_sample_type(tmp_path):
+    p = tmp_path / "x.wav"
+    audio = aus.AudioSamples.new_mono((np.arange(2000) % 100).astype(np.int16), 8000)
+    aus.io.save(p, audio)
+    out = aus.io.read_and_resample(p, 4000)
+    assert out.to_numpy().dtype == np.int16
+    expected = aus.io.read(p).resample(4000, quality=aus.ResamplingQuality.high)
+    np.testing.assert_array_equal(out.to_numpy(), expected.to_numpy())
+    as_f32 = aus.io.read_and_resample(p, 4000, as_type=aus.SampleType.F32)
+    assert as_f32.to_numpy().dtype == np.float32
+
+
 def test_paths_are_accepted_wherever_a_file_name_is(tmp_path):
     p = tmp_path / "x.wav"
     audio = aus.AudioSamples.new_mono(np.zeros(1000, dtype=np.float32), 8000)
