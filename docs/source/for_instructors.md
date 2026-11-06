@@ -149,9 +149,11 @@ Students should know about these (the notebooks point them out where they are re
 - `estimate_tempo` makes octave errors (and third-of-tempo errors) on simple
   click tracks; `BeatTrackingConfig.tempo_bpm` is not used by it.
 - `LimiterConfig.isp_limiting` is not implemented.
-- The Python bindings have no LPC, Bark, ERB, threshold-of-hearing, codec,
+- The Python bindings have no Bark, ERB, threshold-of-hearing, codec,
   cepstrum or FIR-design functions (the Rust crate has most of them), so
-  notebooks 05, 08, 10 and 14 compute these with NumPy.
+  notebooks 05, 10 and 14 compute these with NumPy. Their LPC,
+  `AudioSamples.lpc`, uses Burg's method; notebook 08 writes the
+  autocorrelation method (Levinson-Durbin) in NumPy and compares the two.
 - All signals in the notebooks are synthetic (tones, chirps, noise, click
   tracks and synthetic vowels) and nothing is played back; add a recording of
   your own (and `IPython.display.Audio`) if you want real speech.
