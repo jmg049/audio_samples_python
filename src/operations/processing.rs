@@ -343,15 +343,19 @@ impl PyAudioSamples {
     ///
     ///     ``target_sample_rate`` (int): As ``resample``.
     ///     quality (ResamplingQuality | str): As ``resample``.
+    ///     gain (float | None): Float samples only: each output ``y`` becomes ``y * gain``
+    ///         computed in float64 and rounded to the sample type, as it is written.
     ///
     /// Returns:
     ///
     ///     numpy.ndarray: Time on the last axis.
+    #[pyo3(signature = (target_sample_rate, quality, gain = None))]
     fn _resample_array<'py>(
         &self,
         py: Python<'py>,
         target_sample_rate: Int,
         quality: QualityArg,
+        gain: Option<f64>,
     ) -> PyResult<Bound<'py, PyAny>> {
         macro_rules! moved {
             ($a:expr) => {{
@@ -365,7 +369,10 @@ impl PyAudioSamples {
                     })?;
                 let q = *quality.0;
                 let out = $a
-                    .with_view_detached(py, |audio| audio.resample(rate, q))
+                    .with_view_detached(py, |audio| match gain {
+                        Some(g) => audio_samples::resample_scaled(&audio, rate, q, g),
+                        None => audio.resample(rate, q),
+                    })
                     .map_err(audio_err_to_py)?;
                 Ok(if out.is_mono() {
                     let data = out.into_array1().expect("mono audio has one dimension");
@@ -379,6 +386,9 @@ impl PyAudioSamples {
         match self.inner() {
             crate::PyAudioDataInner::F32(a) => moved!(a),
             crate::PyAudioDataInner::F64(a) => moved!(a),
+            _ if gain.is_some() => Err(PyValueError::new_err(
+                "gain: only float32 and float64 samples are scaled while resampling",
+            )),
             _ => self.resample(py, target_sample_rate, quality)?.to_numpy(py),
         }
     }

@@ -422,10 +422,15 @@ def resample(
         The resampled array, of ``y``'s dtype.
     """
     quality = {"soxr_hq": "high", "soxr_vhq": "high", "soxr_mq": "medium", "soxr_lq": "fast", "soxr_qq": "fast"}.get(res_type, res_type)
-    out = _from_rows(np.asarray(y), orig_sr)._resample_array(target_sr, quality)
-    if scale:
-        # A multiplication is several times cheaper than a division per sample.
-        out *= 1.0 / np.sqrt(target_sr / orig_sr)
+    y = np.asarray(y)
+    # A multiplication is several times cheaper than a division per sample.
+    gain = 1.0 / np.sqrt(target_sr / orig_sr) if scale else None
+    if gain is not None and y.dtype in (np.float32, np.float64):
+        # Applied as the samples are written (the same values as ``out *= gain``).
+        return _from_rows(y, orig_sr)._resample_array(target_sr, quality, float(gain))
+    out = _from_rows(y, orig_sr)._resample_array(target_sr, quality)
+    if gain is not None:
+        out *= gain
     return out
 
 

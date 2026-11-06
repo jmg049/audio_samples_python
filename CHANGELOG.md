@@ -13,7 +13,10 @@ has the full detail.
 
 - **`forms.resample` and `forms.pitch_shift` with `scale=True` multiply by the reciprocal of the
   square root of the ratio** instead of dividing by it: within one rounding of the quotient, and
-  several times cheaper per sample.
+  several times cheaper per sample. For float32 and float64 input, `forms.resample` applies it
+  while the samples are written (the same values, one pass fewer).
+- **Downsampling by ratios such as 22050 to 16000 or 8000 Hz and 48000 to 44100 Hz is 40-55 %
+  faster** and its output changes at the stopband level; see the crate's changelog.
 - **`features.wavelet_lengths` and `features.wavelet` accept one frequency when `alpha` is
   given.** The bandwidth then does not come from the spacing of the frequencies; without
   `alpha`, two or more are still required.
