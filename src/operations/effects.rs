@@ -319,7 +319,10 @@ impl PyAudioSamples {
         signature = (rate, *, n_fft = Int(2048), hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant"),
         text_signature = "($self, rate, *, n_fft=2048, hop_length=None, win_length=None, window='hann', center=True, pad_mode='constant')"
     )]
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the Python signature takes these arguments"
+    )]
     fn time_stretch(
         &self,
         py: Python<'_>,
@@ -343,7 +346,10 @@ impl PyAudioSamples {
         signature = (rate, *, n_fft = Int(2048), hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant"),
         text_signature = "($self, rate, *, n_fft=2048, hop_length=None, win_length=None, window='hann', center=True, pad_mode='constant')"
     )]
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the Python signature takes these arguments"
+    )]
     fn time_stretch_in_place(
         &mut self,
         py: Python<'_>,
@@ -391,7 +397,10 @@ impl PyAudioSamples {
         signature = (n_steps, *, bins_per_octave = Int(12), res_type = None, scale = false, n_fft = Int(2048), hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant"),
         text_signature = "($self, n_steps, *, bins_per_octave=12, res_type='soxr_hq', scale=False, n_fft=2048, hop_length=None, win_length=None, window='hann', center=True, pad_mode='constant')"
     )]
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the Python signature takes these arguments"
+    )]
     fn pitch_shift(
         &self,
         py: Python<'_>,
@@ -430,7 +439,10 @@ impl PyAudioSamples {
         signature = (n_steps, *, bins_per_octave = Int(12), res_type = None, scale = false, n_fft = Int(2048), hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant"),
         text_signature = "($self, n_steps, *, bins_per_octave=12, res_type='soxr_hq', scale=False, n_fft=2048, hop_length=None, win_length=None, window='hann', center=True, pad_mode='constant')"
     )]
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the Python signature takes these arguments"
+    )]
     fn pitch_shift_in_place(
         &mut self,
         py: Python<'_>,
@@ -751,7 +763,10 @@ impl PyAudioSamples {
         signature = (*, kernel_size = None, power = 2.0, mask = false, margin = None, n_fft = Int(2048), hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant"),
         text_signature = "($self, *, kernel_size=31, power=2.0, mask=False, margin=1.0, n_fft=2048, hop_length=None, win_length=None, window='hann', center=True, pad_mode='constant')"
     )]
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the Python signature takes these arguments"
+    )]
     fn harmonic(
         &self,
         py: Python<'_>,
@@ -792,7 +807,10 @@ impl PyAudioSamples {
         signature = (*, kernel_size = None, power = 2.0, mask = false, margin = None, n_fft = Int(2048), hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant"),
         text_signature = "($self, *, kernel_size=31, power=2.0, mask=False, margin=1.0, n_fft=2048, hop_length=None, win_length=None, window='hann', center=True, pad_mode='constant')"
     )]
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the Python signature takes these arguments"
+    )]
     fn harmonic_in_place(
         &mut self,
         py: Python<'_>,
@@ -836,7 +854,10 @@ impl PyAudioSamples {
         signature = (*, kernel_size = None, power = 2.0, mask = false, margin = None, n_fft = Int(2048), hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant"),
         text_signature = "($self, *, kernel_size=31, power=2.0, mask=False, margin=1.0, n_fft=2048, hop_length=None, win_length=None, window='hann', center=True, pad_mode='constant')"
     )]
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the Python signature takes these arguments"
+    )]
     fn percussive(
         &self,
         py: Python<'_>,
@@ -877,7 +898,10 @@ impl PyAudioSamples {
         signature = (*, kernel_size = None, power = 2.0, mask = false, margin = None, n_fft = Int(2048), hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant"),
         text_signature = "($self, *, kernel_size=31, power=2.0, mask=False, margin=1.0, n_fft=2048, hop_length=None, win_length=None, window='hann', center=True, pad_mode='constant')"
     )]
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the Python signature takes these arguments"
+    )]
     fn percussive_in_place(
         &mut self,
         py: Python<'_>,
@@ -923,7 +947,10 @@ impl PyAudioSamples {
         signature = (*, kernel_size = None, power = 2.0, mask = false, margin = None, n_fft = Int(2048), hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant"),
         text_signature = "($self, *, kernel_size=31, power=2.0, mask=False, margin=1.0, n_fft=2048, hop_length=None, win_length=None, window='hann', center=True, pad_mode='constant')"
     )]
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the Python signature takes these arguments"
+    )]
     fn harmonic_percussive(
         &self,
         py: Python<'_>,
@@ -1013,7 +1040,11 @@ impl PyAudioSamples {
         signature = (S, *, sample_rate, n_iter = Int(32), hop_length = None, win_length = None, n_fft = None, window = WindowArg(Window::Hann), center = true, length = None, pad_mode = "constant", momentum = 0.99, init = Some("random"), rng = RngArg::SEEDED, dtype = None),
         text_signature = "(S, *, sample_rate, n_iter=32, hop_length=None, win_length=None, n_fft=None, window='hann', center=True, length=None, pad_mode='constant', momentum=0.99, init='random', rng=0, dtype=None)"
     )]
-    #[allow(non_snake_case, clippy::too_many_arguments)]
+    #[allow(
+        non_snake_case,
+        clippy::too_many_arguments,
+        reason = "argument names and count follow the Python signature"
+    )]
     fn griffinlim_audio(
         S: &Bound<'_, PyAny>,
         sample_rate: Int,

@@ -81,7 +81,7 @@ pub fn octs_to_hz<'py>(
 ///     float | numpy.ndarray[float64]: tuning, same shape as the input.
 #[pyfunction]
 #[pyo3(signature = (A4, *, bins_per_octave = Int(12)), text_signature = "(A4, *, bins_per_octave=12)")]
-#[allow(non_snake_case)]
+#[allow(non_snake_case, reason = "argument names follow the Python API")]
 pub fn a4_to_tuning<'py>(
     A4: &Bound<'py, PyAny>,
     bins_per_octave: Int,

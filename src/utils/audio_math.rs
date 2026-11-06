@@ -1099,7 +1099,7 @@ fn frame_count(x: &Bound<'_, PyAny>, axis: Int) -> PyResult<usize> {
 ///     numpy.ndarray[float64]: shape ``(n_frames,)``.
 #[pyfunction]
 #[pyo3(signature = (X, *, sample_rate = None, hop_length, n_fft = None, axis = Int(-1), sr = None), text_signature = "(X, *, sample_rate=None, hop_length, n_fft=None, axis=-1, sr=None)")]
-#[allow(non_snake_case)]
+#[allow(non_snake_case, reason = "argument names follow the Python API")]
 pub fn times_like<'py>(
     py: Python<'py>,
     X: &Bound<'py, PyAny>,
@@ -1129,7 +1129,7 @@ pub fn times_like<'py>(
 ///     numpy.ndarray[int64]: shape ``(n_frames,)``.
 #[pyfunction]
 #[pyo3(signature = (X, *, hop_length, n_fft = None, axis = Int(-1)), text_signature = "(X, *, hop_length, n_fft=None, axis=-1)")]
-#[allow(non_snake_case)]
+#[allow(non_snake_case, reason = "argument names follow the Python API")]
 pub fn samples_like<'py>(
     py: Python<'py>,
     X: &Bound<'py, PyAny>,

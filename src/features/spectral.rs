@@ -51,7 +51,7 @@ fn out<T: numpy::Element>(py: Python<'_>, a: Array3<T>, ndim_in: usize) -> Bound
 ///         the wrong shape.
 #[pyfunction]
 #[pyo3(signature = (S, *, sr, freq = None), text_signature = "(S, *, sr, freq=None)")]
-#[allow(non_snake_case)]
+#[allow(non_snake_case, reason = "argument names follow the Python API")]
 pub fn spectral_centroid_from_spectrogram<'py>(
     py: Python<'py>,
     S: &Bound<'py, PyAny>,
@@ -96,7 +96,7 @@ pub fn spectral_centroid_from_spectrogram<'py>(
     signature = (S, *, sr, freq = None, centroid = None, norm = true, p = 2.0),
     text_signature = "(S, *, sr, freq=None, centroid=None, norm=True, p=2.0)"
 )]
-#[allow(non_snake_case)]
+#[allow(non_snake_case, reason = "argument names follow the Python API")]
 pub fn spectral_bandwidth_from_spectrogram<'py>(
     py: Python<'py>,
     S: &Bound<'py, PyAny>,
@@ -162,7 +162,7 @@ pub fn spectral_bandwidth_from_spectrogram<'py>(
     signature = (S, *, sr, freq = None, roll_percent = 0.85),
     text_signature = "(S, *, sr, freq=None, roll_percent=0.85)"
 )]
-#[allow(non_snake_case)]
+#[allow(non_snake_case, reason = "argument names follow the Python API")]
 pub fn spectral_rolloff_from_spectrogram<'py>(
     py: Python<'py>,
     S: &Bound<'py, PyAny>,
@@ -210,7 +210,7 @@ pub fn spectral_rolloff_from_spectrogram<'py>(
     signature = (S, *, amin = 1e-10, power = 2.0),
     text_signature = "(S, *, amin=1e-10, power=2.0)"
 )]
-#[allow(non_snake_case)]
+#[allow(non_snake_case, reason = "argument names follow the Python API")]
 pub fn spectral_flatness_from_spectrogram<'py>(
     py: Python<'py>,
     S: &Bound<'py, PyAny>,
@@ -311,7 +311,7 @@ pub fn spectral_contrast_from_spectrogram<'py>(
     signature = (S, *, sr, freq = None, order = Int(1)),
     text_signature = "(S, *, sr, freq=None, order=1)"
 )]
-#[allow(non_snake_case)]
+#[allow(non_snake_case, reason = "argument names follow the Python API")]
 pub fn poly_features_from_spectrogram<'py>(
     py: Python<'py>,
     S: &Bound<'py, PyAny>,
@@ -360,7 +360,7 @@ pub fn poly_features_from_spectrogram<'py>(
 ///     ValueError: If the bin count is not ``1 + frame_length // 2``.
 #[pyfunction]
 #[pyo3(signature = (S, *, frame_length = Int(2048)), text_signature = "(S, *, frame_length=2048)")]
-#[allow(non_snake_case)]
+#[allow(non_snake_case, reason = "argument names follow the Python API")]
 pub fn rms_from_spectrogram<'py>(
     py: Python<'py>,
     S: &Bound<'py, PyAny>,
@@ -759,7 +759,7 @@ pub fn multi_frequency_weighting<'py>(
     signature = (S, frequencies, *, kind = "A", r#ref = DbRefArg(audio_samples::DbReference::Value(1.0)), amin = 1e-10, top_db = None),
     text_signature = "(S, frequencies, *, kind='A', ref=1.0, amin=1e-10, top_db=None)"
 )]
-#[allow(non_snake_case)]
+#[allow(non_snake_case, reason = "argument names follow the Python API")]
 pub fn perceptual_weighting<'py>(
     py: Python<'py>,
     S: &Bound<'py, PyAny>,

@@ -64,7 +64,10 @@ where
     signature = (y, *, n_fft = Int(2048), hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant"),
     text_signature = "(y, *, n_fft=2048, hop_length=None, win_length=None, window='hann', center=True, pad_mode='constant')"
 )]
-#[allow(clippy::too_many_arguments)] // PyO3 signature mirrors the Python keyword arguments
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the Python signature takes these arguments"
+)] // PyO3 signature mirrors the Python keyword arguments
 pub fn stft<'py>(
     py: Python<'py>,
     y: &Bound<'py, PyAny>,
@@ -130,7 +133,10 @@ pub fn stft<'py>(
     signature = (stft_matrix, *, hop_length = None, win_length = None, n_fft = None, window = WindowArg(Window::Hann), center = true, length = None),
     text_signature = "(stft_matrix, *, hop_length=None, win_length=None, n_fft=None, window='hann', center=True, length=None)"
 )]
-#[allow(clippy::too_many_arguments)] // PyO3 signature mirrors the Python keyword arguments
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the Python signature takes these arguments"
+)] // PyO3 signature mirrors the Python keyword arguments
 pub fn istft<'py>(
     py: Python<'py>,
     stft_matrix: &Bound<'py, PyAny>,
@@ -227,7 +233,7 @@ const fn db_config(
     signature = (S, *, r#ref = DbRefArg(audio_samples::DbReference::Value(1.0)), amin = 1e-10, top_db = None, axes = DbAxesArg(audio_samples::DbAxes::Auto)),
     text_signature = "(S, *, ref=1.0, amin=1e-10, top_db=None, axes='auto')"
 )]
-#[allow(non_snake_case)]
+#[allow(non_snake_case, reason = "argument names follow the Python API")]
 pub fn power_to_db<'py>(
     py: Python<'py>,
     S: &Bound<'py, PyAny>,
@@ -274,7 +280,7 @@ pub fn power_to_db<'py>(
     signature = (S, *, r#ref = DbRefArg(audio_samples::DbReference::Value(1.0)), amin = 1e-5, top_db = None, axes = DbAxesArg(audio_samples::DbAxes::Auto)),
     text_signature = "(S, *, ref=1.0, amin=1e-05, top_db=None, axes='auto')"
 )]
-#[allow(non_snake_case)]
+#[allow(non_snake_case, reason = "argument names follow the Python API")]
 pub fn amplitude_to_db<'py>(
     py: Python<'py>,
     S: &Bound<'py, PyAny>,
@@ -319,7 +325,7 @@ pub fn amplitude_to_db<'py>(
 ///     float | numpy.ndarray[float32 | float64]: Same shape as ``S_db``.
 #[pyfunction]
 #[pyo3(signature = (S_db, *, r#ref = 1.0), text_signature = "(S_db, *, ref=1.0)")]
-#[allow(non_snake_case)]
+#[allow(non_snake_case, reason = "argument names follow the Python API")]
 pub fn db_to_power<'py>(
     py: Python<'py>,
     S_db: &Bound<'py, PyAny>,
@@ -345,7 +351,7 @@ pub fn db_to_power<'py>(
 ///     float | numpy.ndarray[float32 | float64]: Same shape as ``S_db``.
 #[pyfunction]
 #[pyo3(signature = (S_db, *, r#ref = 1.0), text_signature = "(S_db, *, ref=1.0)")]
-#[allow(non_snake_case)]
+#[allow(non_snake_case, reason = "argument names follow the Python API")]
 pub fn db_to_amplitude<'py>(
     py: Python<'py>,
     S_db: &Bound<'py, PyAny>,
@@ -383,7 +389,10 @@ pub fn db_to_amplitude<'py>(
     signature = (*, sr, n_fft, n_mels = Int(128), fmin = 0.0, fmax = None, htk = false, norm = MelNormArg(audio_samples::MelFilterNorm::Slaney)),
     text_signature = "(*, sr, n_fft, n_mels=128, fmin=0.0, fmax=None, htk=False, norm='slaney')"
 )]
-#[allow(clippy::too_many_arguments)] // PyO3 signature mirrors the Python keyword arguments
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the Python signature takes these arguments"
+)] // PyO3 signature mirrors the Python keyword arguments
 pub fn mel_filterbank(
     py: Python<'_>,
     sr: f64,
@@ -460,7 +469,10 @@ pub fn get_window(
     signature = (*, window, n_frames, hop_length = Int(512), win_length = None, n_fft = Int(2048), norm = None, dtype = None),
     text_signature = "(*, window, n_frames, hop_length=512, win_length=None, n_fft=2048, norm=None, dtype=None)"
 )]
-#[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the Python signature takes these arguments"
+)]
 pub fn window_sumsquare<'py>(
     py: Python<'py>,
     window: WindowArg,
@@ -791,7 +803,11 @@ fn readonly_frames<'py, F: numpy::Element>(
     signature = (S, *, sr, n_fft = None, n_mels = Int(128), fmin = 0.0, fmax = None, htk = false, norm = MelNormArg(audio_samples::MelFilterNorm::Slaney)),
     text_signature = "(S, *, sr, n_fft=None, n_mels=128, fmin=0.0, fmax=None, htk=False, norm='slaney')"
 )]
-#[allow(non_snake_case, clippy::too_many_arguments)]
+#[allow(
+    non_snake_case,
+    clippy::too_many_arguments,
+    reason = "argument names and count follow the Python signature"
+)]
 pub fn melspectrogram_from_spectrogram<'py>(
     py: Python<'py>,
     S: &Bound<'py, PyAny>,
@@ -854,7 +870,7 @@ pub fn melspectrogram_from_spectrogram<'py>(
     signature = (S, *, n_mfcc = Int(20), dct_type = Int(2), norm = Some("ortho"), lifter = 0.0),
     text_signature = "(S, *, n_mfcc=20, dct_type=2, norm='ortho', lifter=0.0)"
 )]
-#[allow(non_snake_case)]
+#[allow(non_snake_case, reason = "argument names follow the Python API")]
 pub fn mfcc_from_mel_db<'py>(
     py: Python<'py>,
     S: &Bound<'py, PyAny>,

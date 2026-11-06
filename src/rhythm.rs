@@ -516,7 +516,10 @@ pub fn hybrid_tempogram_config(
     Ok(cfg)
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the Python signature takes these arguments"
+)]
 pub fn tempo_config(
     start_bpm: f64,
     std_bpm: f64,
@@ -561,7 +564,10 @@ pub fn parse_peak_method(method: &str) -> PyResult<PeakPickMethod> {
 
 /// `onset_detect` peak-picking parameters: the given ones, the rest derived
 /// from the frame rate.
-#[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the Python signature takes these arguments"
+)]
 pub fn onset_peak_pick(
     sr: f64,
     hop: NonZeroUsize,
@@ -603,7 +609,10 @@ pub fn onset_peak_pick(
 }
 
 /// Onset detection on one envelope, converted to `units`.
-#[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the Python signature takes these arguments"
+)]
 pub fn detect_onsets<'py, F: PyFloat>(
     py: Python<'py>,
     envelope: &[F],
@@ -629,7 +638,10 @@ pub fn detect_onsets<'py, F: PyFloat>(
 }
 
 /// Beat tracking on one envelope, returning `(tempo, beats)`.
-#[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the Python signature takes these arguments"
+)]
 pub fn track_beats<'py, F: PyFloat>(
     py: Python<'py>,
     envelope: &[F],
@@ -664,8 +676,10 @@ pub fn track_beats<'py, F: PyFloat>(
             if !(tightness.is_finite() && tightness > 0.0) {
                 return Err(value_err("tightness", "must be finite and positive"));
             }
-            #[allow(clippy::cast_precision_loss)]
-            // hop lengths are far below 2^52, where the conversion is exact
+            #[allow(
+                clippy::cast_precision_loss,
+                reason = "hop lengths are far below 2^52, where the conversion is exact"
+            )]
             let frame_rate = sr / hop.get() as f64;
             let frames = rh::beat_track_with_bpm(envelope, &values, frame_rate, tightness, trim)
                 .map_err(audio_err_to_py)?;
@@ -716,7 +730,10 @@ fn check_kind(kind: &str) -> PyResult<()> {
 
 /// Builds an [`OnsetStrengthConfig`] for spectrogram input (`n_fft`/`hop_length`
 /// only set the centring shift).
-#[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the Python signature takes these arguments"
+)]
 fn onset_cfg_for_s(
     lag: Int,
     max_size: Int,
@@ -812,7 +829,12 @@ pub enum ChannelsArg {
     signature = (*, S, sr, lag = Int(1), max_size = Int(1), r#ref = None, detrend = false, center = true, aggregate = None, n_fft = Int(2048), hop_length = Int(512)),
     text_signature = "(*, S, sr, lag=1, max_size=1, ref=None, detrend=False, center=True, aggregate=None, n_fft=2048, hop_length=512)"
 )]
-#[allow(non_snake_case, clippy::too_many_arguments, unused_variables)]
+#[allow(
+    non_snake_case,
+    clippy::too_many_arguments,
+    unused_variables,
+    reason = "the Python signature; some arguments are accepted and ignored, as documented"
+)]
 pub fn onset_strength<'py>(
     py: Python<'py>,
     S: &Bound<'py, PyAny>,
@@ -885,7 +907,12 @@ pub fn onset_strength<'py>(
     signature = (*, S, sr, n_fft = Int(2048), hop_length = Int(512), lag = Int(1), max_size = Int(1), r#ref = None, detrend = false, center = true, aggregate = None, channels = None),
     text_signature = "(*, S, sr, n_fft=2048, hop_length=512, lag=1, max_size=1, ref=None, detrend=False, center=True, aggregate=None, channels=None)"
 )]
-#[allow(non_snake_case, clippy::too_many_arguments, unused_variables)]
+#[allow(
+    non_snake_case,
+    clippy::too_many_arguments,
+    unused_variables,
+    reason = "the Python signature; some arguments are accepted and ignored, as documented"
+)]
 pub fn onset_strength_multi<'py>(
     py: Python<'py>,
     S: &Bound<'py, PyAny>,
@@ -966,7 +993,10 @@ pub fn onset_strength_multi<'py>(
     signature = (x, *, pre_max, post_max, pre_avg, post_avg, delta, wait, sparse = true, method = "greedy", axis = Int(-1)),
     text_signature = "(x, *, pre_max, post_max, pre_avg, post_avg, delta, wait, sparse=True, method='greedy', axis=-1)"
 )]
-#[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the Python signature takes these arguments"
+)]
 pub fn peak_pick<'py>(
     py: Python<'py>,
     x: &Bound<'py, PyAny>,
@@ -1068,7 +1098,10 @@ pub fn onset_backtrack<'py>(
     signature = (*, onset_envelope, sr, hop_length = Int(512), backtrack = false, energy = None, units = "frames", normalize = true, sparse = true, pre_max = None, post_max = None, pre_avg = None, post_avg = None, delta = None, wait = None, method = "greedy"),
     text_signature = "(*, onset_envelope, sr, hop_length=512, backtrack=False, energy=None, units='frames', normalize=True, sparse=True, pre_max=None, post_max=None, pre_avg=None, post_avg=None, delta=None, wait=None, method='greedy')"
 )]
-#[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the Python signature takes these arguments"
+)]
 pub fn onset_detect<'py>(
     py: Python<'py>,
     onset_envelope: &Bound<'py, PyAny>,
@@ -1187,7 +1220,11 @@ pub fn fourier_tempo_frequencies(
     signature = (*, onset_envelope, sr, hop_length = Int(512), win_length = Int(384), center = true, window = WindowArg(Window::Hann), norm = Some(f64::INFINITY)),
     text_signature = "(*, onset_envelope, sr, hop_length=512, win_length=384, center=True, window='hann', norm=math.inf)"
 )]
-#[allow(clippy::too_many_arguments, unused_variables)]
+#[allow(
+    clippy::too_many_arguments,
+    unused_variables,
+    reason = "the Python signature; some arguments are accepted and ignored, as documented"
+)]
 pub fn tempogram<'py>(
     py: Python<'py>,
     onset_envelope: &Bound<'py, PyAny>,
@@ -1285,7 +1322,10 @@ pub fn fourier_tempogram<'py>(
     signature = (*, onset_envelope = None, tg = None, sr, hop_length = Int(512), start_bpm = 120.0, std_bpm = 1.0, ac_size = 8.0, max_tempo = Some(320.0), aggregate = AggregateArg::mean(), prior = None),
     text_signature = "(*, onset_envelope=None, tg=None, sr, hop_length=512, start_bpm=120, std_bpm=1.0, ac_size=8.0, max_tempo=320.0, aggregate='mean', prior=None)"
 )]
-#[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the Python signature takes these arguments"
+)]
 pub fn tempo<'py>(
     py: Python<'py>,
     onset_envelope: Option<&Bound<'py, PyAny>>,
@@ -1368,7 +1408,10 @@ pub fn tempo<'py>(
     signature = (*, onset_envelope, sr, hop_length = Int(512), start_bpm = 120.0, tightness = 100.0, trim = false, bpm = None, prior = None, units = "frames", sparse = true),
     text_signature = "(*, onset_envelope, sr, hop_length=512, start_bpm=120.0, tightness=100, trim=False, bpm=None, prior=None, units='frames', sparse=True)"
 )]
-#[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the Python signature takes these arguments"
+)]
 pub fn beat_track<'py>(
     py: Python<'py>,
     onset_envelope: &Bound<'py, PyAny>,
@@ -1429,8 +1472,10 @@ pub fn beat_track_with_bpm<'py>(
 ) -> PyResult<Bound<'py, PyArray1<i64>>> {
     let bpm: Vec<f64> = f64_array(bpm, "bpm")?.as_array().iter().copied().collect();
     let hop = hop_nz(hop_length.0)?;
-    #[allow(clippy::cast_precision_loss)]
-    // hop lengths are far below 2^52, where the conversion is exact
+    #[allow(
+        clippy::cast_precision_loss,
+        reason = "hop lengths are far below 2^52, where the conversion is exact"
+    )]
     let frame_rate = sr / hop.get() as f64;
     let frames = with_precision!(precision_of(onset_envelope), |F| {
         let env = vec1::<F>(onset_envelope, "onset_envelope")?;
@@ -1470,7 +1515,10 @@ pub fn beat_track_with_bpm<'py>(
     signature = (*, onset_envelope, sr, hop_length = Int(512), win_length = Int(384), tempo_min = Some(30.0), tempo_max = Some(300.0), prior = None),
     text_signature = "(*, onset_envelope, sr, hop_length=512, win_length=384, tempo_min=30, tempo_max=300, prior=None)"
 )]
-#[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the Python signature takes these arguments"
+)]
 pub fn plp<'py>(
     py: Python<'py>,
     onset_envelope: &Bound<'py, PyAny>,
@@ -1532,7 +1580,10 @@ pub fn plp<'py>(
     signature = (*, onset_envelope = None, tg = None, bpm = None, sr, hop_length = Int(512), win_length = Int(384), start_bpm = 120.0, std_bpm = 1.0, max_tempo = Some(320.0), freqs = None, factors = None, aggregate = None, prior = None, center = true, window = WindowArg(Window::Hann), kind = "linear", fill_value = 0.0, norm = Some(f64::INFINITY)),
     text_signature = "(*, onset_envelope=None, tg=None, bpm=None, sr, hop_length=512, win_length=384, start_bpm=120, std_bpm=1.0, max_tempo=320.0, freqs=None, factors=None, aggregate=None, prior=None, center=True, window='hann', kind='linear', fill_value=0, norm=math.inf)"
 )]
-#[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the Python signature takes these arguments"
+)]
 pub fn tempogram_ratio<'py>(
     py: Python<'py>,
     onset_envelope: Option<&Bound<'py, PyAny>>,
@@ -1632,7 +1683,10 @@ fn ratio_out<T: numpy::Element>(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the Python signature takes these arguments"
+)]
 pub fn ratio_config(
     win_length: Int,
     center: bool,

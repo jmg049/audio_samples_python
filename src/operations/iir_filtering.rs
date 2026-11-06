@@ -1136,7 +1136,10 @@ impl PySosFilter {
     ///     Magnitude and phase (radians) arrays, each the same length as
     ///     ``frequencies``.
     #[pyo3(signature = (frequencies: "np.typing.NDArray[np.float64]"))]
-    #[allow(clippy::type_complexity)]
+    #[allow(
+        clippy::type_complexity,
+        reason = "a pair of NumPy arrays, as Python receives it"
+    )]
     fn frequency_response<'py>(
         &self,
         py: Python<'py>,

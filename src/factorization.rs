@@ -95,7 +95,11 @@ impl Nmf {
         signature = (n_components, *, init = None, solver = "cd", beta_loss = None, tol = 1e-4, max_iter = Int(200), random_state = 0, alpha_W = 0.0, alpha_H = None, l1_ratio = 0.0, shuffle = false),
         text_signature = "(n_components, *, init=None, solver='cd', beta_loss=None, tol=0.0001, max_iter=200, random_state=0, alpha_W=0.0, alpha_H=None, l1_ratio=0.0, shuffle=False)"
     )]
-    #[allow(non_snake_case, clippy::too_many_arguments)]
+    #[allow(
+        non_snake_case,
+        clippy::too_many_arguments,
+        reason = "argument names and count follow the Python signature"
+    )]
     fn new(
         n_components: Int,
         init: Option<&str>,
@@ -134,7 +138,7 @@ impl Nmf {
 
     /// ``(n_components, n_features)`` factor ``H``. Raises ``ValueError`` before fitting.
     #[getter]
-    #[allow(non_snake_case)]
+    #[allow(non_snake_case, reason = "argument names follow the Python API")]
     fn components_<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         self.components
             .lock()
@@ -146,7 +150,7 @@ impl Nmf {
 
     /// Iterations of the last fit.
     #[getter]
-    #[allow(non_snake_case)]
+    #[allow(non_snake_case, reason = "argument names follow the Python API")]
     fn n_iter_(&self) -> PyResult<usize> {
         Ok(self
             .fitted
@@ -157,7 +161,7 @@ impl Nmf {
 
     /// The final error of the last fit.
     #[getter]
-    #[allow(non_snake_case)]
+    #[allow(non_snake_case, reason = "argument names follow the Python API")]
     fn reconstruction_err_(&self) -> PyResult<f64> {
         Ok(self
             .fitted
@@ -178,7 +182,7 @@ impl Nmf {
     ///
     ///     numpy.ndarray: ``(n_samples, n_components)``, of ``X``'s precision.
     #[pyo3(signature = (X, W = None, H = None))]
-    #[allow(non_snake_case)]
+    #[allow(non_snake_case, reason = "argument names follow the Python API")]
     fn fit_transform<'py>(
         &self,
         X: &Bound<'py, PyAny>,
@@ -197,7 +201,7 @@ impl Nmf {
     /// Returns:
     ///
     ///     numpy.ndarray: ``(n_samples, n_components)``, of ``X``'s precision.
-    #[allow(non_snake_case)]
+    #[allow(non_snake_case, reason = "argument names follow the Python API")]
     fn transform<'py>(&self, X: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
         let py = X.py();
         let h = self.components_(py)?;
@@ -297,7 +301,7 @@ impl Nmf {
     signature = (S, *, n_components = None, transformer = None, sort = false, fit = true, **kwargs),
     text_signature = "(S, *, n_components=None, transformer=None, sort=False, fit=True, **kwargs)"
 )]
-#[allow(non_snake_case)]
+#[allow(non_snake_case, reason = "argument names follow the Python API")]
 #[inline]
 pub fn decompose<'py>(
     S: &Bound<'py, PyAny>,

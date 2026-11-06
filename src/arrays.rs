@@ -437,7 +437,10 @@ pub fn tone(
     signature = (*, fmin, fmax, sr = 22050.0, length = None, duration = None, linear = false, phi = None),
     text_signature = "(*, fmin, fmax, sr=22050, length=None, duration=None, linear=False, phi=None)"
 )]
-#[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the Python signature takes these arguments"
+)]
 #[inline]
 pub fn chirp(
     py: Python<'_>,
@@ -762,9 +765,7 @@ pub fn pad_center<'py>(
     }
 }
 
-#[allow(non_camel_case_types)]
 type Complex64T = Complex<f64>;
-#[allow(non_camel_case_types)]
 type Complex32T = Complex<f32>;
 
 /// Normalises frame indices: clips, optionally adds the bounds, removes duplicates and
@@ -866,7 +867,7 @@ pub fn index_to_slice<'py>(
 ///     and the permutation when ``index`` is true.
 #[pyfunction]
 #[pyo3(name = "axis_sort", signature = (S, *, axis = Int(-1), index = false, value = None), text_signature = "(S, *, axis=-1, index=False, value=None)")]
-#[allow(non_snake_case)]
+#[allow(non_snake_case, reason = "argument names follow the Python API")]
 #[inline]
 pub fn axis_sort<'py>(
     S: &Bound<'py, PyAny>,
@@ -936,7 +937,7 @@ pub fn axis_sort<'py>(
 ///     The sheared matrix, in the input's form and dtype.
 #[pyfunction]
 #[pyo3(name = "shear", signature = (X, *, factor = Int(1), axis = Int(-1)), text_signature = "(X, *, factor=1, axis=-1)")]
-#[allow(non_snake_case)]
+#[allow(non_snake_case, reason = "argument names follow the Python API")]
 #[inline]
 pub fn shear<'py>(X: &Bound<'py, PyAny>, factor: Int, axis: Int) -> PyResult<Bound<'py, PyAny>> {
     let py = X.py();

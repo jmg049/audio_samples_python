@@ -729,7 +729,10 @@ impl PyVadConfig {
     /// Call ``validate()`` to explicitly check constraints.
     #[new]
     #[pyo3(signature = (method: "VadMethod", channel_policy: "VadChannelPolicy", /, frame_size: "int", hop_size: "int", pad_end: "bool", energy_threshold_db: "float", zcr_min: "float", zcr_max: "float", min_speech_frames: "int", min_silence_frames: "int", hangover_frames: "int", smooth_frames: "int", speech_band_low_hz: "float", speech_band_high_hz: "float", spectral_ratio_threshold: "float"), text_signature="(method, channel_policy, /, frame_size, hop_size, pad_end, energy_threshold_db, zcr_min, zcr_max, min_speech_frames, min_silence_frames, hangover_frames, smooth_frames, speech_band_low_hz, speech_band_high_hz, spectral_ratio_threshold)")]
-    #[allow(clippy::too_many_arguments)] // PyO3 constructor mirrors the Python signature
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the Python signature takes these arguments"
+    )] // PyO3 constructor mirrors the Python signature
     fn new(
         method: PyVadMethod,
         channel_policy: PyVadChannelPolicy,
@@ -1588,7 +1591,10 @@ impl PyIirFilterDesign {
     /// incompatible combinations may fail later during filter construction.
     #[new]
     #[pyo3(signature = (filter_type: "FilterType", response: "FilterResponse | str", order: "int", cutoff_frequency=None, low_frequency=None, high_frequency=None, passband_ripple=None, stopband_attenuation=None, bessel_norm=None))]
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the Python signature takes these arguments"
+    )]
     fn new(
         filter_type: PyIirFilterType,
         response: &Bound<'_, PyAny>,
@@ -2650,7 +2656,10 @@ impl PyCompressorConfig {
     ///     A new compressor configuration.
     #[new]
     #[pyo3(signature = (*, threshold_db: "float", ratio: "float", attack_ms: "float", release_ms: "float", makeup_gain_db: "float", knee_type: "KneeType", knee_width_db: "float", detection_method: "DynamicRangeMethod", side_chain: "SideChainConfig", lookahead_ms: "float"))]
-    #[allow(clippy::too_many_arguments)] // PyO3 constructor mirrors the Python signature
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the Python signature takes these arguments"
+    )] // PyO3 constructor mirrors the Python signature
     fn new(
         threshold_db: f64,
         ratio: f64,
@@ -2862,7 +2871,10 @@ impl PyLimiterConfig {
     ///     A new limiter configuration.
     #[new]
     #[pyo3(signature = (*, ceiling_db: "float", attack_ms: "float", release_ms: "float", knee_type, knee_width_db, detection_method, side_chain, lookahead_ms, isp_limiting))]
-    #[allow(clippy::too_many_arguments)] // PyO3 constructor mirrors the Python signature
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the Python signature takes these arguments"
+    )] // PyO3 constructor mirrors the Python signature
     fn new(
         ceiling_db: f64,
         attack_ms: f64,
@@ -3939,7 +3951,10 @@ impl PyPeakPickingConfig {
         median_filter_length: "int",
         normalize_onset_strength: "bool",
         normalization_method: "NormalizationMethod"))]
-    #[allow(clippy::too_many_arguments)] // PyO3 constructor mirrors the Python signature
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the Python signature takes these arguments"
+    )] // PyO3 constructor mirrors the Python signature
     fn new(
         adaptive_threshold_config: PyAdaptiveThresholdConfig,
         min_peak_separation: usize,
@@ -4351,7 +4366,10 @@ impl PyComplexOnsetConfig {
     ///     A new complex onset detection configuration.
     #[new]
     #[pyo3(signature = (*, cqt_params: "CqtParams", hop_size: "int", window_size: "Optional[int]", peak_picking: "PeakPickingConfig", magnitude_weight: "float", phase_weight: "float", magnitude_rectify: "bool", phase_rectify: "bool", log_compression: "float"))]
-    #[allow(clippy::too_many_arguments)] // PyO3 constructor mirrors the Python signature
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the Python signature takes these arguments"
+    )] // PyO3 constructor mirrors the Python signature
     fn new(
         cqt_params: PyCqtParams,
         hop_size: usize,
@@ -4609,7 +4627,10 @@ impl PyOnsetDetectionConfig {
     /// fields agree). Use ``default()`` and set fields for the library default.
     #[new]
     #[pyo3(signature = (cqt_params, hop_size, window_size=None, threshold=0.3, min_onset_interval_secs=0.07, pre_emphasis=0.0, adaptive_threshold=true, median_filter_length=3, adaptive_threshold_multiplier=3.0, peak_picking=None))]
-    #[allow(clippy::too_many_arguments)] // PyO3 constructor mirrors the Python signature
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the Python signature takes these arguments"
+    )] // PyO3 constructor mirrors the Python signature
     fn new(
         cqt_params: PyCqtParams,
         hop_size: usize,

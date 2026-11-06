@@ -112,7 +112,7 @@ pub fn chroma_filterbank(
     signature = (S, *, norm = Some(f64::INFINITY), axis = Some(Int(0)), threshold = None, fill = None),
     text_signature = "(S, *, norm=math.inf, axis=0, threshold=None, fill=None)"
 )]
-#[allow(non_snake_case)]
+#[allow(non_snake_case, reason = "argument names follow the Python API")]
 pub fn normalize<'py>(
     py: Python<'py>,
     S: &Bound<'py, PyAny>,

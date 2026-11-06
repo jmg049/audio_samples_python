@@ -609,7 +609,7 @@ pub fn mela_to_svara<'py>(
     signature = (midi, *, Sa, abbr = true, octave = true, unicode = true),
     text_signature = "(midi, *, Sa, abbr=True, octave=True, unicode=True)"
 )]
-#[allow(non_snake_case)]
+#[allow(non_snake_case, reason = "argument names follow the Python API")]
 #[inline]
 pub fn midi_to_svara_h<'py>(
     midi: &Bound<'py, PyAny>,
@@ -640,7 +640,7 @@ pub fn midi_to_svara_h<'py>(
     signature = (midi, *, Sa, mela, abbr = true, octave = true, unicode = true),
     text_signature = "(midi, *, Sa, mela, abbr=True, octave=True, unicode=True)"
 )]
-#[allow(non_snake_case)]
+#[allow(non_snake_case, reason = "argument names follow the Python API")]
 #[inline]
 pub fn midi_to_svara_c<'py>(
     midi: &Bound<'py, PyAny>,
@@ -672,7 +672,7 @@ pub fn midi_to_svara_c<'py>(
     signature = (frequencies, *, Sa, abbr = true, octave = true, unicode = true),
     text_signature = "(frequencies, *, Sa, abbr=True, octave=True, unicode=True)"
 )]
-#[allow(non_snake_case)]
+#[allow(non_snake_case, reason = "argument names follow the Python API")]
 #[inline]
 pub fn hz_to_svara_h<'py>(
     frequencies: &Bound<'py, PyAny>,
@@ -703,7 +703,7 @@ pub fn hz_to_svara_h<'py>(
     signature = (frequencies, *, Sa, mela, abbr = true, octave = true, unicode = true),
     text_signature = "(frequencies, *, Sa, mela, abbr=True, octave=True, unicode=True)"
 )]
-#[allow(non_snake_case)]
+#[allow(non_snake_case, reason = "argument names follow the Python API")]
 #[inline]
 pub fn hz_to_svara_c<'py>(
     frequencies: &Bound<'py, PyAny>,
@@ -756,7 +756,7 @@ fn map_notes<'py>(
     signature = (notes, *, Sa, abbr = true, octave = true, unicode = true),
     text_signature = "(notes, *, Sa, abbr=True, octave=True, unicode=True)"
 )]
-#[allow(non_snake_case)]
+#[allow(non_snake_case, reason = "argument names follow the Python API")]
 #[inline]
 pub fn note_to_svara_h<'py>(
     notes: &Bound<'py, PyAny>,
@@ -787,7 +787,7 @@ pub fn note_to_svara_h<'py>(
     signature = (notes, *, Sa, mela, abbr = true, octave = true, unicode = true),
     text_signature = "(notes, *, Sa, mela, abbr=True, octave=True, unicode=True)"
 )]
-#[allow(non_snake_case)]
+#[allow(non_snake_case, reason = "argument names follow the Python API")]
 #[inline]
 pub fn note_to_svara_c<'py>(
     notes: &Bound<'py, PyAny>,

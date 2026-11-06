@@ -182,7 +182,10 @@ fn pad_mode(mode: &str) -> PyResult<PadMode<f64>> {
     })
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the Python signature takes these arguments"
+)]
 fn iirt_config(
     win_length: Int,
     hop_length: Option<Int>,
@@ -230,7 +233,10 @@ fn iirt_config(
     signature = (y, *, sr, win_length = Int(2048), hop_length = None, center = true, tuning = 0.0, pad_mode = "constant", flayout = "sos", res_type = "soxr_hq", **kwargs),
     text_signature = "(y, *, sr, win_length=2048, hop_length=None, center=True, tuning=0.0, pad_mode='constant', flayout='sos', res_type='soxr_hq', **kwargs)"
 )]
-#[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the Python signature takes these arguments"
+)]
 #[inline]
 pub fn iirt<'py>(
     py: Python<'py>,
@@ -283,7 +289,10 @@ impl PyAudioSamples {
         signature = (*, win_length = Int(2048), hop_length = None, center = true, tuning = 0.0, pad_mode = "constant", flayout = "sos", res_type = "soxr_hq", **kwargs),
         text_signature = "(self, *, win_length=2048, hop_length=None, center=True, tuning=0.0, pad_mode='constant', flayout='sos', res_type='soxr_hq', **kwargs)"
     )]
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the Python signature takes these arguments"
+    )]
     fn iirt_method<'py>(
         &self,
         py: Python<'py>,

@@ -163,7 +163,11 @@ fn enhance<'py, F: PyFloat>(
     signature = (R, n, *, window = WindowArg(Window::Hann), max_ratio = 2.0, min_ratio = None, n_filters = Int(7), zero_mean = false, clip = true, **kwargs),
     text_signature = "(R, n, *, window='hann', max_ratio=2.0, min_ratio=None, n_filters=7, zero_mean=False, clip=True, **kwargs)"
 )]
-#[allow(non_snake_case, clippy::too_many_arguments)]
+#[allow(
+    non_snake_case,
+    clippy::too_many_arguments,
+    reason = "argument names and count follow the Python signature"
+)]
 #[inline]
 pub fn path_enhance<'py>(
     R: &Bound<'py, PyAny>,

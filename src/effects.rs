@@ -129,7 +129,7 @@ fn rows_out<T: numpy::Element>(py: Python<'_>, a: Array2<T>, squeeze: bool) -> B
     signature = (D, *, rate = None, t_out = None, kind = "linear", hop_length = None, n_fft = None),
     text_signature = "(D, *, rate=None, t_out=None, kind='linear', hop_length=None, n_fft=None)"
 )]
-#[allow(non_snake_case)]
+#[allow(non_snake_case, reason = "argument names follow the Python API")]
 pub fn phase_vocoder<'py>(
     py: Python<'py>,
     D: &Bound<'py, PyAny>,
@@ -351,7 +351,7 @@ pub fn deemphasis<'py>(
     signature = (X, X_ref, *, power = 1.0, split_zeros = false),
     text_signature = "(X, X_ref, *, power=1, split_zeros=False)"
 )]
-#[allow(non_snake_case)]
+#[allow(non_snake_case, reason = "argument names follow the Python API")]
 pub fn softmask<'py>(
     py: Python<'py>,
     X: &Bound<'py, PyAny>,
@@ -404,7 +404,7 @@ pub fn softmask<'py>(
     signature = (S, *, kernel_size = None, power = 2.0, mask = false, margin = None),
     text_signature = "(S, *, kernel_size=31, power=2.0, mask=False, margin=1.0)"
 )]
-#[allow(non_snake_case)]
+#[allow(non_snake_case, reason = "argument names follow the Python API")]
 pub fn hpss<'py>(
     py: Python<'py>,
     S: &Bound<'py, PyAny>,
@@ -428,7 +428,7 @@ pub fn hpss<'py>(
 }
 
 /// [`hpss`] computed in `F`.
-#[allow(non_snake_case)]
+#[allow(non_snake_case, reason = "argument names follow the Python API")]
 fn hpss_typed<'py, F: PyFloat>(
     py: Python<'py>,
     S: &Bound<'py, PyAny>,
@@ -658,7 +658,7 @@ fn sparse_rec<'py>(rec: &Bound<'py, PyAny>) -> PyResult<Option<SparseRec<'py>>> 
     signature = (S, *, rec = None, aggregate = None, axis = Int(-1), **kwargs),
     text_signature = "(S, *, rec=None, aggregate=None, axis=-1, **kwargs)"
 )]
-#[allow(non_snake_case)]
+#[allow(non_snake_case, reason = "argument names follow the Python API")]
 pub fn nn_filter<'py>(
     py: Python<'py>,
     S: &Bound<'py, PyAny>,
@@ -926,7 +926,10 @@ fn seed_from_numpy(obj: &Bound<'_, PyAny>) -> PyResult<u64> {
 }
 
 /// [`GriffinLimConfig`] from the `griffinlim` keyword arguments.
-#[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the Python signature takes these arguments"
+)]
 pub fn griffinlim_config(
     n_bins: usize,
     n_iter: Int,
@@ -988,7 +991,12 @@ pub fn griffinlim_config(
     signature = (S, *, n_iter = Int(32), hop_length = None, win_length = None, n_fft = None, window = WindowArg(Window::Hann), center = true, dtype = None, length = None, pad_mode = "constant", momentum = 0.99, init = Some("random"), rng = RngArg::SEEDED, random_state = None),
     text_signature = "(S, *, n_iter=32, hop_length=None, win_length=None, n_fft=None, window='hann', center=True, dtype=None, length=None, pad_mode='constant', momentum=0.99, init='random', rng=0, random_state=None)"
 )]
-#[allow(non_snake_case, clippy::too_many_arguments, unused_variables)]
+#[allow(
+    non_snake_case,
+    clippy::too_many_arguments,
+    unused_variables,
+    reason = "the Python signature; some arguments are accepted and ignored, as documented"
+)]
 pub fn griffinlim<'py>(
     py: Python<'py>,
     S: &Bound<'py, PyAny>,
@@ -1150,8 +1158,11 @@ pub fn clicks<'py>(
             format!("must be a positive integer, got {sr}"),
         ));
     }
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-    // `sr` is checked above to be a whole number in 1..=u32::MAX
+    #[allow(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "`sr` is checked above to be a whole number in 1..=u32::MAX"
+    )]
     let rate = crate::nzu32_or_err(sr as u32)?;
     let hop = crate::args::opt_positive("hop_length", hop_length)?;
     let click = click

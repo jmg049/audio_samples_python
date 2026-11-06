@@ -15,7 +15,10 @@ use crate::effects::{RngArg, griffinlim_init};
 use crate::features::args::{spec3, squeeze_out};
 use crate::operations::spectrum::{parse_dct_norm, parse_dct_type};
 
-#[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the Python signature takes these arguments"
+)]
 fn mel_inversion(
     n_mels: usize,
     sr: f64,
@@ -60,7 +63,11 @@ fn mel_inversion(
     signature = (M, *, sr, n_fft = Int(2048), power = 2.0, fmin = 0.0, fmax = None, htk = false, norm = MelNormArg(audio_samples::MelFilterNorm::Slaney)),
     text_signature = "(M, *, sr, n_fft=2048, power=2.0, fmin=0.0, fmax=None, htk=False, norm='slaney')"
 )]
-#[allow(non_snake_case, clippy::too_many_arguments)]
+#[allow(
+    non_snake_case,
+    clippy::too_many_arguments,
+    reason = "argument names and count follow the Python signature"
+)]
 #[inline]
 pub fn mel_to_stft<'py>(
     M: &Bound<'py, PyAny>,
@@ -84,7 +91,10 @@ pub fn mel_to_stft<'py>(
     })
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the Python signature takes these arguments"
+)]
 fn griffin_config(
     n_fft: Int,
     hop_length: Option<Int>,
@@ -137,7 +147,11 @@ fn rows_out<F: PyFloat>(py: Python<'_>, y: ndarray::Array2<F>, squeeze: bool) ->
     signature = (M, *, sr, n_fft = Int(2048), hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", power = 2.0, n_iter = Int(32), length = None, momentum = 0.99, init = Some("random"), rng = RngArg::SEEDED, fmin = 0.0, fmax = None, htk = false, norm = MelNormArg(audio_samples::MelFilterNorm::Slaney)),
     text_signature = "(M, *, sr, n_fft=2048, hop_length=None, win_length=None, window='hann', center=True, pad_mode='constant', power=2.0, n_iter=32, length=None, momentum=0.99, init='random', rng=0, fmin=0.0, fmax=None, htk=False, norm='slaney')"
 )]
-#[allow(non_snake_case, clippy::too_many_arguments)]
+#[allow(
+    non_snake_case,
+    clippy::too_many_arguments,
+    reason = "argument names and count follow the Python signature"
+)]
 #[inline]
 pub fn mel_to_audio<'py>(
     M: &Bound<'py, PyAny>,
@@ -251,7 +265,10 @@ pub fn mfcc_to_mel<'py>(
     signature = (mfcc, *, sr, n_mels = Int(128), dct_type = Int(2), norm = Some("ortho"), r#ref = 1.0, lifter = 0.0, n_fft = Int(2048), hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", power = 2.0, n_iter = Int(32), length = None, momentum = 0.99, init = Some("random"), rng = RngArg::SEEDED, fmin = 0.0, fmax = None, htk = false, mel_norm = MelNormArg(audio_samples::MelFilterNorm::Slaney)),
     text_signature = "(mfcc, *, sr, n_mels=128, dct_type=2, norm='ortho', ref=1.0, lifter=0.0, n_fft=2048, hop_length=None, win_length=None, window='hann', center=True, pad_mode='constant', power=2.0, n_iter=32, length=None, momentum=0.99, init='random', rng=0, fmin=0.0, fmax=None, htk=False, mel_norm='slaney')"
 )]
-#[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the Python signature takes these arguments"
+)]
 #[inline]
 pub fn mfcc_to_audio<'py>(
     mfcc: &Bound<'py, PyAny>,

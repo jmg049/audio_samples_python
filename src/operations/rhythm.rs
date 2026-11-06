@@ -115,7 +115,10 @@ impl PyAudioSamples {
 }
 
 /// Builds the onset-strength config of the `onset_strength*` methods.
-#[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the Python signature takes these arguments"
+)]
 fn onset_strength_config(
     lag: Int,
     max_size: Int,
@@ -183,7 +186,10 @@ impl PyAudioSamples {
         signature = (*, lag = Int(1), max_size = Int(1), detrend = false, center = true, aggregate = None, n_fft = Int(2048), hop_length = Int(512), win_length = None, window = WindowArg(Window::Hann), pad_mode = "constant", power = 2.0, n_mels = Int(128), fmin = 0.0, fmax = None, htk = false, norm = MelNormArg(MelFilterNorm::Slaney)),
         text_signature = "($self, *, lag=1, max_size=1, detrend=False, center=True, aggregate=None, n_fft=2048, hop_length=512, win_length=None, window='hann', pad_mode='constant', power=2.0, n_mels=128, fmin=0.0, fmax=None, htk=False, norm='slaney')"
     )]
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the Python signature takes these arguments"
+    )]
     fn onset_strength<'py>(
         &self,
         py: Python<'py>,
@@ -262,7 +268,10 @@ impl PyAudioSamples {
         signature = (*, channels = None, lag = Int(1), max_size = Int(1), detrend = false, center = true, aggregate = None, n_fft = Int(2048), hop_length = Int(512), win_length = None, window = WindowArg(Window::Hann), pad_mode = "constant", power = 2.0, n_mels = Int(128), fmin = 0.0, fmax = None, htk = false, norm = MelNormArg(MelFilterNorm::Slaney)),
         text_signature = "($self, *, channels=None, lag=1, max_size=1, detrend=False, center=True, aggregate=None, n_fft=2048, hop_length=512, win_length=None, window='hann', pad_mode='constant', power=2.0, n_mels=128, fmin=0.0, fmax=None, htk=False, norm='slaney')"
     )]
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the Python signature takes these arguments"
+    )]
     fn onset_strength_multi<'py>(
         &self,
         py: Python<'py>,
@@ -349,7 +358,10 @@ impl PyAudioSamples {
         signature = (*, hop_length = Int(512), backtrack = false, energy = None, units = "frames", normalize = true, sparse = true, pre_max = None, post_max = None, pre_avg = None, post_avg = None, delta = None, wait = None, method = "greedy"),
         text_signature = "($self, *, hop_length=512, backtrack=False, energy=None, units='frames', normalize=True, sparse=True, pre_max=None, post_max=None, pre_avg=None, post_avg=None, delta=None, wait=None, method='greedy')"
     )]
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the Python signature takes these arguments"
+    )]
     fn onset_detect<'py>(
         &self,
         py: Python<'py>,
@@ -490,7 +502,10 @@ impl PyAudioSamples {
         signature = (*, hop_length = Int(512), start_bpm = 120.0, std_bpm = 1.0, ac_size = 8.0, max_tempo = Some(320.0), aggregate = AggregateArg::mean(), prior = None),
         text_signature = "($self, *, hop_length=512, start_bpm=120, std_bpm=1.0, ac_size=8.0, max_tempo=320.0, aggregate='mean', prior=None)"
     )]
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the Python signature takes these arguments"
+    )]
     fn tempo<'py>(
         &self,
         py: Python<'py>,
@@ -557,7 +572,10 @@ impl PyAudioSamples {
         signature = (*, hop_length = Int(512), start_bpm = 120.0, tightness = 100.0, trim = false, bpm = None, prior = None, units = "frames", sparse = true),
         text_signature = "($self, *, hop_length=512, start_bpm=120.0, tightness=100, trim=False, bpm=None, prior=None, units='frames', sparse=True)"
     )]
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the Python signature takes these arguments"
+    )]
     fn beat_track<'py>(
         &self,
         py: Python<'py>,
@@ -658,7 +676,10 @@ impl PyAudioSamples {
         signature = (*, hop_length = Int(512), win_length = Int(384), start_bpm = 120.0, std_bpm = 1.0, max_tempo = Some(320.0), factors = None, aggregate = None, prior = None, center = true, window = WindowArg(Window::Hann), fill_value = 0.0, norm = Some(f64::INFINITY)),
         text_signature = "($self, *, hop_length=512, win_length=384, start_bpm=120, std_bpm=1.0, max_tempo=320.0, factors=None, aggregate=None, prior=None, center=True, window='hann', fill_value=0, norm=math.inf)"
     )]
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the Python signature takes these arguments"
+    )]
     fn tempogram_ratio<'py>(
         &self,
         py: Python<'py>,

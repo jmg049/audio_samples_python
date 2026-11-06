@@ -908,7 +908,10 @@ pub fn recurrence_matrix<'py>(
     signature = (data, data_ref, *, k = None, metric = "euclidean", sparse = false, mode = "connectivity", bandwidth = None, full = false),
     text_signature = "(data, data_ref, *, k=None, metric='euclidean', sparse=False, mode='connectivity', bandwidth=None, full=False)"
 )]
-#[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the Python signature takes these arguments"
+)]
 pub fn cross_similarity<'py>(
     py: Python<'py>,
     data: &Bound<'py, PyAny>,

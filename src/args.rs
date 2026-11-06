@@ -206,7 +206,10 @@ pub trait FloatElement: numpy::Element + Copy {
 impl FloatElement for f32 {
     const REAL_NAME: &'static str = "float32";
     const COMPLEX_NAME: &'static str = "complex64";
-    #[allow(clippy::cast_possible_truncation)]
+    #[allow(
+        clippy::cast_possible_truncation,
+        reason = "rounding to the float32 precision is the intent"
+    )]
     fn from_f64(v: f64) -> Self {
         v as Self
     }
@@ -554,8 +557,10 @@ pub fn with_i64_view<R>(
     let ints = with_float_view::<f64, _>(obj, name, |arr| {
         Ok(arr.mapv(|v| {
             if v.is_finite() && v.fract() == 0.0 && v.abs() < MAX_EXACT_INT {
-                // An integral value below 2^53 converts exactly.
-                #[allow(clippy::cast_possible_truncation)]
+                #[allow(
+                    clippy::cast_possible_truncation,
+                    reason = "an integral value below 2^53 converts exactly"
+                )]
                 let exact = v as i64;
                 exact
             } else {

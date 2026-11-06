@@ -474,7 +474,10 @@ pub fn explain_any(obj: &Bound<'_, PyAny>, ctx: &ExplainContext) -> PyResult<Exp
 ///     True
 #[pyfunction(name = "explain")]
 #[pyo3(signature = (obj, *, sample_rate: "float | None" = None, n_samples: "int | None" = None, n_channels: "int | None" = None, f0_range: "tuple[float, float] | None" = None, n_fft: "int | None" = None, n_mels: "int | None" = None))]
-#[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the Python signature takes these arguments"
+)]
 fn explain_fn(
     obj: &Bound<'_, PyAny>,
     sample_rate: Option<f64>,

@@ -103,7 +103,7 @@ fn nnls_in<'py, F: PyFloat>(
 ///     ``ValueError``: Dimensions disagree or an input is not finite.
 #[pyfunction]
 #[pyo3(name = "nnls", signature = (A, B, *, max_iter = Int(200), tol = 1e-5), text_signature = "(A, B, *, max_iter=200, tol=1e-05)")]
-#[allow(non_snake_case)]
+#[allow(non_snake_case, reason = "argument names follow the Python API")]
 #[inline]
 pub fn nnls<'py>(
     A: &Bound<'py, PyAny>,
