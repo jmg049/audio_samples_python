@@ -48,7 +48,7 @@ fn mel_inversion(
 /// Estimates an STFT magnitude from a mel spectrogram by non-negative least squares.
 ///
 /// Args:
-///     M (``array_like)``: Mel spectrogram ``(n_mels, n_frames)`` or
+///     M (``array_like``): Mel spectrogram ``(n_mels, n_frames)`` or
 ///         ``(channels, n_mels, n_frames)``.
 ///     sr (float): Sample rate in Hz.
 ///     ``n_fft`` (int): FFT size of the spectrogram to estimate. Default 2048.
@@ -118,7 +118,7 @@ fn rows_out<F: PyFloat>(py: Python<'_>, y: ndarray::Array2<F>, squeeze: bool) ->
 /// Estimates audio from a mel spectrogram: least squares, then fast Griffin-Lim.
 ///
 /// Args:
-///     M (``array_like)``: Mel spectrogram ``(n_mels, n_frames)`` or
+///     M (``array_like``): Mel spectrogram ``(n_mels, n_frames)`` or
 ///         ``(channels, n_mels, n_frames)``.
 ///     sr (float): Sample rate in Hz.
 ///     ``n_fft``, ``hop_length``, ``win_length``, window, center, ``pad_mode``: STFT parameters.
@@ -194,7 +194,7 @@ fn mfcc_inversion(
 /// Recovers a mel power spectrogram from MFCCs.
 ///
 /// Args:
-///     mfcc (``array_like)``: ``(n_mfcc, n_frames)`` or ``(channels, n_mfcc, n_frames)``.
+///     mfcc (``array_like``): ``(n_mfcc, n_frames)`` or ``(channels, n_mfcc, n_frames)``.
 ///     ``n_mels`` (int): Mel bands to recover. Default 128.
 ///     ``dct_type`` (int): 1, 2 or 3. Default 2.
 ///     norm (Optional[str]): ``"ortho"`` or None. Default ``"ortho"``.
@@ -232,13 +232,14 @@ pub fn mfcc_to_mel<'py>(
 
 /// Estimates audio from MFCCs: :func:`mfcc_to_mel`, then :func:`mel_to_audio`.
 ///
+/// ``n_mels``, ``dct_type``, ``norm``, ``ref`` and ``lifter`` are as for :func:`mfcc_to_mel`.
+/// ``n_fft``, ``hop_length``, ``win_length``, ``window``, ``center``, ``pad_mode``, ``power``,
+/// ``n_iter``, ``length``, ``momentum``, ``init``, ``rng``, ``fmin``, ``fmax``, ``htk`` and
+/// ``mel_norm`` are as for :func:`mel_to_audio`, where ``mel_norm`` is its ``norm``.
+///
 /// Args:
-///     mfcc (``array_like)``: ``(n_mfcc, n_frames)`` or ``(channels, n_mfcc, n_frames)``.
+///     mfcc (``array_like``): ``(n_mfcc, n_frames)`` or ``(channels, n_mfcc, n_frames)``.
 ///     sr (float): Sample rate in Hz.
-///     ``n_mels``, ``dct_type``, norm, ref, lifter: As for :func:`mfcc_to_mel`.
-///     ``n_fft``, ``hop_length``, ``win_length``, window, center, ``pad_mode``, power, ``n_iter``, length,
-///         momentum, init, rng, fmin, fmax, htk, ``mel_norm``: As for :func:`mel_to_audio`,
-///         where ``mel_norm`` is its ``norm``.
 ///
 /// Returns:
 ///     numpy.ndarray: ``(n,)``, or ``(channels, n)`` for 3-D input, of ``mfcc``'s precision.

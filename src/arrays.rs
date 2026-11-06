@@ -129,7 +129,7 @@ fn unsupported_dtype<R>(name: &str, arr: &Bound<'_, PyUntypedArray>) -> PyResult
 /// maximum; the last is when it exceeds its neighbour.
 ///
 /// Args:
-///     x (``array_like)``: Values of any real dtype.
+///     x (``array_like``): Values of any real dtype.
 ///     axis (int): Axis to compare along. Default 0.
 ///
 /// Returns:
@@ -147,7 +147,7 @@ pub fn localmax<'py>(x: &Bound<'py, PyAny>, axis: Int) -> PyResult<Bound<'py, Py
 /// minimum; the last is when it is below its neighbour.
 ///
 /// Args:
-///     x (``array_like)``: Values of any real dtype.
+///     x (``array_like``): Values of any real dtype.
 ///     axis (int): Axis to compare along. Default 0.
 ///
 /// Returns:
@@ -177,7 +177,7 @@ fn local_extrema<'py>(x: &Bound<'py, PyAny>, axis: Int, max: bool) -> PyResult<B
 /// Squared magnitude.
 ///
 /// Args:
-///     x (complex | ``array_like)``: Values. Complex input gives its real type; real input
+///     x (``complex`` | ``array_like``): Values. Complex input gives its real type; real input
 ///         keeps its dtype.
 ///     dtype (Optional[numpy.dtype]): Output dtype.
 ///
@@ -289,8 +289,8 @@ where
 /// Complex phasors ``mag * (cos(angles) + 1j * sin(angles))``.
 ///
 /// Args:
-///     angles (float | ``array_like)``: Angles in radians.
-///     mag (Optional[complex | ``array_like``]): Multiplier, broadcast to ``angles``.
+///     angles (float | ``array_like``): Angles in radians.
+///     mag (Optional[``complex`` | ``array_like``]): Multiplier, broadcast to ``angles``.
 ///
 /// Returns:
 ///     complex | numpy.ndarray: ``complex64`` for ``float32`` angles, otherwise
@@ -324,7 +324,7 @@ fn zero_crossings_in<'py, F: PyFloatElement>(
 /// Marks the sign changes of a signal along one axis.
 ///
 /// Args:
-///     y (``array_like)``: The signal, of any dimension.
+///     y (``array_like``): The signal, of any dimension.
 ///     threshold (Optional[float]): Magnitudes up to this count as zero. None means 0.
 ///         Default 1e-10.
 ///     ``ref_magnitude`` (Optional[float | Callable]): Scales ``threshold``. A callable receives
@@ -447,7 +447,7 @@ pub fn chirp(
 /// The smallest positive normal value of the input's floating-point type.
 ///
 /// Args:
-///     x (complex | ``array_like`` | numpy.dtype-bearing value): Determines the type. Complex
+///     x (``complex`` | ``array_like`` | numpy.dtype-bearing value): Determines the type. Complex
 ///         types use their real type; non-float input uses ``float32``.
 ///
 /// Returns:
@@ -585,7 +585,7 @@ pub fn expand_to<'py>(
 /// Stacks arrays of one shape along a new axis.
 ///
 /// Args:
-///     arrays (sequence of ``array_like)``: At least one array.
+///     arrays (sequence of ``array_like``): At least one array.
 ///     axis (int): Position of the new axis. Default 0.
 ///
 /// Returns:
@@ -1070,7 +1070,7 @@ pub(crate) fn dense_to_rows<'py>(dense: &Bound<'py, PyAny>) -> PyResult<Bound<'p
 /// ``quantile`` are dropped.
 ///
 /// Args:
-///     x (``array_like)``: 1-D or 2-D values; 1-D is one row.
+///     x (``array_like``): 1-D or 2-D values; 1-D is one row.
 ///     quantile (float): Fraction of each row's total magnitude that may be discarded,
 ///         in ``[0, 1)``. Default 0.01.
 ///     dtype (Optional[numpy.dtype]): dtype of the stored values. Default: the input's.
@@ -1163,7 +1163,7 @@ pub fn sparsify_rows<'py>(
 /// Central-difference gradient of periodic data along one axis.
 ///
 /// Args:
-///     data (``array_like)``: Values. ``float32`` and ``complex64`` keep their precision;
+///     data (``array_like``): Values. ``float32`` and ``complex64`` keep their precision;
 ///         anything else is computed in ``float64``.
 ///     ``edge_order`` (int): 1 or 2. Accepted for both orders: wrapped central differences
 ///         have no edges, so the result does not depend on it.
@@ -1254,7 +1254,7 @@ pub fn fill_off_diagonal<'py>(
 /// Counts the distinct values in each lane along an axis.
 ///
 /// Args:
-///     data (``array_like)``: Values of any numeric dtype. All NaNs count as one value.
+///     data (``array_like``): Values of any numeric dtype. All NaNs count as one value.
 ///     axis (int): The axis of the lanes. Default -1.
 ///
 /// Returns:
@@ -1277,7 +1277,7 @@ pub fn count_unique<'py>(data: &Bound<'py, PyAny>, axis: Int) -> PyResult<Bound<
 /// Tells for each lane along an axis whether all its values are distinct.
 ///
 /// Args:
-///     data (``array_like)``: Values of any numeric dtype. All NaNs count as one value.
+///     data (``array_like``): Values of any numeric dtype. All NaNs count as one value.
 ///     axis (int): The axis of the lanes. Default -1.
 ///
 /// Returns:
@@ -1333,9 +1333,9 @@ pub(crate) fn parse_kind(kind: &Bound<'_, PyAny>) -> PyResult<InterpKind> {
 /// Interpolates sampled data along one axis.
 ///
 /// Args:
-///     x (``array_like)``: Sample positions, 1-D, in any order.
-///     y (``array_like)``: Samples; ``axis`` has one element per position.
-///     xi (``array_like)``: Query positions, of any shape.
+///     x (``array_like``): Sample positions, 1-D, in any order.
+///     y (``array_like``): Samples; ``axis`` has one element per position.
+///     xi (``array_like``): Query positions, of any shape.
 ///     kind (str | int): ``"linear"``, ``"nearest"``, ``"nearest-up"``, ``"zero"``,
 ///         ``"slinear"``, ``"quadratic"``, ``"cubic"``, ``"previous"``, ``"next"``, or a
 ///         spline order 0 to 3. Default ``"linear"``.
@@ -1400,10 +1400,10 @@ pub fn interp1d<'py>(
 /// Interpolates two arrays sampled on different grids onto one grid and combines them.
 ///
 /// Args:
-///     x1 (``array_like)``: The first array.
-///     ``x1_pos`` (``array_like)``: Its sample positions along ``axis``.
-///     x2 (``array_like)``: The second array.
-///     ``x2_pos`` (``array_like)``: Its sample positions along ``axis``.
+///     x1 (``array_like``): The first array.
+///     ``x1_pos`` (``array_like``): Its sample positions along ``axis``.
+///     x2 (``array_like``): The second array.
+///     ``x2_pos`` (``array_like``): Its sample positions along ``axis``.
 ///     ``interp_pos`` (Optional[array_like]): The common positions. Default ``x1_pos``.
 ///     op (Callable | str | None): Combines the two interpolated arrays. ``"multiply"``
 ///         (the default) multiplies with broadcasting; ``None`` returns both arrays.
@@ -1823,7 +1823,7 @@ pub fn valid_audio(y: &Bound<'_, PyAny>) -> PyResult<bool> {
 /// Checks that intervals have shape ``(n, 2)`` and non-negative durations.
 ///
 /// Args:
-///     intervals (``array_like)``: One ``[start, end]`` row per interval.
+///     intervals (``array_like``): One ``[start, end]`` row per interval.
 ///
 /// Returns:
 ///     bool: ``True``.
@@ -1911,8 +1911,8 @@ fn f64_vec(obj: &Bound<'_, PyAny>, name: &str) -> PyResult<Vec<f64>> {
 /// Matches each source event to the nearest target event.
 ///
 /// Args:
-///     ``events_from`` (``array_like)``: Source events, in any order.
-///     ``events_to`` (``array_like)``: Target events, in any order.
+///     ``events_from`` (``array_like``): Source events, in any order.
+///     ``events_to`` (``array_like``): Target events, in any order.
 ///     left (bool): A source event may match a target before it. Default true.
 ///     right (bool): A source event may match a target after it. Default true.
 ///
@@ -1944,8 +1944,8 @@ pub fn match_events<'py>(
 /// Overlap is the Jaccard index; on a tie the lowest target index wins.
 ///
 /// Args:
-///     ``intervals_from`` (``array_like)``: Source intervals, ``(n, 2)``.
-///     ``intervals_to`` (``array_like)``: Target intervals, ``(m, 2)``.
+///     ``intervals_from`` (``array_like``): Source intervals, ``(n, 2)``.
+///     ``intervals_to`` (``array_like``): Target intervals, ``(m, 2)``.
 ///     strict (bool): A source interval that overlaps nothing is an error; when false it
 ///         matches the nearest target (the earlier at equal distance). Default true.
 ///

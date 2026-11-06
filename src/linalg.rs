@@ -102,8 +102,8 @@ fn nnls_in<'py, F: PyFloat>(
 /// ``A`` has more columns than rows.
 ///
 /// Args:
-///     A (``array_like)``: ``(m, n)`` matrix.
-///     B (``array_like)``: ``(m,)`` or ``(..., m, t)``.
+///     A (``array_like``): ``(m, n)`` matrix.
+///     B (``array_like``): ``(m,)`` or ``(..., m, t)``.
 ///     ``max_iter`` (int): Most sweeps per column of a 2-D ``B``. Default 200.
 ///     tol (float): Stop a column when no sweep changes ``A x`` by more than this
 ///         fraction of ``max|B|``. Default 1e-5.
@@ -137,7 +137,7 @@ pub fn nnls<'py>(
 /// The Moore-Penrose pseudo-inverse.
 ///
 /// Args:
-///     a (``array_like)``: ``(m, n)`` matrix.
+///     a (``array_like``): ``(m, n)`` matrix.
 ///     rcond (float): Singular values below this fraction of the largest count as zero.
 ///         Values below about 1.5e-8 act as that limit. Default 1e-15.
 ///
@@ -162,7 +162,7 @@ pub fn pinv<'py>(a: &Bound<'py, PyAny>, rcond: f64) -> PyResult<Bound<'py, PyAny
 /// Eigenvalues and eigenvectors of a symmetric matrix; only the lower triangle is read.
 ///
 /// Args:
-///     a (``array_like)``: ``(n, n)`` symmetric matrix.
+///     a (``array_like``): ``(n, n)`` symmetric matrix.
 ///
 /// Returns:
 ///     tuple[numpy.ndarray, numpy.ndarray]: Increasing eigenvalues, and the matching
@@ -187,7 +187,7 @@ pub fn eigh<'py>(a: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
 /// finding, deterministically for a given ``seed``.
 ///
 /// Args:
-///     a (``array_like)``: ``(m, n)`` matrix.
+///     a (``array_like``): ``(m, n)`` matrix.
 ///     k (Optional[int]): Number of leading triplets. Default: all.
 ///     ``n_iter`` (int): Power iterations of the truncated form. Default 4.
 ///     seed (int): Seed of the truncated form. Default 0.

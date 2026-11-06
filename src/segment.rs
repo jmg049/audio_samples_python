@@ -31,7 +31,7 @@ use crate::audio_err_to_py;
 /// A normalised smoothing kernel along a line through the origin.
 ///
 /// Args:
-///     window (str | tuple | ``array_like)``: The window along the line.
+///     window (str | tuple | ``array_like``): The window along the line.
 ///     n (int): Its length, before rotation.
 ///     slope (float): The line's slope; 1 is the main diagonal. Default 1.
 ///     angle (Optional[float]): The line's angle in radians, in place of ``slope``.
@@ -148,9 +148,9 @@ fn enhance<'py, F: PyFloat>(
 /// The largest response of a recurrence matrix to diagonal kernels of several slopes.
 ///
 /// Args:
-///     R (``array_like)``: ``(..., n, n)`` or lag matrix.
+///     R (``array_like``): ``(..., n, n)`` or lag matrix.
 ///     n (int): Length of each kernel, before rotation.
-///     window (str | tuple | ``array_like)``: The window along each diagonal. Default ``"hann"``.
+///     window (str | tuple | ``array_like``): The window along each diagonal. Default ``"hann"``.
 ///     ``max_ratio`` (float): Largest slope. Default 2.
 ///     ``min_ratio`` (Optional[float]): Smallest slope. Default ``1 / max_ratio``.
 ///     ``n_filters`` (int): Number of slopes. Default 7.
@@ -288,7 +288,7 @@ fn boundaries_out(py: Python<'_>, v: Vec<usize>) -> Bound<'_, PyAny> {
 /// Segment boundaries from Ward clustering in which only neighbouring segments merge.
 ///
 /// Args:
-///     data (``array_like)``: Features with time along ``axis``.
+///     data (``array_like``): Features with time along ``axis``.
 ///     k (int): Number of segments.
 ///     clusterer (Optional[object]): Any object with ``fit`` and ``labels_``, in place of
 ///         the built-in clustering.
@@ -340,7 +340,7 @@ pub fn agglomerative<'py>(
 /// Subdivides each interval of a segmentation with :func:`agglomerative`.
 ///
 /// Args:
-///     data (``array_like)``: Features with time along ``axis``.
+///     data (``array_like``): Features with time along ``axis``.
 ///     frames (``array_like[int]``): Segment boundaries; the ends are added.
 ///     ``n_segments`` (int): The most subsegments per interval. Default 4.
 ///     axis (int): The time axis. Default -1.
@@ -379,7 +379,7 @@ pub fn subsegment<'py>(
 /// The fractional index on one side of an alignment path for each frame on the other.
 ///
 /// Args:
-///     path (``array_like)``: ``(n, 2)`` index pairs, as ``sequence.dtw`` gives.
+///     path (``array_like``): ``(n, 2)`` index pairs, as ``sequence.dtw`` gives.
 ///     inverse (bool): False gives column 0 for each frame of column 1. Default false.
 ///
 /// Returns:

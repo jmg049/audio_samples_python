@@ -179,7 +179,7 @@ impl Nmf {
     /// Fits the factorisation and returns ``W``.
     ///
     /// Args:
-    ///     X (``array_like)``: ``(n_samples, n_features)``, non-negative.
+    ///     X (``array_like``): ``(n_samples, n_features)``, non-negative.
     ///     W (Optional[array_like]): Starting ``W``; give together with ``H``.
     ///     H (Optional[array_like]): Starting ``H``.
     ///
@@ -199,7 +199,7 @@ impl Nmf {
     /// Finds ``W`` for the fitted ``H``.
     ///
     /// Args:
-    ///     X (``array_like)``: ``(n_samples, n_features)``, non-negative.
+    ///     X (``array_like``): ``(n_samples, n_features)``, non-negative.
     ///
     /// Returns:
     ///     numpy.ndarray: ``(n_samples, n_components)``, of ``X``'s precision.
@@ -283,7 +283,7 @@ impl Nmf {
 /// Factorises a spectrogram into templates and activations.
 ///
 /// Args:
-///     S (``array_like)``: Non-negative ``(..., n_features, n_frames)`` spectrogram. Dimensions
+///     S (``array_like``): Non-negative ``(..., n_features, n_frames)`` spectrogram. Dimensions
 ///         before the last are unrolled into one feature axis.
 ///     ``n_components`` (Optional[int]): Number of components. Default: ``n_frames`` features
 ///         of the unrolled matrix.

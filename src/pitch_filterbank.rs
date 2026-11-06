@@ -215,7 +215,7 @@ fn iirt_config(
 /// The energy of each semitone band per frame.
 ///
 /// Args:
-///     y (``array_like)``: Signal ``(n,)`` or ``(channels, n)``, finite.
+///     y (``array_like``): Signal ``(n,)`` or ``(channels, n)``, finite.
 ///     sr (int): Sample rate in Hz.
 ///     ``win_length`` (int): Frame length in samples. Default 2048.
 ///     ``hop_length`` (Optional[int]): Samples between frames. Default ``win_length // 4``.
@@ -347,7 +347,7 @@ where
 /// The fast Mellin (scale) transform along one axis.
 ///
 /// Args:
-///     y (``array_like)``: Finite samples, at least 3 along ``axis``.
+///     y (``array_like``): Finite samples, at least 3 along ``axis``.
 ///     ``t_min`` (float): Where the exponential grid starts, in samples. Default 0.5.
 ///     ``n_fmt`` (Optional[int]): Grid points. Default: enough for the signal's resolution.
 ///     kind (str): The interpolant, as for ``arrays.interp1d``. Default ``"cubic"``.

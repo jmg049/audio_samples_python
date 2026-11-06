@@ -141,7 +141,7 @@ fn map_each<'py, R: pyo3::IntoPyObject<'py>>(
 /// The name of a MIDI number.
 ///
 /// Args:
-///     midi (float | ``array_like)``: MIDI numbers. A value that is not finite gives ``""``.
+///     midi (float | ``array_like``): MIDI numbers. A value that is not finite gives ``""``.
 ///     octave (bool): Include the octave. Default True.
 ///     cents (bool): Include the deviation in cents, such as ``"A4+25"``. Needs ``octave``.
 ///     key (str): The key, such as ``"F:maj"``, that decides the spelling. Default ``"C:maj"``.
@@ -170,7 +170,7 @@ pub fn midi_to_note<'py>(
 /// The name of a frequency.
 ///
 /// Args:
-///     hz (float | ``array_like)``: Frequencies in Hz.
+///     hz (float | ``array_like``): Frequencies in Hz.
 ///     octave, cents, key, unicode: As ``midi_to_note``.
 ///
 /// Returns:
@@ -257,7 +257,7 @@ pub fn note_to_hz<'py>(note: &Bound<'py, PyAny>, round_midi: bool) -> PyResult<B
 /// Args:
 ///     ``n_bins`` (int): Number of frequencies.
 ///     fmin (float): The lowest frequency, in Hz.
-///     intervals (str | ``array_like)``: ``"equal"``, ``"pythagorean"``, ``"ji3"``, ``"ji5"``,
+///     intervals (str | ``array_like``): ``"equal"``, ``"pythagorean"``, ``"ji3"``, ``"ji5"``,
 ///         ``"ji7"``, or the ratios of one octave.
 ///     ``bins_per_octave`` (int): Intervals per octave. Default 12.
 ///     tuning (float): Offset of equal temperament in fractions of a bin.
@@ -409,7 +409,7 @@ fn strings_out<'py>(
 /// Ratios built from the primes up to 23 are recognised, to six decimal places.
 ///
 /// Args:
-///     interval (float | ``array_like)``: The ratio or ratios, positive.
+///     interval (float | ``array_like``): The ratio or ratios, positive.
 ///     unison (str): The note of ratio 1. Default ``"C"``.
 ///     tolerance (float): How close in ratio a stack of fifths must come. Default 65/63.
 ///     unicode (bool): Unicode accidentals and scripts; otherwise ``^n`` and ``_n``.
@@ -436,7 +436,7 @@ pub fn interval_to_fjs<'py>(
 /// The Functional Just System spelling of frequencies relative to a reference.
 ///
 /// Args:
-///     frequencies (float | ``array_like)``: In Hz.
+///     frequencies (float | ``array_like``): In Hz.
 ///     fmin (Optional[float]): The frequency of ratio 1. Default: the smallest input.
 ///     unison (Optional[str]): The note of ratio 1. Default: nearest note to ``fmin``.
 ///     unicode (bool): As for :func:`interval_to_fjs`. Default false.
@@ -569,7 +569,7 @@ pub fn mela_to_svara<'py>(
 /// The Hindustani svara of MIDI numbers.
 ///
 /// Args:
-///     midi (float | ``array_like)``: MIDI numbers; a non-finite value gives ``""``.
+///     midi (float | ``array_like``): MIDI numbers; a non-finite value gives ``""``.
 ///     Sa (float): The MIDI number of Sa.
 ///     abbr (bool): Short forms such as ``S``. Default true.
 ///     octave (bool): Mark the octaves next to Sa's. Default true.
@@ -599,7 +599,7 @@ pub fn midi_to_svara_h<'py>(
 /// The Carnatic svara of MIDI numbers within a melakarta raga.
 ///
 /// Args:
-///     midi (float | ``array_like)``: MIDI numbers; a non-finite value gives ``""``.
+///     midi (float | ``array_like``): MIDI numbers; a non-finite value gives ``""``.
 ///     Sa (float): The MIDI number of Sa.
 ///     mela (int | str): The raga's number or name.
 ///     abbr, octave, unicode: As for :func:`midi_to_svara_h`.
@@ -630,7 +630,7 @@ pub fn midi_to_svara_c<'py>(
 /// The Hindustani svara of frequencies.
 ///
 /// Args:
-///     frequencies (float | ``array_like)``: In Hz.
+///     frequencies (float | ``array_like``): In Hz.
 ///     Sa (float): The frequency of Sa, in Hz.
 ///     abbr, octave, unicode: As for :func:`midi_to_svara_h`.
 ///
@@ -658,7 +658,7 @@ pub fn hz_to_svara_h<'py>(
 /// The Carnatic svara of frequencies within a melakarta raga.
 ///
 /// Args:
-///     frequencies (float | ``array_like)``: In Hz.
+///     frequencies (float | ``array_like``): In Hz.
 ///     Sa (float): The frequency of Sa, in Hz.
 ///     mela (int | str): The raga's number or name.
 ///     abbr, octave, unicode: As for :func:`midi_to_svara_h`.
