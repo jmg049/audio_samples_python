@@ -11,6 +11,9 @@ has the full detail.
 
 ## [Unreleased]
 
+- **`forms.resample` and `forms.pitch_shift` with `scale=True` multiply by the reciprocal of the
+  square root of the ratio** instead of dividing by it: within one rounding of the quotient, and
+  several times cheaper per sample.
 - **`features.wavelet_lengths` and `features.wavelet` accept one frequency when `alpha` is
   given.** The bandwidth then does not come from the spacing of the frequencies; without
   `alpha`, two or more are still required.
