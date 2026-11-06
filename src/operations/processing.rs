@@ -453,7 +453,7 @@ impl PyAudioSamples {
             )));
         }
         let window = window_data.to_vec();
-        // safety: the window length equals the audio length, which is non-empty
+        // SAFETY: the window length equals the audio length, which is non-empty
         let window: NonEmptyVec<f64> = unsafe { NonEmptyVec::new_unchecked(window) };
         dispatch_with_view!(self, py, |audio| {
             audio
@@ -519,7 +519,7 @@ impl PyAudioSamples {
                 "apply_filter requires at least one filter coefficient",
             ));
         }
-        // safety: checked non-empty above
+        // SAFETY: checked non-empty above
         let taps: NonEmptyVec<f64> = unsafe { NonEmptyVec::new_unchecked(coeffs) };
         dispatch_with_view!(self, py, |audio| {
             audio

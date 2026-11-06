@@ -92,7 +92,8 @@ impl PyAudioSamples {
     ///
     ///     AudioError: If the STFT computation fails.
     #[pyo3(signature = (params: "StftParams"))]
-    fn stft(&self, py: Python<'_>, params: PyStftParams) -> PyResult<PyStftResult> {
+    fn stft(&self, py: Python<'_>, params: &Bound<'_, PyStftParams>) -> PyResult<PyStftResult> {
+        let params = params.borrow().clone();
         dispatch_with_view!(self, py, |audio| {
             let result = audio.stft(&params.inner).map_err(audio_err_to_py)?;
             Ok(PyStftResult::from_stft_result(py, result))

@@ -76,6 +76,7 @@ impl<'a, 'py> FromPyObject<'a, 'py> for Int {
 }
 
 impl From<Int> for i64 {
+    #[inline]
     fn from(v: Int) -> Self {
         v.0
     }
@@ -245,8 +246,8 @@ fn asarray_cast<'py>(
     // SAFETY: `PyArray_CheckFromAny` steals the descriptor reference handed
     // over by `into_dtype_ptr` and returns a new reference (or NULL with an
     // exception set).
-    unsafe {
-        let ptr = PY_ARRAY_API.PyArray_CheckFromAny(
+    let ptr = unsafe {
+        PY_ARRAY_API.PyArray_CheckFromAny(
             py,
             arr.as_ptr(),
             descr.into_dtype_ptr(),
@@ -254,9 +255,10 @@ fn asarray_cast<'py>(
             0,
             NPY_ARRAY_FORCECAST,
             std::ptr::null_mut(),
-        );
-        Bound::from_owned_ptr_or_err(py, ptr)
-    }
+        )
+    };
+    // SAFETY: `ptr` is a new reference or NULL with an exception set.
+    unsafe { Bound::from_owned_ptr_or_err(py, ptr) }
 }
 
 /// The value of a Python `float` or `int` (including `bool`) as `f64`, or

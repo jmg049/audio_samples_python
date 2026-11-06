@@ -1,19 +1,6 @@
 //! `audio_samples.segment`: path enhancement, temporally constrained clustering,
 //! subsegmentation and lag-domain filtering; and `sequence.path_to_steps`.
 
-#![allow(
-    // Sizes and axes from Python are checked before these casts.
-    clippy::cast_possible_truncation,
-    clippy::cast_possible_wrap,
-    clippy::cast_sign_loss,
-    // Docstrings are the Python documentation; failures are listed under `Raises`.
-    clippy::missing_errors_doc,
-    // Indices come from lengths checked at the top of each function.
-    clippy::indexing_slicing,
-    // PyO3 passes extracted arguments by value.
-    clippy::needless_pass_by_value,
-)]
-
 use audio_samples::operations::filterbanks::Window;
 use audio_samples::operations::segment::{self as sg, BoundaryMode, PathEnhanceConfig};
 use audio_samples::operations::sequence as seq;

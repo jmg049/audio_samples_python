@@ -230,7 +230,7 @@ impl PyAudioSamples {
                     .map_err(|e| PyTypeError::new_err(format!("Expected AudioSamples, got: {e}")))
             })
             .collect::<PyResult<Vec<_>>>()?;
-        // safety: We just checked that segments_vec is not empty, so this is safe
+        // SAFETY: we just checked that segments_vec is not empty, so this is safe
         let segments_vec = unsafe { NonEmptyVec::new_unchecked(segments_vec) };
 
         // Validate all segments have the same dtype
@@ -260,7 +260,7 @@ impl PyAudioSamples {
                         }
                     })
                     .collect::<PyResult<Vec<_>>>()?;
-                // safety: have checked for non-empty already
+                // SAFETY: have checked for non-empty already
                 let audio_segments = unsafe { NonEmptyVec::new_unchecked(audio_segments) };
                 let concatenated = <AudioSamples<u8> as AudioEditing>::concatenate(&audio_segments)
                     .map_err(audio_err_to_py)?
@@ -278,7 +278,7 @@ impl PyAudioSamples {
                         }
                     })
                     .collect::<PyResult<Vec<_>>>()?;
-                // safety: have checked for non-empty already
+                // SAFETY: have checked for non-empty already
                 let audio_segments = unsafe { NonEmptyVec::new_unchecked(audio_segments) };
                 let concatenated =
                     <AudioSamples<i16> as AudioEditing>::concatenate(&audio_segments)
@@ -297,7 +297,7 @@ impl PyAudioSamples {
                         }
                     })
                     .collect::<PyResult<Vec<_>>>()?;
-                // safety: have checked for non-empty already
+                // SAFETY: have checked for non-empty already
                 let audio_segments = unsafe { NonEmptyVec::new_unchecked(audio_segments) };
                 let concatenated =
                     <AudioSamples<I24> as AudioEditing>::concatenate(&audio_segments)
@@ -316,7 +316,7 @@ impl PyAudioSamples {
                         }
                     })
                     .collect::<PyResult<Vec<_>>>()?;
-                // safety: have checked for non-empty already
+                // SAFETY: have checked for non-empty already
                 let audio_segments = unsafe { NonEmptyVec::new_unchecked(audio_segments) };
                 let concatenated =
                     <AudioSamples<i32> as AudioEditing>::concatenate(&audio_segments)
@@ -335,7 +335,7 @@ impl PyAudioSamples {
                         }
                     })
                     .collect::<PyResult<Vec<_>>>()?;
-                // safety: have checked for non-empty already
+                // SAFETY: have checked for non-empty already
                 let audio_segments = unsafe { NonEmptyVec::new_unchecked(audio_segments) };
                 let concatenated =
                     <AudioSamples<f32> as AudioEditing>::concatenate(&audio_segments)
@@ -354,7 +354,7 @@ impl PyAudioSamples {
                         }
                     })
                     .collect::<PyResult<Vec<_>>>()?;
-                // safety: have checked for non-empty already
+                // SAFETY: have checked for non-empty already
                 let audio_segments = unsafe { NonEmptyVec::new_unchecked(audio_segments) };
                 let concatenated =
                     <AudioSamples<f64> as AudioEditing>::concatenate(&audio_segments)
@@ -425,7 +425,7 @@ impl PyAudioSamples {
         let weights_slice: Option<&NonEmptySlice<f64>> = if let Some(w) = &weights
             && !w.is_empty()
         {
-            // safety: just checked for empty
+            // SAFETY: just checked for empty
             Some(unsafe { NonEmptySlice::new_unchecked(w) })
         } else {
             None
@@ -466,7 +466,7 @@ impl PyAudioSamples {
                         }
                     })
                     .collect::<PyResult<Vec<_>>>()?;
-                // safety: have checked for non-empty already
+                // SAFETY: have checked for non-empty already
                 let audio_sources = unsafe { NonEmptyVec::new_unchecked(audio_sources) };
                 let mixed = if let Some(w) = weights_slice {
                     <AudioSamples<u8> as AudioEditing>::mix(&audio_sources, Some(w))
@@ -489,7 +489,7 @@ impl PyAudioSamples {
                         }
                     })
                     .collect::<PyResult<Vec<_>>>()?;
-                // safety: have checked for non-empty already
+                // SAFETY: have checked for non-empty already
                 let audio_sources = unsafe { NonEmptyVec::new_unchecked(audio_sources) };
                 let mixed = if let Some(w) = weights_slice {
                     <AudioSamples<i16> as AudioEditing>::mix(&audio_sources, Some(w))
@@ -512,7 +512,7 @@ impl PyAudioSamples {
                         }
                     })
                     .collect::<PyResult<Vec<_>>>()?;
-                // safety: have checked for non-empty already
+                // SAFETY: have checked for non-empty already
                 let audio_sources = unsafe { NonEmptyVec::new_unchecked(audio_sources) };
                 let mixed = if let Some(w) = weights_slice {
                     <AudioSamples<I24> as AudioEditing>::mix(&audio_sources, Some(w))
@@ -535,7 +535,7 @@ impl PyAudioSamples {
                         }
                     })
                     .collect::<PyResult<Vec<_>>>()?;
-                // safety: have checked for non-empty already
+                // SAFETY: have checked for non-empty already
                 let audio_sources = unsafe { NonEmptyVec::new_unchecked(audio_sources) };
                 let mixed = if let Some(w) = weights_slice {
                     <AudioSamples<i32> as AudioEditing>::mix(&audio_sources, Some(w))
@@ -559,11 +559,11 @@ impl PyAudioSamples {
                     })
                     .collect::<PyResult<Vec<_>>>()?;
 
-                // safety: have checked for non-empty already
+                // SAFETY: have checked for non-empty already
                 let weights_slice = weights
                     .as_ref()
                     .map(|w| unsafe { NonEmptySlice::new_unchecked(w) });
-                // safety: have checked for non-empty already
+                // SAFETY: have checked for non-empty already
                 let audio_sources = unsafe { NonEmptyVec::new_unchecked(audio_sources) };
                 let mixed = if let Some(&w) = weights_slice.as_ref() {
                     <AudioSamples<f32> as AudioEditing>::mix(&audio_sources, Some(w))
@@ -586,7 +586,7 @@ impl PyAudioSamples {
                         }
                     })
                     .collect::<PyResult<Vec<_>>>()?;
-                // safety: have checked for non-empty already
+                // SAFETY: have checked for non-empty already
                 let audio_sources = unsafe { NonEmptyVec::new_unchecked(audio_sources) };
                 let mixed = if let Some(w) = weights_slice {
                     <AudioSamples<f64> as AudioEditing>::mix(&audio_sources, Some(w))

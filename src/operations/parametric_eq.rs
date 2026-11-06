@@ -27,7 +27,12 @@ impl PyAudioSamples {
     ///
     ///     AudioError: If filter application fails.
     #[pyo3(signature = (eq: "ParametricEq"))]
-    fn apply_parametric_eq(&mut self, py: Python<'_>, eq: PyParametricEq) -> PyResult<()> {
+    fn apply_parametric_eq(
+        &mut self,
+        py: Python<'_>,
+        eq: &Bound<'_, PyParametricEq>,
+    ) -> PyResult<()> {
+        let eq = eq.borrow().clone();
         dispatch_with_view_mut!(self, py, |mut audio| {
             audio
                 .apply_parametric_eq_in_place(&eq)
@@ -52,7 +57,8 @@ impl PyAudioSamples {
     ///
     ///     AudioError: If filter application fails.
     #[pyo3(signature = (eq: "ParametricEq"))]
-    fn parametric_eq(&self, py: Python<'_>, eq: PyParametricEq) -> PyResult<Self> {
+    fn parametric_eq(&self, py: Python<'_>, eq: &Bound<'_, PyParametricEq>) -> PyResult<Self> {
+        let eq = eq.borrow().clone();
         dispatch_with_view!(self, py, |audio| {
             audio
                 .apply_parametric_eq(&eq)
@@ -269,9 +275,10 @@ impl PyAudioSamples {
     fn eq_frequency_response<'py>(
         &self,
         py: Python<'py>,
-        eq: PyParametricEq,
+        eq: &Bound<'_, PyParametricEq>,
         frequencies: &Bound<'py, PyArray1<f64>>,
     ) -> PyResult<(Bound<'py, PyArray1<f64>>, Bound<'py, PyArray1<f64>>)> {
+        let eq = eq.borrow().clone();
         let freqs = frequencies.try_readonly()?.as_array().to_vec();
         let (magnitudes, phases) = dispatch_with_view!(self, py, |audio| {
             audio

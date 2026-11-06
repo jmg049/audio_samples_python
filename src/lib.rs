@@ -77,7 +77,7 @@ pub(crate) fn nzu32_or_err(n: u32) -> PyResult<NonZeroU32> {
 
 use crate::types::PySampleType;
 
-pub fn nzu_or_err(n: usize) -> PyResult<NonZeroUsize> {
+pub(crate) fn nzu_or_err(n: usize) -> PyResult<NonZeroUsize> {
     NonZeroUsize::new(n).ok_or_else(|| {
         PyValueError::new_err(format!(
             "Value must be a positive integer greater than zero, got {n}"
@@ -902,7 +902,7 @@ fn audio_samples_python(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()>
 /// holds every sample value exactly. Audio-returning methods keep the sample
 /// type.
 #[pyclass(name = "AudioSamples", module = "audio_samples")]
-pub struct PyAudioSamples {
+pub(crate) struct PyAudioSamples {
     inner: PyAudioDataInner,
 }
 
@@ -918,6 +918,7 @@ impl PyAudioSamples {
         match TypeId::of::<T>() {
             id if id == TypeId::of::<u8>() => {
                 let typed = TypedAudioSamples {
+                    // SAFETY: this arm runs only when `T` is `u8`, so the transmute keeps the type.
                     backing: unsafe {
                         std::mem::transmute::<PyAudioBacking<T>, PyAudioBacking<_>>(backing)
                     },
@@ -930,6 +931,7 @@ impl PyAudioSamples {
             }
             id if id == TypeId::of::<i16>() => {
                 let typed = TypedAudioSamples {
+                    // SAFETY: this arm runs only when `T` is `i16`, so the transmute keeps the type.
                     backing: unsafe {
                         std::mem::transmute::<PyAudioBacking<T>, PyAudioBacking<_>>(backing)
                     },
@@ -942,6 +944,7 @@ impl PyAudioSamples {
             }
             id if id == TypeId::of::<I24>() => {
                 let typed = TypedAudioSamples {
+                    // SAFETY: this arm runs only when `T` is `I24`, so the transmute keeps the type.
                     backing: unsafe {
                         std::mem::transmute::<PyAudioBacking<T>, PyAudioBacking<_>>(backing)
                     },
@@ -954,6 +957,7 @@ impl PyAudioSamples {
             }
             id if id == TypeId::of::<i32>() => {
                 let typed = TypedAudioSamples {
+                    // SAFETY: this arm runs only when `T` is `i32`, so the transmute keeps the type.
                     backing: unsafe {
                         std::mem::transmute::<PyAudioBacking<T>, PyAudioBacking<_>>(backing)
                     },
@@ -966,6 +970,7 @@ impl PyAudioSamples {
             }
             id if id == TypeId::of::<f32>() => {
                 let typed = TypedAudioSamples {
+                    // SAFETY: this arm runs only when `T` is `f32`, so the transmute keeps the type.
                     backing: unsafe {
                         std::mem::transmute::<PyAudioBacking<T>, PyAudioBacking<_>>(backing)
                     },
@@ -978,6 +983,7 @@ impl PyAudioSamples {
             }
             id if id == TypeId::of::<f64>() => {
                 let typed = TypedAudioSamples {
+                    // SAFETY: this arm runs only when `T` is `f64`, so the transmute keeps the type.
                     backing: unsafe {
                         std::mem::transmute::<PyAudioBacking<T>, PyAudioBacking<_>>(backing)
                     },
@@ -1002,6 +1008,7 @@ impl PyAudioSamples {
         match TypeId::of::<T>() {
             id if id == TypeId::of::<u8>() => {
                 let typed = TypedAudioSamples {
+                    // SAFETY: this arm runs only when `T` is `u8`, so the transmute keeps the type.
                     backing: unsafe {
                         std::mem::transmute::<PyAudioBacking<T>, PyAudioBacking<_>>(backing)
                     },
@@ -1014,6 +1021,7 @@ impl PyAudioSamples {
             }
             id if id == TypeId::of::<i16>() => {
                 let typed = TypedAudioSamples {
+                    // SAFETY: this arm runs only when `T` is `i16`, so the transmute keeps the type.
                     backing: unsafe {
                         std::mem::transmute::<PyAudioBacking<T>, PyAudioBacking<_>>(backing)
                     },
@@ -1026,6 +1034,7 @@ impl PyAudioSamples {
             }
             id if id == TypeId::of::<I24>() => {
                 let typed = TypedAudioSamples {
+                    // SAFETY: this arm runs only when `T` is `I24`, so the transmute keeps the type.
                     backing: unsafe {
                         std::mem::transmute::<PyAudioBacking<T>, PyAudioBacking<_>>(backing)
                     },
@@ -1038,6 +1047,7 @@ impl PyAudioSamples {
             }
             id if id == TypeId::of::<i32>() => {
                 let typed = TypedAudioSamples {
+                    // SAFETY: this arm runs only when `T` is `i32`, so the transmute keeps the type.
                     backing: unsafe {
                         std::mem::transmute::<PyAudioBacking<T>, PyAudioBacking<_>>(backing)
                     },
@@ -1050,6 +1060,7 @@ impl PyAudioSamples {
             }
             id if id == TypeId::of::<f32>() => {
                 let typed = TypedAudioSamples {
+                    // SAFETY: this arm runs only when `T` is `f32`, so the transmute keeps the type.
                     backing: unsafe {
                         std::mem::transmute::<PyAudioBacking<T>, PyAudioBacking<_>>(backing)
                     },
@@ -1062,6 +1073,7 @@ impl PyAudioSamples {
             }
             id if id == TypeId::of::<f64>() => {
                 let typed = TypedAudioSamples {
+                    // SAFETY: this arm runs only when `T` is `f64`, so the transmute keeps the type.
                     backing: unsafe {
                         std::mem::transmute::<PyAudioBacking<T>, PyAudioBacking<_>>(backing)
                     },
@@ -1089,6 +1101,7 @@ impl PyAudioSamples {
         match TypeId::of::<T>() {
             id if id == TypeId::of::<u8>() => {
                 let typed = TypedAudioSamples {
+                    // SAFETY: this arm runs only when `T` is `u8`, so the transmute keeps the type.
                     backing: unsafe {
                         std::mem::transmute::<PyAudioBacking<T>, PyAudioBacking<_>>(backing)
                     },
@@ -1101,6 +1114,7 @@ impl PyAudioSamples {
             }
             id if id == TypeId::of::<i16>() => {
                 let typed = TypedAudioSamples {
+                    // SAFETY: this arm runs only when `T` is `i16`, so the transmute keeps the type.
                     backing: unsafe {
                         std::mem::transmute::<PyAudioBacking<T>, PyAudioBacking<_>>(backing)
                     },
@@ -1113,6 +1127,7 @@ impl PyAudioSamples {
             }
             id if id == TypeId::of::<I24>() => {
                 let typed = TypedAudioSamples {
+                    // SAFETY: this arm runs only when `T` is `I24`, so the transmute keeps the type.
                     backing: unsafe {
                         std::mem::transmute::<PyAudioBacking<T>, PyAudioBacking<_>>(backing)
                     },
@@ -1125,6 +1140,7 @@ impl PyAudioSamples {
             }
             id if id == TypeId::of::<i32>() => {
                 let typed = TypedAudioSamples {
+                    // SAFETY: this arm runs only when `T` is `i32`, so the transmute keeps the type.
                     backing: unsafe {
                         std::mem::transmute::<PyAudioBacking<T>, PyAudioBacking<_>>(backing)
                     },
@@ -1137,6 +1153,7 @@ impl PyAudioSamples {
             }
             id if id == TypeId::of::<f32>() => {
                 let typed = TypedAudioSamples {
+                    // SAFETY: this arm runs only when `T` is `f32`, so the transmute keeps the type.
                     backing: unsafe {
                         std::mem::transmute::<PyAudioBacking<T>, PyAudioBacking<_>>(backing)
                     },
@@ -1149,6 +1166,7 @@ impl PyAudioSamples {
             }
             id if id == TypeId::of::<f64>() => {
                 let typed = TypedAudioSamples {
+                    // SAFETY: this arm runs only when `T` is `f64`, so the transmute keeps the type.
                     backing: unsafe {
                         std::mem::transmute::<PyAudioBacking<T>, PyAudioBacking<_>>(backing)
                     },
@@ -1176,6 +1194,7 @@ impl PyAudioSamples {
         match TypeId::of::<T>() {
             id if id == TypeId::of::<u8>() => {
                 let typed = TypedAudioSamples {
+                    // SAFETY: this arm runs only when `T` is `u8`, so the transmute keeps the type.
                     backing: unsafe {
                         std::mem::transmute::<PyAudioBacking<T>, PyAudioBacking<_>>(backing)
                     },
@@ -1188,6 +1207,7 @@ impl PyAudioSamples {
             }
             id if id == TypeId::of::<i16>() => {
                 let typed = TypedAudioSamples {
+                    // SAFETY: this arm runs only when `T` is `i16`, so the transmute keeps the type.
                     backing: unsafe {
                         std::mem::transmute::<PyAudioBacking<T>, PyAudioBacking<_>>(backing)
                     },
@@ -1200,6 +1220,7 @@ impl PyAudioSamples {
             }
             id if id == TypeId::of::<I24>() => {
                 let typed = TypedAudioSamples {
+                    // SAFETY: this arm runs only when `T` is `I24`, so the transmute keeps the type.
                     backing: unsafe {
                         std::mem::transmute::<PyAudioBacking<T>, PyAudioBacking<_>>(backing)
                     },
@@ -1212,6 +1233,7 @@ impl PyAudioSamples {
             }
             id if id == TypeId::of::<i32>() => {
                 let typed = TypedAudioSamples {
+                    // SAFETY: this arm runs only when `T` is `i32`, so the transmute keeps the type.
                     backing: unsafe {
                         std::mem::transmute::<PyAudioBacking<T>, PyAudioBacking<_>>(backing)
                     },
@@ -1224,6 +1246,7 @@ impl PyAudioSamples {
             }
             id if id == TypeId::of::<f32>() => {
                 let typed = TypedAudioSamples {
+                    // SAFETY: this arm runs only when `T` is `f32`, so the transmute keeps the type.
                     backing: unsafe {
                         std::mem::transmute::<PyAudioBacking<T>, PyAudioBacking<_>>(backing)
                     },
@@ -1236,6 +1259,7 @@ impl PyAudioSamples {
             }
             id if id == TypeId::of::<f64>() => {
                 let typed = TypedAudioSamples {
+                    // SAFETY: this arm runs only when `T` is `f64`, so the transmute keeps the type.
                     backing: unsafe {
                         std::mem::transmute::<PyAudioBacking<T>, PyAudioBacking<_>>(backing)
                     },
@@ -1271,6 +1295,7 @@ impl PyAudioSamples {
         match TypeId::of::<T>() {
             id if id == TypeId::of::<u8>() => {
                 let typed = TypedAudioSamples {
+                    // SAFETY: this arm runs only when `T` is `u8`, so the transmute keeps the type.
                     backing: unsafe {
                         std::mem::transmute::<PyAudioBacking<T>, PyAudioBacking<_>>(backing)
                     },
@@ -1283,6 +1308,7 @@ impl PyAudioSamples {
             }
             id if id == TypeId::of::<i16>() => {
                 let typed = TypedAudioSamples {
+                    // SAFETY: this arm runs only when `T` is `i16`, so the transmute keeps the type.
                     backing: unsafe {
                         std::mem::transmute::<PyAudioBacking<T>, PyAudioBacking<_>>(backing)
                     },
@@ -1295,6 +1321,7 @@ impl PyAudioSamples {
             }
             id if id == TypeId::of::<I24>() => {
                 let typed = TypedAudioSamples {
+                    // SAFETY: this arm runs only when `T` is `I24`, so the transmute keeps the type.
                     backing: unsafe {
                         std::mem::transmute::<PyAudioBacking<T>, PyAudioBacking<_>>(backing)
                     },
@@ -1307,6 +1334,7 @@ impl PyAudioSamples {
             }
             id if id == TypeId::of::<i32>() => {
                 let typed = TypedAudioSamples {
+                    // SAFETY: this arm runs only when `T` is `i32`, so the transmute keeps the type.
                     backing: unsafe {
                         std::mem::transmute::<PyAudioBacking<T>, PyAudioBacking<_>>(backing)
                     },
@@ -1319,6 +1347,7 @@ impl PyAudioSamples {
             }
             id if id == TypeId::of::<f32>() => {
                 let typed = TypedAudioSamples {
+                    // SAFETY: this arm runs only when `T` is `f32`, so the transmute keeps the type.
                     backing: unsafe {
                         std::mem::transmute::<PyAudioBacking<T>, PyAudioBacking<_>>(backing)
                     },
@@ -1331,6 +1360,7 @@ impl PyAudioSamples {
             }
             id if id == TypeId::of::<f64>() => {
                 let typed = TypedAudioSamples {
+                    // SAFETY: this arm runs only when `T` is `f64`, so the transmute keeps the type.
                     backing: unsafe {
                         std::mem::transmute::<PyAudioBacking<T>, PyAudioBacking<_>>(backing)
                     },
@@ -1703,7 +1733,7 @@ floating-point range, -1.0 to 1.0, where 1.0 is full scale",
                         }
                     })
                     .collect();
-                // safety: have checked for non-empty already
+                // SAFETY: `sources` was checked to be non-empty above.
                 let audio_sources = unsafe { NonEmptyVec::new_unchecked(audio_sources) };
                 let stacked = <AudioSamples<u8> as AudioEditing>::stack(&audio_sources)
                     .map_err(audio_err_to_py)?;
@@ -1720,7 +1750,7 @@ floating-point range, -1.0 to 1.0, where 1.0 is full scale",
                         }
                     })
                     .collect();
-                // safety: have checked for non-empty already
+                // SAFETY: `sources` was checked to be non-empty above.
                 let audio_sources = unsafe { NonEmptyVec::new_unchecked(audio_sources) };
                 let stacked = <AudioSamples<i16> as AudioEditing>::stack(&audio_sources)
                     .map_err(audio_err_to_py)?;
@@ -1737,7 +1767,7 @@ floating-point range, -1.0 to 1.0, where 1.0 is full scale",
                         }
                     })
                     .collect();
-                // safety: have checked for non-empty already
+                // SAFETY: `sources` was checked to be non-empty above.
                 let audio_sources = unsafe { NonEmptyVec::new_unchecked(audio_sources) };
                 let stacked = <AudioSamples<I24> as AudioEditing>::stack(&audio_sources)
                     .map_err(audio_err_to_py)?;
@@ -1754,7 +1784,7 @@ floating-point range, -1.0 to 1.0, where 1.0 is full scale",
                         }
                     })
                     .collect();
-                // safety: have checked for non-empty already
+                // SAFETY: `sources` was checked to be non-empty above.
                 let audio_sources = unsafe { NonEmptyVec::new_unchecked(audio_sources) };
                 let stacked = <AudioSamples<i32> as AudioEditing>::stack(&audio_sources)
                     .map_err(audio_err_to_py)?;
@@ -1771,7 +1801,7 @@ floating-point range, -1.0 to 1.0, where 1.0 is full scale",
                         }
                     })
                     .collect();
-                // safety: have checked for non-empty already
+                // SAFETY: `sources` was checked to be non-empty above.
                 let audio_sources = unsafe { NonEmptyVec::new_unchecked(audio_sources) };
                 let stacked = <AudioSamples<f32> as AudioEditing>::stack(&audio_sources)
                     .map_err(audio_err_to_py)?;
@@ -1788,7 +1818,7 @@ floating-point range, -1.0 to 1.0, where 1.0 is full scale",
                         }
                     })
                     .collect();
-                // safety: have checked for non-empty already
+                // SAFETY: `sources` was checked to be non-empty above.
                 let audio_sources = unsafe { NonEmptyVec::new_unchecked(audio_sources) };
                 let stacked = <AudioSamples<f64> as AudioEditing>::stack(&audio_sources)
                     .map_err(audio_err_to_py)?;
@@ -1800,7 +1830,7 @@ floating-point range, -1.0 to 1.0, where 1.0 is full scale",
 
 /// Information about audio samples.
 #[pyclass(name = "AudioSamplesInfo", module = "audio_samples")]
-pub struct PyAudioSamplesInfo {
+pub(crate) struct PyAudioSamplesInfo {
     #[pyo3(get)]
     pub sample_rate: NonZeroU32,
     #[pyo3(get)]
@@ -4125,19 +4155,25 @@ impl<T: StandardSample + Element> Add<Self> for PyAudioBacking<T> {
             (OwnedMono(a), OwnedMono(b)) => OwnedMono(a + b),
             (OwnedMulti(a), OwnedMulti(b)) => OwnedMulti(a + b),
             (NumpyMono(a), NumpyMono(b)) => Python::attach(|py| {
+                // SAFETY: the array is alive and only read while this view exists.
                 let a = unsafe { a.bind(py).as_array() };
+                // SAFETY: the array is alive and only read while this view exists.
                 let b = unsafe { b.bind(py).as_array() };
                 let result = &a + &b;
                 NumpyMono(result.into_pyarray(py).unbind())
             }),
             (NumpyMulti(a), NumpyMulti(b)) => Python::attach(|py| {
+                // SAFETY: the array is alive and only read while this view exists.
                 let a = unsafe { a.bind(py).as_array() };
+                // SAFETY: the array is alive and only read while this view exists.
                 let b = unsafe { b.bind(py).as_array() };
                 let result = &a + &b;
                 NumpyMulti(result.into_pyarray(py).unbind())
             }),
             (NumpyInterleaved(a), NumpyInterleaved(b)) => Python::attach(|py| {
+                // SAFETY: the array is alive and only read while this view exists.
                 let a = unsafe { a.bind(py).as_array() };
+                // SAFETY: the array is alive and only read while this view exists.
                 let b = unsafe { b.bind(py).as_array() };
                 let result = &a + &b;
                 NumpyInterleaved(result.into_pyarray(py).unbind())
@@ -4157,17 +4193,20 @@ impl<T: StandardSample + Element> Add<T> for PyAudioBacking<T> {
             OwnedMono(a) => OwnedMono(a + rhs),
             OwnedMulti(a) => OwnedMulti(a + rhs),
             NumpyMono(handle) => Python::attach(|py| {
+                // SAFETY: the array is alive and only read while this view exists.
                 let a = unsafe { handle.bind(py).as_array() };
                 let result = &a + rhs;
                 NumpyMono(result.into_pyarray(py).unbind())
             }),
             NumpyMulti(handle) => Python::attach(|py| {
+                // SAFETY: the array is alive and only read while this view exists.
                 let a = unsafe { handle.bind(py).as_array() };
                 let result = &a + rhs;
                 NumpyMulti(result.into_pyarray(py).unbind())
             }),
             NumpyInterleaved(handle) => Python::attach(|py| {
                 // Convert to planar for operation
+                // SAFETY: the array is alive and only read while this view exists.
                 let a = unsafe { handle.bind(py).as_array() };
                 let result = &a + rhs;
                 NumpyMulti(result.into_pyarray(py).unbind())
@@ -4186,19 +4225,25 @@ impl<T: StandardSample + Element> Sub<Self> for PyAudioBacking<T> {
             (OwnedMono(a), OwnedMono(b)) => OwnedMono(a - b),
             (OwnedMulti(a), OwnedMulti(b)) => OwnedMulti(a - b),
             (NumpyMono(a), NumpyMono(b)) => Python::attach(|py| {
+                // SAFETY: the array is alive and only read while this view exists.
                 let a = unsafe { a.bind(py).as_array() };
+                // SAFETY: the array is alive and only read while this view exists.
                 let b = unsafe { b.bind(py).as_array() };
                 let result = &a - &b;
                 NumpyMono(result.into_pyarray(py).unbind())
             }),
             (NumpyMulti(a), NumpyMulti(b)) => Python::attach(|py| {
+                // SAFETY: the array is alive and only read while this view exists.
                 let a = unsafe { a.bind(py).as_array() };
+                // SAFETY: the array is alive and only read while this view exists.
                 let b = unsafe { b.bind(py).as_array() };
                 let result = &a - &b;
                 NumpyMulti(result.into_pyarray(py).unbind())
             }),
             (NumpyInterleaved(a), NumpyInterleaved(b)) => Python::attach(|py| {
+                // SAFETY: the array is alive and only read while this view exists.
                 let a = unsafe { a.bind(py).as_array() };
+                // SAFETY: the array is alive and only read while this view exists.
                 let b = unsafe { b.bind(py).as_array() };
                 let result = &a - &b;
                 NumpyInterleaved(result.into_pyarray(py).unbind())
@@ -4218,17 +4263,20 @@ impl<T: StandardSample + Element> Sub<T> for PyAudioBacking<T> {
             OwnedMono(a) => OwnedMono(a - rhs),
             OwnedMulti(a) => OwnedMulti(a - rhs),
             NumpyMono(handle) => Python::attach(|py| {
+                // SAFETY: the array is alive and only read while this view exists.
                 let a = unsafe { handle.bind(py).as_array() };
                 let result = &a - rhs;
                 NumpyMono(result.into_pyarray(py).unbind())
             }),
             NumpyMulti(handle) => Python::attach(|py| {
+                // SAFETY: the array is alive and only read while this view exists.
                 let a = unsafe { handle.bind(py).as_array() };
                 let result = &a - rhs;
                 NumpyMulti(result.into_pyarray(py).unbind())
             }),
             NumpyInterleaved(handle) => Python::attach(|py| {
                 // Convert to planar for operation
+                // SAFETY: the array is alive and only read while this view exists.
                 let a = unsafe { handle.bind(py).as_array() };
                 let result = &a - rhs;
                 NumpyMulti(result.into_pyarray(py).unbind())
@@ -4247,19 +4295,25 @@ impl<T: StandardSample + Element> Mul<Self> for PyAudioBacking<T> {
             (OwnedMono(a), OwnedMono(b)) => OwnedMono(a * b),
             (OwnedMulti(a), OwnedMulti(b)) => OwnedMulti(a * b),
             (NumpyMono(a), NumpyMono(b)) => Python::attach(|py| {
+                // SAFETY: the array is alive and only read while this view exists.
                 let a = unsafe { a.bind(py).as_array() };
+                // SAFETY: the array is alive and only read while this view exists.
                 let b = unsafe { b.bind(py).as_array() };
                 let result = &a * &b;
                 NumpyMono(result.into_pyarray(py).unbind())
             }),
             (NumpyMulti(a), NumpyMulti(b)) => Python::attach(|py| {
+                // SAFETY: the array is alive and only read while this view exists.
                 let a = unsafe { a.bind(py).as_array() };
+                // SAFETY: the array is alive and only read while this view exists.
                 let b = unsafe { b.bind(py).as_array() };
                 let result = &a * &b;
                 NumpyMulti(result.into_pyarray(py).unbind())
             }),
             (NumpyInterleaved(a), NumpyInterleaved(b)) => Python::attach(|py| {
+                // SAFETY: the array is alive and only read while this view exists.
                 let a = unsafe { a.bind(py).as_array() };
+                // SAFETY: the array is alive and only read while this view exists.
                 let b = unsafe { b.bind(py).as_array() };
                 let result = &a * &b;
                 NumpyInterleaved(result.into_pyarray(py).unbind())
@@ -4279,17 +4333,20 @@ impl<T: StandardSample + Element> Mul<T> for PyAudioBacking<T> {
             OwnedMono(a) => OwnedMono(a * rhs),
             OwnedMulti(a) => OwnedMulti(a * rhs),
             NumpyMono(handle) => Python::attach(|py| {
+                // SAFETY: the array is alive and only read while this view exists.
                 let a = unsafe { handle.bind(py).as_array() };
                 let result = &a * rhs;
                 NumpyMono(result.into_pyarray(py).unbind())
             }),
             NumpyMulti(handle) => Python::attach(|py| {
+                // SAFETY: the array is alive and only read while this view exists.
                 let a = unsafe { handle.bind(py).as_array() };
                 let result = &a * rhs;
                 NumpyMulti(result.into_pyarray(py).unbind())
             }),
             NumpyInterleaved(handle) => Python::attach(|py| {
                 // Convert to planar for operation
+                // SAFETY: the array is alive and only read while this view exists.
                 let a = unsafe { handle.bind(py).as_array() };
                 let result = &a * rhs;
                 NumpyMulti(result.into_pyarray(py).unbind())
@@ -4309,6 +4366,34 @@ enum BackingView<'a, T> {
 enum BackingViewMut<'a, T> {
     Mono(numpy::ndarray::ArrayViewMut1<'a, T>),
     Multi(numpy::ndarray::ArrayViewMut2<'a, T>),
+}
+
+impl<'a, T: StandardSample> BackingView<'a, T> {
+    /// The view as `AudioData`. Views are taken only of a `TypedAudioSamples`, which is
+    /// never empty.
+    #[inline]
+    fn into_audio_data(self) -> AudioData<'a, T> {
+        match self {
+            // SAFETY: the view is of a `TypedAudioSamples`, which is non-empty.
+            Self::Mono(v) => unsafe { AudioData::from_borrowed_array1_unchecked(v) },
+            // SAFETY: as above.
+            Self::Multi(v) => unsafe { AudioData::from_borrowed_array2_unchecked(v) },
+        }
+    }
+}
+
+impl<'a, T: StandardSample> BackingViewMut<'a, T> {
+    /// The view as `AudioData`. Views are taken only of a `TypedAudioSamples`, which is
+    /// never empty.
+    #[inline]
+    fn into_audio_data(self) -> AudioData<'a, T> {
+        match self {
+            // SAFETY: the view is of a `TypedAudioSamples`, which is non-empty.
+            Self::Mono(v) => unsafe { AudioData::from_borrowed_array1_mut_unchecked(v) },
+            // SAFETY: as above.
+            Self::Multi(v) => unsafe { AudioData::from_borrowed_array2_mut_unchecked(v) },
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -4337,26 +4422,17 @@ where
     pub(crate) fn borrowed<'a>(&'a self, py: Python<'a>) -> AudioSamples<'a, T> {
         use PyAudioBacking::{NumpyInterleaved, NumpyMono, NumpyMulti, OwnedMono, OwnedMulti};
         let sr = self.sample_rate;
-        // safety: an instantiated TypedAudioSamples is non-empty; a NumPy view
-        // stays valid while `self` (which holds the array) is borrowed.
-        match &self.backing {
-            OwnedMono(arr) => AudioSamples::new(
-                unsafe { AudioData::from_borrowed_array1_unchecked(arr.view()) },
-                sr,
-            ),
-            OwnedMulti(arr) => AudioSamples::new(
-                unsafe { AudioData::from_borrowed_array2_unchecked(arr.view()) },
-                sr,
-            ),
-            NumpyMono(handle) => AudioSamples::new(
-                unsafe { AudioData::from_borrowed_array1_unchecked(handle.bind(py).as_array()) },
-                sr,
-            ),
-            NumpyMulti(handle) | NumpyInterleaved(handle) => AudioSamples::new(
-                unsafe { AudioData::from_borrowed_array2_unchecked(handle.bind(py).as_array()) },
-                sr,
-            ),
-        }
+        let view = match &self.backing {
+            OwnedMono(arr) => BackingView::Mono(arr.view()),
+            OwnedMulti(arr) => BackingView::Multi(arr.view()),
+            // SAFETY: `self` holds the array, so it outlives the view, which is only read.
+            NumpyMono(handle) => BackingView::Mono(unsafe { handle.bind(py).as_array() }),
+            NumpyMulti(handle) | NumpyInterleaved(handle) => {
+                // SAFETY: as above.
+                BackingView::Multi(unsafe { handle.bind(py).as_array() })
+            }
+        };
+        AudioSamples::new(view.into_audio_data(), sr)
     }
 
     /// [`Self::with_view`] with the GIL released while `f` runs, for long
@@ -4378,21 +4454,14 @@ where
         let view = match &self.backing {
             OwnedMono(arr) => BackingView::Mono(arr.view()),
             OwnedMulti(arr) => BackingView::Multi(arr.view()),
+            // SAFETY: `self` holds the array, so it outlives the view, which is only read.
             NumpyMono(handle) => BackingView::Mono(unsafe { handle.bind(py).as_array() }),
             NumpyMulti(handle) | NumpyInterleaved(handle) => {
+                // SAFETY: as above.
                 BackingView::Multi(unsafe { handle.bind(py).as_array() })
             }
         };
-        py.detach(move || {
-            // safety: an instantiated TypedAudioSamples is non-empty
-            let data = unsafe {
-                match view {
-                    BackingView::Mono(v) => AudioData::from_borrowed_array1_unchecked(v),
-                    BackingView::Multi(v) => AudioData::from_borrowed_array2_unchecked(v),
-                }
-            };
-            f(AudioSamples::new(data, sr))
-        })
+        py.detach(move || f(AudioSamples::new(view.into_audio_data(), sr)))
     }
 
     /// A mutable view of the backing array, with any read-only NumPy buffer
@@ -4403,8 +4472,11 @@ where
         match &mut self.backing {
             OwnedMono(arr) => BackingViewMut::Mono(arr.view_mut()),
             OwnedMulti(arr) => BackingViewMut::Multi(arr.view_mut()),
+            // SAFETY: `&mut self` holds the array, so it outlives the view and no other view of
+            // it is taken from this object meanwhile.
             NumpyMono(handle) => BackingViewMut::Mono(unsafe { handle.bind(py).as_array_mut() }),
             NumpyMulti(handle) | NumpyInterleaved(handle) => {
+                // SAFETY: as above.
                 BackingViewMut::Multi(unsafe { handle.bind(py).as_array_mut() })
             }
         }
@@ -4417,14 +4489,7 @@ where
     ) -> R {
         let sr = self.sample_rate;
         let view = self.backing_view_mut(py);
-        // safety: an instantiated TypedAudioSamples is non-empty
-        let data = unsafe {
-            match view {
-                BackingViewMut::Mono(v) => AudioData::from_borrowed_array1_mut_unchecked(v),
-                BackingViewMut::Multi(v) => AudioData::from_borrowed_array2_mut_unchecked(v),
-            }
-        };
-        f(AudioSamples::new(data, sr))
+        f(AudioSamples::new(view.into_audio_data(), sr))
     }
 
     /// Safe clone that requires a Python token for numpy-backed variants
@@ -4449,16 +4514,7 @@ where
     ) -> R {
         let sr = self.sample_rate;
         let view = self.backing_view_mut(py);
-        py.detach(move || {
-            // safety: an instantiated TypedAudioSamples is non-empty
-            let data = unsafe {
-                match view {
-                    BackingViewMut::Mono(v) => AudioData::from_borrowed_array1_mut_unchecked(v),
-                    BackingViewMut::Multi(v) => AudioData::from_borrowed_array2_mut_unchecked(v),
-                }
-            };
-            f(AudioSamples::new(data, sr))
-        })
+        py.detach(move || f(AudioSamples::new(view.into_audio_data(), sr)))
     }
 }
 
@@ -4767,7 +4823,7 @@ mod tests {
         Python::initialize();
         Python::attach(|py| {
             let data = Array1::<f32>::zeros(100);
-            let audio = PyAudioSamples::new_mono(data, unsafe { NonZeroU32::new_unchecked(44100) });
+            let audio = PyAudioSamples::new_mono(data, NonZeroU32::new(44100).unwrap());
 
             // Should be able to clone with GIL
             let _cloned = audio.clone_py(py);
@@ -4781,7 +4837,7 @@ mod tests {
             let data = Array1::<f64>::ones(50);
             let typed = TypedAudioSamples {
                 backing: PyAudioBacking::OwnedMono(data),
-                sample_rate: unsafe { NonZeroU32::new_unchecked(48000) },
+                sample_rate: NonZeroU32::new(48000).unwrap(),
                 layout: ChannelLayout::NonInterleaved,
             };
 
@@ -4815,7 +4871,7 @@ mod tests {
             let data = Array1::<f32>::zeros(1000);
             let mut typed = TypedAudioSamples {
                 backing: PyAudioBacking::OwnedMono(data),
-                sample_rate: unsafe { NonZeroU32::new_unchecked(44100) },
+                sample_rate: NonZeroU32::new(44100).unwrap(),
                 layout: ChannelLayout::NonInterleaved,
             };
 

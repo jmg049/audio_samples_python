@@ -1,16 +1,5 @@
 //! `audio_samples.inverse`: inversion of mel spectrograms and MFCCs to spectrograms and audio.
 
-#![allow(
-    // Sizes and axes from Python are checked before these casts.
-    clippy::cast_possible_truncation,
-    clippy::cast_possible_wrap,
-    clippy::cast_sign_loss,
-    // Docstrings are the Python documentation; failures are listed under `Raises`.
-    clippy::missing_errors_doc,
-    // Indices come from lengths checked at the top of each function.
-    clippy::indexing_slicing
-)]
-
 use audio_samples::operations::effects::GriffinLimConfig;
 use audio_samples::operations::filterbanks::Window;
 use audio_samples::operations::inverse::{self as inv, MelInversionConfig, MfccInversionConfig};

@@ -1,21 +1,6 @@
 //! `audio_samples.notation`: tuning systems and musical notation, binding
 //! `audio_samples::utils::notation`.
 
-#![allow(
-    // Sizes and axes from Python are checked before these casts.
-    clippy::cast_possible_truncation,
-    clippy::cast_possible_wrap,
-    clippy::cast_sign_loss,
-    // Docstrings are the Python documentation; failures are listed under `Raises`.
-    clippy::missing_errors_doc,
-    // Indices come from lengths checked at the top of each function.
-    clippy::indexing_slicing,
-    // Exact halves decide the rounding direction, and a fused product rounds differently
-    // from the reference.
-    clippy::suboptimal_flops,
-    clippy::float_cmp,
-)]
-
 use std::collections::BTreeMap;
 
 use audio_samples::utils::notation::{self as nt, TuningSystem};
@@ -364,11 +349,13 @@ fn svara_array<'py>(
         .call1((shape.to_vec(), format!("<U{width}")))?;
     let cells = array.cast::<PyUntypedArray>()?;
     let total = shape.iter().product::<usize>() * width;
+    // SAFETY: `cells` is a live NumPy array, so its object pointer is valid.
+    let data = unsafe { (*cells.as_array_ptr()).data };
+    #[allow(clippy::cast_ptr_alignment)] // NumPy aligns `<U` data to 4 bytes.
+    let data = data.cast::<u32>();
     // SAFETY: the array was just created with `total` code points of 4-byte aligned,
     // contiguous storage, and nothing else refers to it yet.
-    let cells = unsafe {
-        std::slice::from_raw_parts_mut((*cells.as_array_ptr()).data.cast::<u32>(), total)
-    };
+    let cells = unsafe { std::slice::from_raw_parts_mut(data, total) };
     for (cell, name) in cells.chunks_exact_mut(width).zip(names) {
         let name = name?;
         let mut chars = name.chars();

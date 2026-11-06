@@ -2654,9 +2654,10 @@ impl PyCompressorConfig {
         knee_type: PyKneeType,
         knee_width_db: f64,
         detection_method: PyDynamicRangeMethod,
-        side_chain: PySideChainConfig,
+        side_chain: &Bound<'_, PySideChainConfig>,
         lookahead_ms: f64,
     ) -> Self {
+        let side_chain = side_chain.borrow().clone();
         let mut inner = CompressorConfig::default();
         inner.threshold_db = threshold_db;
         inner.ratio = ratio;
@@ -2855,17 +2856,18 @@ impl PyLimiterConfig {
     ///     A new limiter configuration.
     #[new]
     #[pyo3(signature = (*, ceiling_db: "float", attack_ms: "float", release_ms: "float", knee_type, knee_width_db, detection_method, side_chain, lookahead_ms, isp_limiting))]
-    const fn new(
+    fn new(
         ceiling_db: f64,
         attack_ms: f64,
         release_ms: f64,
         knee_type: PyKneeType,
         knee_width_db: f64,
         detection_method: PyDynamicRangeMethod,
-        side_chain: PySideChainConfig,
+        side_chain: &Bound<'_, PySideChainConfig>,
         lookahead_ms: f64,
         isp_limiting: bool,
     ) -> PyResult<Self> {
+        let side_chain = side_chain.borrow().clone();
         let mut inner = LimiterConfig::new(
             ceiling_db,
             attack_ms,

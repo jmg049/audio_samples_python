@@ -1,5 +1,5 @@
 use audio_samples::operations::AudioBeatTracking;
-use pyo3::{PyResult, Python, pymethods};
+use pyo3::{Bound, PyResult, Python, pymethods};
 
 use crate::{
     PyAudioSamples, audio_err_to_py, dispatch_with_view,
@@ -32,8 +32,9 @@ impl PyAudioSamples {
     fn detect_beats(
         &self,
         py: Python<'_>,
-        config: PyBeatTrackingConfig,
+        config: &Bound<'_, PyBeatTrackingConfig>,
     ) -> PyResult<PyBeatTrackingData> {
+        let config = config.borrow().clone();
         dispatch_with_view!(self, py, |audio| {
             let result = audio.detect_beats(&config.inner).map_err(audio_err_to_py)?;
             Ok(PyBeatTrackingData { inner: result })
@@ -58,7 +59,12 @@ impl PyAudioSamples {
     ///
     ///     AudioError: If tempo estimation fails.
     #[pyo3(signature = (config: "BeatTrackingConfig"))]
-    fn estimate_tempo(&self, py: Python<'_>, config: PyBeatTrackingConfig) -> PyResult<f64> {
+    fn estimate_tempo(
+        &self,
+        py: Python<'_>,
+        config: &Bound<'_, PyBeatTrackingConfig>,
+    ) -> PyResult<f64> {
+        let config = config.borrow().clone();
         dispatch_with_view!(self, py, |audio| {
             audio.estimate_tempo(&config.inner).map_err(audio_err_to_py)
         })

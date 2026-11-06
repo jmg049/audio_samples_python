@@ -26,7 +26,12 @@ impl PyAudioSamples {
     ///
     ///     AudioError: If onset detection fails.
     #[pyo3(signature = (config: "OnsetDetectionConfig"))]
-    fn detect_onsets(&self, py: Python<'_>, config: PyOnsetDetectionConfig) -> PyResult<Vec<f64>> {
+    fn detect_onsets(
+        &self,
+        py: Python<'_>,
+        config: &Bound<'_, PyOnsetDetectionConfig>,
+    ) -> PyResult<Vec<f64>> {
+        let config = config.borrow().clone();
         dispatch_with_view!(self, py, |audio| {
             audio.detect_onsets(&config.inner).map_err(audio_err_to_py)
         })
@@ -50,8 +55,9 @@ impl PyAudioSamples {
     fn onset_detection_function(
         &self,
         py: Python<'_>,
-        config: PyOnsetDetectionConfig,
+        config: &Bound<'_, PyOnsetDetectionConfig>,
     ) -> PyResult<(Vec<f64>, Vec<f64>)> {
+        let config = config.borrow().clone();
         dispatch_with_view!(self, py, |audio| {
             // The Rust method returns (times, odf); keep that order.
             let (times, odf) = audio
@@ -78,8 +84,9 @@ impl PyAudioSamples {
     fn detect_onsets_spectral_flux(
         &self,
         py: Python<'_>,
-        config: PySpectralFluxConfig,
+        config: &Bound<'_, PySpectralFluxConfig>,
     ) -> PyResult<Vec<f64>> {
+        let config = config.borrow().clone();
         dispatch_with_view!(self, py, |audio| {
             audio
                 .detect_onsets_spectral_flux(&config.inner)
@@ -147,8 +154,9 @@ impl PyAudioSamples {
     fn complex_onset_detection(
         &self,
         py: Python<'_>,
-        config: PyComplexOnsetConfig,
+        config: &Bound<'_, PyComplexOnsetConfig>,
     ) -> PyResult<Vec<f64>> {
+        let config = config.borrow().clone();
         dispatch_with_view!(self, py, |audio| {
             audio
                 .complex_onset_detection(&config.inner)
@@ -173,8 +181,9 @@ impl PyAudioSamples {
     fn onset_detection_function_complex(
         &self,
         py: Python<'_>,
-        config: PyComplexOnsetConfig,
+        config: &Bound<'_, PyComplexOnsetConfig>,
     ) -> PyResult<Vec<f64>> {
+        let config = config.borrow().clone();
         dispatch_with_view!(self, py, |audio| {
             let odf = audio
                 .onset_detection_function_complex(&config.inner)
@@ -199,8 +208,9 @@ impl PyAudioSamples {
     fn magnitude_difference_matrix<'py>(
         &self,
         py: Python<'py>,
-        config: PyComplexOnsetConfig,
+        config: &Bound<'_, PyComplexOnsetConfig>,
     ) -> PyResult<Bound<'py, PyArray2<f64>>> {
+        let config = config.borrow().clone();
         dispatch_with_view!(self, py, |audio| {
             let mdm = audio
                 .magnitude_difference_matrix(&config.inner)
@@ -226,8 +236,9 @@ impl PyAudioSamples {
     fn phase_deviation_matrix<'py>(
         &self,
         py: Python<'py>,
-        config: PyComplexOnsetConfig,
+        config: &Bound<'_, PyComplexOnsetConfig>,
     ) -> PyResult<Bound<'py, PyArray2<f64>>> {
+        let config = config.borrow().clone();
         dispatch_with_view!(self, py, |audio| {
             let pdm = audio
                 .phase_deviation_matrix(&config.inner)

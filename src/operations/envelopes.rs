@@ -73,9 +73,10 @@ impl PyAudioSamples {
     fn attack_decay_envelope<'py>(
         &self,
         py: Python<'py>,
-        follower: PyEnvelopeFollower,
+        follower: &Bound<'_, PyEnvelopeFollower>,
         method: PyDynamicRangeMethod,
     ) -> PyResult<(Bound<'py, PyAny>, Bound<'py, PyAny>)> {
+        let follower = follower.borrow().clone();
         dispatch_with_view!(self, py, |audio| {
             let (attack, decay) = audio.attack_decay_envelope(&follower.inner, method.inner);
             Ok((ndresult_to_numpy(py, attack), ndresult_to_numpy(py, decay)))

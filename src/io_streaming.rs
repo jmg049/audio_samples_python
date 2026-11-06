@@ -184,6 +184,8 @@ where
     }
 
     let interleaved = matches!(inner, ReaderInner::Wav(_));
+    // SAFETY: the reader writes every value Python sees: the first `frames_read` frames are
+    // read below, and a short read keeps only those.
     let array = unsafe { PyArray2::<T>::new(py, [channels, frames], interleaved) };
     // SAFETY: the fresh array is contiguous and no other reference to it exists; its values
     // are written before they are read.

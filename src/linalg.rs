@@ -1,20 +1,6 @@
 //! `audio_samples.linalg`: non-negative least squares, the pseudo-inverse, the symmetric
 //! eigenproblem and the singular value decomposition.
 
-#![allow(
-    // Sizes and axes from Python are checked before these casts.
-    clippy::cast_possible_truncation,
-    clippy::cast_possible_wrap,
-    clippy::cast_sign_loss,
-    // Docstrings are the Python documentation; failures are listed under `Raises`.
-    clippy::missing_errors_doc,
-    // Indices come from lengths checked at the top of each function.
-    clippy::indexing_slicing,
-    // Names follow the matrix notation of the solvers.
-    clippy::many_single_char_names,
-    clippy::option_if_let_else,
-)]
-
 use audio_samples::operations::linalg::{self as la, NnlsConfig, NnlsSolver};
 use ndarray::{Array2, Ix1, Ix2};
 use numpy::IntoPyArray;

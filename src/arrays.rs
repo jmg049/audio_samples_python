@@ -5,27 +5,6 @@
 //! rule of the other array modules: `float32` and `complex64` stay single precision,
 //! everything else is computed in `float64`.
 
-#![allow(
-    // Sizes and axes from Python are checked before these casts.
-    clippy::cast_possible_truncation,
-    clippy::cast_possible_wrap,
-    clippy::cast_sign_loss,
-    // Docstrings are the Python documentation; failures are listed under `Raises`.
-    clippy::missing_errors_doc,
-    // Indices come from lengths checked at the top of each function.
-    clippy::indexing_slicing,
-    // The conversions from Python mirror the NumPy calling conventions of each function.
-    clippy::suboptimal_flops,
-    clippy::type_complexity,
-    clippy::items_after_statements,
-    clippy::option_if_let_else,
-    clippy::too_many_arguments,
-    clippy::needless_pass_by_value,
-    clippy::similar_names,
-    clippy::single_option_map,
-    clippy::multiple_unsafe_ops_per_block,
-)]
-
 use audio_samples::utils::array_ops::{
     self as ops, AxisSortKey, FindFilesConfig, InterpKind, PadMode,
 };

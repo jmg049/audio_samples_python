@@ -233,75 +233,15 @@ channels, got {self_ch} and {other_ch}; use to_mono() or extract_channel() first
             T: StandardSample + Element,
         {
             let max_lag = nzu_or_err(max_lag)?;
-            let sr = a.sample_rate;
 
-            // Create both AudioSamples in the same scope by manually implementing
-            // the with_view logic without closures
+            // Same-kind backings are viewed in place; others are copied below.
             use PyAudioBacking::{NumpyMono, NumpyMulti, OwnedMono, OwnedMulti};
             let result = match (&a.backing, &b.backing) {
-                (OwnedMono(arr_a), OwnedMono(arr_b)) => {
-                    let view_a = arr_a.view();
-                    let view_b = arr_b.view();
-                    // safety: we know view_a is not empty
-                    let audio_a = AudioSamples::new(
-                        unsafe { AudioData::from_borrowed_array1_unchecked(view_a) },
-                        sr,
-                    );
-                    // safety: we know view_b is not empty
-                    let audio_b = AudioSamples::new(
-                        unsafe { AudioData::from_borrowed_array1_unchecked(view_b) },
-                        sr,
-                    );
-                    audio_a.cross_correlation(&audio_b, max_lag)
-                }
-                (OwnedMulti(arr_a), OwnedMulti(arr_b)) => {
-                    let view_a = arr_a.view();
-                    let view_b = arr_b.view();
-                    // safety: we know view_a is not empty
-                    let audio_a = AudioSamples::new(
-                        unsafe { AudioData::from_borrowed_array2_unchecked(view_a) },
-                        sr,
-                    );
-                    // safety: we know view_b is not empty
-                    let audio_b = AudioSamples::new(
-                        unsafe { AudioData::from_borrowed_array2_unchecked(view_b) },
-                        sr,
-                    );
-                    audio_a.cross_correlation(&audio_b, max_lag)
-                }
-                (NumpyMono(handle_a), NumpyMono(handle_b)) => {
-                    let bound_a = handle_a.bind(py);
-                    let bound_b = handle_b.bind(py);
-                    let view_a = unsafe { bound_a.as_array() };
-                    let view_b = unsafe { bound_b.as_array() };
-                    // safety: We know view_a is not empty
-                    let audio_a = AudioSamples::new(
-                        unsafe { AudioData::from_borrowed_array1_unchecked(view_a) },
-                        sr,
-                    );
-                    // safety: We know view_b is not empty
-                    let audio_b = AudioSamples::new(
-                        unsafe { AudioData::from_borrowed_array1_unchecked(view_b) },
-                        sr,
-                    );
-                    audio_a.cross_correlation(&audio_b, max_lag)
-                }
-                (NumpyMulti(handle_a), NumpyMulti(handle_b)) => {
-                    let bound_a = handle_a.bind(py);
-                    let bound_b = handle_b.bind(py);
-                    let view_a = unsafe { bound_a.as_array() };
-                    let view_b = unsafe { bound_b.as_array() };
-                    // safety: We know view_a is not empty
-                    let audio_a = AudioSamples::new(
-                        unsafe { AudioData::from_borrowed_array2_unchecked(view_a) },
-                        sr,
-                    );
-                    // safety: We know view_b is not empty
-                    let audio_b = AudioSamples::new(
-                        unsafe { AudioData::from_borrowed_array2_unchecked(view_b) },
-                        sr,
-                    );
-                    audio_a.cross_correlation(&audio_b, max_lag)
+                (OwnedMono(_), OwnedMono(_))
+                | (OwnedMulti(_), OwnedMulti(_))
+                | (NumpyMono(_), NumpyMono(_))
+                | (NumpyMulti(_), NumpyMulti(_)) => {
+                    a.borrowed(py).cross_correlation(&b.borrowed(py), max_lag)
                 }
                 _ => {
                     // Mixed backings (e.g. one owned, one NumPy-backed) or

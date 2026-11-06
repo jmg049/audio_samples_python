@@ -1,19 +1,6 @@
 //! `audio_samples.pitch_filterbank`: multirate semitone filterbank and the IIR
 //! time-frequency representation, and `spectral.mellin_transform`.
 
-#![allow(
-    // Sizes and axes from Python are checked before these casts.
-    clippy::cast_possible_truncation,
-    clippy::cast_possible_wrap,
-    clippy::cast_sign_loss,
-    // Docstrings are the Python documentation; failures are listed under `Raises`.
-    clippy::missing_errors_doc,
-    // Indices come from lengths checked at the top of each function.
-    clippy::indexing_slicing,
-    // A pair of NumPy arrays per filter, spelled out for PyO3.
-    clippy::type_complexity,
-)]
-
 use audio_samples::operations::mellin::{self, MellinConfig};
 use audio_samples::operations::pitch_filterbank::{
     self as pf, AudioPitchFilterbank, BandFilter, FilterLayout, IirtConfig, MultirateFilterConfig,
