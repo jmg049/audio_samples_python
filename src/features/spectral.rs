@@ -14,7 +14,9 @@ use numpy::{IntoPyArray, PyUntypedArrayMethods};
 use pyo3::IntoPyObjectExt;
 use pyo3::prelude::*;
 
-use super::args::{bin_frequencies, freq3, freq_matrix, parse_weighting, spec3, squeeze_out};
+use super::args::{
+    bin_frequencies, freq_is_matrix, freq3, freq_matrix, parse_weighting, spec3, squeeze_out,
+};
 use crate::args::{
     DbRefArg, FloatElement, f64_array, float_array_as, is_scalar, positive, precision_of,
     value_err, with_precision,
@@ -301,9 +303,15 @@ pub fn poly_features_from_spectrogram<'py>(
             order: crate::args::non_negative("order", order)?,
             ..PolyFeaturesConfig::default()
         };
-        if let Some(m) = freq_matrix::<F>(freq)? {
-            let r = feat::poly_features_from_spectrogram_with_freqs(s.view(), freq3(&m)?, &cfg)
-                .map_err(audio_err_to_py)?;
+        // The fit is in float64 whatever the type of freq, so freq is not converted.
+        if let Some(f) = freq.filter(|f| freq_is_matrix(f)) {
+            let r = if let Ok(m) = f.extract::<numpy::PyReadonlyArrayDyn<'_, f32>>() {
+                feat::poly_features_from_spectrogram_with_freqs(s.view(), freq3(&m)?, &cfg)
+            } else {
+                let m = freq_matrix::<f64>(Some(f))?.expect("a matrix");
+                feat::poly_features_from_spectrogram_with_freqs(s.view(), freq3(&m)?, &cfg)
+            }
+            .map_err(audio_err_to_py)?;
             return Ok(out(py, r, nd));
         }
         let f = bin_frequencies(freq, sr, s.dim().1)?;

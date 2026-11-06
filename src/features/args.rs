@@ -396,17 +396,22 @@ pub(crate) fn bin_frequencies(
 pub(crate) fn freq_matrix<'py, F: crate::args::FloatElement>(
     freq: Option<&Bound<'py, PyAny>>,
 ) -> PyResult<Option<numpy::PyReadonlyArrayDyn<'py, F>>> {
-    let Some(f) = freq.filter(|f| !f.is_none()) else {
+    let Some(f) = freq.filter(|f| freq_is_matrix(f)) else {
         return Ok(None);
     };
-    let ndim = match f.cast::<numpy::PyUntypedArray>() {
-        Ok(a) => a.ndim(),
-        Err(_) => f64_array(f, "freq")?.ndim(),
-    };
-    if ndim < 2 {
-        return Ok(None);
-    }
     Ok(Some(crate::args::float_array_as::<F>(f, "freq")?))
+}
+
+/// Whether `freq` has two or more dimensions (a frequency for every frame). Anything
+/// that is not an array of them is left to the 1-D conversion and its errors.
+pub(crate) fn freq_is_matrix(f: &Bound<'_, PyAny>) -> bool {
+    if f.is_none() {
+        return false;
+    }
+    match f.cast::<numpy::PyUntypedArray>() {
+        Ok(a) => a.ndim() >= 2,
+        Err(_) => f64_array(f, "freq").is_ok_and(|a| a.ndim() >= 2),
+    }
 }
 
 /// A `(bins, frames)` or `(channels, bins, frames)` `freq` as a 3-D view.

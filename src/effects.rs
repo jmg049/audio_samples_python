@@ -20,7 +20,7 @@ use audio_samples::operations::filterbanks::Window;
 use audio_samples::operations::sequence::RecurrenceConfig;
 use ndarray::{Array2, Array3, Ix2};
 use num_complex::Complex;
-use numpy::{IntoPyArray, PyUntypedArrayMethods};
+use numpy::{IntoPyArray, PyArrayMethods, PyUntypedArrayMethods};
 use pyo3::IntoPyObjectExt;
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
@@ -688,29 +688,51 @@ pub fn nn_filter<'py>(
                     ),
                 ));
             }
-            let weights = match &agg {
-                NnArg::Builtin(NnAggregate::WeightedAverage) => {
-                    Some(float_array_as::<F>(&sp.csc.getattr("data")?, "rec")?)
-                }
+            // The weights are read in their own float type, without a converted copy;
+            // other types (bool connectivity) are converted.
+            let stored = match &agg {
+                NnArg::Builtin(NnAggregate::WeightedAverage) => Some(sp.csc.getattr("data")?),
                 _ => None,
             };
-            let values = weights
+            let w32 = stored
                 .as_ref()
-                .map(|w| w.as_slice())
-                .transpose()
-                .map_err(|e| value_err("rec", e))?;
-            macro_rules! filtered {
-                ($int:ty) => {{
+                .and_then(|d| d.extract::<numpy::PyReadonlyArray1<'_, f32>>().ok());
+            let w64 = match (&stored, &w32) {
+                (Some(d), None) => Some(match d.extract::<numpy::PyReadonlyArray1<'_, f64>>() {
+                    Ok(w) => w,
+                    Err(_) => float_array_as::<f64>(d, "rec")?
+                        .as_array()
+                        .to_owned()
+                        .into_dimensionality::<ndarray::Ix1>()
+                        .map_err(|e| value_err("rec", e))?
+                        .into_pyarray(py)
+                        .try_readonly()?,
+                }),
+                _ => None,
+            };
+            let slice_of = |e| value_err("rec", e);
+            let v32 = w32.as_ref().map(|w| w.as_slice()).transpose().map_err(slice_of)?;
+            let v64 = w64.as_ref().map(|w| w.as_slice()).transpose().map_err(slice_of)?;
+            macro_rules! with_values {
+                ($int:ty, $values:expr) => {{
                     let indptr = sp.indptr.extract::<numpy::PyReadonlyArray1<'_, $int>>()?;
                     let indices = sp.indices.extract::<numpy::PyReadonlyArray1<'_, $int>>()?;
                     let rec = fx::SparseRecurrence {
                         indptr: indptr.as_slice().map_err(|e| value_err("rec", e))?,
                         indices: indices.as_slice().map_err(|e| value_err("rec", e))?,
-                        values,
+                        values: $values,
                     };
                     match &agg {
                         NnArg::Builtin(a) => fx::nn_filter_sparse(data.view(), &rec, *a),
                         _ => fx::nn_filter_sparse_with(data.view(), &rec, &mut custom),
+                    }
+                }};
+            }
+            macro_rules! filtered {
+                ($int:ty) => {{
+                    match (v32, v64) {
+                        (Some(v), _) => with_values!($int, Some(v)),
+                        (None, v) => with_values!($int, v),
                     }
                 }};
             }

@@ -1121,8 +1121,7 @@ pub fn sync<'py>(
                     SyncIndex::Frames(idx) => seq::sync(x, idx, agg, pad),
                     SyncIndex::Slices(slices) => {
                         let n = x.shape().last().copied().unwrap_or(0);
-                        let slices = slices_on_axis(slices, n)?;
-                        seq::sync_slices(x, &slices, agg)
+                        seq::sync_slices(x, slice_iter(slices, n)?, agg)
                     }
                 }
                 .map_err(audio_err_to_py)
@@ -1152,8 +1151,7 @@ pub fn sync<'py>(
             SyncIndex::Frames(idx) => seq::sync_with(x.as_array(), idx, pad, lane_aggregate),
             SyncIndex::Slices(slices) => {
                 let n = x.shape().last().copied().unwrap_or(0);
-                let slices = slices_on_axis(slices, n)?;
-                seq::sync_slices_with(x.as_array(), &slices, lane_aggregate)
+                seq::sync_slices_with(x.as_array(), slice_iter(slices, n)?, lane_aggregate)
             }
         }
         .map_err(audio_err_to_py)?;
@@ -1167,14 +1165,28 @@ pub fn sync<'py>(
 /// The `idx` of `sync`.
 enum SyncIndex<'py> {
     Frames(Vec<usize>),
-    Slices(Vec<Bound<'py, PySlice>>),
+    /// A list or tuple of slices only.
+    Slices(Bound<'py, pyo3::types::PySequence>),
 }
 
-fn slices_on_axis(slices: &[Bound<'_, PySlice>], n: usize) -> PyResult<Vec<ndarray::Slice>> {
-    slices
-        .iter()
-        .map(|s| crate::args::slice_on_axis(s, n))
-        .collect()
+/// The slices of `seq` on an axis of length `n`, read from the sequence as they are used
+/// rather than held. Each is checked once first, so reading them again cannot fail.
+fn slice_iter<'a>(
+    seq: &'a Bound<'_, pyo3::types::PySequence>,
+    n: usize,
+) -> PyResult<impl ExactSizeIterator<Item = ndarray::Slice> + Clone + 'a> {
+    let len = seq.len()?;
+    let at = move |i: usize| -> PyResult<ndarray::Slice> {
+        let item = seq.get_item(i)?;
+        let slice = item
+            .cast::<PySlice>()
+            .map_err(|_| value_err("idx", "expected all slices or all integers, not both"))?;
+        crate::args::slice_on_axis(slice, n)
+    };
+    for i in 0..len {
+        at(i)?;
+    }
+    Ok((0..len).map(move |i| at(i).unwrap_or(ndarray::Slice::new(0, Some(0), 1))))
 }
 
 /// The boundary indices of `sync` as `usize`, or its slices. A list or tuple of Python
@@ -1190,22 +1202,18 @@ fn sync_indices<'py>(idx: &Bound<'py, PyAny>) -> PyResult<SyncIndex<'py>> {
     };
     if let Some(seq) = items {
         let n = seq.len()?;
-        let mut out = Vec::with_capacity(n);
+        let mut out = Vec::new();
         for k in 0..n {
             let item = seq.get_item(k)?;
             if !item.is_exact_instance_of::<PyInt>() {
                 if k == 0 && item.is_exact_instance_of::<PySlice>() {
-                    let slices = (0..n)
-                        .map(|i| {
-                            seq.get_item(i)?.cast_into::<PySlice>().map_err(|_| {
-                                value_err("idx", "expected all slices or all integers, not both")
-                            })
-                        })
-                        .collect::<PyResult<_>>()?;
-                    return Ok(SyncIndex::Slices(slices));
+                    return Ok(SyncIndex::Slices(seq));
                 }
                 out.clear();
                 break;
+            }
+            if k == 0 {
+                out.reserve_exact(n);
             }
             match item.extract::<i64>() {
                 Ok(i) => out.push(usize::try_from(i).map_err(|_| negative())?),
