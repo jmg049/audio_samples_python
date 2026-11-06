@@ -178,10 +178,10 @@ class _UnknownDtype(np.generic):
 #: Sample types whose analysis results are float64 / complex128.
 _DoubleSample: TypeAlias = np.int32 | np.float64
 
-#: A window specification accepted by the librosa-compatible functions:
+#: A window specification accepted by the frame-wise analysis functions:
 #: a SciPy window name, ``(name, parameter)``, a number (Kaiser beta) or an array.
 _WindowSpec = Union[str, tuple[str, float], float, npt.ArrayLike]
-#: Mel filter normalisation for the librosa-compatible functions: ``"slaney"``,
+#: Mel filter normalisation for the frame-wise analysis functions: ``"slaney"``,
 #: None, or a p-norm exponent. (``MelNorm`` is the ``MelParams`` enum class.)
 _MelNormSpec = Union[Literal["slaney"], float, None]
 #: dB reference: a number, ``"max"`` or ``numpy.max``.
@@ -224,7 +224,7 @@ class AudioSamples(Generic[_S_co]):
     Provides statistics, filtering, equalization, dynamic range processing and
     frequency analysis.
 
-    The librosa-compatible analysis methods return float32 / complex64 arrays
+    The frame-wise analysis methods return float32 / complex64 arrays
     for uint8, int16, int24 and float32 audio, and float64 / complex128 arrays
     for int32 and float64 audio. Audio-returning methods keep the sample type.
     """
@@ -635,15 +635,15 @@ class AudioSamples(Generic[_S_co]):
         target_sample_rate: int,
         quality: "ResamplingQuality | Literal['fast', 'medium', 'high']" = "fast",
     ) -> Self:
-        """Resample to ``target_sample_rate`` (librosa ``resample`` equivalent).
+        """Resample to ``target_sample_rate``.
 
         Delay-free windowed-sinc interpolation: the output is time-aligned with
         the input, the tail is flushed, and the result has exactly
         ``ceil(n * target_sample_rate / sample_rate)`` samples per channel.
-        ``"high"`` (passband 0.913 x Nyquist, 125 dB stopband) is close to
-        librosa's default ``soxr_hq``; ``"medium"`` is 0.90 x Nyquist / 100 dB;
-        ``"fast"`` (default) uses a short 0.80 x Nyquist / 70 dB filter when
-        downsampling and linear interpolation when upsampling.
+        ``"high"`` is 0.913 x Nyquist / 125 dB stopband; ``"medium"`` is
+        0.90 x Nyquist / 100 dB; ``"fast"`` (default) uses a short
+        0.80 x Nyquist / 70 dB filter when downsampling and linear
+        interpolation when upsampling.
 
         Args:
             target_sample_rate: Output sample rate in Hz (> 0).
@@ -1038,8 +1038,8 @@ class AudioSamples(Generic[_S_co]):
         Places beats on a fixed-tempo grid at ``config.tempo_bpm``, anchored at
         the strongest onset and stepped forward/backward by one inter-beat
         interval (snapping to nearby onsets). The tempo is not estimated (the
-        returned tempo echoes the configuration) and this is not librosa's
-        dynamic-programming beat tracker.
+        returned tempo echoes the configuration). For dynamic-programming beat
+        tracking use ``beat_track``.
 
         Args:
             config: Beat tracking configuration parameters
@@ -1179,8 +1179,8 @@ class AudioSamples(Generic[_S_co]):
     def low_pass_filter(self, cutoff_hz: float) -> Self:
         """First-order Butterworth low-pass (-3 dB at ``cutoff_hz``, 6 dB/octave).
 
-        Identical to ``scipy.signal.sosfilt(scipy.signal.butter(1, cutoff_hz,
-        fs=fs, output='sos'), x)``. Does **not** modify ``self``.
+        Bilinear-transform design with prewarping, applied as one second-order
+        section from zero initial state. Does **not** modify ``self``.
 
         Args:
             cutoff_hz: Cutoff frequency in Hz, in (0, Nyquist)
@@ -1193,8 +1193,8 @@ class AudioSamples(Generic[_S_co]):
     def high_pass_filter(self, cutoff_hz: float) -> Self:
         """First-order Butterworth high-pass (-3 dB at ``cutoff_hz``, 6 dB/octave).
 
-        Identical to ``scipy.signal.sosfilt(scipy.signal.butter(1, cutoff_hz,
-        'highpass', fs=fs, output='sos'), x)``. Does **not** modify ``self``.
+        Bilinear-transform design with prewarping, applied as one second-order
+        section from zero initial state. Does **not** modify ``self``.
 
         Args:
             cutoff_hz: Cutoff frequency in Hz, in (0, Nyquist)
@@ -1209,8 +1209,8 @@ class AudioSamples(Generic[_S_co]):
     ) -> Self:
         """Band-pass from a first-order Butterworth prototype (one biquad).
 
-        Identical to ``scipy.signal.sosfilt(scipy.signal.butter(1, [low, high],
-        'bandpass', fs=fs, output='sos'), x)``. Does **not** modify ``self``.
+        Bilinear-transform design with prewarping of both edges, applied as one
+        second-order section from zero initial state. Does **not** modify ``self``.
 
         Args:
             low_cutoff_hz: Lower -3 dB edge in Hz
@@ -1266,7 +1266,8 @@ class AudioSamples(Generic[_S_co]):
     def zero_crossing_rate(self) -> float:
         """Zero crossings per second of the whole signal, averaged over channels.
 
-        Not librosa's per-frame ``zero_crossing_rate`` (a fraction of samples).
+        For the per-frame fraction of sign changes use
+        ``zero_crossing_rate_frames``.
         """
         ...
 
@@ -1274,8 +1275,7 @@ class AudioSamples(Generic[_S_co]):
         """Unbiased autocorrelation ``r[k] = sum_j x[j] x[j+k] / (n - k)``.
 
         Lags ``0..=min(max_lag, n - 1)`` of the first channel; ``r[0]`` is the
-        mean square. ``r[k] * (n - k)`` equals
-        ``librosa.autocorrelate(x, max_size=max_lag + 1)[k]``.
+        mean square. ``r[k] * (n - k)`` is the raw sum ``sum_j x[j] x[j+k]``.
         """
         ...
 
@@ -1740,8 +1740,8 @@ class AudioSamples(Generic[_S_co]):
         """Apply a Chebyshev Type I low-pass or high-pass filter (in-place).
 
         ``response`` is ``'lowpass'`` / ``'highpass'`` (or a FilterResponse).
-        Equivalent to ``scipy.signal.cheby1(order, passband_ripple,
-        cutoff_frequency, response, fs=fs, output='sos')``.
+        ``passband_ripple`` is in dB; the design is a bilinear transform with
+        prewarping, applied as cascaded second-order sections.
         """
         ...
 
@@ -2317,7 +2317,7 @@ class AudioSamples(Generic[_S_co]):
 
         Notes: without log_params returns sqrt(M @ |X|**2) (square root of mel
         power); with log_params returns max(10*log10(M @ |X|**2), floor_db),
-        floor_db being an absolute floor in dB re 1 (not librosa's top_db).
+        floor_db being an absolute floor in dB re 1 (not relative to the peak).
         Slaney mel scale; filters unnormalised unless MelParams(norm="slaney").
         """
         ...
@@ -2353,8 +2353,9 @@ class AudioSamples(Generic[_S_co]):
             :return numpy.ndarray: MFCC feature array
 
         Notes: 10*log10 of unnormalised Slaney mel power, unnormalised DCT-II,
-        HTK lifter 22. Equals librosa.feature.mfcc (ortho DCT, no lifter) times
-        sqrt(n_mels) (c0) or sqrt(n_mels/2) (q >= 1), times the lifter weights.
+        HTK lifter 22. Equals ``mfcc_frames`` (ortho DCT, no lifter, no dB floor)
+        times sqrt(n_mels) (c0) or sqrt(n_mels/2) (q >= 1), times the lifter
+        weights.
         """
         ...
 
@@ -2372,14 +2373,13 @@ class AudioSamples(Generic[_S_co]):
         ...
 
     # ------------------------------------------------------------------
-    # librosa-compatible spectral analysis (AudioSpectrum)
+    # Frame-wise spectral analysis (AudioSpectrum)
     #
     # All methods return arrays shaped (channels, n_features, n_frames):
     # float32 / complex64 for uint8, int16, int24 and float32 audio, float64 /
     # complex128 for int32 and float64 audio. Mono audio gives a leading axis
-    # of length 1; librosa returns (n_features, n_frames) for 1-D input, so use
-    # ``result[0]`` to compare with it. Defaults are librosa 1.0's except
-    # ``mfcc_frames(top_db=None)`` (librosa: 80).
+    # of length 1; ``result[0]`` is the (n_features, n_frames) array.
+    # ``mfcc_frames`` applies no dB floor unless ``top_db`` is given.
     # ------------------------------------------------------------------
 
     @overload
@@ -2415,7 +2415,7 @@ class AudioSamples(Generic[_S_co]):
         center: bool = True,
         pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
     ) -> NDArray[np.complex128]:
-        """Complex STFT of every channel, equivalent to ``librosa.stft``.
+        """Complex short-time Fourier transform of every channel.
 
         Args:
             n_fft: FFT length in samples.
@@ -2425,7 +2425,7 @@ class AudioSamples(Generic[_S_co]):
                 ``"boxcar"``/``"rectangular"``, ``"bartlett"``, ``"triang"``,
                 ``("kaiser", beta)``, ``("gaussian", std)``, a number (Kaiser beta)
                 or an array of ``win_length`` coefficients. Named windows are
-                periodic, as in librosa.
+                periodic.
             center: Pad ``n_fft // 2`` samples on both sides so frame ``t`` is
                 centred on sample ``t * hop_length``.
             pad_mode: Padding used when ``center`` is True.
@@ -2496,7 +2496,7 @@ class AudioSamples(Generic[_S_co]):
         length: Optional[int] = None,
         dtype: SampleType,
     ) -> AudioSamples[Any]:
-        """Inverse STFT to audio, equivalent to ``librosa.istft``.
+        """Inverse STFT to audio by weighted overlap-add.
 
         Args:
             stft_matrix: Complex array, shape ``(channels, 1 + n_fft // 2, n_frames)``
@@ -2560,7 +2560,7 @@ class AudioSamples(Generic[_S_co]):
         pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
         power: float = 1.0,
     ) -> NDArray[np.float64]:
-        """``numpy.abs(librosa.stft(y, ...)) ** power`` for every channel.
+        """STFT magnitude raised to ``power``, ``abs(stft_matrix(...)) ** power``, for every channel.
 
         Returns:
             numpy.ndarray[float32 | float64], shape ``(channels, 1 + n_fft // 2, n_frames)``.
@@ -2621,13 +2621,12 @@ class AudioSamples(Generic[_S_co]):
         htk: bool = False,
         norm: _MelNormSpec = 'slaney',
     ) -> NDArray[np.float64]:
-        """Mel spectrogram of every channel, equivalent to
-        ``librosa.feature.melspectrogram(y=..., sr=self.sample_rate, ...)``.
+        """Mel spectrogram of every channel: the mel filterbank applied to the
+        STFT magnitude raised to ``power``.
 
         Args:
             n_fft, hop_length, win_length, window, center, pad_mode: STFT
-                parameters (``hop_length`` defaults to 512, as in librosa's
-                melspectrogram).
+                parameters (``hop_length`` defaults to 512).
             power: Exponent of the STFT magnitude (2 = power, 1 = magnitude).
             n_mels: Number of mel bands.
             fmin: Lowest band edge in Hz.
@@ -2715,8 +2714,7 @@ class AudioSamples(Generic[_S_co]):
         amin: float = 1e-10,
         top_db: Optional[float] = None,
     ) -> NDArray[np.float64]:
-        """MFCCs of every channel, equivalent to
-        ``librosa.feature.mfcc(y=..., sr=self.sample_rate, ...)``.
+        """Mel-frequency cepstral coefficients of every channel.
 
         Pipeline: ``melspectrogram`` -> ``power_to_db(ref, amin, top_db)`` (per
         channel) -> DCT along the mel axis -> first ``n_mfcc`` rows -> liftering.
@@ -2726,28 +2724,27 @@ class AudioSamples(Generic[_S_co]):
             dct_type: DCT type 1, 2 or 3.
             norm: ``"ortho"`` or None (unnormalised DCT).
             lifter: Liftering coefficient; 0 disables.
-            mel_norm: Mel filter normalisation (librosa's ``mel_norm``).
+            mel_norm: Mel filter normalisation (``norm`` of ``melspectrogram``).
             ref, amin, top_db: dB conversion parameters. ``top_db`` defaults to
-                None (no floor); librosa's default is 80.
+                None (no floor).
             Remaining arguments: as ``melspectrogram``.
 
         Returns:
             numpy.ndarray[float32 | float64], shape ``(channels, n_mfcc, n_frames)``.
 
         Raises:
-            ValueError: Invalid parameters (librosa silently truncates when
-                ``n_mfcc > n_mels``; this raises).
+            ValueError: Invalid parameters, including ``n_mfcc > n_mels``.
         """
         ...
 
     # ------------------------------------------------------------------
-    # librosa-compatible features, tonal, constant-Q and pitch analysis
+    # Frame-wise features, tonal, constant-Q and pitch analysis
     #
     # Frame-wise outputs are arrays shaped (channels, n_features, n_frames)
     # (pitch trackers: (channels, n_frames)), float32 / complex64 for uint8,
     # int16, int24 and float32 audio and float64 / complex128 otherwise. The
-    # chroma methods default to ``tuning=0.0`` (librosa: None, estimated).
-    # librosa returns (n_features, n_frames) for 1-D input: index ``[0]``.
+    # chroma methods default to ``tuning=0.0``; ``tuning=None`` estimates it.
+    # Index ``[0]`` for the (n_features, n_frames) array of mono audio.
     # Array-level (S=...) forms live in ``audio_samples.features``.
     # ------------------------------------------------------------------
 
@@ -2784,7 +2781,7 @@ class AudioSamples(Generic[_S_co]):
         center: bool = True,
         pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
     ) -> NDArray[np.float64]:
-        """Spectral centroid per frame, ``librosa.feature.spectral_centroid(y=..., sr=self.sample_rate)``.
+        """Spectral centroid per frame: the magnitude-weighted mean frequency.
 
         Returns:
             numpy.ndarray[float32 | float64], shape ``(channels, 1, n_frames)`` in Hz.
@@ -2830,7 +2827,7 @@ class AudioSamples(Generic[_S_co]):
         norm: bool = True,
         p: float = 2.0,
     ) -> NDArray[np.float64]:
-        """Order-``p`` spectral bandwidth per frame, ``librosa.feature.spectral_bandwidth``.
+        """Order-``p`` spectral bandwidth per frame around the spectral centroid.
 
         Returns:
             numpy.ndarray[float32 | float64], shape ``(channels, 1, n_frames)`` in Hz.
@@ -2873,7 +2870,7 @@ class AudioSamples(Generic[_S_co]):
         pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
         roll_percent: float = 0.85,
     ) -> NDArray[np.float64]:
-        """Roll-off frequency per frame, ``librosa.feature.spectral_rolloff``.
+        """Roll-off frequency per frame: the frequency below which ``roll_percent`` of the energy lies.
 
         Returns:
             numpy.ndarray[float32 | float64], shape ``(channels, 1, n_frames)`` in Hz.
@@ -2919,7 +2916,7 @@ class AudioSamples(Generic[_S_co]):
         amin: float = 1e-10,
         power: float = 2.0,
     ) -> NDArray[np.float64]:
-        """Spectral flatness per frame, ``librosa.feature.spectral_flatness``.
+        """Spectral flatness per frame: geometric over arithmetic mean of the power spectrum.
 
         Returns:
             numpy.ndarray[float32 | float64], shape ``(channels, 1, n_frames)``, in ``[0, 1]``.
@@ -2971,7 +2968,7 @@ class AudioSamples(Generic[_S_co]):
         quantile: float = 0.02,
         linear: bool = False,
     ) -> NDArray[np.float64]:
-        """Octave-band spectral contrast, ``librosa.feature.spectral_contrast``.
+        """Octave-band spectral contrast: peak-to-valley difference in each band, in dB.
 
         Returns:
             numpy.ndarray[float32 | float64], shape ``(channels, n_bands + 1, n_frames)``.
@@ -3014,7 +3011,7 @@ class AudioSamples(Generic[_S_co]):
         pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
         order: int = 1,
     ) -> NDArray[np.float64]:
-        """Polynomial fit to every magnitude frame, ``librosa.feature.poly_features``.
+        """Polynomial fit to every magnitude frame.
 
         Returns:
             numpy.ndarray[float32 | float64], shape ``(channels, order + 1, n_frames)``, highest power first.
@@ -3048,7 +3045,7 @@ class AudioSamples(Generic[_S_co]):
         center: bool = True,
         pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
     ) -> NDArray[np.float64]:
-        """RMS per frame, ``librosa.feature.rms(y=..., dtype=numpy.float64)`` (scalar: ``rms()``).
+        """Root-mean-square value per frame (whole signal: ``rms()``).
 
         Returns:
             numpy.ndarray[float32 | float64], shape ``(channels, 1, n_frames)``.
@@ -3091,8 +3088,8 @@ class AudioSamples(Generic[_S_co]):
         pad: bool = False,
         zero_pos: bool = True,
     ) -> NDArray[np.float64]:
-        """Fraction of sign changes per frame, ``librosa.feature.zero_crossing_rate``
-        (the scalar ``zero_crossing_rate()`` is crossings per second).
+        """Fraction of sign changes per frame (the scalar
+        ``zero_crossing_rate()`` is crossings per second).
 
         Args:
             ref_magnitude: None, a number, or ``numpy.max``.
@@ -3150,7 +3147,7 @@ class AudioSamples(Generic[_S_co]):
         clip: bool = True,
         pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
     ) -> tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]:
-        """Reassigned spectrogram, ``librosa.reassigned_spectrogram``.
+        """Reassigned spectrogram: instantaneous frequency and group-delay time of every bin.
 
         Returns:
             ``(freqs, times, mags)``, each ``(channels, 1 + n_fft // 2, n_frames)``,
@@ -3209,10 +3206,9 @@ class AudioSamples(Generic[_S_co]):
         octwidth: Optional[float] = 2.0,
         base_c: bool = True,
     ) -> NDArray[np.float64]:
-        """Chromagram from the power STFT, ``librosa.feature.chroma_stft(y=..., sr=...)``.
+        """Chromagram from the power STFT.
 
-        ``tuning`` defaults to 0.0; ``tuning=None`` estimates it from the signal
-        (librosa's default).
+        ``tuning`` defaults to 0.0; ``tuning=None`` estimates it from the signal.
 
         Returns:
             numpy.ndarray[float32 | float64], shape ``(channels, n_chroma, n_frames)``.
@@ -3264,7 +3260,7 @@ class AudioSamples(Generic[_S_co]):
         pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
         ref: Union[None, float, Callable[..., Any]] = None,
     ) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
-        """Spectral peak tracking, ``librosa.piptrack``.
+        """Spectral peak tracking with parabolic interpolation.
 
         Returns:
             ``(pitches, magnitudes)``, each ``(channels, 1 + n_fft // 2, n_frames)``,
@@ -3288,8 +3284,8 @@ class AudioSamples(Generic[_S_co]):
         threshold: float = 0.1,
         ref: Union[None, float, Callable[..., Any]] = None,
     ) -> float:
-        """Tuning deviation from A440 in fractions of a bin, ``librosa.estimate_tuning``
-        (channels pooled).
+        """Tuning deviation from A440 in fractions of a bin, estimated from
+        spectral peaks (channels pooled).
 
         Returns:
             float in ``[-0.5, 0.5)``.
@@ -3347,11 +3343,11 @@ class AudioSamples(Generic[_S_co]):
         pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
         res_type: str = 'soxr_hq',
     ) -> NDArray[np.complex128]:
-        """Constant-Q transform, ``librosa.cqt``.
+        """Constant-Q transform.
 
-        ``res_type`` selects the crate's own resampler quality (soxr is not used):
-        ``"soxr_hq"``/``"soxr_vhq"`` high, ``"soxr_mq"`` medium, ``"soxr_lq"`` fast.
-        Octaves below the top one differ from librosa by ~1e-4 of the peak.
+        ``res_type`` selects this library's resampler quality for the octave
+        decimation: ``"soxr_hq"``/``"soxr_vhq"`` high, ``"soxr_mq"`` medium,
+        ``"soxr_lq"`` fast.
 
         Returns:
             numpy.ndarray[complex64 | complex128], shape ``(channels, n_bins, n_frames)``.
@@ -3415,7 +3411,7 @@ class AudioSamples(Generic[_S_co]):
         pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
         res_type: str = 'soxr_hq',
     ) -> NDArray[np.complex128]:
-        """Variable-Q transform, ``librosa.vqt`` (``intervals="equal"`` only).
+        """Variable-Q transform with equal-tempered bin spacing.
 
         Returns:
             numpy.ndarray[complex64 | complex128], shape ``(channels, n_bins, n_frames)``.
@@ -3470,7 +3466,7 @@ class AudioSamples(Generic[_S_co]):
         scale: bool = True,
         pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
     ) -> NDArray[np.float64]:
-        """Pseudo-CQT magnitude, ``librosa.pseudo_cqt``.
+        """Pseudo constant-Q magnitude: constant-Q filters applied to a single STFT.
 
         Returns:
             numpy.ndarray[float32 | float64], shape ``(channels, n_bins, n_frames)``.
@@ -3528,7 +3524,7 @@ class AudioSamples(Generic[_S_co]):
         pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
         res_type: str = 'soxr_hq',
     ) -> NDArray[np.float64]:
-        """Hybrid CQT magnitude, ``librosa.hybrid_cqt``.
+        """Hybrid CQT magnitude: pseudo-CQT for the high bins, full CQT for the low bins.
 
         Returns:
             numpy.ndarray[float32 | float64], shape ``(channels, n_bins, n_frames)``.
@@ -3611,7 +3607,7 @@ class AudioSamples(Generic[_S_co]):
         res_type: str = 'soxr_hq',
         dtype: SampleType,
     ) -> AudioSamples[Any]:
-        """Inverse CQT, ``librosa.icqt`` (static). ``C``: complex ``(n_bins, T)`` or
+        """Inverse constant-Q transform (static). ``C``: complex ``(n_bins, T)`` or
         ``(channels, n_bins, T)``.
 
         Args:
@@ -3726,10 +3722,9 @@ class AudioSamples(Generic[_S_co]):
         random_state: _RngLike = None,
         dtype: SampleType,
     ) -> AudioSamples[Any]:
-        """Griffin-Lim phase retrieval from a CQT magnitude, ``librosa.griffinlim_cqt``
-        (static). ``init=None`` (zero phase) is the default; librosa defaults to
-        ``init="random"``, whose phases come from this library's RNG as in
-        ``effects.griffinlim``.
+        """Griffin-Lim phase retrieval from a CQT magnitude (static).
+        ``init=None`` (zero phase) is the default; ``init="random"`` draws its
+        phases from this library's RNG as in ``effects.griffinlim``.
 
         Args:
         dtype: Sample type of the returned audio. None (default) gives float32
@@ -3788,7 +3783,7 @@ class AudioSamples(Generic[_S_co]):
         bins_per_octave: Optional[int] = 36,
         cqt_mode: Literal['full', 'hybrid'] = 'full',
     ) -> NDArray[np.float64]:
-        """Constant-Q chromagram, ``librosa.feature.chroma_cqt`` (``window`` must be None).
+        """Constant-Q chromagram (``window`` must be None).
 
         Returns:
             numpy.ndarray[float32 | float64], shape ``(channels, n_chroma, n_frames)``.
@@ -3843,7 +3838,7 @@ class AudioSamples(Generic[_S_co]):
         win_len_smooth: Optional[int] = 41,
         smoothing_window: _WindowSpec = 'hann',
     ) -> NDArray[np.float64]:
-        """CENS chroma features, ``librosa.feature.chroma_cens``.
+        """Chroma energy normalised statistics (CENS) features.
 
         Returns:
             numpy.ndarray[float32 | float64], shape ``(channels, n_chroma, n_frames)``.
@@ -3889,7 +3884,7 @@ class AudioSamples(Generic[_S_co]):
         bins_per_octave: int = 12,
         gamma: Optional[float] = 0,
     ) -> NDArray[np.float64]:
-        """Variable-Q chromagram, ``librosa.feature.chroma_vqt(intervals="equal")``.
+        """Variable-Q chromagram with equal-tempered bin spacing.
 
         Returns:
             numpy.ndarray[float32 | float64], shape ``(channels, bins_per_octave, n_frames)``.
@@ -3938,7 +3933,7 @@ class AudioSamples(Generic[_S_co]):
         bins_per_octave: Optional[int] = 36,
         cqt_mode: Literal['full', 'hybrid'] = 'full',
     ) -> NDArray[np.float64]:
-        """Tonal centroid features, ``librosa.feature.tonnetz`` (keywords go to ``chroma_cqt``).
+        """Tonal centroid (tonnetz) features (keywords go to ``chroma_cqt``).
 
         Returns:
             numpy.ndarray[float32 | float64], shape ``(channels, 6, n_frames)``.
@@ -3981,7 +3976,7 @@ class AudioSamples(Generic[_S_co]):
         center: bool = True,
         pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
     ) -> NDArray[np.float64]:
-        """YIN f0 per frame, ``librosa.yin`` (``fmin``/``fmax`` required, as librosa).
+        """YIN f0 per frame (``fmin``/``fmax`` required).
 
         Returns:
             numpy.ndarray[float32 | float64] in Hz, shape ``(channels, n_frames)``.
@@ -4048,7 +4043,7 @@ class AudioSamples(Generic[_S_co]):
         pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
         transition_min_prob: Optional[float] = 0.0001,
     ) -> tuple[NDArray[np.float64], NDArray[np.bool_], NDArray[np.float64]]:
-        """Probabilistic YIN, ``librosa.pyin``.
+        """Probabilistic YIN f0 tracking with voicing decisions.
 
         Args:
             fill_na: f0 of unvoiced frames: NaN (default), None (best guess) or a number.
@@ -4059,13 +4054,13 @@ class AudioSamples(Generic[_S_co]):
         ...
 
     # ------------------------------------------------------------------
-    # librosa-compatible rhythm analysis (AudioRhythm)
+    # Rhythm analysis (AudioRhythm)
     #
     # Frame-wise outputs carry a leading channel axis (mono gives length 1);
-    # librosa returns them without it for 1-D input, so use ``result[0]``.
+    # ``result[0]`` drops it.
     # They follow the sample type's float (float32 for uint8, int16, int24 and
     # float32 audio); tempo is always float64. ``beat_track`` defaults to
-    # ``trim=False`` (librosa: True).
+    # ``trim=False``.
     # Event detectors (onset_detect, beat_track) need mono audio. ``aggregate``
     # takes numpy reductions, their names or a callable f(x, axis=-1);
     # ``prior`` a scipy.stats distribution or a callable of the BPM.
@@ -4135,7 +4130,7 @@ class AudioSamples(Generic[_S_co]):
         htk: bool = False,
         norm: _MelNormSpec = 'slaney',
     ) -> NDArray[np.float64]:
-        """Onset strength envelope, ``librosa.onset.onset_strength(y=..., sr=...)``.
+        """Onset strength envelope (spectral flux of the log-power mel spectrogram).
 
         Positive increase of the log-power mel spectrogram (``power_to_db``,
         ``ref=1``, ``top_db=80``) from frame ``t - lag``, aggregated across bins.
@@ -4212,7 +4207,7 @@ class AudioSamples(Generic[_S_co]):
         htk: bool = False,
         norm: _MelNormSpec = 'slaney',
     ) -> NDArray[np.float64]:
-        """Multi-band onset strength, ``librosa.onset.onset_strength_multi``.
+        """Multi-band onset strength: one envelope per group of mel bins.
 
         ``channels`` are sub-band boundaries in mel bins; ``aggregate=False``
         keeps every mel bin.
@@ -4239,7 +4234,7 @@ class AudioSamples(Generic[_S_co]):
         wait: Optional[int] = None,
         method: Literal["greedy", "dp_count", "dp_value"] = "greedy",
     ) -> NDArray[Any]:
-        """Onset detection, ``librosa.onset.onset_detect(y=..., sr=...)`` (mono only).
+        """Onset detection by peak picking on the onset strength envelope (mono only).
 
         Returns:
             1-D numpy.ndarray: int64 frames/samples or float64 times.
@@ -4279,7 +4274,7 @@ class AudioSamples(Generic[_S_co]):
         window: _WindowSpec = 'hann',
         norm: Optional[float] = np.inf,
     ) -> NDArray[np.float64]:
-        """Autocorrelation tempogram, ``librosa.feature.tempogram(y=..., sr=...)``.
+        """Autocorrelation tempogram: windowed autocorrelation of the onset strength envelope.
 
         Returns:
             numpy.ndarray[float32 | float64], shape ``(channels, win_length, n_frames)``.
@@ -4313,7 +4308,7 @@ class AudioSamples(Generic[_S_co]):
         center: bool = True,
         window: _WindowSpec = 'hann',
     ) -> NDArray[np.complex128]:
-        """Fourier tempogram, ``librosa.feature.fourier_tempogram(y=..., sr=...)``.
+        """Fourier tempogram: short-time Fourier transform of the onset strength envelope.
 
         Returns:
             numpy.ndarray[complex64 | complex128], shape
@@ -4332,7 +4327,7 @@ class AudioSamples(Generic[_S_co]):
         aggregate: Union[Callable[..., Any], Literal["mean", "median", "max", "min", "sum"]] = "mean",
         prior: Any = None,
     ) -> NDArray[np.float64]:
-        """Tempo estimate, ``librosa.feature.tempo(y=..., sr=...)``.
+        """Tempo estimate in BPM from the autocorrelation tempogram.
 
         Returns:
             numpy.ndarray[float64], shape ``(channels, 1)`` (``(channels, n_frames)``
@@ -4352,14 +4347,13 @@ class AudioSamples(Generic[_S_co]):
         units: Literal["frames", "samples", "time"] = "frames",
         sparse: bool = True,
     ) -> tuple[Any, NDArray[Any]]:
-        """Dynamic-programming beat tracking, ``librosa.beat.beat_track(y=..., sr=...)``
-        (mono only; median-aggregated onset envelope, as librosa).
+        """Dynamic-programming beat tracking (mono only; median-aggregated onset
+        envelope).
 
-        ``trim`` defaults to False (librosa: True), so weak leading and trailing
-        beats are kept.
+        ``trim`` defaults to False, so weak leading and trailing beats are kept.
 
         Returns:
-            ``(tempo, beats)`` as librosa: ``tempo`` a float64 array of shape
+            ``(tempo, beats)``: ``tempo`` a float64 array of shape
             ``(1,)`` (``bpm`` unchanged when given, ``0.0`` for silence);
             ``beats`` 1-D int64 frames/samples or float64 times.
         """
@@ -4395,7 +4389,7 @@ class AudioSamples(Generic[_S_co]):
         tempo_max: Optional[float] = 300,
         prior: Any = None,
     ) -> NDArray[np.float64]:
-        """Predominant local pulse, ``librosa.beat.plp(y=..., sr=...)``.
+        """Predominant local pulse from the Fourier tempogram.
 
         Returns:
             numpy.ndarray[float32 | float64], shape ``(channels, n_frames)``, values in ``[0, 1]``.
@@ -4453,11 +4447,11 @@ class AudioSamples(Generic[_S_co]):
         fill_value: float = 0,
         norm: Optional[float] = np.inf,
     ) -> NDArray[np.float64]:
-        """Tempogram ratio, ``librosa.feature.tempogram_ratio(y=..., sr=...)``.
+        """Tempogram ratio: the tempogram sampled at fixed multiples of the per-frame tempo estimate.
 
         Returns:
             numpy.ndarray[float32 | float64], shape ``(channels, n_factors, n_frames)``
-            (``(channels, n_factors, 1)`` when aggregated; librosa drops the axis).
+            (``(channels, n_factors, 1)`` when aggregated).
         """
         ...
 
@@ -4488,7 +4482,7 @@ class AudioSamples(Generic[_S_co]):
         center: bool = True,
         window: _WindowSpec = 'hann',
     ) -> NDArray[np.float64]:
-        """Hybrid tempogram, ``librosa.feature.hybrid_tempogram(y=..., sr=...)``.
+        """Hybrid tempogram: the Fourier and autocorrelation tempograms combined on the Fourier tempo grid.
 
         Returns:
             numpy.ndarray[float32 | float64], shape ``(channels, win_length // 2 + 1, n_frames)``.
@@ -4496,12 +4490,12 @@ class AudioSamples(Generic[_S_co]):
         ...
 
     # ------------------------------------------------------------------
-    # librosa-compatible effects (AudioEffects)
+    # Effects (AudioEffects)
     #
     # Audio-to-audio effects return AudioSamples of the input's sample type
     # and rate; each has an ``_in_place`` variant (the length may change).
     # ``trim_db`` / ``split_db`` require ``top_db`` and ``remix`` defaults to
-    # ``align_zeros=False`` (librosa: 60 dB and True).
+    # ``align_zeros=False``.
     # Array forms: ``audio_samples.effects``.
     # ------------------------------------------------------------------
 
@@ -4516,7 +4510,7 @@ class AudioSamples(Generic[_S_co]):
         center: bool = True,
         pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
     ) -> Self:
-        """``librosa.effects.time_stretch``: phase vocoder, exactly ``round(n / rate)`` samples."""
+        """Time stretch by ``rate`` with a phase vocoder: exactly ``round(n / rate)`` samples."""
         ...
 
     def time_stretch_in_place(
@@ -4547,11 +4541,12 @@ class AudioSamples(Generic[_S_co]):
         center: bool = True,
         pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
     ) -> Self:
-        """``librosa.effects.pitch_shift(y, sr=self.sample_rate, n_steps=...)``.
+        """Shift the pitch by ``n_steps`` steps of ``bins_per_octave`` per octave,
+        keeping the duration (time stretch, then resample).
 
         The resampling step uses this library's resampler (``"soxr_hq"`` maps to
         ``ResamplingQuality.high``, ``"soxr_mq"`` to medium, ``"soxr_lq"`` to
-        fast); ~68 dB SNR vs librosa on band-limited audio. ``scale`` must be False.
+        fast). ``scale`` must be False.
         """
         ...
 
@@ -4573,7 +4568,7 @@ class AudioSamples(Generic[_S_co]):
         ...
 
     def preemphasis(self, *, coef: float = 0.97) -> Self:
-        """``librosa.effects.preemphasis`` on every channel (default initial state)."""
+        """Pre-emphasis filter ``y[n] = x[n] - coef * x[n - 1]`` on every channel (default initial state)."""
         ...
 
     def preemphasis_in_place(self, *, coef: float = 0.97) -> None:
@@ -4581,7 +4576,7 @@ class AudioSamples(Generic[_S_co]):
         ...
 
     def deemphasis(self, *, coef: float = 0.97) -> Self:
-        """``librosa.effects.deemphasis`` on every channel (inverse of ``preemphasis``)."""
+        """De-emphasis filter on every channel (inverse of ``preemphasis``)."""
         ...
 
     def deemphasis_in_place(self, *, coef: float = 0.97) -> None:
@@ -4597,15 +4592,16 @@ class AudioSamples(Generic[_S_co]):
         hop_length: int = 512,
         aggregate: Optional[Union[Callable[..., Any], Literal['max', 'min', 'mean']]] = None,
     ) -> tuple[Self, NDArray[np.int64]]:
-        """``librosa.effects.trim``: returns ``(trimmed, [start, end])``.
+        """Trim leading and trailing frames quieter than ``top_db`` below the
+        reference: returns ``(trimmed, [start, end])``.
 
-        ``top_db`` (dB below the reference) is required; librosa defaults to 60.
+        ``top_db`` (dB below the reference) is required.
         ``aggregate`` is ``numpy.max`` (default), ``numpy.min``, ``numpy.mean`` or any
         callable, called as ``aggregate(db, 0)``; ``ref`` may be any callable
         ``ref(rms, axis=..., keepdims=True)``. Callables run with the GIL held.
 
         Raises:
-            ValueError: If everything is silent (librosa returns an empty array).
+            ValueError: If everything is silent (an ``AudioSamples`` cannot be empty).
         """
         ...
 
@@ -4630,16 +4626,17 @@ class AudioSamples(Generic[_S_co]):
         hop_length: int = 512,
         aggregate: Optional[Union[Callable[..., Any], Literal['max', 'min', 'mean']]] = None,
     ) -> NDArray[np.int64]:
-        """``librosa.effects.split``: int64 intervals of shape ``(n, 2)``.
+        """Non-silent intervals: frames within ``top_db`` of the reference, as
+        int64 sample intervals of shape ``(n, 2)``.
 
-        ``top_db`` is required (librosa defaults to 60)."""
+        ``top_db`` is required."""
         ...
 
     def remix(self, intervals: npt.ArrayLike, *, align_zeros: bool = False) -> Self:
-        """``librosa.effects.remix``: concatenate ``(n, 2)`` sample intervals.
+        """Concatenate ``(n, 2)`` sample intervals in the given order.
 
         ``align_zeros`` snaps the boundaries to zero crossings; it defaults to
-        False (librosa: True)."""
+        False."""
         ...
 
     def remix_in_place(self, intervals: npt.ArrayLike, *, align_zeros: bool = False) -> None:
@@ -4660,8 +4657,8 @@ class AudioSamples(Generic[_S_co]):
         center: bool = True,
         pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
     ) -> Self:
-        """``librosa.effects.harmonic`` (``mask`` must be False; ``window`` is used,
-        librosa ignores it)."""
+        """Harmonic component from median-filtering harmonic/percussive separation
+        (``mask`` must be False; ``window`` sets the STFT window)."""
         ...
 
     def harmonic_in_place(
@@ -4695,7 +4692,8 @@ class AudioSamples(Generic[_S_co]):
         center: bool = True,
         pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
     ) -> Self:
-        """``librosa.effects.percussive``; arguments as ``harmonic``."""
+        """Percussive component from median-filtering harmonic/percussive
+        separation; arguments as ``harmonic``."""
         ...
 
     def percussive_in_place(
@@ -4729,8 +4727,8 @@ class AudioSamples(Generic[_S_co]):
         center: bool = True,
         pad_mode: Literal["constant", "reflect", "edge", "symmetric"] = "constant",
     ) -> tuple[Self, Self]:
-        """``librosa.effects.hpss``: ``(harmonic, percussive)`` (``hpss`` is the
-        older non-librosa method)."""
+        """Median-filtering harmonic/percussive separation: ``(harmonic, percussive)``
+        (``hpss`` is a separate method with its own mask blend)."""
         ...
 
     @overload
@@ -4743,7 +4741,7 @@ class AudioSamples(Generic[_S_co]):
     ) -> NDArray[np.float32]: ...
     @overload
     def lpc(self: AudioSamples[_DoubleSample], *, order: int) -> NDArray[np.float64]:
-        """``librosa.lpc`` (Burg) per channel: shape ``(channels, order + 1)``."""
+        """Linear prediction coefficients by Burg's method per channel: shape ``(channels, order + 1)``."""
         ...
 
     def iirt(
@@ -4835,7 +4833,7 @@ class AudioSamples(Generic[_S_co]):
         rng: _RngLike = 0,
         dtype: SampleType,
     ) -> AudioSamples[Any]:
-        """``librosa.griffinlim`` returning ``AudioSamples`` (see
+        """Griffin-Lim phase retrieval returning ``AudioSamples`` (see
         ``audio_samples.effects.griffinlim``; ``rng`` defaults to the seed 0).
 
         Args:

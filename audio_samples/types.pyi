@@ -507,9 +507,7 @@ class ResamplingQuality:
     """Windowed sinc, passband 0.90 x Nyquist, 100 dB stopband."""
 
     high: ResamplingQuality
-    """Windowed sinc, passband 0.913 x Nyquist, 125 dB stopband; close to
-    ``librosa.resample``'s default ``res_type="soxr_hq"``.
-    """
+    """Windowed sinc, passband 0.913 x Nyquist, 125 dB stopband."""
 
     ...
 
@@ -726,8 +724,8 @@ class IirFilterDesign:
         """
         Create a new IIR filter design.
 
-        Designs match ``scipy.signal.iirfilter(..., output='sos', fs=fs)`` for
-        the same specification (coefficients agree to within a few ULPs).
+        Designs use the analogue prototype of the family, frequency prewarping
+        and the bilinear transform, giving cascaded second-order sections.
 
         Parameters
         ----------
@@ -748,8 +746,9 @@ class IirFilterDesign:
         stopband_attenuation : float, optional
             Stopband attenuation in dB (Chebyshev II, elliptic).
         bessel_norm : str, optional
-            ``'mag'`` (default, -3 dB at the cutoff), ``'phase'`` (SciPy's
-            default) or ``'delay'``.
+            ``'mag'`` (default, -3 dB at the cutoff), ``'phase'`` (the phase
+            response reaches its midpoint at the cutoff) or ``'delay'`` (the
+            passband group delay is the reciprocal of the cutoff).
         """
         ...
 
@@ -823,7 +822,7 @@ class IirFilterDesign:
     def butterworth_bandstop(
         cls, order: int, low_frequency: float, high_frequency: float
     ) -> IirFilterDesign:
-        """Butterworth band-stop (``scipy.signal.butter(order, [low, high], 'bandstop')``)."""
+        """Butterworth band-stop between ``low_frequency`` and ``high_frequency`` Hz."""
         ...
 
     @classmethod
@@ -834,7 +833,7 @@ class IirFilterDesign:
         cutoff_frequency: float,
         passband_ripple: float,
     ) -> IirFilterDesign:
-        """Chebyshev I low/high-pass (``scipy.signal.cheby1(order, rp, cutoff, response)``)."""
+        """Chebyshev I low/high-pass with ``passband_ripple`` dB of passband ripple."""
         ...
 
     @classmethod
@@ -846,7 +845,7 @@ class IirFilterDesign:
         high_frequency: float,
         passband_ripple: float,
     ) -> IirFilterDesign:
-        """Chebyshev I band-pass/stop (``scipy.signal.cheby1(order, rp, [low, high], response)``)."""
+        """Chebyshev I band-pass/stop with ``passband_ripple`` dB of passband ripple."""
         ...
 
     @classmethod
@@ -857,7 +856,7 @@ class IirFilterDesign:
         cutoff_frequency: float,
         stopband_attenuation: float,
     ) -> IirFilterDesign:
-        """Chebyshev II low/high-pass (``scipy.signal.cheby2(order, rs, cutoff, response)``)."""
+        """Chebyshev II low/high-pass with ``stopband_attenuation`` dB of stopband attenuation."""
         ...
 
     @classmethod
@@ -869,7 +868,7 @@ class IirFilterDesign:
         high_frequency: float,
         stopband_attenuation: float,
     ) -> IirFilterDesign:
-        """Chebyshev II band-pass/stop (``scipy.signal.cheby2(order, rs, [low, high], response)``)."""
+        """Chebyshev II band-pass/stop with ``stopband_attenuation`` dB of stopband attenuation."""
         ...
 
     @classmethod
@@ -881,7 +880,7 @@ class IirFilterDesign:
         passband_ripple: float,
         stopband_attenuation: float,
     ) -> IirFilterDesign:
-        """Elliptic low/high-pass (``scipy.signal.ellip(order, rp, rs, cutoff, response)``)."""
+        """Elliptic low/high-pass with ``passband_ripple`` dB ripple and ``stopband_attenuation`` dB attenuation."""
         ...
 
     @classmethod
@@ -894,7 +893,7 @@ class IirFilterDesign:
         passband_ripple: float,
         stopband_attenuation: float,
     ) -> IirFilterDesign:
-        """Elliptic band-pass/stop (``scipy.signal.ellip(order, rp, rs, [low, high], response)``)."""
+        """Elliptic band-pass/stop with ``passband_ripple`` dB ripple and ``stopband_attenuation`` dB attenuation."""
         ...
 
     @classmethod
@@ -905,9 +904,10 @@ class IirFilterDesign:
         cutoff_frequency: float,
         norm: str = "mag",
     ) -> IirFilterDesign:
-        """Bessel low/high-pass (``scipy.signal.bessel(order, cutoff, response, norm=norm)``).
+        """Bessel low/high-pass.
 
-        ``norm`` defaults to ``'mag'``; SciPy's default is ``'phase'``.
+        ``norm`` (``'mag'``, ``'phase'`` or ``'delay'``) defaults to ``'mag'``:
+        -3 dB at ``cutoff_frequency``.
         """
         ...
 
@@ -920,17 +920,15 @@ class IirFilterDesign:
         high_frequency: float,
         norm: str = "mag",
     ) -> IirFilterDesign:
-        """Bessel band-pass/stop (``scipy.signal.bessel(order, [low, high], response, norm=norm)``)."""
+        """Bessel band-pass/stop; ``norm`` as for ``bessel``."""
         ...
 
     def sos(self, sample_rate: float) -> numpy.typing.NDArray[numpy.float64]:
         """
         Design the filter and return its second-order sections.
 
-        A ``(n_sections, 6)`` array of ``[b0, b1, b2, a0, a1, a2]`` rows, in the
-        same layout (and section order) as ``scipy.signal.iirfilter(...,
-        output='sos', fs=sample_rate)``; usable directly with
-        ``scipy.signal.sosfilt``.
+        A ``(n_sections, 6)`` array of ``[b0, b1, b2, a0, a1, a2]`` rows with
+        ``a0 == 1``; usable directly with ``scipy.signal.sosfilt``.
         """
         ...
 
@@ -938,8 +936,8 @@ class IirFilterDesign:
         self, frequencies: numpy.typing.ArrayLike, sample_rate: float
     ) -> tuple[numpy.typing.NDArray[numpy.float64], numpy.typing.NDArray[numpy.float64]]:
         """
-        Linear magnitude and phase (radians, wrapped to (-pi, pi]) at
-        ``frequencies`` (Hz), as ``scipy.signal.sosfreqz(sos, worN=frequencies, fs=sample_rate)``.
+        Linear magnitude and phase (radians, wrapped to (-pi, pi]) of the
+        cascaded sections evaluated at ``frequencies`` (Hz).
         """
         ...
 
@@ -2987,8 +2985,10 @@ class SosFilter:
     ) -> numpy.typing.NDArray[numpy.float64]:
         """
         Zero-phase forward-backward filtering of a whole signal, returning a
-        new array; equivalent to ``scipy.signal.sosfiltfilt(sos, samples)``.
-        The streaming state is neither used nor modified.
+        new array. The signal is padded by odd reflection at both ends and each
+        pass starts from steady-state initial conditions; the magnitude
+        response is squared and the phase cancels. The streaming state is
+        neither used nor modified.
         """
         ...
 

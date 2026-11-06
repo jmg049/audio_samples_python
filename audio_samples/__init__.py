@@ -320,7 +320,7 @@ __all__ = [
     "AudioFileNotFoundError",
     "AudioFormatError",
     "AudioDecodeError",
-    # librosa-compatible mu-law codes
+    # Mu-law companding with quantised codes
     "mu_law_encode",
     "mu_law_decode",
     # Generation functions (also available at top level)

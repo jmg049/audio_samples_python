@@ -243,7 +243,7 @@ class LogParams:
 
         :param floor_db: Minimum power in decibels (values below this are clipped).
             This is an absolute floor in dB re 1 (``-80`` clips below -80 dB),
-            not a range below the maximum like librosa's ``top_db``.
+            not a range below the maximum.
         """
         ...
 
