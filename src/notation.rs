@@ -514,16 +514,29 @@ pub fn thaat_to_degrees<'py>(py: Python<'py>, thaat: &str) -> PyResult<Bound<'py
     Ok(PyArray1::from_slice(py, &d.map(i64::from)).into_any())
 }
 
-/// The 72 melakarta ragas and their numbers.
-///
-/// Returns:
-///
-///     dict[str, int]: Name to number, from 1 to 72.
-#[pyfunction]
-#[inline]
-pub fn list_mela(py: Python<'_>) -> PyResult<Bound<'_, PyDict>> {
-    static MELAS: pyo3::sync::PyOnceLock<Py<PyDict>> = pyo3::sync::PyOnceLock::new();
-    let melas = MELAS.get_or_try_init(py, || -> PyResult<Py<PyDict>> {
+/// The melakarta dict that `list_mela` copies; set once by [`register`] and
+/// kept for the life of the process.
+static MELAS: std::sync::atomic::AtomicPtr<pyo3::ffi::PyObject> =
+    std::sync::atomic::AtomicPtr::new(std::ptr::null_mut());
+
+/// The docstring of `list_mela`, with its text signature.
+const LIST_MELA_DOC: &std::ffi::CStr = c"list_mela()\n--\n\nThe 72 melakarta ragas and their numbers.\n\nReturns:\n\n    dict[str, int]: Name to number, from 1 to 72.";
+
+/// `list_mela()`: a copy of the melakarta dict. A plain C function: a call is
+/// one dict copy, without argument parsing or panic handling, since nothing
+/// here can fail other than the copy itself.
+unsafe extern "C" fn list_mela_raw(
+    _module: *mut pyo3::ffi::PyObject,
+    _unused: *mut pyo3::ffi::PyObject,
+) -> *mut pyo3::ffi::PyObject {
+    // SAFETY: the interpreter calls this with an attached thread state, and
+    // `MELAS` holds a strong reference to a dict before the function exists.
+    unsafe { pyo3::ffi::PyDict_Copy(MELAS.load(std::sync::atomic::Ordering::Acquire)) }
+}
+
+/// Builds the melakarta dict (once per process) and adds `list_mela` to `m`.
+fn add_list_mela(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
+    if MELAS.load(std::sync::atomic::Ordering::Acquire).is_null() {
         let ordered: BTreeMap<&str, u8> = nt::list_mela()
             .iter()
             .zip(1_u8..)
@@ -533,12 +546,37 @@ pub fn list_mela(py: Python<'_>) -> PyResult<Bound<'_, PyDict>> {
         // dict does not touch their reference counts.
         let items: Vec<String> = ordered.iter().map(|(k, v)| format!("{k:?}: {v}")).collect();
         let source = std::ffi::CString::new(format!("{{{}}}", items.join(", ")))?;
-        Ok(py
-            .eval(&source, None, None)?
-            .cast_into::<PyDict>()?
-            .unbind())
-    })?;
-    melas.bind(py).copy()
+        let melas = py.eval(&source, None, None)?.cast_into::<PyDict>()?;
+        // A second module initialisation keeps the first dict.
+        if MELAS
+            .compare_exchange(
+                std::ptr::null_mut(),
+                melas.as_ptr(),
+                std::sync::atomic::Ordering::AcqRel,
+                std::sync::atomic::Ordering::Acquire,
+            )
+            .is_ok()
+        {
+            // The static keeps this reference for the life of the process.
+            std::mem::forget(melas);
+        }
+    }
+    let def = Box::leak(Box::new(pyo3::ffi::PyMethodDef {
+        ml_name: c"list_mela".as_ptr(),
+        ml_meth: pyo3::ffi::PyMethodDefPointer {
+            PyCFunction: list_mela_raw,
+        },
+        ml_flags: pyo3::ffi::METH_NOARGS,
+        ml_doc: LIST_MELA_DOC.as_ptr(),
+    }));
+    let name = m.name()?;
+    // SAFETY: `def` lives for the rest of the process; the module name is a str.
+    let raw = unsafe {
+        pyo3::ffi::PyCFunction_NewEx(std::ptr::from_mut(def), std::ptr::null_mut(), name.as_ptr())
+    };
+    // SAFETY: `raw` is a new reference, or null with an exception set.
+    let f = unsafe { Bound::from_owned_ptr_or_err(py, raw) }?;
+    m.add("list_mela", f)
 }
 
 fn mela_arg(mela: &Bound<'_, PyAny>) -> PyResult<u8> {
@@ -822,7 +860,7 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(hz_to_fjs, &m)?)?;
     m.add_function(wrap_pyfunction!(list_thaat, &m)?)?;
     m.add_function(wrap_pyfunction!(thaat_to_degrees, &m)?)?;
-    m.add_function(wrap_pyfunction!(list_mela, &m)?)?;
+    add_list_mela(py, &m)?;
     m.add_function(wrap_pyfunction!(mela_to_degrees, &m)?)?;
     m.add_function(wrap_pyfunction!(mela_to_svara, &m)?)?;
     m.add_function(wrap_pyfunction!(midi_to_svara_h, &m)?)?;
