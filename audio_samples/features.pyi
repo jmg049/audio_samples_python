@@ -101,7 +101,6 @@ def spectral_centroid_from_spectrogram(
         sr: Sample rate for the default ``freq``.
         freq: Bin centre frequencies (Hz), 1-D or time-varying with the shape of ``S``;
             None = ``fft_frequencies(sr, 2 * (F - 1))``.
-            Time-varying 2-D ``freq`` is not supported.
 
     Returns:
         numpy.ndarray[float32 | float64], shape ``(1, T)`` or ``(channels, 1, T)`` in Hz.

@@ -488,7 +488,7 @@ Core: constant-Q
    * - ``vqt``
      - ``AudioSamples.vqt``
      - with differences
-     - As ``cqt``
+     - As ``cqt``; ``intervals="equal"`` only
    * - ``pseudo_cqt``
      - ``AudioSamples.pseudo_cqt``
      - equivalent
@@ -1478,7 +1478,9 @@ Shapes and types
   frequency weightings are tables and return ``float64``;
   tempo estimates and tuning are always ``float64``. ``yin``, ``pyin``,
   ``tempogram``, ``tempogram_ratio`` and ``hybrid_tempogram`` return
-  ``float32`` for ``float32`` input (librosa promotes them to ``float64``).
+  ``float32`` for ``float32`` input (librosa promotes them to ``float64``), and so
+  do the costs, scores and matrices of the ``sequence`` functions (librosa
+  accumulates them in ``float64``).
   ``dtype=`` arguments that select a librosa output precision are accepted and
   ignored where documented (``griffinlim``).
 - **Integer outputs are int64** (librosa: ``uint16`` Viterbi states, ``intp``
