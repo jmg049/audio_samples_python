@@ -319,8 +319,8 @@ def hz_to_mel(freq_hz: npt.ArrayLike, *, htk: bool=True) -> NDArray[np.float64]:
     """Convert frequencies in Hertz to mels (scalar or array).
 
     **The default is the HTK scale** (``2595 * log10(1 + f / 700)``), unchanged
-    from earlier releases. librosa's ``hz_to_mel`` defaults to the Slaney scale:
-    pass ``htk=False`` to match it.
+    from earlier releases. Pass ``htk=False`` for the Slaney scale (linear
+    below 1 kHz, logarithmic above), as used by ``spectral.mel_filterbank``.
 
     Returns:
         float for scalar input, otherwise numpy.ndarray[float64] of the same shape.
@@ -331,8 +331,8 @@ def hz_to_mel(freq_hz: npt.ArrayLike, *, htk: bool=True) -> NDArray[np.float64]:
 def mel_to_hz(mel: float, *, htk: bool=True) -> float: ...
 @overload
 def mel_to_hz(mel: npt.ArrayLike, *, htk: bool=True) -> NDArray[np.float64]:
-    """Convert mels to Hertz (scalar or array). Default HTK (librosa default:
-    Slaney, ``htk=False``).
+    """Convert mels to Hertz (scalar or array). Default HTK; ``htk=False``
+    gives the Slaney scale.
 
     Returns:
         float for scalar input, otherwise numpy.ndarray[float64] of the same shape.
@@ -356,7 +356,7 @@ def mel_scale(n_mels: int, fmin: float, fmax: float) -> NDArray[np.float64]:
 def hz_to_midi(freq_hz: float) -> float: ...
 @overload
 def hz_to_midi(freq_hz: npt.ArrayLike) -> NDArray[np.float64]:
-    """``12 * log2(f / 440) + 69`` (``librosa.hz_to_midi``); float for scalar
+    """Hertz to MIDI note numbers, ``12 * log2(f / 440) + 69``; float for scalar
     input, otherwise numpy.ndarray[float64] of the same shape."""
     ...
 
@@ -364,7 +364,7 @@ def hz_to_midi(freq_hz: npt.ArrayLike) -> NDArray[np.float64]:
 def midi_to_hz(midi_note: float) -> float: ...
 @overload
 def midi_to_hz(midi_note: npt.ArrayLike) -> NDArray[np.float64]:
-    """``440 * 2 ** ((m - 69) / 12)`` (``librosa.midi_to_hz``); float for scalar
+    """MIDI note numbers to Hertz, ``440 * 2 ** ((m - 69) / 12)``; float for scalar
     input, otherwise numpy.ndarray[float64] of the same shape."""
     ...
 
@@ -440,7 +440,7 @@ def frames_to_time(
     *,
     n_fft: Optional[int] = None,
 ) -> NDArray[np.float64]:
-    """Frame indices to seconds, like ``librosa.frames_to_time``:
+    """Frame indices to seconds:
     ``(frames * hop_size + n_fft // 2) / sample_rate`` (offset only with ``n_fft``).
 
     Args:
@@ -464,8 +464,8 @@ def time_to_frames(
 ) -> NDArray[np.int64]:
     """Times to the **nearest** frame (``round(t * sr / hop)``, negatives clamp to 0).
 
-    Kept for backward compatibility; librosa's ``time_to_frames`` (floor, negatives
-    kept, ``n_fft`` offset) is ``time_to_frames_floor``.
+    Kept for backward compatibility; ``time_to_frames_floor`` gives the frame
+    containing each time (floor, negatives kept, ``n_fft`` offset).
 
     Returns:
         int for scalar input, otherwise numpy.ndarray[int64] of the same shape.
@@ -493,7 +493,7 @@ def samples_to_time(samples: npt.ArrayLike, sample_rate: float) -> NDArray[np.fl
 def seconds_to_samples(time_seconds: float, sample_rate: float) -> int:
     """Seconds to the **nearest** sample index (rounds; negatives clamp to 0).
 
-    librosa's ``time_to_samples`` truncates instead: use ``time_to_samples``.
+    ``time_to_samples`` truncates toward zero instead.
     """
     ...
 
@@ -519,7 +519,7 @@ def note_to_midi(note_name: str) -> int: ...  # type: ignore[overload-overlap]
 def note_to_midi(note_name: Sequence[str]) -> NDArray[np.int64]:
     """Parse scientific pitch notation to MIDI note numbers.
 
-    Follows librosa's grammar: upper- or lowercase note letters, any run of
+    Accepts upper- or lowercase note letters, any run of
     the accidentals ``#`` ``♯`` ``b`` ``!`` ``♭`` ``𝄪`` ``𝄫`` ``♮``, a signed octave
     (``C-1`` = 0) and an optional cents suffix (``A4+50``, rounded half to
     even). The octave is required.
@@ -634,9 +634,9 @@ def mel_frequencies(
     *,
     htk: bool  =  True,
 ) -> NDArray[np.float64]:
-    """``n_mels`` frequencies uniformly spaced in mels, like ``librosa.mel_frequencies``.
+    """``n_mels`` frequencies uniformly spaced in mels.
 
-    **Default HTK** (unchanged); librosa defaults to Slaney: pass ``htk=False``.
+    **Default HTK** (unchanged); pass ``htk=False`` for the Slaney scale.
 
     Returns:
         numpy.ndarray[float64], shape ``(n_mels,)``.
@@ -657,7 +657,7 @@ def linspace(start: float, end: float, num: int) -> NDArray[np.float64]:
     ...
 
 # =============================================================================
-# LIBROSA-COMPATIBLE FRAME / SAMPLE / TIME CONVERSIONS (vectorised)
+# FRAME / SAMPLE / TIME CONVERSIONS (vectorised)
 # =============================================================================
 
 @overload
@@ -674,10 +674,10 @@ def time_to_samples(
     sample_rate: Optional[float] = None,
     sr: Optional[float] = None,
 ) -> NDArray[np.int64]:
-    """``int(t * sample_rate)`` truncated toward zero, like ``librosa.time_to_samples``.
+    """``int(t * sample_rate)`` truncated toward zero.
 
-    Give ``sample_rate`` or its librosa name ``sr`` (exactly one; librosa
-    defaults to 22050). Neither or both is a ``TypeError``.
+    Give ``sample_rate`` or its short name ``sr`` (exactly one). Neither or
+    both is a ``TypeError``.
 
     Returns:
         int for scalar input, otherwise numpy.ndarray[int64] of the same shape.
@@ -693,9 +693,9 @@ def samples_to_frames(
     hop_length: int,
     n_fft: Optional[int] = None,
 ) -> NDArray[np.int64]:
-    """``floor((samples - n_fft // 2) / hop_length)``, like ``librosa.samples_to_frames``.
+    """``floor((samples - n_fft // 2) / hop_length)``.
 
-    ``hop_length`` is required (librosa defaults to 512).
+    ``hop_length`` is required.
 
     Returns:
         int for scalar input, otherwise numpy.ndarray[int64] of the same shape.
@@ -726,9 +726,9 @@ def frames_to_samples(
     hop_length: int,
     n_fft: Optional[int] = None,
 ) -> NDArray[np.int64]:
-    """``frames * hop_length + n_fft // 2``, like ``librosa.frames_to_samples``.
+    """``frames * hop_length + n_fft // 2``.
 
-    ``hop_length`` is required (librosa defaults to 512).
+    ``hop_length`` is required.
 
     Returns:
         int for scalar input, otherwise numpy.ndarray[int64] of the same shape.
@@ -753,11 +753,11 @@ def time_to_frames_floor(
     n_fft: Optional[int] = None,
     sr: Optional[float] = None,
 ) -> NDArray[np.int64]:
-    """The frame containing each time, exactly ``librosa.time_to_frames``
-    (truncate to samples, then floor-divide; negatives kept).
+    """The frame containing each time (truncate to samples, then
+    floor-divide; negatives kept).
 
-    Give ``sample_rate`` or its librosa name ``sr`` (exactly one; librosa
-    defaults to 22050). ``hop_length`` is required (librosa defaults to 512).
+    Give ``sample_rate`` or its short name ``sr`` (exactly one).
+    ``hop_length`` is required.
 
     Returns:
         int for scalar input, otherwise numpy.ndarray[int64] of the same shape.
@@ -774,18 +774,17 @@ def times_like(
     sr: Optional[float] = None,
 ) -> NDArray[np.float64]:
     """Frame times in seconds for ``X`` frames (an int, or an array whose
-    ``axis`` is time), like ``librosa.times_like``. Shape ``(n_frames,)``.
+    ``axis`` is time). Shape ``(n_frames,)``.
 
-    Give ``sample_rate`` or its librosa name ``sr`` (exactly one; librosa
-    defaults to 22050). ``hop_length`` is required (librosa defaults to 512)."""
+    Give ``sample_rate`` or its short name ``sr`` (exactly one).
+    ``hop_length`` is required."""
     ...
 
 def samples_like(
     X: Union[int, npt.ArrayLike], *, hop_length: int, n_fft: Optional[int] = None, axis: int = -1
 ) -> NDArray[np.int64]:
-    """Frame sample indices, like ``librosa.samples_like`` (``axis`` is the time
-    axis of an array ``X``). Shape ``(n_frames,)``. ``hop_length`` is required
-    (librosa defaults to 512)."""
+    """Frame sample indices for ``X`` frames (``axis`` is the time axis of an
+    array ``X``). Shape ``(n_frames,)``. ``hop_length`` is required."""
     ...
 
 # =============================================================================
@@ -796,8 +795,8 @@ def samples_like(
 def mu_law_encode(x: float, *, mu: float = 255.0) -> int: ...
 @overload
 def mu_law_encode(x: npt.ArrayLike, *, mu: float = 255.0) -> NDArray[np.int64]:
-    """Integer mu-law codes, like ``librosa.mu_compress(x, mu=mu, quantize=True)``
-    (codes ``-128..=127`` for ``mu=255``).
+    """Mu-law compression quantised to integer codes (``-128..=127`` for
+    ``mu=255``).
 
     Args:
         x: Samples in ``[-1, 1]``, any shape.
@@ -814,7 +813,7 @@ def mu_law_encode(x: npt.ArrayLike, *, mu: float = 255.0) -> NDArray[np.int64]:
 def mu_law_decode(codes: int, *, mu: float = 255.0) -> float: ...
 @overload
 def mu_law_decode(codes: npt.ArrayLike, *, mu: float = 255.0) -> NDArray[np.float64]:
-    """Amplitudes from mu-law codes, like ``librosa.mu_expand(codes, mu=mu, quantize=True)``.
+    """Amplitudes from integer mu-law codes (the inverse of ``mu_law_encode``).
 
     Returns:
         float for scalar input, otherwise numpy.ndarray[float64] of the same shape.
@@ -825,7 +824,7 @@ def mu_law_decode(codes: npt.ArrayLike, *, mu: float = 255.0) -> NDArray[np.floa
     ...
 
 # =============================================================================
-# TUNING, OCTAVES AND KEYS (librosa-compatible)
+# TUNING, OCTAVES AND KEYS
 # =============================================================================
 
 @overload
@@ -837,7 +836,7 @@ def hz_to_octs(
     tuning: float = 0.0,
     bins_per_octave: int = 12,
 ) -> NDArray[np.float64]:
-    """Frequencies (Hz) to fractional octaves, like ``librosa.hz_to_octs`` (A0 = 27.5 Hz is 0, A4 = 4.0).
+    """Frequencies (Hz) to fractional octaves (A0 = 27.5 Hz is 0, A4 = 4.0).
 
     Returns:
         float for scalar input, otherwise numpy.ndarray[float64] of the same shape.
@@ -853,7 +852,7 @@ def octs_to_hz(
     tuning: float = 0.0,
     bins_per_octave: int = 12,
 ) -> NDArray[np.float64]:
-    """Fractional octaves to Hz, like ``librosa.octs_to_hz``.
+    """Fractional octaves to Hz (the inverse of ``hz_to_octs``).
 
     Returns:
         float for scalar input, otherwise numpy.ndarray[float64] of the same shape.
@@ -864,8 +863,7 @@ def octs_to_hz(
 def a4_to_tuning(A4: float, *, bins_per_octave: int=12) -> float: ...
 @overload
 def a4_to_tuning(A4: npt.ArrayLike, *, bins_per_octave: int=12) -> NDArray[np.float64]:
-    """A4 reference frequency to a tuning deviation in fractions of a bin, like
-    ``librosa.A4_to_tuning``.
+    """A4 reference frequency to a tuning deviation in fractions of a bin.
 
     Returns:
         float for scalar input, otherwise numpy.ndarray[float64] of the same shape.
@@ -876,7 +874,7 @@ def a4_to_tuning(A4: npt.ArrayLike, *, bins_per_octave: int=12) -> NDArray[np.fl
 def tuning_to_a4(tuning: float, *, bins_per_octave: int=12) -> float: ...
 @overload
 def tuning_to_a4(tuning: npt.ArrayLike, *, bins_per_octave: int=12) -> NDArray[np.float64]:
-    """Tuning deviation to the A4 reference frequency, like ``librosa.tuning_to_A4``.
+    """Tuning deviation in fractions of a bin to the A4 reference frequency.
 
     Returns:
         float for scalar input, otherwise numpy.ndarray[float64] of the same shape.
@@ -890,7 +888,7 @@ def cqt_frequencies(
     bins_per_octave: int  =  12,
     tuning: float  =  0.0,
 ) -> NDArray[np.float64]:
-    """Centre frequencies of a constant-Q filterbank, like ``librosa.cqt_frequencies``.
+    """Centre frequencies of a constant-Q filterbank: ``fmin * 2 ** (k / bins_per_octave)``, tuned.
 
     Returns:
         numpy.ndarray[float64], shape ``(n_bins,)``.
@@ -898,7 +896,7 @@ def cqt_frequencies(
     ...
 
 def key_to_notes(key: str, *, unicode: bool = True, natural: bool = False) -> list[str]:
-    """The 12 pitch-class names (from C) spelled for a key, like ``librosa.key_to_notes``.
+    """The 12 pitch-class names (from C) spelled for a key.
 
     Raises:
         ValueError: Unparsable key.
@@ -906,7 +904,7 @@ def key_to_notes(key: str, *, unicode: bool = True, natural: bool = False) -> li
     ...
 
 def key_to_degrees(key: str) -> NDArray[np.int64]:
-    """Pitch classes (0 = C) of a key's 7 scale degrees, like ``librosa.key_to_degrees``.
+    """Pitch classes (0 = C) of a key's 7 scale degrees.
 
     Returns:
         numpy.ndarray[int64], shape ``(7,)``.
