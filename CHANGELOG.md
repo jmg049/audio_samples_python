@@ -11,6 +11,9 @@ has the full detail.
 
 ## [Unreleased]
 
+- **`features.wavelet_lengths` and `features.wavelet` accept one frequency when `alpha` is
+  given.** The bandwidth then does not come from the spacing of the frequencies; without
+  `alpha`, two or more are still required.
 - **`io.read_and_resample` keeps the file's sample type.** Without `as_type` it returns the
   file's own sample type, as `io.read` and `AudioSamples.resample` do (16-bit files give `int16`);
   it converted to `f32` before. Pass `as_type=SampleType.F32` for the former result.

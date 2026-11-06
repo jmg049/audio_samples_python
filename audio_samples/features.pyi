@@ -847,9 +847,9 @@ def wavelet_lengths(
 ) -> tuple[NDArray[np.float64], float]:
     """Filter lengths of a CQT/VQT filterbank.
 
-    ``freqs`` needs at least two ascending frequencies. ``alpha`` (relative
-    bandwidth, one value or one per frequency) is derived from their spacing
-    when None.
+    ``freqs`` are ascending. ``alpha`` (relative bandwidth, one value or one per
+    frequency) is derived from their spacing when None, which needs at least two
+    frequencies; with ``alpha`` given, one frequency is enough.
 
     Returns:
         ``(lengths, cutoff)``: float64 lengths in samples, highest cut-off frequency (Hz).

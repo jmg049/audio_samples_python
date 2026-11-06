@@ -256,6 +256,18 @@ def test_wavelets(sr):
     np.testing.assert_array_equal(l2, lengths)
     with pytest.raises(ValueError):
         F.wavelet_lengths(freqs=[440.0], sr=sr)
+    with pytest.raises(ValueError):
+        F.wavelet(freqs=[440.0], sr=sr)
+    # An explicit alpha gives the bandwidth, so one frequency is enough.
+    one, one_cutoff = F.wavelet_lengths(freqs=[440.0], sr=sr, alpha=0.1)
+    np.testing.assert_allclose(one, [10.0 * sr / 440.0], rtol=1e-12)
+    assert 440.0 < one_cutoff < sr / 2
+    single, single_lengths = F.wavelet(freqs=[440.0], sr=sr, alpha=[0.1])
+    bank, _ = F.wavelet(freqs=[440.0, 880.0], sr=sr, alpha=0.1)
+    np.testing.assert_array_equal(single_lengths, one)
+    np.testing.assert_array_equal(single[0], bank[0])
+    with pytest.raises(ValueError):
+        F.wavelet_lengths(freqs=[], sr=sr, alpha=0.1)
 
 
 def test_shapes_and_validation(sr):
@@ -309,3 +321,11 @@ def test_against_librosa(sr):
     llen, lcut = librosa.filters.wavelet_lengths(freqs=freqs, sr=sr)
     np.testing.assert_allclose(lengths, llen, rtol=1e-12)
     assert cutoff == pytest.approx(lcut, rel=1e-12)
+    one, one_cutoff = F.wavelet_lengths(freqs=[440.0], sr=sr, alpha=0.1)
+    lone, lone_cutoff = librosa.filters.wavelet_lengths(freqs=np.array([440.0]), sr=sr, alpha=0.1)
+    np.testing.assert_allclose(one, lone, rtol=1e-12)
+    assert one_cutoff == pytest.approx(lone_cutoff, rel=1e-12)
+    single, _ = F.wavelet(freqs=[440.0], sr=sr, alpha=0.1)
+    lsingle, _ = librosa.filters.wavelet(freqs=np.array([440.0]), sr=sr, alpha=0.1)
+    assert single.shape == lsingle.shape
+    np.testing.assert_allclose(single, lsingle, rtol=0, atol=1e-6 * np.abs(lsingle).max())

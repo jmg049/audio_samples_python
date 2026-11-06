@@ -92,7 +92,8 @@ fn wavelet_config(
 ///
 /// Args:
 ///
-///     freqs (array_like): Centre frequencies in Hz (at least two, ascending).
+///     freqs (array_like): Centre frequencies in Hz, ascending: at least two, or one
+///         when ``alpha`` is given.
 ///     sr (float): Sample rate. Required.
 ///     window: Window (named; see ``spectral.get_window``). Default ``"hann"``.
 ///     filter_scale (float): Filter-length scale. Default 1.
@@ -177,7 +178,7 @@ pub fn wavelet_lengths<'py>(
 ///
 /// Args:
 ///
-///     freqs (array_like): Centre frequencies in Hz (at least two, ascending).
+///     freqs (array_like): Centre frequencies in Hz, as for ``wavelet_lengths``.
 ///     sr (float): Sample rate. Required.
 ///     window: Named window. Default ``"hann"``.
 ///     filter_scale (float): Filter-length scale. Default 1.
