@@ -34,6 +34,10 @@ use crate::audio_err_to_py;
     text_signature = "(window, n, *, slope=1.0, angle=None, zero_mean=False)"
 )]
 #[inline]
+#[allow(
+    clippy::needless_pass_by_value,
+    reason = "PyO3 extracts the custom window argument by value"
+)]
 pub fn diagonal_filter(
     py: Python<'_>,
     window: WindowArg,
@@ -62,10 +66,10 @@ fn parse_boundary(kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<(BoundaryMode,
                         (o, o)
                     } else {
                         let pair: Vec<isize> = v.extract()?;
-                        if pair.len() != 2 {
+                        let [first, second] = pair[..] else {
                             return Err(value_err("origin", "expected one number or two"));
-                        }
-                        (pair[0], pair[1])
+                        };
+                        (first, second)
                     };
                 }
                 other => return Err(value_err(other, "is not a parameter of the convolution")),
@@ -103,7 +107,9 @@ fn enhance<'py, F: PyFloat>(
             return Ok(out.into_pyarray(py).into_any());
         }
         let shape = v.shape().to_vec();
-        let (rows, cols) = (shape[shape.len() - 2], shape[shape.len() - 1]);
+        let [.., rows, cols] = shape[..] else {
+            return Err(value_err("R", "expected at least 2 dimensions"));
+        };
         let flat = v.as_standard_layout();
         let flat = flat
             .as_slice()
@@ -258,7 +264,7 @@ fn frames_last<'py>(data: &Bound<'py, PyAny>, axis: Int) -> PyResult<Bound<'py, 
     let numpy = py.import("numpy")?;
     let a = numpy.getattr("atleast_2d")?.call1((data,))?;
     let arr = a.cast::<PyUntypedArray>()?;
-    let n = arr.ndim() as i64;
+    let n = i64::try_from(arr.ndim()).map_err(|e| value_err("data", e))?;
     if axis.0 < -n || axis.0 >= n {
         return Err(value_err("axis", format!("{} is out of range", axis.0)));
     }
@@ -274,8 +280,13 @@ fn frames_last<'py>(data: &Bound<'py, PyAny>, axis: Int) -> PyResult<Bound<'py, 
         .getattr("T")
 }
 
-fn boundaries_out(py: Python<'_>, v: Vec<usize>) -> Bound<'_, PyAny> {
-    PyArray1::from_vec(py, v.into_iter().map(|i| i as i64).collect::<Vec<i64>>()).into_any()
+fn boundaries_out<'py>(py: Python<'py>, v: &[usize]) -> PyResult<Bound<'py, PyAny>> {
+    let v = v
+        .iter()
+        .map(|&i| i64::try_from(i))
+        .collect::<Result<Vec<i64>, _>>()
+        .map_err(|e| value_err("boundaries", e))?;
+    Ok(PyArray1::from_vec(py, v).into_any())
 }
 
 /// Segment boundaries from Ward clustering in which only neighbouring segments merge.
@@ -311,12 +322,13 @@ pub fn agglomerative<'py>(
         let mut out = vec![0_usize];
         out.extend(
             labels
-                .windows(2)
+                .iter()
+                .zip(labels.iter().skip(1))
                 .enumerate()
-                .filter(|(_, w)| w[0] != w[1])
+                .filter(|(_, (a, b))| a != b)
                 .map(|(i, _)| i + 1),
         );
-        return Ok(boundaries_out(py, out));
+        return boundaries_out(py, &out);
     }
     let k = positive("k", k)?.get();
     with_precision!(precision_of(&features), |F| {
@@ -327,7 +339,7 @@ pub fn agglomerative<'py>(
             let b = py
                 .detach(|| sg::agglomerative(v, k))
                 .map_err(audio_err_to_py)?;
-            Ok(boundaries_out(py, b))
+            boundaries_out(py, &b)
         })
     })
 }
@@ -368,7 +380,7 @@ pub fn subsegment<'py>(
             let b = py
                 .detach(|| sg::subsegment(v, &bounds, n))
                 .map_err(audio_err_to_py)?;
-            Ok(boundaries_out(py, b))
+            boundaries_out(py, &b)
         })
     })
 }
@@ -393,9 +405,12 @@ pub fn path_to_steps<'py>(path: &Bound<'py, PyAny>, inverse: bool) -> PyResult<B
         return Err(value_err("path", "expected (n, 2) non-negative indices"));
     }
     let pairs: Vec<[usize; 2]> = values
-        .chunks_exact(2)
-        .map(|c| [c[0] as usize, c[1] as usize])
-        .collect();
+        .as_chunks::<2>()
+        .0
+        .iter()
+        .map(|&[a, b]| Ok([usize::try_from(a)?, usize::try_from(b)?]))
+        .collect::<Result<_, std::num::TryFromIntError>>()
+        .map_err(|e| value_err("path", e))?;
     let out = seq::path_to_steps(&pairs, inverse).map_err(audio_err_to_py)?;
     Ok(out.into_pyarray(py).into_any())
 }

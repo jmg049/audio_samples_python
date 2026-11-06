@@ -718,6 +718,10 @@ fn topic_resampling(from_rate: f64, to_rate: f64) -> PyExplainDoc {
 ///     ExplainDoc: The explanation.
 #[pyfunction(name = "fir")]
 #[pyo3(signature = (coefficients: "Sequence[float] | numpy.ndarray", sample_rate: "float"))]
+#[allow(
+    clippy::needless_pass_by_value,
+    reason = "PyO3 extracts a Python sequence into an owned Vec"
+)]
 fn topic_fir(coefficients: Vec<f64>, sample_rate: f64) -> PyExplainDoc {
     topics::fir(&coefficients, sample_rate).into()
 }

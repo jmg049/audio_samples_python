@@ -1,5 +1,3 @@
-use std::ops::Deref;
-
 use audio_samples::operations::iir_filtering::SosFilter;
 use audio_samples::{
     AudioIirFiltering,
@@ -36,7 +34,7 @@ impl PyAudioSamples {
     #[pyo3(signature = (design: "IirFilterDesign"))]
     fn apply_iir_filter(&mut self, py: Python<'_>, design: &PyIirFilterDesign) -> PyResult<()> {
         dispatch_with_view_mut!(self, py, |mut audio| {
-            let rs_design: &IirFilterDesign = design.deref();
+            let rs_design: &IirFilterDesign = design;
             audio
                 .apply_iir_filter_in_place(rs_design)
                 .map_err(audio_err_to_py)
@@ -207,6 +205,14 @@ impl PyAudioSamples {
     ///
     ///     tuple[list[float], list[float]]: All-ones magnitudes and all-zero phases.
     #[pyo3(signature = (frequencies: "list[float]"))]
+    #[allow(
+        clippy::unused_self,
+        reason = "a Python instance method, kept for compatibility"
+    )]
+    #[allow(
+        clippy::needless_pass_by_value,
+        reason = "PyO3 extracts a Python sequence into an owned Vec"
+    )]
     fn frequency_response(
         &self,
         py: Python<'_>,
@@ -895,7 +901,7 @@ IirFilterDesign.frequency_response(frequencies, sample_rate) or SosFilter.freque
     ///     AudioError: If filter design or application fails.
     #[pyo3(signature = (design: "IirFilterDesign"))]
     fn filtfilt(&mut self, py: Python<'_>, design: &PyIirFilterDesign) -> PyResult<()> {
-        let rs_design: &IirFilterDesign = design.deref();
+        let rs_design: &IirFilterDesign = design;
         dispatch_with_view_mut!(self, py, |mut audio| {
             audio.filtfilt_in_place(rs_design).map_err(audio_err_to_py)
         })
@@ -943,7 +949,7 @@ impl PySosFilter {
     #[staticmethod]
     #[pyo3(signature = (design: "IirFilterDesign", sample_rate: "float"))]
     fn from_design(design: &PyIirFilterDesign, sample_rate: f64) -> PyResult<Self> {
-        let rs_design: &IirFilterDesign = design.deref();
+        let rs_design: &IirFilterDesign = design;
         let inner = SosFilter::from_design(rs_design, sample_rate).map_err(audio_err_to_py)?;
         Ok(Self { inner, sample_rate })
     }
@@ -977,7 +983,13 @@ impl PySosFilter {
         let rows: Vec<[f64; 6]> = view
             .rows()
             .into_iter()
-            .map(|r| [r[0], r[1], r[2], r[3], r[4], r[5]])
+            .map(|r| {
+                let mut section = [0.0; 6];
+                for (dst, &src) in section.iter_mut().zip(r) {
+                    *dst = src;
+                }
+                section
+            })
             .collect();
         let inner = SosFilter::from_sos_coefficients(&rows).map_err(audio_err_to_py)?;
         Ok(Self { inner, sample_rate })

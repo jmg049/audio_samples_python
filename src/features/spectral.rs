@@ -18,7 +18,7 @@ use super::args::{
     bin_frequencies, freq_is_matrix, freq_matrix, freq3, parse_weighting, spec3, squeeze_out,
 };
 use crate::args::{
-    DbRefArg, FloatElement, f64_array, float_array_as, is_scalar, positive, precision_of,
+    DbRefArg, FloatElement, f64_array, float_array_as, is_scalar, positive, precision_of, size_i64,
     value_err, with_precision,
 };
 use crate::audio_err_to_py;
@@ -107,8 +107,8 @@ pub fn spectral_bandwidth_from_spectrogram<'py>(
     p: f64,
 ) -> PyResult<Bound<'py, PyAny>> {
     with_precision!(precision_of(S), |F| {
-        let (s, nd) = spec3::<F>(S, "S")?;
-        let c = match centroid {
+        let (spec, nd) = spec3::<F>(S, "S")?;
+        let cen = match centroid {
             Some(c) if !c.is_none() => Some(spec3(c, "centroid")?.0),
             _ => None,
         };
@@ -119,19 +119,19 @@ pub fn spectral_bandwidth_from_spectrogram<'py>(
         };
         if let Some(m) = freq_matrix::<F>(freq)? {
             let r = feat::spectral_bandwidth_from_spectrogram_with_freqs(
-                s.view(),
+                spec.view(),
                 freq3(&m)?,
-                c.as_ref().map(|a| a.view()),
+                cen.as_ref().map(|a| a.view()),
                 &cfg,
             )
             .map_err(audio_err_to_py)?;
             return Ok(out(py, r, nd));
         }
-        let f = bin_frequencies(freq, sr, s.dim().1)?;
+        let freqs = bin_frequencies(freq, sr, spec.dim().1)?;
         let r = feat::spectral_bandwidth_from_spectrogram(
-            s.view(),
-            &f,
-            c.as_ref().map(|a| a.view()),
+            spec.view(),
+            &freqs,
+            cen.as_ref().map(|a| a.view()),
             &cfg,
         )
         .map_err(audio_err_to_py)?;
@@ -457,8 +457,8 @@ pub fn pcen<'py>(
     return_zf: bool,
 ) -> PyResult<Bound<'py, PyAny>> {
     with_precision!(precision_of(S), |F| {
-        let (s, nd) = spec3::<F>(S, "S")?;
-        let nd_i = nd as i64;
+        let (spec, nd) = spec3::<F>(S, "S")?;
+        let nd_i = size_i64(nd);
         if axis != Int(-1) && axis != Int(nd_i - 1) {
             return Err(value_err(
                 "axis",
@@ -487,27 +487,27 @@ pub fn pcen<'py>(
         let reference = match r#ref {
             Some(r) if !r.is_none() => {
                 let (r3, rnd) = spec3(r, "ref")?;
-                if rnd != nd || r3.dim() != s.dim() {
+                if rnd != nd || r3.dim() != spec.dim() {
                     return Err(value_err("ref", "must have the same shape as S"));
                 }
                 Some(r3)
             }
             _ => None,
         };
-        let (c, f, _) = s.dim();
+        let (channels, n_bins, _) = spec.dim();
         let zi = match zi {
-            Some(z) if !z.is_none() => Some(pcen_zi(z, c, f)?),
+            Some(state) if !state.is_none() => Some(pcen_zi(state, channels, n_bins)?),
             _ => None,
         };
-        let (p, zf) = feat::pcen_with_state(
-            s.view(),
+        let (pcen_out, zf) = feat::pcen_with_state(
+            spec.view(),
             sr,
             &cfg,
             reference.as_ref().map(|a| a.view()),
             zi.as_ref().map(|a| a.view()),
         )
         .map_err(audio_err_to_py)?;
-        let p_out = out(py, p, nd);
+        let p_out = out(py, pcen_out, nd);
         if !return_zf {
             return Ok(p_out);
         }
@@ -601,29 +601,29 @@ pub fn z_weighting<'py>(
     // only when it is not +0.0. Only the input's shape and memory order are
     // needed; anything but a float64 array is converted as for the other
     // curves (same accepted inputs and errors).
-    let value = feat::z_weighting(&[0.0], min_db)[0];
-    let (shape, fortran) = match frequencies.cast::<PyArrayDyn<f64>>() {
-        Ok(a) => {
-            if a.ndim() == 0 {
-                return value.into_bound_py_any(py);
-            }
-            let u: &Bound<'_, PyUntypedArray> = a.as_untyped();
-            (
-                u.shape().to_vec(),
-                u.is_fortran_contiguous() && !u.is_c_contiguous(),
-            )
+    let value = feat::z_weighting(&[0.0], min_db)
+        .first()
+        .copied()
+        .expect("one frequency gives one weight");
+    let (shape, fortran) = if let Ok(a) = frequencies.cast::<PyArrayDyn<f64>>() {
+        if a.ndim() == 0 {
+            return value.into_bound_py_any(py);
         }
-        Err(_) => {
-            let a = f64_array(frequencies, "frequencies")?;
-            let v = a.as_array();
-            if is_scalar(frequencies)? {
-                return value.into_bound_py_any(py);
-            }
-            (
-                v.shape().to_vec(),
-                !v.is_standard_layout() && v.t().is_standard_layout(),
-            )
+        let u: &Bound<'_, PyUntypedArray> = a.as_untyped();
+        (
+            u.shape().to_vec(),
+            u.is_fortran_contiguous() && !u.is_c_contiguous(),
+        )
+    } else {
+        let a = f64_array(frequencies, "frequencies")?;
+        let v = a.as_array();
+        if is_scalar(frequencies)? {
+            return value.into_bound_py_any(py);
         }
+        (
+            v.shape().to_vec(),
+            !v.is_standard_layout() && v.t().is_standard_layout(),
+        )
     };
     let out = PyArrayDyn::<f64>::zeros(py, shape, fortran);
     if value.to_bits() != 0 {
@@ -721,13 +721,13 @@ pub fn multi_frequency_weighting<'py>(
     let v = a.as_array();
     // C-contiguous input is read in place; the (kinds, n) result is reshaped
     // without copying.
-    let m = match v.as_slice() {
-        Some(vals) => feat::multi_frequency_weighting(vals, &ks, min_db),
-        None => {
+    let m = v.as_slice().map_or_else(
+        || {
             let vals: Vec<f64> = v.iter().copied().collect();
             feat::multi_frequency_weighting(&vals, &ks, min_db)
-        }
-    };
+        },
+        |vals| feat::multi_frequency_weighting(vals, &ks, min_db),
+    );
     let arr = m
         .into_shape_with_order(IxDyn(&shape))
         .map_err(|e| value_err("frequencies", e))?;

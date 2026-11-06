@@ -8,7 +8,7 @@ use pyo3::prelude::*;
 
 use crate::args::{
     Int, MelNormArg, PyFloat, WindowArg, mel_config, positive, precision_of, stft_config,
-    with_precision,
+    value_err, with_precision,
 };
 use crate::audio_err_to_py;
 use crate::effects::{RngArg, griffinlim_init};
@@ -26,7 +26,13 @@ fn mel_inversion(
     htk: bool,
     norm: MelNormArg,
 ) -> PyResult<MelInversionConfig> {
-    let mel = mel_config(Int(n_mels.max(1) as i64), fmin, fmax, htk, norm)?;
+    let mel = mel_config(
+        Int(i64::try_from(n_mels.max(1)).map_err(|e| value_err("n_mels", e))?),
+        fmin,
+        fmax,
+        htk,
+        norm,
+    )?;
     Ok(MelInversionConfig::new(sr)
         .with_n_fft(positive("n_fft", n_fft)?)
         .with_power(power)

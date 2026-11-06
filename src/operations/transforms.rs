@@ -215,7 +215,7 @@ impl PyAudioSamples {
         let spec_params: SpectrogramParams = spec_params.into();
         check_spec_sample_rate(self, py, &spec_params)?;
         let mel_params: MelParams = mel_params.into();
-        let log_params_ref = log_params.as_ref().map(|lp| lp.as_inner());
+        let log_params_ref = log_params.as_ref().map(PyLogParams::as_inner);
 
         dispatch_with_view!(self, py, |audio| {
             use spectrograms::Decibels;
@@ -267,7 +267,7 @@ impl PyAudioSamples {
         let spec_params: SpectrogramParams = spec_params.into();
         check_spec_sample_rate(self, py, &spec_params)?;
         let erb_params: ErbParams = erb_params.into_inner();
-        let log_params_ref = log_params.as_ref().map(|lp| lp.as_inner());
+        let log_params_ref = log_params.as_ref().map(PyLogParams::as_inner);
 
         dispatch_with_view!(self, py, |audio| {
             let result = if let Some(log_params_ref) = log_params_ref {
@@ -493,20 +493,24 @@ impl PyAudioSamples {
         use audio_samples::operations::transforms::{magphase, magphase_powf};
         // On the borrowed numpy data: no copy of the input.
         if let Ok(d) = complex_spect.extract::<PyReadonlyArray2<'py, Complex<f64>>>() {
-            let (mag, phase) = match power {
-                None => magphase(d.as_array(), None),
-                Some(p) => magphase_powf(d.as_array(), p),
-            };
+            let (mag, phase) = power.map_or_else(
+                || magphase(d.as_array(), None),
+                |p| magphase_powf(d.as_array(), p),
+            );
             return Ok((
                 mag.into_pyarray(py).into_any(),
                 phase.into_pyarray(py).into_any(),
             ));
         }
         if let Ok(d) = complex_spect.extract::<PyReadonlyArray2<'py, Complex<f32>>>() {
-            let (mag, phase) = match power {
-                None => magphase(d.as_array(), None),
-                Some(p) => magphase_powf(d.as_array(), p as f32),
-            };
+            #[allow(
+                clippy::cast_possible_truncation,
+                reason = "a float32 spectrogram takes the exponent rounded to f32"
+            )]
+            let (mag, phase) = power.map_or_else(
+                || magphase(d.as_array(), None),
+                |p| magphase_powf(d.as_array(), p as f32),
+            );
             return Ok((
                 mag.into_pyarray(py).into_any(),
                 phase.into_pyarray(py).into_any(),
@@ -575,8 +579,8 @@ fn convolve_or_deconvolve(
         // Materialise both views as owned 'static buffers so the borrowed view
         // lifetimes do not entangle the 'static result of convolve/deconvolve.
         let _guards = (a.read_guard(py)?, b.read_guard(py)?);
-        let owned_a: AudioSamples<'static, T> = a.with_view(py, |audio| audio.into_owned());
-        let owned_b: AudioSamples<'static, T> = b.with_view(py, |audio| audio.into_owned());
+        let owned_a: AudioSamples<'static, T> = a.borrowed(py).into_owned();
+        let owned_b: AudioSamples<'static, T> = b.borrowed(py).into_owned();
         let result = match op {
             ConvOp::Convolve => owned_a.convolve(&owned_b),
             ConvOp::Deconvolve(reg) => owned_a.deconvolve(&owned_b, reg),

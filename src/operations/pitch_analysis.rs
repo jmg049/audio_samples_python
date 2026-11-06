@@ -93,6 +93,10 @@ impl PyAudioSamples {
     ///     ValueError: If window_size or hop_size is zero.
     ///     AudioError: If pitch tracking fails.
     #[pyo3(signature = (window_size: "int", hop_size: "int", pitch_method: "PitchDetectionMethod" = PyPitchDetectionMethod::detect_yin(), threshold: "float" = 0.1, min_frequency: "float" = 50.0, max_frequency: "float" = 2000.0))]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the Python signature has 6 parameters, plus self and py"
+    )]
     fn track_pitch(
         &self,
         py: Python<'_>,
@@ -153,7 +157,7 @@ impl PyAudioSamples {
                     fundamental_freq,
                     num_harmonics,
                     n_fft,
-                    window_type.map(|w| w.into_inner()),
+                    window_type.map(PyWindowType::into_inner),
                 )
                 .map_err(audio_err_to_py)
         })
@@ -195,7 +199,7 @@ impl PyAudioSamples {
                     num_harmonics,
                     tolerance,
                     n_fft,
-                    window_type.map(|w| w.into_inner()),
+                    window_type.map(PyWindowType::into_inner),
                 )
                 .map_err(audio_err_to_py)
         })

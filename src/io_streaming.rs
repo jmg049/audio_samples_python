@@ -107,9 +107,12 @@ impl Read for PyFileSource {
                 .call_method1("read", (want,))
                 .map_err(std::io::Error::other)?;
             let mut copy = |bytes: &[u8]| {
-                let n = bytes.len().min(want);
-                buf[..n].copy_from_slice(&bytes[..n]);
-                Ok(n)
+                let src = bytes.get(..want).unwrap_or(bytes);
+                let dst = buf.get_mut(..src.len()).ok_or_else(|| {
+                    std::io::Error::other("read() returned more bytes than the buffer holds")
+                })?;
+                dst.copy_from_slice(src);
+                Ok(src.len())
             };
             if let Ok(bytes) = data.cast::<PyBytes>() {
                 return copy(bytes.as_bytes());
@@ -137,7 +140,10 @@ impl Seek for PyFileSource {
     fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
         Python::attach(|py| {
             let (offset, whence) = match pos {
-                SeekFrom::Start(n) => ((n + self.base) as i64, 0),
+                SeekFrom::Start(n) => (
+                    i64::try_from(n + self.base).map_err(std::io::Error::other)?,
+                    0,
+                ),
                 SeekFrom::Current(n) => (n, 1),
                 SeekFrom::End(n) => (n, 2),
             };
@@ -208,7 +214,7 @@ where
             "__getitem__",
             ((
                 py.eval(c"slice(None)", None, None)?,
-                pyo3::types::PySlice::new(py, 0, frames_read as isize, 1),
+                pyo3::types::PySlice::new(py, 0, frames_read.cast_signed(), 1),
             ),),
         )?;
         view.call_method1("copy", (order,))?
@@ -329,14 +335,14 @@ impl PyStreamedAudioReader {
         let mut source = PyFileSource::new(file)?;
         let mut magic = [0u8; FileType::MAGIC_LEN];
         let mut filled = 0;
-        while filled < magic.len() {
-            match source.read(&mut magic[filled..]).map_err(file_err)? {
+        while let Some(rest) = magic.get_mut(filled..).filter(|rest| !rest.is_empty()) {
+            match source.read(rest).map_err(file_err)? {
                 0 => break,
                 n => filled += n,
             }
         }
         source.seek(SeekFrom::Start(0)).map_err(file_err)?;
-        let file_type = FileType::from_magic_bytes(&magic[..filled]);
+        let file_type = FileType::from_magic_bytes(magic.get(..filled).unwrap_or(&magic));
         if !matches!(file_type, FileType::WAV | FileType::FLAC) {
             return Err(PyValueError::new_err(
                 "fp: a file object must hold WAV or FLAC data",
@@ -760,6 +766,7 @@ impl PyStreamedAudioWriter {
     /// Create a streaming writer to ``fp`` (format chosen from the extension).
     #[new]
     #[pyo3(signature = (fp: "str | Path", channels: "int", sample_rate: "int", dtype: "SampleType" = None))]
+    #[allow(clippy::needless_pass_by_value)] // PyO3 extracts `PathBuf` by value
     fn new(
         fp: std::path::PathBuf,
         channels: u16,
@@ -811,6 +818,7 @@ impl PyStreamedAudioWriter {
     ///     ValueError: If the type is not a FLAC-supported integer type.
     #[staticmethod]
     #[pyo3(signature = (fp: "str | Path", channels: "int", sample_rate: "int", compression: "CompressionLevel" = None, dtype: "SampleType" = None))]
+    #[allow(clippy::needless_pass_by_value)] // PyO3 extracts `PathBuf` by value
     fn create_flac(
         fp: std::path::PathBuf,
         channels: u16,
@@ -1028,6 +1036,7 @@ pub struct PyWavSink {
 impl PyWavSink {
     #[new]
     #[pyo3(signature = (fp: "str | Path", channels: "int", sample_rate: "int", dtype: "SampleType" = None, total_frames: "int" = None))]
+    #[allow(clippy::needless_pass_by_value)] // PyO3 extracts `PathBuf` by value
     fn new(
         fp: std::path::PathBuf,
         channels: u16,
@@ -1085,28 +1094,28 @@ impl PyWavSink {
     /// Flush buffered data to the underlying file.
     #[pyo3(signature = ())]
     fn flush(&mut self) -> PyResult<()> {
-        match &mut self.inner {
-            Some(sink) => sink.flush().map_err(audio_io_err_to_py),
-            None => Err(PyRuntimeError::new_err("sink is closed")),
-        }
+        let Some(sink) = &mut self.inner else {
+            return Err(PyRuntimeError::new_err("sink is closed"));
+        };
+        sink.flush().map_err(audio_io_err_to_py)
     }
 
     /// Finalize the sink (idempotent). For a declared-length sink this verifies the count.
     #[pyo3(signature = ())]
     fn finalize(&mut self) -> PyResult<()> {
-        match &mut self.inner {
-            Some(sink) => sink.finalize().map_err(audio_io_err_to_py),
-            None => Err(PyRuntimeError::new_err("sink is closed")),
-        }
+        let Some(sink) = &mut self.inner else {
+            return Err(PyRuntimeError::new_err("sink is closed"));
+        };
+        sink.finalize().map_err(audio_io_err_to_py)
     }
 
     /// Number of frames written so far.
     #[getter]
     fn frames_written(&self) -> PyResult<usize> {
-        match &self.inner {
-            Some(sink) => Ok(sink.frames_written()),
-            None => Err(PyRuntimeError::new_err("sink is closed")),
-        }
+        self.inner.as_ref().map_or_else(
+            || Err(PyRuntimeError::new_err("sink is closed")),
+            |sink| Ok(sink.frames_written()),
+        )
     }
 
     /// Finalize (if needed) and release the file handle. Idempotent.

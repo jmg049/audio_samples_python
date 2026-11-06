@@ -234,7 +234,7 @@ impl PyAudioSamples {
         let segments_vec = unsafe { NonEmptyVec::new_unchecked(segments_vec) };
 
         // Validate all segments have the same dtype
-        let first_dtype = segments_vec[0].dtype(py);
+        let first_dtype = segments_vec.first().dtype(py);
         for segment in segments_vec.iter().skip(1) {
             if !segment.dtype(py).is_equiv_to(&first_dtype) {
                 return Err(PyTypeError::new_err(
@@ -242,13 +242,13 @@ impl PyAudioSamples {
                 ));
             }
         }
-        let first_sr = segments_vec[0].sample_rate(py).get();
+        let first_sr = segments_vec.first().sample_rate(py).get();
         for item in segments_vec.iter().skip(1) {
             crate::check_rates_match("concatenate", first_sr, item.sample_rate(py).get())?;
         }
 
         // Dispatch based on the dtype
-        match &segments_vec[0].inner {
+        match &segments_vec.first().inner {
             PyAudioDataInner::U8(_) => {
                 let audio_segments: Vec<_> = segments_vec
                     .iter()
@@ -412,6 +412,10 @@ impl PyAudioSamples {
     ///     ValueError: If the source list is empty.
     ///     TypeError: If sources differ in dtype or are not AudioSamples.
     ///     AudioError: If mixing fails.
+    #[allow(
+        clippy::needless_pass_by_value,
+        reason = "PyO3 extracts a Python sequence into an owned Vec"
+    )]
     fn mix(
         _cls: &Bound<'_, PyType>,
         py: Python<'_>,
@@ -438,23 +442,26 @@ impl PyAudioSamples {
                     .map_err(|e| PyTypeError::new_err(format!("Expected AudioSamples, got: {e}")))
             })
             .collect::<PyResult<Vec<_>>>()?;
+        let [first, rest @ ..] = sources_vec.as_slice() else {
+            return Err(PyValueError::new_err("Cannot mix empty source list"));
+        };
 
         // Validate all sources have the same dtype
-        let first_dtype = sources_vec[0].dtype(py);
-        for source in sources_vec.iter().skip(1) {
+        let first_dtype = first.dtype(py);
+        for source in rest {
             if !source.dtype(py).is_equiv_to(&first_dtype) {
                 return Err(PyTypeError::new_err(
                     "All sources must have the same dtype for mixing",
                 ));
             }
         }
-        let first_sr = sources_vec[0].sample_rate(py).get();
-        for item in sources_vec.iter().skip(1) {
+        let first_sr = first.sample_rate(py).get();
+        for item in rest {
             crate::check_rates_match("mix", first_sr, item.sample_rate(py).get())?;
         }
 
         // Dispatch based on the dtype
-        match &sources_vec[0].inner {
+        match &first.inner {
             PyAudioDataInner::U8(_) => {
                 let audio_sources: Vec<_> = sources_vec
                     .iter()
@@ -624,7 +631,7 @@ impl PyAudioSamples {
         &mut self,
         py: Python<'_>,
         duration_seconds: f64,
-        curve: &PyFadeCurve,
+        curve: PyFadeCurve,
     ) -> PyResult<()> {
         dispatch_with_view_mut!(self, py, |mut audio| {
             audio
@@ -656,7 +663,7 @@ impl PyAudioSamples {
         &mut self,
         py: Python<'_>,
         duration_seconds: f64,
-        curve: &PyFadeCurve,
+        curve: PyFadeCurve,
     ) -> PyResult<()> {
         dispatch_with_view_mut!(self, py, |mut audio| {
             audio
@@ -804,11 +811,12 @@ impl PyAudioSamples {
     /// Raises:
     ///
     ///     AudioError: If stacking fails or sources are incompatible.
+    #[allow(clippy::needless_pass_by_value)] // PyO3 extracts the list as a `Vec`.
     fn py_stack(
         _cls: &Bound<'_, PyType>,
         py: Python<'_>,
         sources: Vec<Bound<'_, Self>>,
     ) -> PyResult<Self> {
-        Self::stack(py, sources)
+        Self::stack(py, &sources)
     }
 }

@@ -36,9 +36,12 @@ pub fn mr_frequencies(py: Python<'_>, tuning: f64) -> PyResult<Bound<'_, PyAny>>
     (PyArray1::from_slice(py, &f), PyArray1::from_slice(py, &r)).into_bound_py_any(py)
 }
 
+/// Centre frequencies and sample rates given in place of the defaults.
+type Bands = (Vec<f64>, Vec<f64>);
+
 fn filter_config(
     kwargs: Option<&Bound<'_, PyDict>>,
-) -> PyResult<(MultirateFilterConfig, Option<(Vec<f64>, Vec<f64>)>)> {
+) -> PyResult<(MultirateFilterConfig, Option<Bands>)> {
     let mut cfg = MultirateFilterConfig::new();
     let mut freqs = None;
     let mut rates = None;
@@ -327,11 +330,15 @@ where
 {
     let py = y.py();
     with_float_view::<F, _>(y, "y", |v| {
-        let n = v.ndim() as i64;
+        let out_of_range = || value_err("axis", "is out of range");
+        let n = i64::try_from(v.ndim()).map_err(|_| out_of_range())?;
         if axis.0 < -n || axis.0 >= n {
-            return Err(value_err("axis", "is out of range"));
+            return Err(out_of_range());
         }
-        let ax = Axis(if axis.0 < 0 { axis.0 + n } else { axis.0 } as usize);
+        let ax = Axis(
+            usize::try_from(if axis.0 < 0 { axis.0 + n } else { axis.0 })
+                .map_err(|_| out_of_range())?,
+        );
         let out = py
             .detach(|| mellin::mellin_transform(v, cfg, ax))
             .map_err(audio_err_to_py)?;
@@ -370,11 +377,9 @@ pub fn mellin_transform<'py>(
     over_sample: f64,
     axis: Int,
 ) -> PyResult<Bound<'py, PyAny>> {
-    let n_fmt = match n_fmt {
-        None => None,
-        Some(v) if v.0 < 0 => return Err(value_err("n_fmt", "must not be negative")),
-        Some(v) => Some(v.0 as usize),
-    };
+    let n_fmt = n_fmt
+        .map(|v| usize::try_from(v.0).map_err(|_| value_err("n_fmt", "must not be negative")))
+        .transpose()?;
     let cfg = MellinConfig::new()
         .with_t_min(t_min)
         .with_n_fmt(n_fmt)

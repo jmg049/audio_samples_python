@@ -47,33 +47,32 @@ fn nnls_in<'py, F: PyFloat>(
                         .detach(|| NnlsSolver::new(av, &cfg))
                         .map_err(audio_err_to_py)?;
                     let shape = bv.shape().to_vec();
-                    let (m, t) = (shape[shape.len() - 2], shape[shape.len() - 1]);
-                    if m == 0 || t == 0 {
+                    let (lead, rows, cols) = match shape.as_slice() {
+                        [lead @ .., rows, cols] => (lead, *rows, *cols),
+                        _ => return Err(value_err("B", "expected at least two dimensions")),
+                    };
+                    if rows == 0 || cols == 0 {
                         return Err(value_err("B", "must not be empty"));
                     }
-                    let n = av.ncols();
-                    let planes = bv.len() / (m * t);
+                    let n_out = av.ncols();
+                    let planes: usize = lead.iter().product();
                     let flat = bv.as_standard_layout();
                     let flat = flat
                         .as_slice()
                         .ok_or_else(|| value_err("B", "expected contiguous data"))?;
-                    let mut out = Vec::with_capacity(planes * n * t);
-                    for p in 0..planes {
-                        let plane = ndarray::ArrayView2::from_shape(
-                            (m, t),
-                            &flat[p * m * t..(p + 1) * m * t],
-                        )
-                        .map_err(|e| value_err("B", e))?;
-                        let x: Array2<F> =
+                    let mut out = Vec::with_capacity(planes * n_out * cols);
+                    for chunk in flat.chunks_exact(rows * cols) {
+                        let plane = ndarray::ArrayView2::from_shape((rows, cols), chunk)
+                            .map_err(|e| value_err("B", e))?;
+                        let solution: Array2<F> =
                             py.detach(|| solver.solve(plane)).map_err(audio_err_to_py)?;
-                        out.extend(x.iter().copied());
+                        out.extend(solution.iter().copied());
                     }
-                    let mut full = shape;
-                    let last = full.len() - 2;
-                    full[last] = n;
-                    let a = ndarray::ArrayD::from_shape_vec(ndarray::IxDyn(&full), out)
+                    let mut full = lead.to_vec();
+                    full.extend([n_out, cols]);
+                    let result = ndarray::ArrayD::from_shape_vec(ndarray::IxDyn(&full), out)
                         .map_err(|e| value_err("B", e))?;
-                    Ok(a.into_pyarray(py).into_any())
+                    Ok(result.into_pyarray(py).into_any())
                 }
             }
         })
@@ -206,9 +205,11 @@ pub fn svd<'py>(
             .into_dimensionality::<Ix2>()
             .map_err(|_| value_err("a", "expected a 2-D matrix"))?;
         let d = py
-            .detach(|| match k {
-                Some(k) => la::randomized_svd(v, k.get(), 10, n_iter, seed),
-                None => la::svd(v),
+            .detach(|| {
+                k.map_or_else(
+                    || la::svd(v),
+                    |k| la::randomized_svd(v, k.get(), 10, n_iter, seed),
+                )
             })
             .map_err(audio_err_to_py)?;
         (

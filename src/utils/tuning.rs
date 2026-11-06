@@ -193,17 +193,16 @@ pub fn key_to_notes<'py>(
         .unwrap_or_else(PoisonError::into_inner)
         .get(&id)
         .map(|t| t.clone_ref(py));
-    let tuple = match cached {
-        Some(t) => t.into_bound(py),
-        None => {
-            let t = PyTuple::new(py, names.iter().map(|n| PyString::intern(py, n)))?;
-            TUPLES
-                .lock_py_attached(py)
-                .unwrap_or_else(PoisonError::into_inner)
-                .entry(id)
-                .or_insert_with(|| t.clone().unbind());
-            t
-        }
+    let tuple = if let Some(t) = cached {
+        t.into_bound(py)
+    } else {
+        let t = PyTuple::new(py, names.iter().map(|n| PyString::intern(py, n)))?;
+        TUPLES
+            .lock_py_attached(py)
+            .unwrap_or_else(PoisonError::into_inner)
+            .entry(id)
+            .or_insert_with(|| t.clone().unbind());
+        t
     };
     let list: Bound<'py, PyList> = tuple.as_sequence().to_list()?;
     Ok(list)

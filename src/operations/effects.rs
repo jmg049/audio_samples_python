@@ -26,7 +26,7 @@ use std::cell::RefCell;
 
 use crate::args::{
     FloatElement, WindowArg, float_array_as, i64_vec, non_negative, output_sample_type, positive,
-    stft_config, value_err, with_sample_type,
+    size_i64, stft_config, value_err, with_sample_type,
 };
 use crate::effects::{RngArg, effects_err, griffinlim_config, hpss_mask_config};
 use crate::rhythm::planes;
@@ -104,7 +104,7 @@ fn silence_config(
         None => (ChannelAggregate::Max, None),
         Some(a) => {
             let np = py.import("numpy")?;
-            let name = a.cast::<PyString>().ok().map(|s| s.to_string());
+            let name = a.cast::<PyString>().ok().map(ToString::to_string);
             let is = |n: &str| -> PyResult<bool> {
                 Ok(name.as_deref() == Some(n) || a.is(&np.getattr(n)?))
             };
@@ -150,7 +150,7 @@ fn callback_failed(slot: &RefCell<Option<PyErr>>, e: PyErr) -> AudioSampleError 
 fn silence_reference<F: FloatElement + AudioFloat>(
     py: Python<'_>,
     args: &SilenceArgs,
-    rms: ArrayView2<'_, F>,
+    rms: &ArrayView2<'_, F>,
 ) -> PyResult<f64> {
     let Some(f) = &args.reference else {
         return Ok(match args.config.reference {
@@ -185,7 +185,7 @@ fn silence_reference<F: FloatElement + AudioFloat>(
 fn silence_levels<F: FloatElement + AudioFloat>(
     py: Python<'_>,
     args: &SilenceArgs,
-    db: ArrayView2<'_, F>,
+    db: &ArrayView2<'_, F>,
 ) -> PyResult<ndarray::Array1<F>> {
     if db.nrows() == 1 {
         return Ok(db.row(0).to_owned());
@@ -205,8 +205,7 @@ fn silence_levels<F: FloatElement + AudioFloat>(
     let res = float_array_as::<F>(&res, "aggregate")?;
     let res = res.as_array();
     match (res.ndim(), res.shape()) {
-        (1, _) => Ok(res.iter().copied().collect()),
-        (2, [1, _]) => Ok(res.iter().copied().collect()),
+        (1, _) | (2, [1, _]) => Ok(res.iter().copied().collect()),
         _ => Err(value_err(
             "aggregate",
             format!(
@@ -223,17 +222,19 @@ fn parse_intervals(obj: &Bound<'_, PyAny>) -> PyResult<Vec<(usize, usize)>> {
     let v = i64_vec(obj, "intervals")?;
     let n = crate::args::f64_array(obj, "intervals")?;
     let shape = n.shape().to_vec();
-    if shape.len() != 2 || shape[1] != 2 {
+    if !matches!(shape.as_slice(), [_, 2]) {
         return Err(value_err(
             "intervals",
             format!("expected shape (n, 2), got {shape:?}"),
         ));
     }
-    v.chunks_exact(2)
-        .map(|p| {
+    v.as_chunks::<2>()
+        .0
+        .iter()
+        .map(|&[start, end]| {
             Ok((
-                non_negative("intervals", p[0])?,
-                non_negative("intervals", p[1])?,
+                non_negative("intervals", start)?,
+                non_negative("intervals", end)?,
             ))
         })
         .collect()
@@ -278,7 +279,7 @@ fn hp_config(
 }
 
 fn bounds_array(py: Python<'_>, b: (usize, usize)) -> Bound<'_, PyArray1<i64>> {
-    vec![b.0 as i64, b.1 as i64].into_pyarray(py)
+    vec![size_i64(b.0), size_i64(b.1)].into_pyarray(py)
 }
 
 #[pymethods]
@@ -580,8 +581,8 @@ impl PyAudioSamples {
             |audio| trim_db_with(
                 &audio,
                 cfg,
-                |rms| silence_reference(py, &args, rms).map_err(|e| callback_failed(&failed, e)),
-                |db| silence_levels(py, &args, db).map_err(|e| callback_failed(&failed, e)),
+                |rms| silence_reference(py, &args, &rms).map_err(|e| callback_failed(&failed, e)),
+                |db| silence_levels(py, &args, &db).map_err(|e| callback_failed(&failed, e)),
             )
             .map(|(a, b)| (Self::from_audio_samples(a), b)),
             |r| r
@@ -649,9 +650,9 @@ impl PyAudioSamples {
                 |audio| split_db_with(
                     &audio,
                     cfg,
-                    |rms| silence_reference(py, &args, rms)
+                    |rms| silence_reference(py, &args, &rms)
                         .map_err(|e| callback_failed(&failed, e)),
-                    |db| silence_levels(py, &args, db).map_err(|e| callback_failed(&failed, e)),
+                    |db| silence_levels(py, &args, &db).map_err(|e| callback_failed(&failed, e)),
                 ),
                 |r| r
             );
@@ -660,7 +661,10 @@ impl PyAudioSamples {
             }
             result.map_err(audio_err_to_py)?
         };
-        let flat: Vec<i64> = iv.iter().flat_map(|&(a, b)| [a as i64, b as i64]).collect();
+        let flat: Vec<i64> = iv
+            .iter()
+            .flat_map(|&(a, b)| [size_i64(a), size_i64(b)])
+            .collect();
         Ok(Array2::from_shape_vec((iv.len(), 2), flat)
             .expect("two values per interval")
             .into_pyarray(py))

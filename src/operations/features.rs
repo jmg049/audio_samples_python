@@ -56,6 +56,10 @@ impl PyAudioSamples {
         signature = (*, n_fft = Int(2048), hop_length = Int(512), win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant"),
         text_signature = "($self, *, n_fft=2048, hop_length=512, win_length=None, window='hann', center=True, pad_mode='constant')"
     )]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the Python signature has 6 parameters, plus self and py"
+    )]
     fn spectral_centroid_frames<'py>(
         &self,
         py: Python<'py>,
@@ -452,6 +456,10 @@ impl PyAudioSamples {
         text_signature = "($self, *, n_fft=2048, hop_length=None, win_length=None, window='hann', center=True, reassign_frequencies=True, reassign_times=True, ref_power=1e-06, fill_nan=False, clip=True, pad_mode='constant')"
     )]
     #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::fn_params_excessive_bools,
+        reason = "the Python signature has these boolean keywords"
+    )]
     fn reassigned_spectrogram<'py>(
         &self,
         py: Python<'py>,

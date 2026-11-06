@@ -115,6 +115,22 @@ pub fn sample_rate_u32(v: Int) -> PyResult<u32> {
     })
 }
 
+/// A length or count as `i64`, saturating at `i64::MAX` (as [`Int`] does for
+/// Python integers out of range).
+pub fn size_i64(n: usize) -> i64 {
+    i64::try_from(n).unwrap_or(i64::MAX)
+}
+
+/// A length or count as `f64`. Exact below 2**53, which every array length
+/// and index is in practice; larger values round to the nearest `f64`.
+#[allow(
+    clippy::cast_precision_loss,
+    reason = "no lossless usize-to-f64 conversion exists; lengths are below 2**53"
+)]
+pub const fn size_f64(n: usize) -> f64 {
+    n as f64
+}
+
 /// An axis or signed offset parameter as `isize`.
 pub fn signed(name: &str, v: Int) -> PyResult<isize> {
     isize::try_from(v.0).map_err(|_| value_err(name, format!("out of range, got {v}")))
@@ -387,7 +403,7 @@ pub fn array_cow<'a, 'py, E: numpy::Element + Clone>(
     Ok(ndarray::CowArray::from(convert(obj)?.as_array().to_owned()))
 }
 
-/// Runs `f` on a view of [`float_array_as`]`(obj)`.
+/// Runs `f` on a view of `obj` as converted by [`float_array_as`].
 ///
 /// With the GIL, a NumPy array that already has element type `F` is viewed in
 /// place without taking a rust-numpy borrow: each borrow allocates an entry in
@@ -538,7 +554,10 @@ pub fn with_i64_view<R>(
     let ints = with_float_view::<f64, _>(obj, name, |arr| {
         Ok(arr.mapv(|v| {
             if v.is_finite() && v.fract() == 0.0 && v.abs() < MAX_EXACT_INT {
-                v as i64
+                // An integral value below 2^53 converts exactly.
+                #[allow(clippy::cast_possible_truncation)]
+                let exact = v as i64;
+                exact
             } else {
                 bad.get_or_insert(v);
                 0
@@ -622,7 +641,7 @@ pub fn map_f64_to_i64<'py>(
 /// logical order first.
 fn slice_map_out<'py, T: Copy, R: numpy::Element>(
     py: Python<'py>,
-    v: ndarray::ArrayViewD<'_, T>,
+    v: &ndarray::ArrayViewD<'_, T>,
     name: &str,
     slice_f: impl FnOnce(&[T]) -> Vec<R>,
 ) -> PyResult<Bound<'py, PyAny>> {
@@ -665,7 +684,7 @@ where
             let v = *arr.iter().next().expect("0-d array has one element");
             return scalar_f(v).into_bound_py_any(py);
         }
-        slice_map_out(py, arr, name, slice_f)
+        slice_map_out(py, &arr, name, slice_f)
     })
 }
 
@@ -686,7 +705,7 @@ where
             let x = *v.iter().next().expect("0-d array has one element");
             return scalar_f(x).into_bound_py_any(py);
         }
-        slice_map_out(py, v, name, slice_f)
+        slice_map_out(py, &v, name, slice_f)
     })
 }
 
@@ -723,17 +742,17 @@ const WINDOW_NAMES: &str = "'hann', 'hamming', 'blackman', 'blackmanharris', 'bo
 fn window_from_name(name: &str) -> PyResult<Window> {
     // Lower-case short names on the stack (no allocation per call).
     let mut buf = [0u8; 32];
-    let owned;
-    let lower: &str = if name.len() <= buf.len() {
-        let b = &mut buf[..name.len()];
-        b.copy_from_slice(name.as_bytes());
-        b.make_ascii_lowercase();
-        std::str::from_utf8(b).expect("ASCII lower-casing keeps UTF-8 valid")
-    } else {
-        owned = name.to_ascii_lowercase();
-        &owned
-    };
-    match lower {
+    let lower: std::borrow::Cow<'_, str> = buf.get_mut(..name.len()).map_or_else(
+        || name.to_ascii_lowercase().into(),
+        |b| {
+            b.copy_from_slice(name.as_bytes());
+            b.make_ascii_lowercase();
+            std::str::from_utf8(b)
+                .expect("ASCII lower-casing keeps UTF-8 valid")
+                .into()
+        },
+    );
+    match &*lower {
         "hann" | "hanning" | "han" => Ok(Window::Hann),
         "hamming" | "hamm" | "ham" => Ok(Window::Hamming),
         "blackman" | "black" | "blk" => Ok(Window::Blackman),
@@ -932,14 +951,14 @@ pub fn slice_on_axis(
     n: usize,
 ) -> PyResult<ndarray::Slice> {
     use pyo3::types::PySliceMethods;
-    let i = slice.indices(n as isize)?;
+    let i = slice.indices(n.cast_signed())?;
     if i.slicelength == 0 {
         return Ok(ndarray::Slice::new(0, Some(0), 1));
     }
     if i.step > 0 {
         return Ok(ndarray::Slice::new(i.start, Some(i.stop), i.step));
     }
-    let last = i.start + (i.slicelength as isize - 1) * i.step;
+    let last = i.start + (i.slicelength.cast_signed() - 1) * i.step;
     Ok(ndarray::Slice::new(last, Some(i.start + 1), i.step))
 }
 
@@ -969,7 +988,6 @@ pub fn parse_db_axes(obj: &Bound<'_, PyAny>) -> PyResult<DbAxes> {
 macro_rules! arg_newtype {
     ($(#[$m:meta])* $name:ident($inner:ty) via $parse:ident) => {
         $(#[$m])*
-        #[derive(Debug, Clone, PartialEq)]
         pub struct $name(pub $inner);
 
         impl<'a, 'py> FromPyObject<'a, 'py> for $name {
@@ -984,18 +1002,22 @@ macro_rules! arg_newtype {
 
 arg_newtype!(
     /// A window specification, parsed by [`parse_window`].
+    #[derive(Debug, Clone, PartialEq)]
     WindowArg(Window) via parse_window
 );
 arg_newtype!(
     /// A mel filter `norm` (`None`, `"slaney"` or a number), parsed by [`parse_mel_norm`].
+    #[derive(Debug, Clone, Copy, PartialEq)]
     MelNormArg(MelFilterNorm) via parse_mel_norm
 );
 arg_newtype!(
     /// A dB reference (number, `"max"` or `numpy.max`), parsed by [`parse_db_ref`].
+    #[derive(Debug, Clone, Copy, PartialEq)]
     DbRefArg(DbReference) via parse_db_ref
 );
 arg_newtype!(
     /// The dB `axes` argument (`"auto"` or `None`), parsed by [`parse_db_axes`].
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     DbAxesArg(DbAxes) via parse_db_axes
 );
 

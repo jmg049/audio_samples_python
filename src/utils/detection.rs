@@ -34,7 +34,7 @@ pub fn py_detect_sample_rate(py: Python<'_>, audio: &PyAudioSamples) -> PyResult
     dispatch_with_view!(audio, py, |audio| {
         detect_sample_rate::<_>(&audio)
             .map_err(audio_err_to_py)
-            .map(|rate| rate.map(|r| r.get()))
+            .map(|rate| rate.map(std::num::NonZero::get))
     })
 }
 

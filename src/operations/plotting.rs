@@ -11,7 +11,7 @@ impl PyAudioSamples {
         // period before `duration_seconds`; multi-channel audio shares the axis).
         let num = self.samples_per_channel(py);
         let sr = f64::from(self.sample_rate(py).get());
-        let end = (num.saturating_sub(1)) as f64 / sr;
+        let end = crate::args::size_f64(num.saturating_sub(1)) / sr;
         crate::utils::audio_math::linspace(py, 0.0, end, num)
     }
 }

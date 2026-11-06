@@ -1,6 +1,6 @@
 use audio_samples::operations::types::ChannelReduction;
-use audio_samples::{AudioData, AudioSamples, AudioStatistics, StandardSample};
-use numpy::{Element, PyArrayMethods};
+use audio_samples::{AudioStatistics, StandardSample};
+use numpy::Element;
 use pyo3::{IntoPyObjectExt, prelude::*};
 
 use crate::{
@@ -68,7 +68,7 @@ impl PyAudioSamples {
     ///
     ///     float: Mean amplitude across all samples and channels.
     fn mean(&self, py: Python<'_>) -> PyResult<f64> {
-        Ok({ dispatch_with_view!(self, py, |audio| audio.mean()) })
+        Ok(dispatch_with_view!(self, py, |audio| audio.mean()))
     }
 
     #[pyo3(signature = ())]
@@ -78,7 +78,7 @@ impl PyAudioSamples {
     ///
     ///     Optional[float]: Median amplitude if the view is non-empty, None otherwise.
     fn median(&self, py: Python<'_>) -> PyResult<Option<f64>> {
-        Ok({ dispatch_with_view!(self, py, |audio| audio.midpoint_sample()) })
+        Ok(dispatch_with_view!(self, py, |audio| audio.midpoint_sample()))
     }
 
     #[pyo3(signature = ())]
@@ -88,7 +88,7 @@ impl PyAudioSamples {
     ///
     ///     float: RMS amplitude across all samples and channels.
     fn rms(&self, py: Python<'_>) -> PyResult<f64> {
-        Ok({ dispatch_with_view!(self, py, |audio| audio.rms()) })
+        Ok(dispatch_with_view!(self, py, |audio| audio.rms()))
     }
 
     #[pyo3(signature = ())]
@@ -98,7 +98,7 @@ impl PyAudioSamples {
     ///
     ///     float: Variance of amplitudes across all samples and channels.
     fn variance(&self, py: Python<'_>) -> PyResult<f64> {
-        Ok({ dispatch_with_view!(self, py, |audio| audio.variance()) })
+        Ok(dispatch_with_view!(self, py, |audio| audio.variance()))
     }
 
     #[pyo3(signature = ())]
@@ -122,7 +122,7 @@ impl PyAudioSamples {
     ///
     ///     int: Number of crossings (summed over channels).
     fn zero_crossings(&self, py: Python<'_>) -> PyResult<usize> {
-        Ok({ dispatch_with_view!(self, py, |audio| audio.zero_crossings()) })
+        Ok(dispatch_with_view!(self, py, |audio| audio.zero_crossings()))
     }
 
     #[pyo3(signature = (), text_signature = "($self)")]
@@ -143,7 +143,7 @@ impl PyAudioSamples {
     ///         averaged over channels. ``librosa.feature.zero_crossing_rate`` is
     ///         instead a per-frame fraction of samples.
     fn zero_crossing_rate(&self, py: Python<'_>) -> PyResult<f64> {
-        Ok({ dispatch_with_view!(self, py, |audio| audio.zero_crossing_rate()) })
+        Ok(dispatch_with_view!(self, py, |audio| audio.zero_crossing_rate()))
     }
 
     #[pyo3(signature = (max_lag))]
@@ -223,40 +223,6 @@ channels, got {self_ch} and {other_ch}; use to_mono() or extract_channel() first
                 pyo3::exceptions::PyValueError::new_err,
             ));
         }
-        fn cross_correlation_dual<T>(
-            a: &TypedAudioSamples<T>,
-            b: &TypedAudioSamples<T>,
-            py: Python<'_>,
-            max_lag: usize,
-        ) -> PyResult<Vec<f64>>
-        where
-            T: StandardSample + Element,
-        {
-            let max_lag = nzu_or_err(max_lag)?;
-
-            // Same-kind backings are viewed in place; others are copied below.
-            use PyAudioBacking::{NumpyMono, NumpyMulti, OwnedMono, OwnedMulti};
-            let result = match (&a.backing, &b.backing) {
-                (OwnedMono(_), OwnedMono(_))
-                | (OwnedMulti(_), OwnedMulti(_))
-                | (NumpyMono(_), NumpyMono(_))
-                | (NumpyMulti(_), NumpyMulti(_)) => {
-                    a.borrowed(py).cross_correlation(&b.borrowed(py), max_lag)
-                }
-                _ => {
-                    // Mixed backings (e.g. one owned, one NumPy-backed) or
-                    // interleaved NumPy arrays: materialise both as owned
-                    // buffers and correlate those.
-                    let _guards = (a.read_guard(py)?, b.read_guard(py)?);
-                    let owned_a = a.with_view(py, |audio| audio.into_owned());
-                    let owned_b = b.with_view(py, |audio| audio.into_owned());
-                    owned_a.cross_correlation(&owned_b, max_lag)
-                }
-            };
-
-            result.map(|nev| nev.to_vec()).map_err(audio_err_to_py)
-        }
-
         match (&self.inner, &other.inner) {
             (PyAudioDataInner::I16(a), PyAudioDataInner::I16(b)) => {
                 cross_correlation_dual(a, b, py, max_lag.get())
@@ -490,7 +456,7 @@ channels, got {self_ch} and {other_ch}; use to_mono() or extract_channel() first
     ///     Optional[float]: Midpoint value for mono audio, or None if the signal
     ///         is multi-channel.
     fn midpoint_sample(&self, py: Python<'_>) -> PyResult<Option<f64>> {
-        Ok({ dispatch_with_view!(self, py, |audio| audio.midpoint_sample()) })
+        Ok(dispatch_with_view!(self, py, |audio| audio.midpoint_sample()))
     }
 
     #[pyo3(signature = ())]
@@ -536,4 +502,39 @@ channels, got {self_ch} and {other_ch}; use to_mono() or extract_channel() first
             })
         })
     }
+}
+
+/// Cross-correlation of two buffers of the same sample type.
+fn cross_correlation_dual<T>(
+    a: &TypedAudioSamples<T>,
+    b: &TypedAudioSamples<T>,
+    py: Python<'_>,
+    max_lag: usize,
+) -> PyResult<Vec<f64>>
+where
+    T: StandardSample + Element,
+{
+    use PyAudioBacking::{NumpyMono, NumpyMulti, OwnedMono, OwnedMulti};
+    let max_lag = nzu_or_err(max_lag)?;
+
+    // Same-kind backings are viewed in place; others are copied below.
+    let result = match (&a.backing, &b.backing) {
+        (OwnedMono(_), OwnedMono(_))
+        | (OwnedMulti(_), OwnedMulti(_))
+        | (NumpyMono(_), NumpyMono(_))
+        | (NumpyMulti(_), NumpyMulti(_)) => {
+            a.borrowed(py).cross_correlation(&b.borrowed(py), max_lag)
+        }
+        _ => {
+            // Mixed backings (e.g. one owned, one NumPy-backed) or
+            // interleaved NumPy arrays: materialise both as owned
+            // buffers and correlate those.
+            let _guards = (a.read_guard(py)?, b.read_guard(py)?);
+            let owned_a = a.borrowed(py).into_owned();
+            let owned_b = b.borrowed(py).into_owned();
+            owned_a.cross_correlation(&owned_b, max_lag)
+        }
+    };
+
+    result.map(|nev| nev.to_vec()).map_err(audio_err_to_py)
 }

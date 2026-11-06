@@ -120,9 +120,12 @@ fn py_prior(bpm: f64) -> f64 {
 /// callback-taking binding (directly or through library code), and the inner
 /// call must not clobber the outer call's callbacks or its pending error.
 pub struct CallbackScope {
-    prev_aggregate: Option<Py<PyAny>>,
-    prev_prior: Option<Py<PyAny>>,
-    prev_err: Option<PyErr>,
+    /// The aggregate callback installed before this scope.
+    aggregate: Option<Py<PyAny>>,
+    /// The prior callback installed before this scope.
+    prior: Option<Py<PyAny>>,
+    /// The pending callback error from before this scope.
+    err: Option<PyErr>,
 }
 
 impl CallbackScope {
@@ -131,20 +134,20 @@ impl CallbackScope {
         prior: Option<&Py<PyAny>>,
         py: Python<'_>,
     ) -> Self {
-        let prev_aggregate = AGGREGATE_CB.with(|c| c.replace(aggregate.map(|f| f.clone_ref(py))));
-        let prev_prior = PRIOR_CB.with(|c| c.replace(prior.map(|f| f.clone_ref(py))));
-        let prev_err = CALLBACK_ERR.with(|c| c.replace(None));
         Self {
-            prev_aggregate,
-            prev_prior,
-            prev_err,
+            aggregate: AGGREGATE_CB.with(|c| c.replace(aggregate.map(|f| f.clone_ref(py)))),
+            prior: PRIOR_CB.with(|c| c.replace(prior.map(|f| f.clone_ref(py)))),
+            err: CALLBACK_ERR.with(|c| c.replace(None)),
         }
     }
 
     /// Converts the Rust result, giving precedence to an exception raised by a
     /// callback.
     pub(crate) fn finish<T>(self, r: audio_samples::AudioSampleResult<T>) -> PyResult<T> {
-        if let Some(e) = CALLBACK_ERR.with(|c| c.borrow_mut().take()) {
+        let raised = CALLBACK_ERR.with(|c| c.borrow_mut().take());
+        // Restores the outer call's callbacks and pending error.
+        drop(self);
+        if let Some(e) = raised {
             return Err(e);
         }
         r.map_err(audio_err_to_py)
@@ -153,9 +156,9 @@ impl CallbackScope {
 
 impl Drop for CallbackScope {
     fn drop(&mut self) {
-        AGGREGATE_CB.with(|c| *c.borrow_mut() = self.prev_aggregate.take());
-        PRIOR_CB.with(|c| *c.borrow_mut() = self.prev_prior.take());
-        CALLBACK_ERR.with(|c| *c.borrow_mut() = self.prev_err.take());
+        AGGREGATE_CB.with(|c| *c.borrow_mut() = self.aggregate.take());
+        PRIOR_CB.with(|c| *c.borrow_mut() = self.prior.take());
+        CALLBACK_ERR.with(|c| *c.borrow_mut() = self.err.take());
     }
 }
 
@@ -437,14 +440,14 @@ pub fn events_out<'py>(
         "frames" => Ok(ev
             .frames
             .iter()
-            .map(|&f| f as i64)
+            .map(|&f| f.cast_signed() as i64)
             .collect::<Vec<_>>()
             .into_pyarray(py)
             .into_any()),
         "samples" => Ok(ev
             .samples()
             .into_iter()
-            .map(|s| s as i64)
+            .map(|s| s.cast_signed() as i64)
             .collect::<Vec<_>>()
             .into_pyarray(py)
             .into_any()),
@@ -662,13 +665,15 @@ pub fn track_beats<'py, F: PyFloat>(
             if !(tightness.is_finite() && tightness > 0.0) {
                 return Err(value_err("tightness", "must be finite and positive"));
             }
-            let frames =
-                rh::beat_track_with_bpm(envelope, &values, sr / hop.get() as f64, tightness, trim)
-                    .map_err(audio_err_to_py)?;
+            #[allow(clippy::cast_precision_loss)]
+            // hop lengths are far below 2^52, where the conversion is exact
+            let frame_rate = sr / hop.get() as f64;
+            let frames = rh::beat_track_with_bpm(envelope, &values, frame_rate, tightness, trim)
+                .map_err(audio_err_to_py)?;
             (b.clone(), frames)
         }
         _ => {
-            let fixed = bpm.map(|b| b.extract::<f64>()).transpose()?;
+            let fixed = bpm.map(PyAnyMethods::extract::<f64>).transpose()?;
             let cfg = BeatTrackConfig::new()
                 .with_start_bpm(start_bpm)
                 .with_tightness(tightness)
@@ -996,7 +1001,7 @@ pub fn peak_pick<'py>(
         .map_err(audio_err_to_py)?;
     Ok(peaks
         .into_iter()
-        .map(|p| p as i64)
+        .map(|p| p.cast_signed() as i64)
         .collect::<Vec<_>>()
         .into_pyarray(py))
 }
@@ -1027,7 +1032,7 @@ pub fn onset_backtrack<'py>(
     });
     Ok(backtracked
         .into_iter()
-        .map(|p| p as i64)
+        .map(|p| p.cast_signed() as i64)
         .collect::<Vec<_>>()
         .into_pyarray(py))
 }
@@ -1433,14 +1438,17 @@ pub fn beat_track_with_bpm<'py>(
 ) -> PyResult<Bound<'py, PyArray1<i64>>> {
     let bpm: Vec<f64> = f64_array(bpm, "bpm")?.as_array().iter().copied().collect();
     let hop = hop_nz(hop_length.0)?;
+    #[allow(clippy::cast_precision_loss)]
+    // hop lengths are far below 2^52, where the conversion is exact
+    let frame_rate = sr / hop.get() as f64;
     let frames = with_precision!(precision_of(onset_envelope), |F| {
         let env = vec1::<F>(onset_envelope, "onset_envelope")?;
-        rh::beat_track_with_bpm(&env, &bpm, sr / hop.get() as f64, tightness, trim)
+        rh::beat_track_with_bpm(&env, &bpm, frame_rate, tightness, trim)
     })
     .map_err(audio_err_to_py)?;
     Ok(frames
         .into_iter()
-        .map(|f| f as i64)
+        .map(|f| f.cast_signed() as i64)
         .collect::<Vec<_>>()
         .into_pyarray(py))
 }

@@ -81,20 +81,18 @@ fn parse_steps(obj: Option<&Bound<'_, PyAny>>) -> PyResult<Option<Vec<[usize; 2]
     };
     let v = i64_vec(obj, "step_sizes_sigma")?;
     let a = f64_array(obj, "step_sizes_sigma")?;
-    if a.ndim() != 2 || a.shape()[1] != 2 {
+    if !matches!(a.shape(), [_, 2]) {
         return Err(value_err(
             "step_sizes_sigma",
             "expected an array of shape (n_steps, 2)",
         ));
     }
-    v.chunks(2)
-        .map(|c| {
-            let r = usize::try_from(c[0]);
-            let s = usize::try_from(c[1]);
-            match (r, s) {
-                (Ok(r), Ok(s)) => Ok([r, s]),
-                _ => Err(value_err("step_sizes_sigma", "steps must be non-negative")),
-            }
+    v.as_chunks::<2>()
+        .0
+        .iter()
+        .map(|&[r, s]| match (usize::try_from(r), usize::try_from(s)) {
+            (Ok(r), Ok(s)) => Ok([r, s]),
+            _ => Err(value_err("step_sizes_sigma", "steps must be non-negative")),
         })
         .collect::<PyResult<Vec<_>>>()
         .map(Some)
@@ -106,7 +104,7 @@ fn path_array(py: Python<'_>, path: Vec<[usize; 2]>) -> Bound<'_, PyArray2<i64>>
     // allocation, and NumPy takes ownership of it: no second buffer.
     let path: Vec<[i64; 2]> = path
         .into_iter()
-        .map(|[i, j]| [i as i64, j as i64])
+        .map(|[i, j]| [i.cast_signed() as i64, j.cast_signed() as i64])
         .collect();
     Array2::from(path).into_pyarray(py)
 }
@@ -148,7 +146,11 @@ fn path_array(py: Python<'_>, path: Vec<[usize; 2]>) -> Bound<'_, PyArray2<i64>>
     signature = (X = None, Y = None, *, C = None, metric = "euclidean", step_sizes_sigma = None, weights_add = None, weights_mul = None, subseq = false, backtrack = true, global_constraints = false, band_rad = 0.25, return_steps = false),
     text_signature = "(X=None, Y=None, *, C=None, metric='euclidean', step_sizes_sigma=None, weights_add=None, weights_mul=None, subseq=False, backtrack=True, global_constraints=False, band_rad=0.25, return_steps=False)"
 )]
-#[allow(non_snake_case, clippy::too_many_arguments)]
+#[allow(
+    non_snake_case,
+    clippy::too_many_arguments,
+    clippy::fn_params_excessive_bools
+)] // PyO3 signature mirrors librosa's keyword arguments
 pub fn dtw<'py>(
     py: Python<'py>,
     X: Option<&Bound<'py, PyAny>>,
@@ -208,7 +210,12 @@ pub fn dtw<'py>(
         out.push(path_array(py, path).into_any());
     }
     if return_steps {
-        out.push(steps.mapv(|s| s as i64).into_pyarray(py).into_any());
+        out.push(
+            steps
+                .mapv(|s| s.cast_signed() as i64)
+                .into_pyarray(py)
+                .into_any(),
+        );
     }
     if out.len() == 1 {
         Ok(out.pop().expect("one element"))
@@ -323,7 +330,7 @@ pub fn viterbi<'py>(
             transition_min_prob,
         )
         .map_err(audio_err_to_py)?;
-        let states: Array1<i64> = r.states.iter().map(|&s| s as i64).collect();
+        let states: Array1<i64> = r.states.iter().map(|&s| s.cast_signed() as i64).collect();
         states_out(py, states, r.log_prob.into_bound_py_any(py)?, return_logp)
     })
 }
@@ -370,7 +377,7 @@ pub fn viterbi_discriminative<'py>(
             transition_min_prob,
         )
         .map_err(audio_err_to_py)?;
-        let states: Array1<i64> = r.states.iter().map(|&s| s as i64).collect();
+        let states: Array1<i64> = r.states.iter().map(|&s| s.cast_signed() as i64).collect();
         states_out(py, states, r.log_prob.into_bound_py_any(py)?, return_logp)
     })
 }
@@ -401,7 +408,7 @@ pub fn viterbi_discriminative<'py>(
     signature = (prob, transition, *, p_state = None, p_init = None, return_logp = false, transition_min_prob = None, dtype = None),
     text_signature = "(prob, transition, *, p_state=None, p_init=None, return_logp=False, transition_min_prob=None, dtype=None)"
 )]
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::needless_pass_by_value)] // PyO3 signature; `DTypeArg` is extracted by value
 pub fn viterbi_binary<'py>(
     py: Python<'py>,
     prob: &Bound<'py, PyAny>,
@@ -430,10 +437,20 @@ pub fn viterbi_binary<'py>(
         transition,
         p_state,
         p_init,
-        return_logp,
-        transition_min_prob,
-        states_dtype
+        BinaryDecode {
+            return_logp,
+            transition_min_prob,
+            states_dtype,
+        }
     ))
+}
+
+/// Decoding options and output type of `viterbi_binary`.
+#[derive(Clone, Copy)]
+struct BinaryDecode {
+    return_logp: bool,
+    transition_min_prob: Option<f64>,
+    states_dtype: StatesDtype,
 }
 
 /// Element type of the `viterbi_binary` states.
@@ -451,10 +468,13 @@ fn viterbi_binary_typed<'py, F: PyFloat>(
     transition: &Bound<'py, PyAny>,
     p_state: Option<&Bound<'py, PyAny>>,
     p_init: Option<&Bound<'py, PyAny>>,
-    return_logp: bool,
-    transition_min_prob: Option<f64>,
-    states_dtype: StatesDtype,
+    decode: BinaryDecode,
 ) -> PyResult<Bound<'py, PyAny>> {
+    let BinaryDecode {
+        return_logp,
+        transition_min_prob,
+        states_dtype,
+    } = decode;
     let one_d = is_one_d(prob, "prob")?;
     let prob = matrix::<F>(prob, "prob")?;
     let n_states = prob.view().nrows();
@@ -477,11 +497,8 @@ fn viterbi_binary_typed<'py, F: PyFloat>(
     // librosa broadcasts a scalar p_state / p_init to every state.
     let broadcast = |v: Option<Array1<F>>| -> Option<Array1<F>> {
         v.map(|a| {
-            if a.len() == 1 && n_states > 1 {
-                Array1::from_elem(n_states, a[0])
-            } else {
-                a
-            }
+            let scalar = a.first().copied().filter(|_| a.len() == 1 && n_states > 1);
+            scalar.map_or(a, |x| Array1::from_elem(n_states, x))
         })
     };
     let p_state = broadcast(opt_vec::<F>(p_state, "p_state")?);
@@ -497,7 +514,11 @@ fn viterbi_binary_typed<'py, F: PyFloat>(
     )
     .map_err(audio_err_to_py)?;
     let lp = if one_d {
-        r.log_prob[0].as_f64().into_bound_py_any(py)?
+        r.log_prob
+            .first()
+            .ok_or_else(|| value_err("prob", "expected at least one state"))?
+            .as_f64()
+            .into_bound_py_any(py)?
     } else {
         r.log_prob.into_pyarray(py).into_any()
     };
@@ -789,7 +810,7 @@ fn similarity_out<F: PyFloat>(
     signature = (data, *, k = None, width = Int(1), metric = "euclidean", sym = false, sparse = false, mode = "connectivity", bandwidth = None, self_links = false, axis = Int(-1), full = false, **kwargs),
     text_signature = "(data, *, k=None, width=1, metric='euclidean', sym=False, sparse=False, mode='connectivity', bandwidth=None, self=False, axis=-1, full=False, self_links=False)"
 )]
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::fn_params_excessive_bools)] // PyO3 signature mirrors librosa's keyword arguments
 pub fn recurrence_matrix<'py>(
     py: Python<'py>,
     data: &Bound<'py, PyAny>,
@@ -961,7 +982,7 @@ pub fn recurrence_to_lag<'py>(
     if is_bool && let Ok(a) = rec.cast::<numpy::PyArray2<bool>>() {
         // Boolean input is sheared as bool (the kernel only moves elements).
         let r = a.try_readonly()?;
-        let lag = shear_rows(r.as_array(), rows_are_time, |m| {
+        let lag = shear_rows(&r.as_array(), rows_are_time, |m| {
             seq::recurrence_to_lag(m, pad)
         })?;
         return Ok(c_order(lag).into_pyarray(py).into_any());
@@ -1009,7 +1030,7 @@ pub fn lag_to_recurrence<'py>(
     if is_bool && let Ok(a) = lag.cast::<numpy::PyArray2<bool>>() {
         // Boolean input is sheared as bool (the kernel only moves elements).
         let r = a.try_readonly()?;
-        let rec = shear_rows(r.as_array(), rows_are_time, seq::lag_to_recurrence)?;
+        let rec = shear_rows(&r.as_array(), rows_are_time, seq::lag_to_recurrence)?;
         return Ok(c_order(rec).into_pyarray(py).into_any());
     }
     let prec = if is_bool {
@@ -1036,14 +1057,14 @@ pub fn lag_to_recurrence<'py>(
 /// `rows_are_time` (the transform of the transpose, transposed back), columns
 /// otherwise.
 fn shear_rows<T>(
-    m: ndarray::ArrayView2<'_, T>,
+    m: &ndarray::ArrayView2<'_, T>,
     rows_are_time: bool,
     f: impl FnOnce(ndarray::ArrayView2<'_, T>) -> audio_samples::AudioSampleResult<Array2<T>>,
 ) -> PyResult<Array2<T>> {
     if rows_are_time {
         Ok(f(m.t()).map_err(audio_err_to_py)?.reversed_axes())
     } else {
-        f(m).map_err(audio_err_to_py)
+        f(m.view()).map_err(audio_err_to_py)
     }
 }
 
@@ -1131,7 +1152,8 @@ pub fn sync<'py>(
         Ok(a) => a.ndim(),
         Err(_) => crate::args::f64_array(data, "data")?.ndim(),
     };
-    if axis != Int(-1) && axis != Int(ndim as i64 - 1) {
+    let last = i64::try_from(ndim).map_err(|e| value_err("data", e))? - 1;
+    if axis != Int(-1) && axis != Int(last) {
         return Err(value_err(
             "axis",
             "only the last axis (axis=-1) is supported",
@@ -1214,7 +1236,7 @@ fn slice_iter<'a>(
     for i in 0..len {
         at(i)?;
     }
-    Ok((0..len).map(move |i| at(i).unwrap_or(ndarray::Slice::new(0, Some(0), 1))))
+    Ok((0..len).map(move |i| at(i).unwrap_or_else(|_| ndarray::Slice::new(0, Some(0), 1))))
 }
 
 /// The boundary indices of `sync` as `usize`, or its slices. A list or tuple of Python
@@ -1223,11 +1245,10 @@ fn slice_iter<'a>(
 fn sync_indices<'py>(idx: &Bound<'py, PyAny>) -> PyResult<SyncIndex<'py>> {
     use pyo3::types::{PyInt, PyList, PyTuple};
     let negative = || value_err("idx", "indices must be >= 0");
-    let items = if let Ok(l) = idx.cast::<PyList>() {
-        Some(l.as_sequence().clone())
-    } else {
-        idx.cast::<PyTuple>().ok().map(|t| t.as_sequence().clone())
-    };
+    let items = idx.cast::<PyList>().map_or_else(
+        |_| idx.cast::<PyTuple>().ok().map(|t| t.as_sequence().clone()),
+        |l| Some(l.as_sequence().clone()),
+    );
     if let Some(seq) = items {
         let n = seq.len()?;
         let mut out = Vec::new();
@@ -1243,13 +1264,11 @@ fn sync_indices<'py>(idx: &Bound<'py, PyAny>) -> PyResult<SyncIndex<'py>> {
             if k == 0 {
                 out.reserve_exact(n);
             }
-            match item.extract::<i64>() {
-                Ok(i) => out.push(usize::try_from(i).map_err(|_| negative())?),
-                Err(_) => {
-                    out.clear();
-                    break;
-                }
-            }
+            let Ok(i) = item.extract::<i64>() else {
+                out.clear();
+                break;
+            };
+            out.push(usize::try_from(i).map_err(|_| negative())?);
         }
         if out.len() == n {
             return Ok(SyncIndex::Frames(out));

@@ -317,7 +317,9 @@ pub fn decompose<'py>(
     if shape.len() > 2 && sort {
         return Err(value_err("sort", "is only supported for 2-D input"));
     }
-    let frames = shape[shape.len() - 1];
+    let Some((&frames, lead)) = shape.split_last() else {
+        return Err(value_err("S", "expected at least 2 dimensions"));
+    };
     let order_f = PyDict::new(py);
     order_f.set_item("order", "F")?;
     let x = s
@@ -345,7 +347,11 @@ pub fn decompose<'py>(
     };
     let activations = w.getattr("T")?;
     let raw = model.getattr("components_")?;
-    let mut shape_out: Vec<i64> = shape[..shape.len() - 1].iter().map(|&d| d as i64).collect();
+    let mut shape_out = lead
+        .iter()
+        .map(|&d| i64::try_from(d))
+        .collect::<Result<Vec<i64>, _>>()
+        .map_err(|e| value_err("S", e))?;
     shape_out.push(-1);
     shape_out.reverse();
     let components = raw

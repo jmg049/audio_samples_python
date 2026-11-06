@@ -248,9 +248,15 @@ impl PyAudioSamples {
             })
             .collect::<PyResult<Vec<_>>>()?;
 
+        let Some((first, rest)) = channels_vec.split_first() else {
+            return Err(PyValueError::new_err(
+                "Cannot interleave empty channel list",
+            ));
+        };
+
         // Validate all channels share the same dtype.
-        let first_dtype = channels_vec[0].dtype(py);
-        for ch in channels_vec.iter().skip(1) {
+        let first_dtype = first.dtype(py);
+        for ch in rest {
             if !ch.dtype(py).is_equiv_to(&first_dtype) {
                 return Err(PyValueError::new_err(
                     "All channels must have the same dtype for interleaving",
@@ -279,7 +285,7 @@ impl PyAudioSamples {
             }};
         }
 
-        match &channels_vec[0].inner {
+        match &first.inner {
             PyAudioDataInner::U8(_) => interleave_for!(U8, u8),
             PyAudioDataInner::I16(_) => interleave_for!(I16, i16),
             PyAudioDataInner::I24(_) => interleave_for!(I24, audio_samples::I24),

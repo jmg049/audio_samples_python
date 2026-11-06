@@ -11,7 +11,7 @@ use pyo3::prelude::*;
 
 use crate::args::{
     is_scalar, map_f64, map_f64_slice, map_f64_to_i64, map_i64, map_i64_slice, non_negative,
-    positive, value_err,
+    positive, size_i64, value_err,
 };
 use crate::audio_err_to_py;
 
@@ -314,7 +314,7 @@ pub fn time_to_frames<'py>(
 ) -> PyResult<Bound<'py, PyAny>> {
     let hop = positive("hop_size", hop_size)?.get();
     map_f64_to_i64(time_seconds, "time_seconds", |t| {
-        audio_math::time_to_frames(t, sample_rate, hop) as i64
+        size_i64(audio_math::time_to_frames(t, sample_rate, hop))
     })
 }
 
@@ -354,6 +354,10 @@ pub fn samples_to_time<'py>(
         // One pass: `s as f64 / sample_rate` is `audio_math::samples_to_time`
         // for s >= 0; negative indices are reported after the pass.
         let mut negative = false;
+        #[allow(
+            clippy::cast_precision_loss,
+            reason = "the same conversion as audio_math::samples_to_time; exact below 2**53"
+        )]
         let t = v.mapv(|s| {
             negative |= s < 0;
             s as f64 / sample_rate
@@ -370,13 +374,13 @@ pub fn samples_to_time<'py>(
 /// (Python and NumPy scalars, 0-d arrays) takes the scalar path.
 fn is_sequence_like(obj: &Bound<'_, PyAny>) -> bool {
     use numpy::PyUntypedArrayMethods;
-    match obj.cast::<numpy::PyUntypedArray>() {
-        Ok(a) => a.ndim() > 0,
-        Err(_) => {
+    obj.cast::<numpy::PyUntypedArray>().map_or_else(
+        |_| {
             obj.is_instance_of::<pyo3::types::PyList>()
                 || obj.is_instance_of::<pyo3::types::PyTuple>()
-        }
-    }
+        },
+        |a| a.ndim() > 0,
+    )
 }
 
 /// Collects `f` over the elements of a 1-D sequence of strings (list, tuple,
@@ -537,7 +541,7 @@ pub fn midi_to_note<'py>(midi_note: &Bound<'py, PyAny>) -> PyResult<Bound<'py, P
             .iter()
             .map(|&m| Ok(names.get(py, one(m)?)))
             .collect::<PyResult<Vec<_>>>()?;
-        Ok(pyo3::types::PyList::new(py, items)?)
+        pyo3::types::PyList::new(py, items)
     })?;
     Ok(list.into_any())
 }
@@ -1070,19 +1074,21 @@ fn frame_count(x: &Bound<'_, PyAny>, axis: Int) -> PyResult<usize> {
     if shape.is_empty() {
         return Err(value_err("X", "cannot take the frame count of a 0-d array"));
     }
-    let nd = shape.len() as i64;
+    let nd = size_i64(shape.len());
     let ax = if axis.0 < 0 {
         axis.0.saturating_add(nd)
     } else {
         axis.0
     };
-    if !(0..nd).contains(&ax) {
-        return Err(value_err(
-            "axis",
-            format!("{axis} is out of range for an array with {nd} dimensions"),
-        ));
-    }
-    Ok(shape[ax as usize])
+    usize::try_from(ax)
+        .ok()
+        .and_then(|i| shape.get(i).copied())
+        .ok_or_else(|| {
+            value_err(
+                "axis",
+                format!("{axis} is out of range for an array with {nd} dimensions"),
+            )
+        })
 }
 
 /// Time (seconds) of each frame of a feature matrix, like ``librosa.times_like``.
@@ -1187,7 +1193,7 @@ pub fn mu_law_encode<'py>(x: &Bound<'py, PyAny>, mu: f64) -> PyResult<Bound<'py,
         Precision::F32 => {
             let a = float_array_as::<f32>(x, "x")?;
             let v = a.as_array();
-            (mu_encode_blocks(v.view(), mu)?, v.raw_dim())
+            (mu_encode_blocks(&v.view(), mu)?, v.raw_dim())
         }
         Precision::F64 => {
             let a = float_array_as::<f64>(x, "x")?;
@@ -1195,13 +1201,13 @@ pub fn mu_law_encode<'py>(x: &Bound<'py, PyAny>, mu: f64) -> PyResult<Bound<'py,
             let codes = match v.as_slice() {
                 // C-contiguous float64: encoded in place.
                 Some(flat) => audio_samples::mu_law_encode(flat, mu).map_err(audio_err_to_py)?,
-                None => mu_encode_blocks(v.view(), mu)?,
+                None => mu_encode_blocks(&v.view(), mu)?,
             };
             (codes, v.raw_dim())
         }
     };
-    if scalar {
-        return codes[0].into_bound_py_any(py);
+    if scalar && let Some(&c) = codes.first() {
+        return c.into_bound_py_any(py);
     }
     let out = ndarray::ArrayD::from_shape_vec(shape, codes).map_err(|e| value_err("x", e))?;
     Ok(out.into_pyarray(py).into_any())
@@ -1211,7 +1217,7 @@ pub fn mu_law_encode<'py>(x: &Bound<'py, PyAny>, mu: f64) -> PyResult<Bound<'py,
 /// float64 in blocks of [`MU_BLOCK`] samples (no float64 copy of the whole
 /// input).
 fn mu_encode_blocks<F: audio_samples::AudioFloat>(
-    v: ndarray::ArrayViewD<'_, F>,
+    v: &ndarray::ArrayViewD<'_, F>,
     mu: f64,
 ) -> PyResult<Vec<i64>> {
     let mut codes = Vec::with_capacity(v.len());
@@ -1221,7 +1227,7 @@ fn mu_encode_blocks<F: audio_samples::AudioFloat>(
         buf.clear();
         Ok(())
     };
-    for &s in &v {
+    for &s in v {
         buf.push(s.as_f64());
         if buf.len() == MU_BLOCK {
             flush(&mut buf, &mut codes)?;
@@ -1262,30 +1268,27 @@ pub fn mu_law_decode<'py>(codes: &Bound<'py, PyAny>, mu: f64) -> PyResult<Bound<
     let py = codes.py();
     let scalar = is_scalar(codes)?;
     let (vals, shape) = crate::args::with_i64_view(codes, "codes", |v| {
-        let vals = match v.as_slice() {
-            Some(flat) => audio_samples::mu_law_decode(flat, mu).map_err(audio_err_to_py)?,
-            None => {
-                let mut vals = Vec::with_capacity(v.len());
-                let mut buf = Vec::with_capacity(MU_BLOCK.min(v.len()));
-                for &k in &v {
-                    buf.push(k);
-                    if buf.len() == MU_BLOCK {
-                        vals.extend(
-                            audio_samples::mu_law_decode(&buf, mu).map_err(audio_err_to_py)?,
-                        );
-                        buf.clear();
-                    }
-                }
-                if !buf.is_empty() || vals.is_empty() {
+        let vals = if let Some(flat) = v.as_slice() {
+            audio_samples::mu_law_decode(flat, mu).map_err(audio_err_to_py)?
+        } else {
+            let mut vals = Vec::with_capacity(v.len());
+            let mut buf = Vec::with_capacity(MU_BLOCK.min(v.len()));
+            for &k in &v {
+                buf.push(k);
+                if buf.len() == MU_BLOCK {
                     vals.extend(audio_samples::mu_law_decode(&buf, mu).map_err(audio_err_to_py)?);
+                    buf.clear();
                 }
-                vals
             }
+            if !buf.is_empty() || vals.is_empty() {
+                vals.extend(audio_samples::mu_law_decode(&buf, mu).map_err(audio_err_to_py)?);
+            }
+            vals
         };
         Ok((vals, v.raw_dim()))
     })?;
-    if scalar {
-        return vals[0].into_bound_py_any(py);
+    if scalar && let Some(&x) = vals.first() {
+        return x.into_bound_py_any(py);
     }
     let out = ndarray::ArrayD::from_shape_vec(shape, vals).map_err(|e| value_err("codes", e))?;
     Ok(out.into_pyarray(py).into_any())

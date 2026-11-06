@@ -16,13 +16,17 @@ use pyo3::prelude::*;
 
 use super::args::{parse_piptrack_ref, signal2, spec3, squeeze_out};
 use crate::args::{
-    WindowArg, float_array_as, positive, precision_of, stft_config, value_err, with_precision,
+    WindowArg, float_array_as, positive, precision_of, size_i64, stft_config, value_err,
+    with_precision,
 };
 use crate::audio_err_to_py;
 
 /// Infers `n_fft = 2 * (bins - 1)` when not given (librosa's convention).
 fn infer_n_fft(n_fft: Option<Int>, n_bins: usize) -> PyResult<std::num::NonZeroUsize> {
-    positive("n_fft", n_fft.unwrap_or(Int(2 * (n_bins as i64 - 1))))
+    positive(
+        "n_fft",
+        n_fft.unwrap_or_else(|| Int(2 * (size_i64(n_bins) - 1))),
+    )
 }
 
 /// The chroma filterbank, equivalent to

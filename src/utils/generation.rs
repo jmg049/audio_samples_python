@@ -982,6 +982,10 @@ fn exponential_chirp(
 ///     AudioSamples: Generated FM signal audio data
 #[pyfunction]
 #[pyo3(signature = (carrier_freq, modulator_freq, modulation_index, duration_secs, sample_rate=44100, amplitude=1.0, dtype=None))]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the Python signature has 7 parameters, plus py"
+)]
 fn fm_signal(
     py: Python<'_>,
     carrier_freq: f64,
@@ -1031,6 +1035,10 @@ fn fm_signal(
 ///     AudioSamples: Generated AM signal audio data
 #[pyfunction]
 #[pyo3(signature = (carrier_freq, modulator_freq, modulation_depth, duration_secs, sample_rate=44100, amplitude=1.0, dtype=None))]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the Python signature has 7 parameters, plus py"
+)]
 fn am_signal(
     py: Python<'_>,
     carrier_freq: f64,

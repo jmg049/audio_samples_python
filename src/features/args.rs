@@ -17,7 +17,7 @@ use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use pyo3::types::PyString;
 
-use crate::args::{f64_array, value_err};
+use crate::args::{f64_array, size_f64, value_err};
 
 /// If `obj` is one of the named NumPy functions (`numpy.<name>`), returns the
 /// matching name.
@@ -373,8 +373,8 @@ pub fn f64_vec1(obj: &Bound<'_, PyAny>, name: &str) -> PyResult<Vec<f64>> {
 /// `numpy.fft.rfftfreq(n_fft, 1 / sr)` with numpy's rounding (librosa's
 /// `fft_frequencies`).
 pub fn rfft_frequencies(n_fft: usize, sr: f64) -> Vec<f64> {
-    let val = 1.0 / (n_fft as f64 * (1.0 / sr));
-    (0..=n_fft / 2).map(|k| k as f64 * val).collect()
+    let val = 1.0 / (size_f64(n_fft) * (1.0 / sr));
+    (0..=n_fft / 2).map(|k| size_f64(k) * val).collect()
 }
 
 /// librosa's `freq` argument of the spectral descriptors: `None` means
@@ -408,10 +408,10 @@ pub fn freq_is_matrix(f: &Bound<'_, PyAny>) -> bool {
     if f.is_none() {
         return false;
     }
-    match f.cast::<numpy::PyUntypedArray>() {
-        Ok(a) => a.ndim() >= 2,
-        Err(_) => f64_array(f, "freq").is_ok_and(|a| a.ndim() >= 2),
-    }
+    f.cast::<numpy::PyUntypedArray>().map_or_else(
+        |_| f64_array(f, "freq").is_ok_and(|a| a.ndim() >= 2),
+        |a| a.ndim() >= 2,
+    )
 }
 
 /// A `(bins, frames)` or `(channels, bins, frames)` `freq` as a 3-D view.

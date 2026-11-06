@@ -50,7 +50,8 @@ fn interval_ratios(
     .map_err(crate::audio_err_to_py)
 }
 
-fn cqt_config(
+/// librosa's constant-Q keyword arguments, before validation.
+struct CqtArgs<'a> {
     hop_length: Int,
     fmin: Option<f64>,
     n_bins: Option<Int>,
@@ -61,23 +62,28 @@ fn cqt_config(
     sparsity: f64,
     window: WindowArg,
     scale: bool,
-    pad_mode: &str,
-    res_type: &str,
-) -> PyResult<CqtConfig> {
-    Ok(CqtConfig {
-        hop_length: positive("hop_length", hop_length)?,
-        fmin,
-        n_bins: opt_positive("n_bins", n_bins)?,
-        bins_per_octave: positive("bins_per_octave", bins_per_octave)?,
-        tuning,
-        filter_scale,
-        norm,
-        sparsity,
-        window: window.0,
-        scale,
-        pad_mode: parse_pad_mode(pad_mode)?,
-        resampling_quality: parse_res_type(res_type)?,
-    })
+    pad_mode: &'a str,
+    res_type: &'a str,
+}
+
+impl CqtArgs<'_> {
+    /// Validates the arguments into a [`CqtConfig`].
+    fn config(self) -> PyResult<CqtConfig> {
+        Ok(CqtConfig {
+            hop_length: positive("hop_length", self.hop_length)?,
+            fmin: self.fmin,
+            n_bins: opt_positive("n_bins", self.n_bins)?,
+            bins_per_octave: positive("bins_per_octave", self.bins_per_octave)?,
+            tuning: self.tuning,
+            filter_scale: self.filter_scale,
+            norm: self.norm,
+            sparsity: self.sparsity,
+            window: self.window.0,
+            scale: self.scale,
+            pad_mode: parse_pad_mode(self.pad_mode)?,
+            resampling_quality: parse_res_type(self.res_type)?,
+        })
+    }
 }
 
 fn check_window_none(window: Option<&Bound<'_, PyAny>>) -> PyResult<()> {
@@ -174,7 +180,7 @@ impl PyAudioSamples {
         pad_mode: &str,
         res_type: &str,
     ) -> PyResult<Bound<'py, PyAny>> {
-        let cfg = cqt_config(
+        let cfg = CqtArgs {
             hop_length,
             fmin,
             n_bins,
@@ -187,7 +193,8 @@ impl PyAudioSamples {
             scale,
             pad_mode,
             res_type,
-        )?;
+        }
+        .config()?;
         dispatch_array_detached!(self, py, |audio| audio.cqt(&cfg))
     }
 
@@ -236,7 +243,7 @@ impl PyAudioSamples {
             None => None,
         };
         let cfg = VqtConfig {
-            cqt: cqt_config(
+            cqt: CqtArgs {
                 hop_length,
                 fmin,
                 n_bins,
@@ -249,7 +256,8 @@ impl PyAudioSamples {
                 scale,
                 pad_mode,
                 res_type,
-            )?,
+            }
+            .config()?,
             gamma,
         };
         if let Some(ratios) = ratios {
@@ -294,7 +302,7 @@ impl PyAudioSamples {
         scale: bool,
         pad_mode: &str,
     ) -> PyResult<Bound<'py, PyAny>> {
-        let cfg = cqt_config(
+        let cfg = CqtArgs {
             hop_length,
             fmin,
             n_bins,
@@ -306,8 +314,9 @@ impl PyAudioSamples {
             window,
             scale,
             pad_mode,
-            "soxr_hq",
-        )?;
+            res_type: "soxr_hq",
+        }
+        .config()?;
         dispatch_array_detached!(self, py, |audio| audio.pseudo_cqt(&cfg))
     }
 
@@ -346,7 +355,7 @@ impl PyAudioSamples {
         pad_mode: &str,
         res_type: &str,
     ) -> PyResult<Bound<'py, PyAny>> {
-        let cfg = cqt_config(
+        let cfg = CqtArgs {
             hop_length,
             fmin,
             n_bins,
@@ -359,7 +368,8 @@ impl PyAudioSamples {
             scale,
             pad_mode,
             res_type,
-        )?;
+        }
+        .config()?;
         dispatch_array_detached!(self, py, |audio| audio.hybrid_cqt(&cfg))
     }
 
@@ -409,20 +419,21 @@ impl PyAudioSamples {
         res_type: &str,
         dtype: Option<PySampleType>,
     ) -> PyResult<Self> {
-        let cfg = cqt_config(
+        let cfg = CqtArgs {
             hop_length,
             fmin,
-            None,
+            n_bins: None,
             bins_per_octave,
-            Some(tuning),
+            tuning: Some(tuning),
             filter_scale,
             norm,
             sparsity,
             window,
             scale,
-            "constant",
+            pad_mode: "constant",
             res_type,
-        )?;
+        }
+        .config()?;
         let sr = nzu32_or_err(crate::args::sample_rate_u32(sample_rate)?)?;
         let length = opt_positive("length", length)?;
         with_sample_type!(output_sample_type(dtype, C), |T| {
@@ -499,12 +510,12 @@ impl PyAudioSamples {
         dtype: Option<PySampleType>,
     ) -> PyResult<Self> {
         let init = griffinlim_init(init, random_state.unwrap_or(rng))?;
-        let cfg = cqt_config(
+        let cfg = CqtArgs {
             hop_length,
             fmin,
-            None,
+            n_bins: None,
             bins_per_octave,
-            Some(tuning),
+            tuning: Some(tuning),
             filter_scale,
             norm,
             sparsity,
@@ -512,7 +523,8 @@ impl PyAudioSamples {
             scale,
             pad_mode,
             res_type,
-        )?;
+        }
+        .config()?;
         let sr = nzu32_or_err(crate::args::sample_rate_u32(sample_rate)?)?;
         let length = opt_positive("length", length)?;
         let n_iter = non_negative("n_iter", n_iter)?;

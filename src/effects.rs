@@ -184,6 +184,9 @@ pub fn phase_vocoder<'py>(
 // Pre-/de-emphasis with filter state
 // =============================================================================
 
+/// A per-row emphasis filter: `(row, coef, initial state)` to `(output, final state)`.
+type EmphasisFilter<F> = fn(&[F], f64, Option<F>) -> audio_samples::AudioSampleResult<(Vec<F>, F)>;
+
 /// Per-row emphasis with librosa's `zi` / `return_zf` handling.
 fn emphasis<'py, F: PyFloat>(
     py: Python<'py>,
@@ -191,35 +194,36 @@ fn emphasis<'py, F: PyFloat>(
     coef: f64,
     zi: Option<&Bound<'py, PyAny>>,
     return_zf: bool,
-    f: fn(&[F], f64, Option<F>) -> audio_samples::AudioSampleResult<(Vec<F>, F)>,
+    filter: EmphasisFilter<F>,
 ) -> PyResult<Bound<'py, PyAny>> {
-    let (x, squeeze) = rows::<F>(y, "y")?;
-    let n_ch = x.nrows();
+    let (input, squeeze) = rows::<F>(y, "y")?;
+    let n_ch = input.nrows();
     let zi: Option<Vec<F>> = zi
-        .filter(|z| !z.is_none())
-        .map(|z| -> PyResult<Vec<F>> {
-            let v: Vec<F> = float_array_as::<F>(z, "zi")?
+        .filter(|state| !state.is_none())
+        .map(|state| -> PyResult<Vec<F>> {
+            let values: Vec<F> = float_array_as::<F>(state, "zi")?
                 .as_array()
                 .iter()
                 .copied()
                 .collect();
-            match v.len() {
-                1 => Ok(vec![v[0]; n_ch]),
-                n if n == n_ch => Ok(v),
-                n => Err(value_err(
+            match (values.first().copied(), values.len()) {
+                (Some(first), 1) => Ok(vec![first; n_ch]),
+                (_, len) if len == n_ch => Ok(values),
+                (_, len) => Err(value_err(
                     "zi",
-                    format!("expected 1 or {n_ch} initial states (one per channel), got {n}"),
+                    format!("expected 1 or {n_ch} initial states (one per channel), got {len}"),
                 )),
             }
         })
         .transpose()?;
-    let mut out = Array2::<F>::zeros(x.dim());
+    let mut out = Array2::<F>::zeros(input.dim());
     let mut zf = Vec::with_capacity(n_ch);
-    for (c, row) in x.outer_iter().enumerate() {
+    for (ch, (row, mut out_row)) in input.outer_iter().zip(out.outer_iter_mut()).enumerate() {
         let row = row.to_vec();
-        let (yc, z) = f(&row, coef, zi.as_ref().map(|z| z[c])).map_err(effects_err)?;
-        out.row_mut(c).assign(&ndarray::Array1::from(yc));
-        zf.push(z);
+        let initial = zi.as_ref().and_then(|states| states.get(ch).copied());
+        let (filtered, state) = filter(&row, coef, initial).map_err(effects_err)?;
+        out_row.assign(&ndarray::Array1::from(filtered));
+        zf.push(state);
     }
     let y_out = rows_out(py, out, squeeze);
     if !return_zf {
@@ -540,18 +544,18 @@ fn parse_nn_aggregate<'py>(obj: Option<&Bound<'py, PyAny>>) -> PyResult<NnArg<'p
 /// Reduces the `(n_neighbours, n_features)` neighbours over the neighbours with
 /// `pick(best, value)`, in order; NaN propagates, as in NumPy's reductions.
 fn nn_extreme<F: FloatElement + AudioFloat>(
-    neighbours: ndarray::ArrayView2<'_, F>,
+    neighbours: &ndarray::ArrayView2<'_, F>,
     frame: &mut [F],
     pick: impl Fn(F, F) -> bool,
 ) {
     for (o, column) in frame.iter_mut().zip(neighbours.columns()) {
-        let mut best = column[0];
-        for &v in column {
-            if pick(v, best) || v.is_nan() {
-                best = v;
-            }
+        let extreme = column
+            .iter()
+            .copied()
+            .reduce(|best, v| if pick(v, best) || v.is_nan() { v } else { best });
+        if let Some(best) = extreme {
+            *o = best;
         }
-        *o = best;
     }
 }
 
@@ -560,7 +564,7 @@ fn nn_extreme<F: FloatElement + AudioFloat>(
 fn nn_call<'py, F: FloatElement>(
     f: &Bound<'py, PyAny>,
     kwargs: &Bound<'py, PyDict>,
-    neighbours: ndarray::ArrayView2<'_, F>,
+    neighbours: &ndarray::ArrayView2<'_, F>,
     frame: &mut [F],
 ) -> PyResult<()> {
     let py = f.py();
@@ -679,8 +683,8 @@ pub fn nn_filter<'py>(
         let (data, squeeze) = rows::<F>(S, "S")?;
         let mut first_err: Option<PyErr> = None;
         let mut custom = |n: ndarray::ArrayView2<'_, F>, frame: &mut [F]| match &agg {
-            NnArg::Max => nn_extreme(n, frame, |v, best| v > best),
-            NnArg::Min => nn_extreme(n, frame, |v, best| v < best),
+            NnArg::Max => nn_extreme(&n, frame, |v, best| v > best),
+            NnArg::Min => nn_extreme(&n, frame, |v, best| v < best),
             NnArg::Sum => {
                 frame.fill(F::of(0.0));
                 for row in n.rows() {
@@ -691,7 +695,7 @@ pub fn nn_filter<'py>(
             }
             NnArg::Callable(f) => {
                 if first_err.is_none() {
-                    first_err = nn_call(f, &axis_kw, n, frame).err();
+                    first_err = nn_call(f, &axis_kw, &n, frame).err();
                 }
             }
             NnArg::Builtin(_) => unreachable!("built-in aggregates do not reach this closure"),
@@ -916,7 +920,8 @@ fn seed_from_numpy(obj: &Bound<'_, PyAny>) -> PyResult<u64> {
             .call_method1("integers", (0, high))?
             .extract()?
     };
-    Ok(seed as u64)
+    // The seed is drawn from [0, 2^63 - 1), so it is never negative.
+    Ok(seed.cast_unsigned())
 }
 
 /// [`GriffinLimConfig`] from librosa's `griffinlim` keyword arguments.
@@ -935,7 +940,10 @@ pub fn griffinlim_config(
     init: Option<&str>,
     rng: RngArg,
 ) -> PyResult<GriffinLimConfig> {
-    let n_fft = n_fft.unwrap_or(Int(2 * (n_bins as i64 - 1)));
+    let n_fft = match n_fft {
+        Some(n_fft) => n_fft,
+        None => Int(2 * (i64::try_from(n_bins).map_err(|e| value_err("S", e))? - 1)),
+    };
     Ok(GriffinLimConfig::new()
         .with_n_iter(non_negative("n_iter", n_iter)?)
         .with_momentum(momentum)
@@ -1070,11 +1078,10 @@ pub fn lpc<'py>(
         let mut out = Array2::<F>::zeros((x.nrows(), order.get() + 1));
         for (c, row) in x.outer_iter().enumerate() {
             // Contiguous rows are passed in place.
-            let a = match row.as_slice() {
-                Some(r) => fx::lpc(r, order),
-                None => fx::lpc(&row.to_vec(), order),
-            }
-            .map_err(audio_err_to_py)?;
+            let a = row
+                .as_slice()
+                .map_or_else(|| fx::lpc(&row.to_vec(), order), |r| fx::lpc(r, order))
+                .map_err(audio_err_to_py)?;
             out.row_mut(c).assign(&ndarray::Array1::from(a));
         }
         Ok(rows_out(py, out, squeeze))
@@ -1115,7 +1122,7 @@ pub fn lpc<'py>(
     signature = (*, times = None, frames = None, sr, hop_length = None, click_freq = 1000.0, click_duration = 0.1, click = None, length = None, dtype = None),
     text_signature = "(*, times=None, frames=None, sr, hop_length=None, click_freq=1000.0, click_duration=0.1, click=None, length=None, dtype=None)"
 )]
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::needless_pass_by_value)] // PyO3 signature; `DTypeArg` is extracted by value
 pub fn clicks<'py>(
     py: Python<'py>,
     times: Option<&Bound<'py, PyAny>>,
@@ -1146,6 +1153,8 @@ pub fn clicks<'py>(
             format!("must be a positive integer, got {sr}"),
         ));
     }
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    // `sr` is checked above to be a whole number in 1..=u32::MAX
     let rate = crate::nzu32_or_err(sr as u32)?;
     let hop = crate::args::opt_positive("hop_length", hop_length)?;
     let click = click

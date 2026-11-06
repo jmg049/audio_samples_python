@@ -528,7 +528,7 @@ impl_py_repr!(PyFadeCurve);
 /// - ``VadMethod.combined``
 /// - ``VadMethod.spectral``
 #[pyclass(name = "VadMethod", from_py_object, module = "audio_samples.types")]
-#[derive(Default, Debug, Clone, Copy, PartialEq)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PyVadMethod {
     pub(crate) inner: VadMethod,
 }
@@ -729,6 +729,7 @@ impl PyVadConfig {
     /// Call ``validate()`` to explicitly check constraints.
     #[new]
     #[pyo3(signature = (method: "VadMethod", channel_policy: "VadChannelPolicy", /, frame_size: "int", hop_size: "int", pad_end: "bool", energy_threshold_db: "float", zcr_min: "float", zcr_max: "float", min_speech_frames: "int", min_silence_frames: "int", hangover_frames: "int", smooth_frames: "int", speech_band_low_hz: "float", speech_band_high_hz: "float", spectral_ratio_threshold: "float"), text_signature="(method, channel_policy, /, frame_size, hop_size, pad_end, energy_threshold_db, zcr_min, zcr_max, min_speech_frames, min_silence_frames, hangover_frames, smooth_frames, speech_band_low_hz, speech_band_high_hz, spectral_ratio_threshold)")]
+    #[allow(clippy::too_many_arguments)] // PyO3 constructor mirrors the Python signature
     fn new(
         method: PyVadMethod,
         channel_policy: PyVadChannelPolicy,
@@ -1495,31 +1496,33 @@ impl_py_repr!(PyFilterResponse);
 pub fn filter_response_arg(obj: &Bound<'_, PyAny>) -> PyResult<FilterResponse> {
     use std::str::FromStr;
     if let Ok(r) = obj.extract::<PyFilterResponse>() {
-        Ok(r.inner)
-    } else if let Ok(s) = obj.extract::<String>() {
-        FilterResponse::from_str(&s).map_err(|_| {
-            pyo3::exceptions::PyValueError::new_err(format!(
-                "Unknown filter response: '{s}' (expected 'lowpass', 'highpass', 'bandpass' or 'bandstop')"
-            ))
-        })
-    } else {
-        Err(PyTypeError::new_err(
-            "response must be a FilterResponse or str",
-        ))
+        return Ok(r.inner);
     }
+    let Ok(s) = obj.extract::<String>() else {
+        return Err(PyTypeError::new_err(
+            "response must be a FilterResponse or str",
+        ));
+    };
+    FilterResponse::from_str(&s).map_err(|_| {
+        pyo3::exceptions::PyValueError::new_err(format!(
+            "Unknown filter response: '{s}' (expected 'lowpass', 'highpass', 'bandpass' or 'bandstop')"
+        ))
+    })
 }
 
 /// Parse a Bessel normalisation name (``"mag"``, ``"phase"`` or ``"delay"``).
 fn bessel_norm_arg(norm: Option<&str>) -> PyResult<BesselNorm> {
     use std::str::FromStr;
-    match norm {
-        None => Ok(BesselNorm::default()),
-        Some(s) => BesselNorm::from_str(s).map_err(|_| {
-            pyo3::exceptions::PyValueError::new_err(format!(
-                "Unknown Bessel normalisation: '{s}' (expected 'mag', 'phase' or 'delay')"
-            ))
-        }),
-    }
+    norm.map_or_else(
+        || Ok(BesselNorm::default()),
+        |s| {
+            BesselNorm::from_str(s).map_err(|_| {
+                pyo3::exceptions::PyValueError::new_err(format!(
+                    "Unknown Bessel normalisation: '{s}' (expected 'mag', 'phase' or 'delay')"
+                ))
+            })
+        },
+    )
 }
 
 /// IIR filter design parameters.
@@ -2007,12 +2010,13 @@ impl PyIirFilterDesign {
     ///
     ///     ValueError: If the design is invalid for ``sample_rate``.
     #[pyo3(signature = (frequencies: "np.typing.NDArray[np.float64]", sample_rate: "float"))]
+    #[allow(clippy::needless_pass_by_value)] // PyO3 extracts the sequence argument by value
     fn frequency_response<'py>(
         &self,
         py: Python<'py>,
         frequencies: Vec<f64>,
         sample_rate: f64,
-    ) -> PyResult<(Bound<'py, PyArray1<f64>>, Bound<'py, PyArray1<f64>>)> {
+    ) -> PyResult<MagnitudePhase<'py>> {
         let (mag, phase) = self
             .inner
             .frequency_response(&frequencies, sample_rate)
@@ -2023,6 +2027,9 @@ impl PyIirFilterDesign {
 
 impl_py_wrapper_core!(PyIirFilterDesign, IirFilterDesign);
 impl_py_repr!(PyIirFilterDesign);
+
+/// Magnitude and phase arrays of a frequency response.
+type MagnitudePhase<'py> = (Bound<'py, PyArray1<f64>>, Bound<'py, PyArray1<f64>>);
 
 /// Parametric equaliser band type.
 ///
@@ -2177,11 +2184,11 @@ impl PyEqBand {
     /// Invalid configurations may fail later during processing.
     #[new]
     #[pyo3(signature = (band_type: "EqBandType", frequency: "float", gain_db: "float", q_factor: "float"))]
-    fn new(band_type: PyEqBandType, frequency: f64, gain_db: f64, q_factor: f64) -> PyResult<Self> {
+    fn new(band_type: PyEqBandType, frequency: f64, gain_db: f64, q_factor: f64) -> Self {
         let band_type: EqBandType = band_type.into();
         let mut inner = EqBand::peak(frequency, gain_db, q_factor);
         inner.band_type = band_type;
-        Ok(Self { inner })
+        Self { inner }
     }
 
     /// Create a peaking (bell) EQ band.
@@ -2310,7 +2317,7 @@ impl PyParametricEq {
     ///     Band configuration to append to the equaliser.
     #[pyo3(signature = (band))]
     fn add_band(&mut self, band: &PyEqBand) {
-        self.inner.add_band(band.inner.clone());
+        self.inner.add_band(band.inner);
     }
 
     /// Remove an EQ band by index.
@@ -2645,6 +2652,7 @@ impl PyCompressorConfig {
     ///     A new compressor configuration.
     #[new]
     #[pyo3(signature = (*, threshold_db: "float", ratio: "float", attack_ms: "float", release_ms: "float", makeup_gain_db: "float", knee_type: "KneeType", knee_width_db: "float", detection_method: "DynamicRangeMethod", side_chain: "SideChainConfig", lookahead_ms: "float"))]
+    #[allow(clippy::too_many_arguments)] // PyO3 constructor mirrors the Python signature
     fn new(
         threshold_db: f64,
         ratio: f64,
@@ -2856,6 +2864,7 @@ impl PyLimiterConfig {
     ///     A new limiter configuration.
     #[new]
     #[pyo3(signature = (*, ceiling_db: "float", attack_ms: "float", release_ms: "float", knee_type, knee_width_db, detection_method, side_chain, lookahead_ms, isp_limiting))]
+    #[allow(clippy::too_many_arguments)] // PyO3 constructor mirrors the Python signature
     fn new(
         ceiling_db: f64,
         attack_ms: f64,
@@ -2866,7 +2875,7 @@ impl PyLimiterConfig {
         side_chain: &Bound<'_, PySideChainConfig>,
         lookahead_ms: f64,
         isp_limiting: bool,
-    ) -> PyResult<Self> {
+    ) -> Self {
         let side_chain = side_chain.borrow().clone();
         let mut inner = LimiterConfig::new(
             ceiling_db,
@@ -2879,7 +2888,7 @@ impl PyLimiterConfig {
             isp_limiting,
         );
         inner.side_chain = side_chain.inner;
-        Ok(Self { inner })
+        Self { inner }
     }
 
     /// Ceiling level in decibels.
@@ -2924,9 +2933,9 @@ impl PyLimiterConfig {
 
     /// Side-chain configuration.
     #[getter]
-    fn side_chain(&self) -> PySideChainConfig {
+    const fn side_chain(&self) -> PySideChainConfig {
         PySideChainConfig {
-            inner: self.inner.side_chain.clone(), // todo: avoid clone
+            inner: self.inner.side_chain,
         }
     }
 
@@ -3569,12 +3578,10 @@ impl PyHpssConfig {
         median_filter_percussive: usize,
         mask_softness: f64,
     ) -> PyResult<Self> {
-        let stft_params = stft_params.map(|x| x.inner).unwrap_or(StftParams::new(
-            nzu!(2048),
-            nzu!(512),
-            WindowType::Hanning,
-            true,
-        )?);
+        let stft_params = match stft_params {
+            Some(p) => p.inner,
+            None => StftParams::new(nzu!(2048), nzu!(512), WindowType::Hanning, true)?,
+        };
         let hpss_config = HpssConfig::new(
             stft_params,
             median_filter_harmonic,
@@ -3934,6 +3941,7 @@ impl PyPeakPickingConfig {
         median_filter_length: "int",
         normalize_onset_strength: "bool",
         normalization_method: "NormalizationMethod"))]
+    #[allow(clippy::too_many_arguments)] // PyO3 constructor mirrors the Python signature
     fn new(
         adaptive_threshold_config: PyAdaptiveThresholdConfig,
         min_peak_separation: usize,
@@ -4039,7 +4047,7 @@ impl_py_repr!(PyPeakPickingConfig);
     from_py_object,
     module = "audio_samples.types"
 )]
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PySpectralFluxMethod {
     pub(crate) inner: SpectralFluxMethod,
 }
@@ -4224,7 +4232,7 @@ impl PySpectralFluxConfig {
     /// Get the window size in samples, or None if it defaults to CQT's minimum window size.
     #[getter]
     fn window_size(&self) -> Option<usize> {
-        self.inner.window_size.map(|w| w.get())
+        self.inner.window_size.map(std::num::NonZero::get)
     }
 
     /// Set the window size in samples.
@@ -4345,6 +4353,7 @@ impl PyComplexOnsetConfig {
     ///     A new complex onset detection configuration.
     #[new]
     #[pyo3(signature = (*, cqt_params: "CqtParams", hop_size: "int", window_size: "Optional[int]", peak_picking: "PeakPickingConfig", magnitude_weight: "float", phase_weight: "float", magnitude_rectify: "bool", phase_rectify: "bool", log_compression: "float"))]
+    #[allow(clippy::too_many_arguments)] // PyO3 constructor mirrors the Python signature
     fn new(
         cqt_params: PyCqtParams,
         hop_size: usize,
@@ -4442,7 +4451,7 @@ impl PyComplexOnsetConfig {
     /// Get the window size in samples, or None if it defaults to CQT's minimum window size.
     #[getter]
     fn window_size(&self) -> Option<usize> {
-        self.inner.window_size.map(|w| w.get())
+        self.inner.window_size.map(std::num::NonZero::get)
     }
 
     /// Set the window size in samples.
@@ -4602,6 +4611,7 @@ impl PyOnsetDetectionConfig {
     /// fields agree). Use ``default()`` and set fields for the library default.
     #[new]
     #[pyo3(signature = (cqt_params, hop_size, window_size=None, threshold=0.3, min_onset_interval_secs=0.07, pre_emphasis=0.0, adaptive_threshold=true, median_filter_length=3, adaptive_threshold_multiplier=3.0, peak_picking=None))]
+    #[allow(clippy::too_many_arguments)] // PyO3 constructor mirrors the Python signature
     fn new(
         cqt_params: PyCqtParams,
         hop_size: usize,
@@ -4617,9 +4627,7 @@ impl PyOnsetDetectionConfig {
         let hop_size_nz = nzu_or_err(hop_size)?;
         let window_size_nz = window_size.map(nzu_or_err).transpose()?;
         let median_filter_nz = nzu_or_err(median_filter_length)?;
-        let peak_picking_inner = peak_picking
-            .map(|p| p.inner)
-            .unwrap_or_else(PeakPickingConfig::default);
+        let peak_picking_inner = peak_picking.map_or_else(PeakPickingConfig::default, |p| p.inner);
 
         Ok(Self {
             inner: OnsetDetectionConfig::new(
@@ -4697,7 +4705,7 @@ impl PyOnsetDetectionConfig {
     /// Get the window size in samples, or None if it defaults to CQT's minimum window size.
     #[getter]
     fn window_size(&self) -> Option<usize> {
-        self.inner.window_size.map(|w| w.get())
+        self.inner.window_size.map(std::num::NonZero::get)
     }
 
     /// Set the window size in samples.
@@ -4897,14 +4905,14 @@ impl PyEnvelopeFollower {
     fn process_array<'py>(
         &mut self,
         py: Python<'py>,
-        samples: numpy::PyReadonlyArray1<'py, f64>,
-    ) -> Bound<'py, PyArray1<f64>> {
-        let out: Vec<f64> = samples
+        samples: &Bound<'py, PyArray1<f64>>,
+    ) -> PyResult<Bound<'py, PyArray1<f64>>> {
+        let out: Vec<f64> = numpy::PyArrayMethods::try_readonly(samples)?
             .as_array()
             .iter()
             .map(|&v| self.inner.process(v))
             .collect();
-        out.into_pyarray(py)
+        Ok(out.into_pyarray(py))
     }
 
     /// Reset the envelope to 0 (and clear the RMS window).
@@ -5546,8 +5554,8 @@ impl PyPsd {
     /// tuple[numpy.ndarray, numpy.ndarray]
     ///     A pair of 1-D NumPy arrays containing the frequency axis and the
     ///     density values respectively.
-    #[pyo3(signature = ())]
-    fn into_parts<'py>(
+    #[pyo3(name = "into_parts", signature = ())]
+    fn parts<'py>(
         &self,
         py: Python<'py>,
     ) -> (Bound<'py, PyArray1<f64>>, Bound<'py, PyArray1<f64>>) {
@@ -5706,17 +5714,20 @@ impl PyPitchClass {
     }
 
     /// The chromatic index of this pitch class (C = 0, B = 11).
-    #[pyo3(signature = ())]
-    fn to_index(&self) -> u8 {
+    #[pyo3(name = "to_index", signature = ())]
+    #[allow(clippy::trivially_copy_pass_by_ref)] // PyO3 methods receive `&self`
+    fn index(&self) -> u8 {
         self.inner.to_index()
     }
 
     /// Human-readable name of the pitch class (e.g. ``"C#"``).
+    #[allow(clippy::trivially_copy_pass_by_ref)] // PyO3 methods receive `&self`
     fn __str__(&self) -> String {
         self.inner.to_string()
     }
 
     /// Human-readable representation of the pitch class.
+    #[allow(clippy::trivially_copy_pass_by_ref)] // PyO3 methods receive `&self`
     fn __repr__(&self) -> String {
         format!("PitchClass({})", self.inner)
     }
@@ -5757,6 +5768,7 @@ impl PyMode {
     }
 
     /// Human-readable name of the mode.
+    #[allow(clippy::trivially_copy_pass_by_ref)] // PyO3 methods receive `&self`
     fn __str__(&self) -> String {
         match self.inner {
             Mode::Major => "major".to_string(),
@@ -5765,6 +5777,7 @@ impl PyMode {
     }
 
     /// Human-readable representation of the mode.
+    #[allow(clippy::trivially_copy_pass_by_ref)] // PyO3 methods receive `&self`
     fn __repr__(&self) -> String {
         format!("Mode({})", self.__str__())
     }
@@ -5920,13 +5933,10 @@ impl PyPitchFrame {
 
     /// Human-readable representation of the frame.
     fn __repr__(&self) -> String {
-        match self.inner.frequency {
-            Some(hz) => format!(
-                "PitchFrame(time={:.4}, frequency={:.2})",
-                self.inner.time, hz
-            ),
-            None => format!("PitchFrame(time={:.4}, frequency=None)", self.inner.time),
-        }
+        self.inner.frequency.map_or_else(
+            || format!("PitchFrame(time={:.4}, frequency=None)", self.inner.time),
+            |hz| format!("PitchFrame(time={:.4}, frequency={hz:.2})", self.inner.time),
+        )
     }
 }
 

@@ -22,7 +22,7 @@ use pyo3::prelude::*;
 
 use crate::args::{
     DbRefArg, MelNormArg, WindowArg, complex_array_as, mel_config, output_sample_type, positive,
-    stft_config, to_3d, value_err, with_sample_type,
+    size_i64, stft_config, to_3d, value_err, with_sample_type,
 };
 use crate::types::PySampleType;
 use crate::{
@@ -108,6 +108,10 @@ impl PyAudioSamples {
         signature = (*, n_fft = Int(2048), hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant"),
         text_signature = "($self, *, n_fft=2048, hop_length=None, win_length=None, window='hann', center=True, pad_mode='constant')"
     )]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the Python signature has 6 parameters, plus self and py"
+    )]
     fn stft_matrix<'py>(
         &self,
         py: Python<'py>,
@@ -167,7 +171,11 @@ impl PyAudioSamples {
                         .map_err(audio_err_to_py)?;
                     let expected = [channels, cfg.n_bins(), frames];
                     let shape = view.shape();
-                    if shape.len() != 3 || shape[..2] != expected[..2] || shape[2] < frames {
+                    let fits = matches!(
+                        *shape,
+                        [c, b, f] if c == expected[0] && b == expected[1] && f >= frames
+                    );
+                    if !fits {
                         return Err(pyo3::exceptions::PyValueError::new_err(format!(
                             "out: has shape {:?}, expected at least {:?}",
                             array.shape(),
@@ -252,10 +260,7 @@ impl PyAudioSamples {
             let d = complex_array_as::<<T as AudioSample>::Float>(stft_matrix, "stft_matrix")?;
             let d3 = to_3d(d.as_array(), "stft_matrix")?;
             let n_bins = d3.dim().1;
-            let n_fft = match n_fft {
-                Some(n) => n,
-                None => Int(2 * (n_bins as i64 - 1)),
-            };
+            let n_fft = n_fft.unwrap_or_else(|| Int(2 * (size_i64(n_bins) - 1)));
             let cfg = stft_config(n_fft, hop_length, win_length, window, center, "constant")?;
             let y = py
                 .detach(|| {

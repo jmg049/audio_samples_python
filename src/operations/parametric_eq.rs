@@ -7,6 +7,9 @@ use crate::{
     types::{PyEqBand, PyParametricEq, PyThreeBandEqConfig},
 };
 
+/// Magnitude and phase arrays of a frequency response.
+type MagnitudePhase<'py> = (Bound<'py, PyArray1<f64>>, Bound<'py, PyArray1<f64>>);
+
 #[pymethods]
 impl PyAudioSamples {
     /// Apply a parametric equalizer configuration in place.
@@ -277,7 +280,7 @@ impl PyAudioSamples {
         py: Python<'py>,
         eq: &Bound<'_, PyParametricEq>,
         frequencies: &Bound<'py, PyArray1<f64>>,
-    ) -> PyResult<(Bound<'py, PyArray1<f64>>, Bound<'py, PyArray1<f64>>)> {
+    ) -> PyResult<MagnitudePhase<'py>> {
         let eq = eq.borrow().clone();
         let freqs = frequencies.try_readonly()?.as_array().to_vec();
         let (magnitudes, phases) = dispatch_with_view!(self, py, |audio| {

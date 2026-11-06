@@ -183,6 +183,10 @@ pub fn hz_to_note<'py>(
 ) -> PyResult<Bound<'py, PyAny>> {
     map_each(hz, |f| {
         let f: f64 = f.extract()?;
+        #[allow(
+            clippy::suboptimal_flops,
+            reason = "the unfused form is the reference rounding"
+        )]
         let midi = 12.0 * (f.log2() - 440f64.log2()) + 69.0;
         nt::midi_name(midi, octave, cents, key, unicode).map_err(audio_err_to_py)
     })
@@ -196,7 +200,13 @@ fn note_number(note: &str, round_midi: bool) -> PyResult<f64> {
         audio_samples::utils::audio_math::note_to_midi_fractional(note).map_err(audio_err_to_py)?;
     Ok(if round_midi {
         let rounded = midi.round();
-        if (midi - midi.trunc()).abs() == 0.5 && rounded % 2.0 != 0.0 {
+        // Only an exact half rounds to even; any other fraction rounds to nearest.
+        #[allow(
+            clippy::float_cmp,
+            reason = "an exact half decides the rounding direction"
+        )]
+        let is_half = (midi - midi.trunc()).abs() == 0.5;
+        if is_half && rounded % 2.0 != 0.0 {
             rounded - midi.signum()
         } else {
             rounded
@@ -516,8 +526,8 @@ pub fn list_mela(py: Python<'_>) -> PyResult<Bound<'_, PyDict>> {
     let melas = MELAS.get_or_try_init(py, || -> PyResult<Py<PyDict>> {
         let ordered: BTreeMap<&str, u8> = nt::list_mela()
             .iter()
-            .enumerate()
-            .map(|(i, m)| (*m, (i + 1) as u8))
+            .zip(1_u8..)
+            .map(|(m, i)| (*m, i))
             .collect();
         // Compiled as a literal: the names in a code object are immortal, so copying the
         // dict does not touch their reference counts.

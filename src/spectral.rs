@@ -64,6 +64,7 @@ where
     signature = (y, *, n_fft = Int(2048), hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant"),
     text_signature = "(y, *, n_fft=2048, hop_length=None, win_length=None, window='hann', center=True, pad_mode='constant')"
 )]
+#[allow(clippy::too_many_arguments)] // PyO3 signature mirrors librosa's keyword arguments
 pub fn stft<'py>(
     py: Python<'py>,
     y: &Bound<'py, PyAny>,
@@ -129,6 +130,7 @@ pub fn stft<'py>(
     signature = (stft_matrix, *, hop_length = None, win_length = None, n_fft = None, window = WindowArg(Window::Hann), center = true, length = None),
     text_signature = "(stft_matrix, *, hop_length=None, win_length=None, n_fft=None, window='hann', center=True, length=None)"
 )]
+#[allow(clippy::too_many_arguments)] // PyO3 signature mirrors librosa's keyword arguments
 pub fn istft<'py>(
     py: Python<'py>,
     stft_matrix: &Bound<'py, PyAny>,
@@ -149,8 +151,18 @@ pub fn istft<'py>(
                 format!("expected 2 or 3 dimensions, got {ndim}"),
             ));
         }
-        let n_bins = d.shape()[ndim - 2] as i64;
-        let n_fft = n_fft.unwrap_or(Int(2 * (n_bins - 1)));
+        let n_fft = match (n_fft, d.shape()) {
+            (Some(n_fft), _) => n_fft,
+            (None, [.., n_bins, _]) => {
+                Int(2 * (i64::try_from(*n_bins).map_err(|e| value_err("stft_matrix", e))? - 1))
+            }
+            (None, _) => {
+                return Err(value_err(
+                    "stft_matrix",
+                    format!("expected 2 or 3 dimensions, got {ndim}"),
+                ));
+            }
+        };
         let cfg = stft_config(n_fft, hop_length, win_length, window, center, "constant")?;
         let length = opt_positive("length", length)?.map(std::num::NonZeroUsize::get);
         if ndim == 2 {
@@ -172,12 +184,17 @@ pub fn istft<'py>(
     })
 }
 
-const fn db_config(r: DbRefArg, amin: f64, top_db: Option<f64>, axes: DbAxesArg) -> DbConfig {
+const fn db_config(
+    DbRefArg(reference): DbRefArg,
+    amin: f64,
+    top_db: Option<f64>,
+    DbAxesArg(axes): DbAxesArg,
+) -> DbConfig {
     DbConfig {
-        reference: r.0,
+        reference,
         amin,
         top_db,
-        axes: axes.0,
+        axes,
     }
 }
 
@@ -367,6 +384,7 @@ pub fn db_to_amplitude<'py>(
     signature = (*, sr, n_fft, n_mels = Int(128), fmin = 0.0, fmax = None, htk = false, norm = MelNormArg(audio_samples::MelFilterNorm::Slaney)),
     text_signature = "(*, sr, n_fft, n_mels=128, fmin=0.0, fmax=None, htk=False, norm='slaney')"
 )]
+#[allow(clippy::too_many_arguments)] // PyO3 signature mirrors librosa's keyword arguments
 pub fn mel_filterbank(
     py: Python<'_>,
     sr: f64,
@@ -404,7 +422,7 @@ pub fn mel_filterbank(
 ///     ValueError: Unknown window, invalid parameter, or an array of the wrong length.
 #[pyfunction]
 #[pyo3(signature = (window, Nx, *, fftbins = true), text_signature = "(window, Nx, *, fftbins=True)")]
-#[allow(non_snake_case)]
+#[allow(non_snake_case, clippy::needless_pass_by_value)] // PyO3 argument names; `WindowArg` is extracted by value
 pub fn get_window(
     py: Python<'_>,
     window: WindowArg,
@@ -531,9 +549,10 @@ pub fn window_bandwidth<'py>(
     // object (immutable, so the same object gives the same value): a repeated
     // call with the same name returns the same float without parsing the
     // name or allocating, as librosa returns its table entry.
+    /// The window object, its length and its bandwidth.
+    type LastWindow = Option<(Py<PyAny>, i64, Py<PyFloat>)>;
     thread_local! {
-        static LAST: std::cell::RefCell<Option<(Py<PyAny>, i64, Py<PyFloat>)>> =
-            const { std::cell::RefCell::new(None) };
+        static LAST: std::cell::RefCell<LastWindow> = const { std::cell::RefCell::new(None) };
     }
     let hit = LAST.with(|c| {
         c.borrow()
@@ -545,6 +564,7 @@ pub fn window_bandwidth<'py>(
         return Ok(v.into_bound(py));
     }
     let w = crate::args::parse_window(window)?;
+    let n_key = n.0;
     let n = positive("n", n)?;
     let v = PyFloat::new(
         py,
@@ -552,7 +572,7 @@ pub fn window_bandwidth<'py>(
     );
     if window.is_instance_of::<PyString>() {
         LAST.with(|c| {
-            *c.borrow_mut() = Some((window.clone().unbind(), n.get() as i64, v.clone().unbind()));
+            *c.borrow_mut() = Some((window.clone().unbind(), n_key, v.clone().unbind()));
         });
     }
     Ok(v)
@@ -810,7 +830,10 @@ pub fn melspectrogram_from_spectrogram<'py>(
                 ));
             }
         };
-        let n_fft = n_fft.unwrap_or(Int(2 * (s3.dim().1 as i64 - 1)));
+        let n_fft = match n_fft {
+            Some(n_fft) => n_fft,
+            None => Int(2 * (i64::try_from(s3.dim().1).map_err(|e| value_err("S", e))? - 1)),
+        };
         let cfg = mel_config(n_mels, fmin, fmax, htk, norm)?;
         let m = spectrum::melspectrogram_from_spectrogram(s3, sr, positive("n_fft", n_fft)?, &cfg)
             .map_err(audio_err_to_py)?;

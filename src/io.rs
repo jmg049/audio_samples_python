@@ -61,18 +61,18 @@ fn native_array_to_py_audio_samples(
 ) -> PyResult<PyAudioSamples> {
     use audio_samples_io::NativeAudioArray;
     match native {
-        NativeAudioArray::U8(arr, info) => native_to_audio_samples(py, arr, info),
-        NativeAudioArray::I16(arr, info) => native_to_audio_samples(py, arr, info),
-        NativeAudioArray::I32(arr, info) => native_to_audio_samples(py, arr, info),
-        NativeAudioArray::F32(arr, info) => native_to_audio_samples(py, arr, info),
-        NativeAudioArray::F64(arr, info) => native_to_audio_samples(py, arr, info),
+        NativeAudioArray::U8(arr, info) => native_to_audio_samples(py, &arr, info),
+        NativeAudioArray::I16(arr, info) => native_to_audio_samples(py, &arr, info),
+        NativeAudioArray::I32(arr, info) => native_to_audio_samples(py, &arr, info),
+        NativeAudioArray::F32(arr, info) => native_to_audio_samples(py, &arr, info),
+        NativeAudioArray::F64(arr, info) => native_to_audio_samples(py, &arr, info),
     }
 }
 
 #[cfg(target_endian = "little")]
 fn native_to_audio_samples<T>(
     py: Python<'_>,
-    arr: pyo3::Py<numpy::PyArray2<T>>,
+    arr: &pyo3::Py<numpy::PyArray2<T>>,
     info: audio_samples_io::types::BaseAudioInfo,
 ) -> PyResult<PyAudioSamples>
 where
@@ -149,24 +149,18 @@ pub fn read(
     // Slow path: type conversion requested, or fast path not applicable.
     let target = match as_type {
         Some(t) => t,
-        None => {
-            let native = audio_samples_io::peek_native_type(fp)
-                .map_err(|e| audio_read_err_to_py(e, fp, "Failed to detect native type"))?;
-            let sample_type: audio_samples::SampleType = native.into();
-            PySampleType::from_native(sample_type).ok_or_else(|| {
-                pyo3::exceptions::PyTypeError::new_err("Unsupported native sample type")
-            })?
-        }
+        None => native_sample_type(fp)?,
     };
     read_typed(py, fp, target)
 }
 
 #[pyfunction]
 #[pyo3(signature = (fp: "str|Path", as_type: "SampleType" = None))]
+#[allow(clippy::needless_pass_by_value)] // PyO3 extracts `PathBuf` by value
 pub fn read_with_info(
     py: Python<'_>,
     fp: std::path::PathBuf,
-    as_type: Option<Bound<'_, PyArrayDescr>>,
+    as_type: Option<&Bound<'_, PyArrayDescr>>,
 ) -> PyResult<(PyAudioSamples, PyAudioInfo)> {
     let fp = fp.to_string_lossy();
     let fp: &str = &fp;
@@ -178,7 +172,7 @@ pub fn read_with_info(
         .ok_or_else(|| PyTypeError::new_err("Unsupported native sample type"))?;
 
     let target = match as_type {
-        Some(dt) => PySampleType::from_numpy(py, &dt)?,
+        Some(dt) => PySampleType::from_numpy(py, dt)?,
         None => native,
     };
 
@@ -238,6 +232,7 @@ impl_py_repr!(PyAudioInfo);
 
 #[pyfunction]
 #[pyo3(signature = (fp: "str|Path"))]
+#[allow(clippy::needless_pass_by_value)] // PyO3 extracts `PathBuf` by value
 pub fn info(fp: std::path::PathBuf) -> PyResult<PyAudioInfo> {
     let fp = fp.to_string_lossy();
     let fp: &str = &fp;
@@ -302,6 +297,7 @@ where
 ///     OSError: If the file cannot be written.
 #[pyfunction]
 #[pyo3(signature = (fp: "str|Path", samples: "AudioSamples", as_type: "SampleType" = None, flac_md5: "bool" = true))]
+#[allow(clippy::needless_pass_by_value)] // PyO3 extracts `PathBuf` by value
 pub fn save(
     py: Python<'_>,
     fp: std::path::PathBuf,
@@ -385,21 +381,28 @@ fn check_flac_sample_type(
         return Ok(());
     }
     let name = match (as_type, samples.inner()) {
-        (Some(PySampleType::I16 | PySampleType::I24), _) => return Ok(()),
-        (Some(PySampleType::U8), _) => "u8",
-        (Some(PySampleType::I32), _) => "i32",
-        (Some(PySampleType::F32), _) => "f32",
-        (Some(PySampleType::F64), _) => "f64",
-        (None, crate::PyAudioDataInner::I16(_) | crate::PyAudioDataInner::I24(_)) => return Ok(()),
-        (None, crate::PyAudioDataInner::U8(_)) => "u8",
-        (None, crate::PyAudioDataInner::I32(_)) => "i32",
-        (None, crate::PyAudioDataInner::F32(_)) => "f32",
-        (None, crate::PyAudioDataInner::F64(_)) => "f64",
+        (Some(PySampleType::I16 | PySampleType::I24), _)
+        | (None, crate::PyAudioDataInner::I16(_) | crate::PyAudioDataInner::I24(_)) => {
+            return Ok(());
+        }
+        (Some(PySampleType::U8), _) | (None, crate::PyAudioDataInner::U8(_)) => "u8",
+        (Some(PySampleType::I32), _) | (None, crate::PyAudioDataInner::I32(_)) => "i32",
+        (Some(PySampleType::F32), _) | (None, crate::PyAudioDataInner::F32(_)) => "f32",
+        (Some(PySampleType::F64), _) | (None, crate::PyAudioDataInner::F64(_)) => "f64",
     };
     Err(pyo3::exceptions::PyValueError::new_err(format!(
         "FLAC stores 16-bit or 24-bit integers, so {name} samples cannot be written unchanged. \
          Convert explicitly with as_type=SampleType.I16 or as_type=SampleType.I24."
     )))
+}
+
+/// The sample type stored in the file at `fp`, read from its header.
+fn native_sample_type(fp: &str) -> PyResult<PySampleType> {
+    let native = audio_samples_io::peek_native_type(fp)
+        .map_err(|e| audio_read_err_to_py(e, fp, "Failed to detect native type"))?;
+    let sample_type: audio_samples::SampleType = native.into();
+    PySampleType::from_native(sample_type)
+        .ok_or_else(|| pyo3::exceptions::PyTypeError::new_err("Unsupported native sample type"))
 }
 
 /// Read an audio file and resample it to a target sample rate in one call.
@@ -414,7 +417,8 @@ fn check_flac_sample_type(
 ///     target_sr (int): Target sample rate in Hz; must be greater than zero.
 ///     quality (ResamplingQuality, optional): Resampling quality/speed trade-off. Defaults to
 ///         ``ResamplingQuality.high`` for best fidelity.
-///     as_type (SampleType, optional): Sample type for the returned audio. Defaults to ``f32``.
+///     as_type (SampleType, optional): Sample type for the returned audio. Defaults to the file's
+///         sample type, as :func:`read` does; the resampler works on every sample type.
 ///
 /// Returns:
 ///
@@ -427,6 +431,7 @@ fn check_flac_sample_type(
 ///     RuntimeError: If resampling fails.
 #[pyfunction]
 #[pyo3(signature = (fp: "str | Path", target_sr: "int", quality: "ResamplingQuality" = None, as_type: "SampleType" = None))]
+#[allow(clippy::needless_pass_by_value)] // PyO3 extracts `PathBuf` by value
 pub fn read_and_resample(
     py: Python<'_>,
     fp: std::path::PathBuf,
@@ -439,7 +444,10 @@ pub fn read_and_resample(
     crate::ensure_file_exists(fp)?;
     let target = nzu32_or_err(target_sr)?;
     let quality: ResamplingQuality = quality.map_or(ResamplingQuality::High, |q| q.inner);
-    let as_type = as_type.unwrap_or(PySampleType::F32);
+    let as_type = match as_type {
+        Some(t) => t,
+        None => native_sample_type(fp)?,
+    };
 
     // Read as `read` does (no second copy of the file), then resample without the GIL.
     let audio = read_typed(py, fp, as_type)?;
@@ -467,6 +475,7 @@ pub fn read_and_resample(
 ///     OSError: If the file cannot be opened.
 #[pyfunction]
 #[pyo3(signature = (fp: "str | Path"))]
+#[allow(clippy::needless_pass_by_value)] // PyO3 extracts `PathBuf` by value
 pub fn peek_native_type(fp: std::path::PathBuf) -> PyResult<&'static str> {
     let fp = fp.to_string_lossy();
     let fp: &str = &fp;
@@ -508,6 +517,7 @@ impl PyWriteOptions {
 
     /// Size of the internal write buffer in bytes.
     #[getter]
+    #[allow(clippy::trivially_copy_pass_by_ref)] // PyO3 methods receive `&self`
     const fn write_buf_capacity(&self) -> usize {
         self.inner.write_buf_capacity
     }
@@ -557,10 +567,12 @@ impl PyCompressionLevel {
 
     /// The numeric compression level (0-8).
     #[getter]
+    #[allow(clippy::trivially_copy_pass_by_ref)] // PyO3 methods receive `&self`
     const fn level(&self) -> u8 {
         self.inner.level()
     }
 
+    #[allow(clippy::trivially_copy_pass_by_ref)] // PyO3 methods receive `&self`
     fn __repr__(&self) -> String {
         format!("CompressionLevel(level={})", self.inner.level())
     }
@@ -884,6 +896,7 @@ impl_py_wrapper_core!(PyStreamInfo, StreamInfo);
 ///     OSError: If the file cannot be written.
 #[pyfunction]
 #[pyo3(signature = (fp: "str | Path", samples: "AudioSamples", options: "WriteOptions" = None, as_type: "SampleType" = None, flac_md5: "bool" = true))]
+#[allow(clippy::needless_pass_by_value)] // PyO3 extracts `PathBuf` by value
 pub fn write_with_options(
     py: Python<'_>,
     fp: std::path::PathBuf,
@@ -948,6 +961,7 @@ pub fn thread_limit() -> usize {
 ///     OSError: If the file cannot be written.
 #[pyfunction]
 #[pyo3(signature = (fp: "str | Path", samples: "AudioSamples", metadata: "WavMetadata"))]
+#[allow(clippy::needless_pass_by_value)] // PyO3 extracts `PathBuf` by value
 pub fn write_with_metadata(
     py: Python<'_>,
     fp: std::path::PathBuf,
@@ -982,11 +996,12 @@ pub fn write_with_metadata(
 ///     ValueError: If the file is not a WAV file or the chunk is malformed.
 #[pyfunction]
 #[pyo3(signature = (fp: "str | Path"))]
+#[allow(clippy::needless_pass_by_value)] // PyO3 extracts `PathBuf` by value
 pub fn read_wav_info_tags(fp: std::path::PathBuf) -> PyResult<Option<PyInfoMetadata>> {
-    let fp = fp.to_string_lossy();
-    let fp: &str = &fp;
     use audio_samples_io::traits::AudioFileMetadata;
     use audio_samples_io::wav::wav_file::WavFile;
+    let fp = fp.to_string_lossy();
+    let fp: &str = &fp;
     let path = std::path::Path::new(fp);
     if FileType::detect(path) != FileType::WAV {
         return Err(PyValueError::new_err(
@@ -995,12 +1010,12 @@ pub fn read_wav_info_tags(fp: std::path::PathBuf) -> PyResult<Option<PyInfoMetad
     }
     let wav = WavFile::open_metadata(path).map_err(audio_io_err_to_py)?;
     let list = wav.list().map_err(audio_io_err_to_py)?;
-    match list {
-        Some(chunk) => match chunk.info_metadata() {
-            Some(Ok(inner)) => Ok(Some(PyInfoMetadata { inner })),
-            Some(Err(e)) => Err(PyValueError::new_err(format!("Invalid INFO chunk: {e}"))),
-            None => Ok(None),
-        },
+    let Some(chunk) = list else {
+        return Ok(None);
+    };
+    match chunk.info_metadata() {
+        Some(Ok(inner)) => Ok(Some(PyInfoMetadata { inner })),
+        Some(Err(e)) => Err(PyValueError::new_err(format!("Invalid INFO chunk: {e}"))),
         None => Ok(None),
     }
 }
@@ -1021,11 +1036,12 @@ pub fn read_wav_info_tags(fp: std::path::PathBuf) -> PyResult<Option<PyInfoMetad
 ///     ValueError: If the file is not a WAV file or the chunk is malformed.
 #[pyfunction]
 #[pyo3(signature = (fp: "str | Path"))]
+#[allow(clippy::needless_pass_by_value)] // PyO3 extracts `PathBuf` by value
 pub fn read_wav_cue_points(fp: std::path::PathBuf) -> PyResult<Vec<PyCuePoint>> {
-    let fp = fp.to_string_lossy();
-    let fp: &str = &fp;
     use audio_samples_io::traits::AudioFileMetadata;
     use audio_samples_io::wav::wav_file::WavFile;
+    let fp = fp.to_string_lossy();
+    let fp: &str = &fp;
     let path = std::path::Path::new(fp);
     if FileType::detect(path) != FileType::WAV {
         return Err(PyValueError::new_err(
@@ -1064,11 +1080,12 @@ pub fn read_wav_cue_points(fp: std::path::PathBuf) -> PyResult<Vec<PyCuePoint>> 
 ///     ValueError: If the file is not a FLAC file.
 #[pyfunction]
 #[pyo3(signature = (fp: "str | Path"))]
+#[allow(clippy::needless_pass_by_value)] // PyO3 extracts `PathBuf` by value
 pub fn read_flac_stream_info(fp: std::path::PathBuf) -> PyResult<PyStreamInfo> {
-    let fp = fp.to_string_lossy();
-    let fp: &str = &fp;
     use audio_samples_io::flac::FlacFile;
     use audio_samples_io::traits::AudioFileMetadata;
+    let fp = fp.to_string_lossy();
+    let fp: &str = &fp;
     let path = std::path::Path::new(fp);
     if FileType::detect(path) != FileType::FLAC {
         return Err(PyValueError::new_err(

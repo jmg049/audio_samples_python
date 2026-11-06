@@ -137,12 +137,11 @@ pub fn wavelet_lengths<'py>(
             ));
         }
         let copied;
-        let f = match v.as_slice() {
-            Some(s) => s,
-            None => {
-                copied = v.iter().copied().collect::<Vec<f64>>();
-                &copied
-            }
+        let f = if let Some(s) = v.as_slice() {
+            s
+        } else {
+            copied = v.iter().copied().collect::<Vec<f64>>();
+            &copied
         };
         let out = PyArray1::<f64>::zeros(py, f.len(), false);
         // SAFETY: the array was just created and is not shared yet.
@@ -162,12 +161,11 @@ pub fn wavelet_lengths<'py>(
                     ));
                 }
                 let copied;
-                let bandwidths = match b.as_slice() {
-                    Some(s) => s,
-                    None => {
-                        copied = b.iter().copied().collect::<Vec<f64>>();
-                        &copied
-                    }
+                let bandwidths = if let Some(s) = b.as_slice() {
+                    s
+                } else {
+                    copied = b.iter().copied().collect::<Vec<f64>>();
+                    &copied
                 };
                 cq::wavelet_lengths_with_alpha_into(f, sr, &cfg, bandwidths, lengths)
                     .map_err(audio_err_to_py)
@@ -255,6 +253,10 @@ pub fn wavelet<'py>(
 #[pyo3(
     signature = (chroma, *, norm = Some(2.0), win_len_smooth = Some(Int(41)), smoothing_window = WindowArg(Window::Hann)),
     text_signature = "(chroma, *, norm=2.0, win_len_smooth=41, smoothing_window='hann')"
+)]
+#[allow(
+    clippy::needless_pass_by_value,
+    reason = "PyO3 passes extracted argument types by value"
 )]
 pub fn chroma_cens_from_chroma<'py>(
     py: Python<'py>,
