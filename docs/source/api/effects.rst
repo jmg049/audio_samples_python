@@ -1,48 +1,38 @@
 Effects and Decomposition
 =========================
 
-librosa-compatible effects (librosa 1.0). Audio-to-audio effects are
-``AudioSamples`` methods returning ``AudioSamples`` of the input's sample type,
-each with an ``_in_place`` variant; array-level helpers live in
-``audio_samples.effects``.
+Audio-to-audio effects are ``AudioSamples`` methods returning ``AudioSamples``
+of the input's sample type, each with an ``_in_place`` variant; array-level
+functions live in ``audio_samples.effects``.
 
-======================================  ============================================================
-librosa                                 audio_samples
-======================================  ============================================================
-``effects.time_stretch``                ``AudioSamples.time_stretch`` (+ ``_in_place``)
-``effects.pitch_shift``                 ``AudioSamples.pitch_shift`` (+ ``_in_place``)
-``effects.preemphasis``                 ``AudioSamples.preemphasis`` (+ ``_in_place``) / ``effects.preemphasis`` (``zi``, ``return_zf``)
-``effects.deemphasis``                  ``AudioSamples.deemphasis`` (+ ``_in_place``) / ``effects.deemphasis``
-``effects.trim``                        ``AudioSamples.trim_db`` (+ ``_in_place``)
-``effects.split``                       ``AudioSamples.split_db``
-``effects.remix``                       ``AudioSamples.remix`` (+ ``_in_place``)
-``effects.harmonic`` / ``percussive``   ``AudioSamples.harmonic`` / ``percussive`` (+ ``_in_place``)
-``effects.hpss``                        ``AudioSamples.harmonic_percussive``
-``decompose.hpss``                      ``effects.hpss``
-``util.softmask``                       ``effects.softmask``
-``decompose.nn_filter``                 ``effects.nn_filter``
-``phase_vocoder``                       ``effects.phase_vocoder``
-``griffinlim``                          ``effects.griffinlim`` / ``AudioSamples.griffinlim_audio``
-``lpc``                                 ``AudioSamples.lpc`` / ``effects.lpc``
-``clicks``                              ``effects.clicks``
-``resample``                            ``AudioSamples.resample`` (``quality="high"`` is closest to ``soxr_hq``)
-``mu_compress`` / ``mu_expand``         ``AudioSamples.mu_compress`` / ``mu_expand``, ``mu_law_encode`` / ``mu_law_decode``
-======================================  ============================================================
+- Time and pitch: ``AudioSamples.time_stretch``, ``pitch_shift``,
+  ``resample``; ``effects.phase_vocoder`` on an STFT.
+- Emphasis: ``AudioSamples.preemphasis`` / ``deemphasis``;
+  ``effects.preemphasis`` / ``deemphasis`` with filter state (``zi``,
+  ``return_zf``).
+- Silence: ``AudioSamples.trim_db`` and ``split_db`` (frames within
+  ``top_db`` of the reference), ``remix`` (concatenate intervals).
+- Harmonic/percussive separation: ``AudioSamples.harmonic``, ``percussive``,
+  ``harmonic_percussive``; ``effects.hpss`` and ``effects.softmask`` on
+  spectrograms; ``effects.nn_filter``.
+- Reconstruction and synthesis: ``effects.griffinlim`` /
+  ``AudioSamples.griffinlim_audio``, ``effects.clicks``.
+- Linear prediction and companding: ``AudioSamples.lpc`` / ``effects.lpc``,
+  ``AudioSamples.mu_compress`` / ``mu_expand``, ``mu_law_encode`` /
+  ``mu_law_decode``.
 
-``trim``/``split`` are named ``trim_db``/``split_db`` and ``effects.hpss`` is
-``harmonic_percussive`` because ``trim``, ``split`` and ``hpss`` already exist on
-``AudioSamples`` with different (non-librosa) semantics.
+``trim_db``, ``split_db`` and ``harmonic_percussive`` sit beside the older
+``AudioSamples.trim``, ``split`` and ``hpss``, which keep their own semantics.
 
-Differences from librosa: ``pitch_shift`` and ``resample`` use this library's
-delay-free windowed-sinc resampler instead of soxr (``res_type="soxr_hq"`` maps
-to ``ResamplingQuality.high``; agreement ~68 dB SNR on band-limited audio);
+``pitch_shift`` and ``resample`` use this library's delay-free windowed-sinc
+resampler (``res_type="soxr_hq"`` maps to ``ResamplingQuality.high``);
 ``trim_db`` raises ``ValueError`` when everything is silent (an
 ``AudioSamples`` cannot be empty); ``harmonic``/``percussive`` use the
-``window`` argument (librosa ignores it) and do not accept ``mask=True``;
-Griffin-Lim's random initial phases come from this library's RNG (integer
-seeds only; ``init=None`` matches librosa to round-off); ``clicks`` returns
-float64; ``nn_filter`` takes dense recurrence matrices and the mean, median or
-weighted-average aggregates only.
+``window`` argument and do not accept ``mask=True``; Griffin-Lim's random
+initial phases come from this library's RNG and ``init=None`` starts from
+zero phase; ``clicks`` returns float64 unless asked for float32; ``nn_filter``
+takes dense recurrence matrices and the mean, median or weighted-average
+aggregates only.
 
 .. automodule:: audio_samples.effects
    :no-members:

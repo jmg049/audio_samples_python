@@ -1,16 +1,15 @@
 Sequence Alignment and Decoding
 ===============================
 
-``audio_samples.sequence`` reproduces ``librosa.sequence``, the similarity
-functions of ``librosa.segment`` and ``librosa.util.sync`` (librosa 1.0), with
-librosa's keyword arguments, defaults and return conventions. Feature matrices
-are ``(n_features, n_frames)``; probability matrices ``(n_states, n_steps)``.
+``audio_samples.sequence`` holds dynamic time warping, Viterbi decoding,
+transition matrices, recurrence quantification, recurrence and
+cross-similarity matrices, lag conversions and frame synchronisation
+(``sync``). Feature matrices are ``(n_features, n_frames)``; probability
+matrices ``(n_states, n_steps)``.
 
-Differences from librosa: ``sparse=True`` returns ``arrays.SparseRows``, integer
-outputs are ``int64``, ``sync`` with an
-empty index list aggregates the whole signal into one segment, and ``rqa``
-follows the move actually taken in the second column (librosa stores a wrong
-back-pointer there).
+``sparse=True`` returns ``arrays.SparseRows``, integer outputs are ``int64``,
+``sync`` with an empty index list aggregates the whole signal into one
+segment, and ``rqa`` backtracking follows the move actually taken.
 
 .. automodule:: audio_samples.sequence
    :no-members:

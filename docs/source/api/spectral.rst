@@ -1,19 +1,17 @@
-librosa-compatible Spectral Analysis
-====================================
+Spectral Analysis
+=================
 
-These functions reproduce librosa 1.0's spectral pipeline (STFT/ISTFT, dB
-conversions, mel filterbank, MFCC, delta features) with librosa's defaults and
-keyword arguments, and agree with librosa to floating-point round-off (see the
-``tests/test_librosa_spectrum.py`` tolerances).
+The spectral pipeline: STFT and inverse STFT, dB conversions, the mel
+filterbank, MFCCs and delta features.
 
 Two entry points are provided:
 
 * methods on :class:`audio_samples.AudioSamples`, which analyse every channel
   and always return arrays shaped ``(channels, n_features, n_frames)`` (mono
-  audio gives a leading axis of length 1; librosa returns ``(n_features,
-  n_frames)`` for 1-D input, so index ``[0]``);
-* free functions in ``audio_samples.spectral`` over NumPy arrays, which follow
-  librosa's shapes exactly.
+  audio gives a leading axis of length 1; index ``[0]`` for the
+  ``(n_features, n_frames)`` array);
+* free functions in ``audio_samples.spectral`` over NumPy arrays: a 1-D
+  signal gives a 2-D result and a ``(channels, n)`` signal a 3-D result.
 
 Windows are given as SciPy-style specifications: ``"hann"`` (default),
 ``"hamming"``, ``"blackman"``, ``"blackmanharris"``, ``"boxcar"`` /
@@ -93,11 +91,11 @@ Features from spectrograms
 Unit conversions (``audio_samples.utils``)
 ------------------------------------------
 
-Vectorised like librosa: a scalar gives a Python number, an array-like gives a
-NumPy array of the same shape. ``hz_to_mel``, ``mel_to_hz`` and
-``mel_frequencies`` keep their historical **HTK** default; pass ``htk=False``
-for librosa's Slaney default. ``time_to_frames`` keeps its round-to-nearest
-semantics; ``time_to_frames_floor`` is librosa's ``time_to_frames``.
+Vectorised: a scalar gives a Python number, an array-like gives a NumPy array
+of the same shape. ``hz_to_mel``, ``mel_to_hz`` and ``mel_frequencies`` keep
+their historical **HTK** default; pass ``htk=False`` for the Slaney scale.
+``time_to_frames`` rounds to the nearest frame; ``time_to_frames_floor`` gives
+the frame containing each time.
 
 .. currentmodule:: audio_samples.utils
 

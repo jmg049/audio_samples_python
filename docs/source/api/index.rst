@@ -29,9 +29,9 @@ Core Classes
 ============
 
 - :doc:`audio_samples` - Main AudioSamples class and its processing methods
-- :doc:`spectral` - librosa-compatible STFT, mel, MFCC, dB and unit conversions
-- :doc:`features` - librosa-compatible features, chroma/tuning, constant-Q and pitch tracking
-- :doc:`sequence` - DTW, Viterbi, recurrence matrices and sync (librosa-compatible)
+- :doc:`spectral` - STFT, mel, MFCC, dB and unit conversions
+- :doc:`features` - frame-wise features, chroma/tuning, constant-Q and pitch tracking
+- :doc:`sequence` - DTW, Viterbi, recurrence matrices and sync
 - :doc:`segment` - path enhancement, time-lag filtering, clustering and subsegmentation
 - :doc:`arrays` - array helpers, zero crossings, tones and sweeps
 - :doc:`forms` - array forms of methods, with their extra options
@@ -40,8 +40,8 @@ Core Classes
 - :doc:`factorization` - non-negative matrix factorisation
 - :doc:`pitch_filterbank` - semitone filterbank and IIR time-frequency representation
 - :doc:`notation` - tuning systems, note, FJS, svara, mela and thaat names
-- :doc:`rhythm` - onset strength/detection, tempograms, tempo, beat tracking, PLP (librosa-compatible)
-- :doc:`effects` - time stretch, pitch shift, emphasis, trim/split, HPSS, Griffin-Lim, LPC (librosa-compatible)
+- :doc:`rhythm` - onset strength/detection, tempograms, tempo, beat tracking, PLP
+- :doc:`effects` - time stretch, pitch shift, emphasis, trim/split, HPSS, Griffin-Lim, LPC
 - :doc:`generation` - Signal generation functions
 - :doc:`io` - File I/O operations
 - :doc:`types` - Audio processing configurations and enumerations

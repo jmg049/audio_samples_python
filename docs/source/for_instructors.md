@@ -127,7 +127,7 @@ suite. For other topics, compare with these conventions in mind:
 | MFCC | unnormalised DCT-II, lifter 22 | librosa: DCT-II `norm="ortho"`, lifter 0 | rescale by the DCT normalisation; set the lifter |
 | Zero-crossing rate | crossings per second over the whole signal | librosa: fraction of samples per frame | divide by the sample rate; frame the signal |
 | Integer to float | asymmetric: −1.0 ↔ −32768, +1.0 ↔ 32767 | soundfile: divide by 32768 | differs by at most one least significant bit |
-| YIN | de Cheveigné and Kawahara's difference function (summed over all N − τ overlapping pairs) and CMND, with parabolic interpolation of the CMND (as in librosa; the paper takes the period from the raw difference function and adds a "best local estimate" step); no voiced estimate when no lag is below the threshold; `detect_pitch_yin` is clip-wide | `librosa.yin`: framewise, sums the difference function over a fixed window of half the frame, falls back to the global minimum | compare with `track_pitch` |
+| YIN | de Cheveigné and Kawahara's difference function (summed over all N − τ overlapping pairs) and CMND, with parabolic interpolation of the CMND (the paper takes the period from the raw difference function and adds a "best local estimate" step); no voiced estimate when no lag is below the threshold; `detect_pitch_yin` is clip-wide | `librosa.yin`: framewise, sums the difference function over a fixed window of half the frame, falls back to the global minimum | compare with `track_pitch` |
 
 ## Known limitations
 

@@ -9,7 +9,7 @@ Index outputs are int64. Float outputs keep the input's precision: a float32
 array gives float32 costs, scores and matrices, any other input float64.
 Transition matrices are float64.
 
-Output is dense (``sparse=True`` raises) and only ``axis=-1`` is accepted.
+Output is dense unless ``sparse=True`` asks for ``arrays.SparseRows``.
 ``sync`` with an empty index list returns one segment. ``rqa`` backtracking
 follows the move actually taken.
 """
@@ -667,7 +667,7 @@ def recurrence_matrix(
     full: bool = False,
     self_links: bool = False,
 ) -> NDArray[np.float64]:
-    """Recurrence matrix (dense).
+    """Recurrence matrix (dense; ``sparse=True`` gives ``arrays.SparseRows``).
 
     ``self`` sets whether the diagonal links each frame to itself;
     ``self_links`` is an equivalent spelling that avoids the Python
@@ -727,7 +727,7 @@ def cross_similarity(
     bandwidth: _BandwidthSpec = None,
     full: bool = False,
 ) -> NDArray[np.float64]:
-    """Cross-similarity matrix (dense).
+    """Cross-similarity matrix (dense; ``sparse=True`` gives ``arrays.SparseRows``).
 
     Returns:
         ``(n_ref, n)``: bool for connectivity, float64 otherwise.

@@ -61,7 +61,7 @@ With most Python audio libraries, the caller passes the sample rate to each func
 
    # Traditional approach - error-prone manual coordination
    data, sr = soundfile.read('audio.wav')
-   stft = librosa.stft(data, sr=sr)  # Must pass sr manually
+   mel = librosa.feature.melspectrogram(y=data, sr=sr)  # Must pass sr manually
    freqs = librosa.fft_frequencies(sr=sr, n_fft=2048)  # Must pass sr again
 
 **The AudioSamples Solution**

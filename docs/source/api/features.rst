@@ -1,64 +1,27 @@
-librosa-compatible Features, Tonal, Constant-Q and Pitch Analysis
-=================================================================
+Features, Tonal, Constant-Q and Pitch Analysis
+==============================================
 
-These bindings reproduce librosa 1.0's frame-wise features
-(``librosa.feature.*``), chroma and tuning estimation, the constant-Q family
-(``cqt``, ``vqt``, ``icqt``, chroma/tonnetz) and the YIN / pYIN pitch
-trackers, with librosa's keyword names and defaults. Agreement with librosa is
-measured by the golden-fixture tests ``tests/test_librosa_features.py``,
-``test_librosa_tonal.py``, ``test_librosa_constant_q.py`` and
-``test_librosa_pitch.py`` (round-off level, except the constant-Q octaves below
-the top one, which use the crate's resampler instead of soxr: ~1e-4 of the peak).
+Frame-wise spectral features, chroma and tuning estimation, the constant-Q
+family (``cqt``, ``vqt``, ``icqt``, chroma and tonnetz) and the YIN / pYIN
+pitch trackers.
 
 Entry points:
 
-* methods on :class:`audio_samples.AudioSamples` (librosa's ``y=`` forms; the
-  sample rate comes from the audio), always returning
-  ``(channels, n_features, n_frames)`` arrays (pitch trackers:
-  ``(channels, n_frames)``); index ``[0]`` for librosa's 1-D-input shape;
-* ``audio_samples.features``: array functions (librosa's ``S=`` / ``C=`` /
-  ``chroma=`` forms, filters and helpers) following librosa's shapes;
+* methods on :class:`audio_samples.AudioSamples`, which take the sample rate
+  from the audio and always return ``(channels, n_features, n_frames)`` arrays
+  (pitch trackers: ``(channels, n_frames)``); index ``[0]`` for mono audio;
+* ``audio_samples.features``: array functions that take a spectrogram ``S``,
+  a constant-Q transform ``C`` or a chromagram, plus the filterbanks and
+  helpers behind them; a 2-D input gives 2-D output and a 3-D
+  ``(channels, ...)`` input 3-D output;
 * ``audio_samples.utils``: tuning, octave and key conversions.
 
-Name mapping
-------------
-
-=========================================  ==============================================
-librosa                                    audio_samples
-=========================================  ==============================================
-``feature.spectral_centroid(y=...)``       ``AudioSamples.spectral_centroid_frames``
-``feature.spectral_bandwidth(y=...)``      ``AudioSamples.spectral_bandwidth_frames``
-``feature.spectral_rolloff(y=...)``        ``AudioSamples.spectral_rolloff_frames``
-``feature.spectral_flatness(y=...)``       ``AudioSamples.spectral_flatness_frames``
-``feature.spectral_contrast(y=...)``       ``AudioSamples.spectral_contrast_frames``
-``feature.poly_features(y=...)``           ``AudioSamples.poly_features``
-``feature.rms(y=...)``                     ``AudioSamples.rms_frames``
-``feature.zero_crossing_rate(y)``          ``AudioSamples.zero_crossing_rate_frames``
-``reassigned_spectrogram``                 ``AudioSamples.reassigned_spectrogram``
-``feature.chroma_stft(y=...)``             ``AudioSamples.chroma_stft``
-``piptrack(y=...)`` / ``estimate_tuning``  ``AudioSamples.piptrack`` / ``estimate_tuning``
-``cqt`` / ``vqt``                          ``AudioSamples.cqt`` / ``vqt``
-``pseudo_cqt`` / ``hybrid_cqt``            ``AudioSamples.pseudo_cqt`` / ``hybrid_cqt``
-``icqt`` / ``griffinlim_cqt``              ``AudioSamples.icqt`` / ``griffinlim_cqt`` (static)
-``feature.chroma_cqt`` / ``chroma_cens``   ``AudioSamples.chroma_cqt`` / ``chroma_cens``
-``feature.chroma_vqt`` / ``tonnetz``       ``AudioSamples.chroma_vqt`` / ``tonnetz``
-``yin`` / ``pyin``                         ``AudioSamples.yin`` / ``pyin``; ``features.yin`` / ``pyin``
-``feature.*(S=...)``                       ``features.*_from_spectrogram``
-``pcen``, ``*_weighting``                  ``features.pcen``, ``features.a_weighting`` ...
-``filters.chroma``                         ``features.chroma_filterbank``
-``util.normalize``                         ``features.normalize``
-``filters.cq_to_chroma`` / ``wavelet``     ``features.cq_to_chroma`` / ``wavelet``
-``salience``, ``*_harmonics``              ``features.salience`` / ``interp_harmonics`` / ``f0_harmonics``
-``hz_to_octs``, ``A4_to_tuning``, ...      ``utils.hz_to_octs``, ``utils.a4_to_tuning``, ...
-=========================================  ==============================================
-
-Differences: outputs and filterbanks are always float64 / complex128
-(librosa defaults to float32 bases and ``rms(dtype=float32)``); ``res_type``
-selects the crate's resampler quality (soxr is not used); only
-``intervals="equal"`` (VQT), ``kind="linear"`` (harmonics), the last axis as
-time and ``init=None`` (``griffinlim_cqt``) are supported; callables are
-limited to ``numpy.max`` / ``numpy.mean`` / ``numpy.median`` etc. where librosa
-accepts them.
+Output follows the input's precision: float32 / complex64 for uint8, int16,
+int24 and float32 audio (or float32 arrays), float64 / complex128 otherwise.
+Filterbanks, wavelets and frequency weightings are float64 tables.
+``res_type`` selects this library's resampler quality for the constant-Q
+octave decimation. Only ``intervals="equal"`` (VQT) and ``kind="linear"``
+(harmonics) are supported, and time is the last axis.
 
 AudioSamples methods
 --------------------
@@ -241,8 +204,8 @@ Pitch tracking and harmonics
 Tuning, octave and key conversions (``audio_samples.utils``)
 ------------------------------------------------------------
 
-Vectorised like librosa: a scalar gives a Python float, an array-like an array
-of the same shape.
+Vectorised: a scalar gives a Python float, an array-like an array of the same
+shape.
 
 .. currentmodule:: audio_samples.utils
 
