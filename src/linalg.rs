@@ -102,6 +102,7 @@ fn nnls_in<'py, F: PyFloat>(
 /// ``A`` has more columns than rows.
 ///
 /// Args:
+///
 ///     A (``array_like``): ``(m, n)`` matrix.
 ///     B (``array_like``): ``(m,)`` or ``(..., m, t)``.
 ///     ``max_iter`` (int): Most sweeps per column of a 2-D ``B``. Default 200.
@@ -109,9 +110,11 @@ fn nnls_in<'py, F: PyFloat>(
 ///         fraction of ``max|B|``. Default 1e-5.
 ///
 /// Returns:
+///
 ///     numpy.ndarray: ``(n,)`` or ``(..., n, t)``, of ``B``'s precision.
 ///
 /// Raises:
+///
 ///     ``ValueError``: Dimensions disagree or an input is not finite.
 #[pyfunction]
 #[pyo3(name = "nnls", signature = (A, B, *, max_iter = Int(200), tol = 1e-5), text_signature = "(A, B, *, max_iter=200, tol=1e-05)")]
@@ -137,11 +140,13 @@ pub fn nnls<'py>(
 /// The Moore-Penrose pseudo-inverse.
 ///
 /// Args:
+///
 ///     a (``array_like``): ``(m, n)`` matrix.
 ///     rcond (float): Singular values below this fraction of the largest count as zero.
 ///         Values below about 1.5e-8 act as that limit. Default 1e-15.
 ///
 /// Returns:
+///
 ///     numpy.ndarray: ``(n, m)``, of ``a``'s precision.
 #[pyfunction]
 #[pyo3(signature = (a, *, rcond = 1e-15), text_signature = "(a, *, rcond=1e-15)")]
@@ -162,9 +167,11 @@ pub fn pinv<'py>(a: &Bound<'py, PyAny>, rcond: f64) -> PyResult<Bound<'py, PyAny
 /// Eigenvalues and eigenvectors of a symmetric matrix; only the lower triangle is read.
 ///
 /// Args:
+///
 ///     a (``array_like``): ``(n, n)`` symmetric matrix.
 ///
 /// Returns:
+///
 ///     tuple[numpy.ndarray, numpy.ndarray]: Increasing eigenvalues, and the matching
 ///     eigenvectors in the columns, both ``float64``.
 #[pyfunction]
@@ -187,12 +194,14 @@ pub fn eigh<'py>(a: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
 /// finding, deterministically for a given ``seed``.
 ///
 /// Args:
+///
 ///     a (``array_like``): ``(m, n)`` matrix.
 ///     k (Optional[int]): Number of leading triplets. Default: all.
 ///     ``n_iter`` (int): Power iterations of the truncated form. Default 4.
 ///     seed (int): Seed of the truncated form. Default 0.
 ///
 /// Returns:
+///
 ///     tuple[numpy.ndarray, numpy.ndarray, numpy.ndarray]: ``u``, ``s``, ``vt``, ``float64``.
 #[pyfunction]
 #[pyo3(signature = (a, *, k = None, n_iter = Int(4), seed = 0), text_signature = "(a, *, k=None, n_iter=4, seed=0)")]

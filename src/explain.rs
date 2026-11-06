@@ -28,7 +28,7 @@ use crate::types::{
 };
 use crate::{PyAudioSamples, dispatch_with_view};
 
-/// Names of the classes `explain()` accepts, for the TypeError message.
+/// Names of the classes `explain()` accepts, for the `TypeError` message.
 const SUPPORTED: &str = "StftParams, SpectrogramParams, MelParams, MfccParams, WindowType, \
      IirFilterDesign, EqBand, CompressorConfig, LimiterConfig, VadConfig, OnsetDetectionConfig";
 
@@ -51,6 +51,7 @@ const SUPPORTED: &str = "StftParams, SpectrogramParams, MelParams, MfccParams, W
 /// expression ``doc`` renders as Markdown (maths typeset by MathJax).
 ///
 /// Examples:
+///
 ///     >>> from audio_samples.explain import aliasing
 ///     >>> doc = aliasing(7000.0, 8000.0)
 ///     >>> doc.quantity("Alias frequency")
@@ -87,7 +88,7 @@ impl PyExplainDoc {
 
     /// Syllabus topic label, e.g. ``"Windowing"`` or ``"IIR filters"``.
     #[getter]
-    fn topic(&self) -> &'static str {
+    const fn topic(&self) -> &'static str {
         self.inner.topic.label()
     }
 
@@ -100,6 +101,7 @@ impl PyExplainDoc {
     /// Formulas the explained code evaluates.
     ///
     /// Returns:
+    ///
     ///     list[dict]: One dict per formula with keys ``latex`` (math-mode
     ///         LaTeX without ``$`` delimiters) and ``caption``.
     #[getter]
@@ -117,6 +119,7 @@ impl PyExplainDoc {
     /// Symbols used in the formulas.
     ///
     /// Returns:
+    ///
     ///     list[dict]: One dict per symbol with keys ``symbol`` (LaTeX),
     ///         ``meaning``, ``value`` (str or None) and ``unit`` (str or None).
     #[getter]
@@ -136,6 +139,7 @@ impl PyExplainDoc {
     /// Quantities computed from the settings.
     ///
     /// Returns:
+    ///
     ///     list[dict]: One dict per quantity with keys ``name``, ``symbol``
     ///         (LaTeX), ``value`` (float, always finite), ``unit`` and ``how``
     ///         (the LaTeX formula used to compute it).
@@ -157,6 +161,7 @@ impl PyExplainDoc {
     /// Tables (pole/zero lists, static curves, band edges, ...).
     ///
     /// Returns:
+    ///
     ///     list[dict]: One dict per table with keys ``caption`` (str),
     ///         ``headers`` (list[str]) and ``rows`` (list[list[str]]). Cells
     ///         that start and end with ``$`` are LaTeX.
@@ -176,6 +181,7 @@ impl PyExplainDoc {
     /// Resolution, latency and leakage trade-offs, stated for these settings.
     ///
     /// Returns:
+    ///
     ///     list[str]: One sentence or short paragraph per trade-off.
     #[getter]
     fn trade_offs(&self) -> Vec<String> {
@@ -185,6 +191,7 @@ impl PyExplainDoc {
     /// Computed observations about the settings.
     ///
     /// Returns:
+    ///
     ///     list[dict]: One dict per warning with keys ``level`` (``"info"``,
     ///         ``"caution"`` or ``"problem"``), ``message`` and ``hint``
     ///         (str or None).
@@ -204,6 +211,7 @@ impl PyExplainDoc {
     /// Related reading: Rust paths, Python names, guide chapters.
     ///
     /// Returns:
+    ///
     ///     list[dict]: One dict per reference with keys ``label`` and ``target``.
     #[getter]
     fn see_also<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyList>> {
@@ -222,6 +230,7 @@ impl PyExplainDoc {
     /// Formulas are drawn as Unicode maths; no raw LaTeX reaches the output.
     ///
     /// Returns:
+    ///
     ///     str: A multi-line string (also ``str(doc)``).
     #[pyo3(signature = ())]
     fn text(&self) -> String {
@@ -234,6 +243,7 @@ impl PyExplainDoc {
     /// shows for a bare ``doc`` expression.
     ///
     /// Returns:
+    ///
     ///     str: Markdown source.
     #[pyo3(signature = ())]
     fn markdown(&self) -> String {
@@ -243,6 +253,7 @@ impl PyExplainDoc {
     /// Render as a self-contained HTML fragment (no JavaScript).
     ///
     /// Returns:
+    ///
     ///     str: HTML source.
     #[pyo3(signature = ())]
     fn html(&self) -> String {
@@ -252,14 +263,17 @@ impl PyExplainDoc {
     /// Look up a derived quantity by name.
     ///
     /// Args:
+    ///
     ///     name (str): Quantity name exactly as listed in :attr:`derived`,
     ///         e.g. ``"Frequency resolution"``.
     ///
     /// Returns:
+    ///
     ///     float | None: The value of the first quantity with that name, or
     ///         None if there is none.
     ///
     /// Examples:
+    ///
     ///     >>> from audio_samples.explain import sampling
     ///     >>> sampling(48000.0).quantity("Nyquist frequency")
     ///     24000.0
@@ -271,14 +285,17 @@ impl PyExplainDoc {
     /// Whether the explanation carries a warning of the given level.
     ///
     /// Args:
+    ///
     ///     level (str | None): ``"info"``, ``"caution"`` or ``"problem"``
     ///         (case-insensitive), matched exactly. None (the default) matches
     ///         any warning.
     ///
     /// Returns:
+    ///
     ///     bool: True if at least one such warning exists.
     ///
     /// Raises:
+    ///
     ///     ValueError: If ``level`` is not a known warning level.
     #[pyo3(signature = (level: "str | None" = None))]
     fn has_warning(&self, level: Option<&str>) -> PyResult<bool> {
@@ -291,9 +308,11 @@ impl PyExplainDoc {
     /// Whether any warning message contains ``text``.
     ///
     /// Args:
+    ///
     ///     text (str): Substring to search for (case-sensitive).
     ///
     /// Returns:
+    ///
     ///     bool: True if a matching warning exists.
     #[pyo3(signature = (text: "str"))]
     fn has_warning_containing(&self, text: &str) -> bool {
@@ -328,7 +347,7 @@ impl PyExplainDoc {
 }
 
 /// Build an `ExplainContext` from optional Python arguments.
-pub(crate) fn make_context(
+pub fn make_context(
     sample_rate: Option<f64>,
     n_samples: Option<usize>,
     n_channels: Option<usize>,
@@ -359,7 +378,7 @@ pub(crate) fn make_context(
 }
 
 /// Explain any supported configuration object with `ctx`.
-pub(crate) fn explain_any(obj: &Bound<'_, PyAny>, ctx: &ExplainContext) -> PyResult<ExplainDoc> {
+pub fn explain_any(obj: &Bound<'_, PyAny>, ctx: &ExplainContext) -> PyResult<ExplainDoc> {
     if let Ok(p) = obj.cast::<PyStftParams>() {
         return Ok(p.borrow().inner.explain_with(ctx));
     }
@@ -417,6 +436,7 @@ pub(crate) fn explain_any(obj: &Bound<'_, PyAny>, ctx: &ExplainContext) -> PyRes
 /// quantities that need it are left out and an ``info`` warning says so.
 ///
 /// Args:
+///
 ///     obj: The configuration to explain. One of ``StftParams``,
 ///         ``SpectrogramParams``, ``MelParams``, ``MfccParams``,
 ///         ``WindowType``, ``IirFilterDesign``, ``EqBand``,
@@ -435,12 +455,15 @@ pub(crate) fn explain_any(obj: &Bound<'_, PyAny>, ctx: &ExplainContext) -> PyRes
 ///         combined with (enables the ``n_mfcc > n_mels`` check).
 ///
 /// Returns:
+///
 ///     ExplainDoc: The explanation.
 ///
 /// Raises:
+///
 ///     TypeError: If ``obj`` is not one of the supported types.
 ///
 /// Examples:
+///
 ///     >>> import audio_samples as aus
 ///     >>> from audio_samples.explain import explain
 ///     >>> params = aus.StftParams(n_fft=256, hop_size=128, window=aus.WindowType.hanning)
@@ -468,13 +491,16 @@ fn explain_fn(
 /// Explain sampling at a given rate: sampling period and Nyquist frequency.
 ///
 /// Args:
+///
 ///     sample_rate (float): Sample rate in Hz.
 ///
 /// Returns:
+///
 ///     ExplainDoc: The explanation (a ``problem`` warning if the rate is not
 ///         finite and positive).
 ///
 /// Examples:
+///
 ///     >>> from audio_samples.explain import sampling
 ///     >>> sampling(16000.0).quantity("Nyquist frequency")
 ///     8000.0
@@ -487,13 +513,16 @@ fn topic_sampling(sample_rate: f64) -> PyExplainDoc {
 /// Explain where a tone of a given frequency lands after sampling (aliasing).
 ///
 /// Args:
+///
 ///     frequency (float): Frequency of the continuous-time tone in Hz.
 ///     sample_rate (float): Sample rate in Hz.
 ///
 /// Returns:
+///
 ///     ExplainDoc: The explanation, with the ``"Alias frequency"`` quantity.
 ///
 /// Examples:
+///
 ///     >>> from audio_samples.explain import aliasing
 ///     >>> aliasing(7000.0, 8000.0).quantity("Alias frequency")
 ///     1000.0
@@ -506,12 +535,15 @@ fn topic_aliasing(frequency: f64, sample_rate: f64) -> PyExplainDoc {
 /// Explain uniform quantisation at a given bit depth (step size, SQNR).
 ///
 /// Args:
+///
 ///     bits (int): Bits per sample.
 ///
 /// Returns:
+///
 ///     ExplainDoc: The explanation.
 ///
 /// Examples:
+///
 ///     >>> from audio_samples.explain import quantisation
 ///     >>> round(quantisation(16).quantity("SQNR (full-scale sine)"), 2)
 ///     98.09
@@ -524,10 +556,12 @@ fn topic_quantisation(bits: u32) -> PyExplainDoc {
 /// Explain an N-point discrete Fourier transform at a given sample rate.
 ///
 /// Args:
+///
 ///     n_fft (int): Transform length in samples.
 ///     sample_rate (float): Sample rate in Hz.
 ///
 /// Returns:
+///
 ///     ExplainDoc: The explanation (bin spacing, number of bins, ...).
 #[pyfunction(name = "dft")]
 #[pyo3(signature = (n_fft: "int", sample_rate: "float"))]
@@ -538,14 +572,17 @@ fn topic_dft(n_fft: usize, sample_rate: f64) -> PyExplainDoc {
 /// Explain a window function of a given length, measured from its coefficients.
 ///
 /// Args:
+///
 ///     window_type (WindowType): The window (``audio_samples.WindowType``).
 ///     n (int): Window length in samples.
 ///     sample_rate (float): Sample rate in Hz.
 ///
 /// Returns:
+///
 ///     ExplainDoc: The explanation (ENBW, main-lobe width, side-lobe level, ...).
 ///
 /// Raises:
+///
 ///     TypeError: If ``window_type`` is not a ``WindowType``.
 #[pyfunction(name = "window")]
 #[pyo3(signature = (window_type: "WindowType", n: "int", sample_rate: "float"))]
@@ -567,6 +604,7 @@ fn topic_window(
 /// Explain YIN pitch estimation for a search range and frame length.
 ///
 /// Args:
+///
 ///     threshold (float): CMND threshold (typically 0.1 to 0.2).
 ///     min_frequency (float): Lowest frequency searched, in Hz.
 ///     max_frequency (float): Highest frequency searched, in Hz.
@@ -575,6 +613,7 @@ fn topic_window(
 ///         a ``problem`` warning fires if it is too short for ``min_frequency``.
 ///
 /// Returns:
+///
 ///     ExplainDoc: The explanation (lag range, minimum frame length, ...).
 #[pyfunction(name = "yin")]
 #[pyo3(signature = (threshold: "float", min_frequency: "float", max_frequency: "float", sample_rate: "float", frame_length: "int | None" = None))]
@@ -598,11 +637,13 @@ fn topic_yin(
 /// Explain autocorrelation pitch estimation for a search range.
 ///
 /// Args:
+///
 ///     min_frequency (float): Lowest frequency searched, in Hz.
 ///     max_frequency (float): Highest frequency searched, in Hz.
 ///     sample_rate (float): Sample rate in Hz.
 ///
 /// Returns:
+///
 ///     ExplainDoc: The explanation (lag range, lag resolution, ...).
 #[pyfunction(name = "autocorrelation_pitch")]
 #[pyo3(signature = (min_frequency: "float", max_frequency: "float", sample_rate: "float"))]
@@ -617,10 +658,12 @@ fn topic_autocorrelation_pitch(
 /// Explain linear predictive coding (LPC) of a given order.
 ///
 /// Args:
+///
 ///     order (int): Prediction order (number of coefficients).
 ///     sample_rate (float): Sample rate in Hz.
 ///
 /// Returns:
+///
 ///     ExplainDoc: The explanation (formants resolvable, rule-of-thumb order, ...).
 #[pyfunction(name = "lpc")]
 #[pyo3(signature = (order: "int", sample_rate: "float"))]
@@ -631,10 +674,12 @@ fn topic_lpc(order: usize, sample_rate: f64) -> PyExplainDoc {
 /// Explain the real cepstrum for an N-point FFT.
 ///
 /// Args:
+///
 ///     n_fft (int): FFT length in samples.
 ///     sample_rate (float): Sample rate in Hz.
 ///
 /// Returns:
+///
 ///     ExplainDoc: The explanation (quefrency resolution and range, ...).
 #[pyfunction(name = "cepstrum")]
 #[pyo3(signature = (n_fft: "int", sample_rate: "float"))]
@@ -645,10 +690,12 @@ fn topic_cepstrum(n_fft: usize, sample_rate: f64) -> PyExplainDoc {
 /// Explain sample-rate conversion between two rates.
 ///
 /// Args:
+///
 ///     from_rate (float): Source sample rate in Hz.
 ///     to_rate (float): Target sample rate in Hz.
 ///
 /// Returns:
+///
 ///     ExplainDoc: The explanation (ratio, new Nyquist, anti-alias warnings, ...).
 #[pyfunction(name = "resampling")]
 #[pyo3(signature = (from_rate: "float", to_rate: "float"))]
@@ -662,10 +709,12 @@ fn topic_resampling(from_rate: f64, to_rate: f64) -> PyExplainDoc {
 /// (symmetric or antisymmetric coefficients) and its group delay.
 ///
 /// Args:
+///
 ///     coefficients (Sequence[float] | numpy.ndarray): Filter taps ``h[0..N-1]``.
 ///     sample_rate (float): Sample rate in Hz.
 ///
 /// Returns:
+///
 ///     ExplainDoc: The explanation.
 #[pyfunction(name = "fir")]
 #[pyo3(signature = (coefficients: "Sequence[float] | numpy.ndarray", sample_rate: "float"))]
@@ -734,6 +783,7 @@ impl PyAudioSamples {
     /// and "window shorter than a pitch period" warnings are computed for it.
     ///
     /// Args:
+    ///
     ///     obj: The configuration to explain (``StftParams``,
     ///         ``SpectrogramParams``, ``MelParams``, ``MfccParams``,
     ///         ``WindowType``, ``IirFilterDesign``, ``EqBand``,
@@ -746,12 +796,15 @@ impl PyAudioSamples {
     ///         combined with.
     ///
     /// Returns:
+    ///
     ///     ExplainDoc: The explanation.
     ///
     /// Raises:
+    ///
     ///     TypeError: If ``obj`` is not one of the supported types.
     ///
     /// Examples:
+    ///
     ///     >>> import audio_samples as aus
     ///     >>> audio = aus.sine_wave(440.0, 1.0, sample_rate=16000)
     ///     >>> params = aus.StftParams(n_fft=512, hop_size=256, window=aus.WindowType.hanning)
@@ -790,6 +843,7 @@ macro_rules! impl_config_explain {
             #[doc = concat!("Explain what this ", $what, " will do.")]
             ///
             /// Args:
+            ///
             ///     sample_rate (float | None): Sample rate in Hz of the signal it
             ///         will be applied to. Without it, quantities that need a
             ///         sample rate are omitted and an ``info`` warning says so.
@@ -799,6 +853,7 @@ macro_rules! impl_config_explain {
             ///         fundamental-frequency range ``(lowest, highest)`` in Hz.
             ///
             /// Returns:
+            ///
             ///     ExplainDoc: The explanation (see ``audio_samples.explain``).
             #[pyo3(signature = (sample_rate: "float | None" = None, *, n_samples: "int | None" = None, n_channels: "int | None" = None, f0_range: "tuple[float, float] | None" = None))]
             fn explain(

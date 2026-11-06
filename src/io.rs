@@ -85,7 +85,7 @@ where
         let bound = arr.bind(py);
         let array_1d = bound.reshape([info.total_samples])?;
         Ok(PyAudioSamples::new_mono_from_python(
-            array_1d.to_owned(),
+            array_1d.clone(),
             sample_rate,
         ))
     } else {
@@ -99,6 +99,7 @@ where
 /// Read an audio file (WAV or FLAC) and return an ``AudioSamples``.
 ///
 /// Args:
+///
 ///     fp (str | Path | BinaryIO): Path to the audio file, or a file object opened in
 ///         binary mode with ``read``, ``seek`` and ``tell``, read from its current position.
 ///     as_type (SampleType | None): Sample type to convert to, for example
@@ -106,9 +107,11 @@ where
 ///         native sample type (16-bit files give raw ``int16`` values).
 ///
 /// Returns:
+///
 ///     AudioSamples: The decoded audio.
 ///
 /// Raises:
+///
 ///     FileNotFoundError: If ``fp`` does not exist (``AudioFileNotFoundError``).
 ///     TypeError: If the file cannot be decoded (``AudioDecodeError``), or ``fp`` is
 ///         neither a path nor a file object.
@@ -124,7 +127,7 @@ pub fn read(
         Ok(path) => path,
         Err(not_a_path) => {
             if !fp.hasattr("read")? {
-                return Err(not_a_path.into());
+                return Err(not_a_path);
             }
             return crate::io_streaming::PyStreamedAudioReader::open_any(fp)?
                 .read_rest(py, as_type);
@@ -259,7 +262,7 @@ where
         let array_1d = pyarray_bound.reshape([info.total_samples])?;
 
         Ok(PyAudioSamples::new_mono_from_python(
-            array_1d.to_owned(),
+            array_1d.clone(),
             sample_rate,
         ))
     } else {
@@ -284,6 +287,7 @@ where
 /// ``SampleType.I24``.
 ///
 /// Args:
+///
 ///     fp (str | Path): Output path.
 ///     samples (AudioSamples): The audio to write.
 ///     as_type (SampleType, optional): Convert to this sample type as the file is written, without
@@ -292,6 +296,7 @@ where
 ///         verify it. ``False`` leaves it out, which encodes faster. Defaults to ``True``.
 ///
 /// Raises:
+///
 ///     ValueError: If the format is unsupported, the sample type cannot be stored in FLAC, or
 ///         ``flac_md5`` is false and the file is not FLAC.
 ///     OSError: If the file cannot be written.
@@ -404,6 +409,7 @@ fn check_flac_sample_type(
 /// ``ceil(n * target_sr / file_sr)`` samples per channel.
 ///
 /// Args:
+///
 ///     fp (str | Path): Path to the audio file.
 ///     target_sr (int): Target sample rate in Hz; must be greater than zero.
 ///     quality (ResamplingQuality, optional): Resampling quality/speed trade-off. Defaults to
@@ -411,9 +417,11 @@ fn check_flac_sample_type(
 ///     as_type (SampleType, optional): Sample type for the returned audio. Defaults to ``f32``.
 ///
 /// Returns:
+///
 ///     AudioSamples: The resampled audio.
 ///
 /// Raises:
+///
 ///     ValueError: If ``target_sr`` is zero.
 ///     TypeError: If the file cannot be read or the format is unsupported.
 ///     RuntimeError: If resampling fails.
@@ -446,12 +454,15 @@ pub fn read_and_resample(
 /// the sample type is needed.
 ///
 /// Args:
+///
 ///     fp (str | Path): Path to the audio file.
 ///
 /// Returns:
+///
 ///     str: The native sample type as a string (e.g. ``"i16"``, ``"f32"``).
 ///
 /// Raises:
+///
 ///     ValueError: If the format is unsupported or the type cannot be determined.
 ///     OSError: If the file cannot be opened.
 #[pyfunction]
@@ -472,6 +483,7 @@ pub fn peek_native_type(fp: std::path::PathBuf) -> PyResult<&'static str> {
 /// Options controlling how audio data is written.
 ///
 /// Args:
+///
 ///     write_buf_capacity (int): Size of the internal write buffer in bytes. The default of
 ///         256 holds only the file's header: samples go straight to the file where their memory
 ///         is already its layout, and otherwise in tiles of 64 KiB. A larger buffer copies them
@@ -501,7 +513,7 @@ impl PyWriteOptions {
     }
 
     #[setter]
-    fn set_write_buf_capacity(&mut self, value: usize) {
+    const fn set_write_buf_capacity(&mut self, value: usize) {
         self.inner.write_buf_capacity = value;
     }
 }
@@ -509,6 +521,7 @@ impl PyWriteOptions {
 /// FLAC compression level (0-8): higher means smaller files but slower encoding.
 ///
 /// Args:
+///
 ///     level (int): Compression level, clamped to the range 0-8. Defaults to 5.
 #[pyclass(name = "CompressionLevel", module = "audio_samples.io", from_py_object)]
 #[derive(Clone, Copy)]
@@ -528,7 +541,7 @@ impl PyCompressionLevel {
 
     /// Fastest compression (level 0).
     #[staticmethod]
-    fn fastest() -> Self {
+    const fn fastest() -> Self {
         Self {
             inner: CompressionLevel::new(0),
         }
@@ -536,7 +549,7 @@ impl PyCompressionLevel {
 
     /// Best compression (level 8).
     #[staticmethod]
-    fn best() -> Self {
+    const fn best() -> Self {
         Self {
             inner: CompressionLevel::new(8),
         }
@@ -723,12 +736,15 @@ impl PyVorbisComment {
     /// Parse a Vorbis comment block from its raw bytes.
     ///
     /// Args:
+    ///
     ///     data (bytes): The raw Vorbis comment block.
     ///
     /// Returns:
+    ///
     ///     VorbisComment: The parsed comment.
     ///
     /// Raises:
+    ///
     ///     ValueError: If the bytes are malformed.
     #[staticmethod]
     #[pyo3(signature = (data: "bytes"))]
@@ -850,6 +866,7 @@ impl_py_wrapper_core!(PyStreamInfo, StreamInfo);
 /// The format is chosen from the file extension (``.wav``/``.flac``/``.aiff``).
 ///
 /// Args:
+///
 ///     fp (str | Path): Output path.
 ///     samples (AudioSamples): The audio to write.
 ///     options (WriteOptions, optional): Write options. Defaults to a 256-byte buffer, which
@@ -860,6 +877,7 @@ impl_py_wrapper_core!(PyStreamInfo, StreamInfo);
 ///         verify it. ``False`` leaves it out, which encodes faster. Defaults to ``True``.
 ///
 /// Raises:
+///
 ///     ValueError: If the format is unsupported, the file is FLAC and the sample type to write is
 ///         not I16 or I24 (FLAC stores integers of those widths only), or ``flac_md5`` is false
 ///         and the file is not FLAC.
@@ -887,10 +905,12 @@ pub fn write_with_options(
 /// replaces both.
 ///
 /// Args:
+///
 ///     limit (int | None): Most threads to use; ``1`` keeps everything on the calling thread.
 ///         ``None`` returns to the default.
 ///
 /// Raises:
+///
 ///     ValueError: If ``limit`` is zero.
 #[pyfunction]
 #[pyo3(signature = (limit: "int | None"))]
@@ -905,6 +925,7 @@ pub fn set_thread_limit(limit: Option<usize>) -> PyResult<()> {
 /// The most threads a read of a large file will use at present.
 ///
 /// Returns:
+///
 ///     int: See :func:`set_thread_limit`.
 #[pyfunction]
 pub fn thread_limit() -> usize {
@@ -917,11 +938,13 @@ pub fn thread_limit() -> usize {
 /// persisting tags/markers that a plain read→write round-trip would drop. WAV only.
 ///
 /// Args:
+///
 ///     fp (str | Path): Output ``.wav`` path.
 ///     samples (AudioSamples): The audio to write.
 ///     metadata (WavMetadata): Metadata (INFO tags / cue points) to serialise.
 ///
 /// Raises:
+///
 ///     OSError: If the file cannot be written.
 #[pyfunction]
 #[pyo3(signature = (fp: "str | Path", samples: "AudioSamples", metadata: "WavMetadata"))]
@@ -946,12 +969,15 @@ pub fn write_with_metadata(
 /// Read the LIST/INFO tags from a WAV file.
 ///
 /// Args:
+///
 ///     fp (str | Path): Path to the WAV file.
 ///
 /// Returns:
+///
 ///     InfoMetadata | None: The INFO tags, or ``None`` if the file has no LIST/INFO chunk.
 ///
 /// Raises:
+///
 ///     OSError: If the file cannot be opened.
 ///     ValueError: If the file is not a WAV file or the chunk is malformed.
 #[pyfunction]
@@ -982,12 +1008,15 @@ pub fn read_wav_info_tags(fp: std::path::PathBuf) -> PyResult<Option<PyInfoMetad
 /// Read the cue points (markers) from a WAV file.
 ///
 /// Args:
+///
 ///     fp (str | Path): Path to the WAV file.
 ///
 /// Returns:
+///
 ///     list[CuePoint]: The cue points (empty if none).
 ///
 /// Raises:
+///
 ///     OSError: If the file cannot be opened.
 ///     ValueError: If the file is not a WAV file or the chunk is malformed.
 #[pyfunction]
@@ -1022,12 +1051,15 @@ pub fn read_wav_cue_points(fp: std::path::PathBuf) -> PyResult<Vec<PyCuePoint>> 
 /// Read the STREAMINFO metadata block from a FLAC file.
 ///
 /// Args:
+///
 ///     fp (str | Path): Path to the FLAC file.
 ///
 /// Returns:
+///
 ///     StreamInfo: The FLAC STREAMINFO block.
 ///
 /// Raises:
+///
 ///     OSError: If the file cannot be opened.
 ///     ValueError: If the file is not a FLAC file.
 #[pyfunction]

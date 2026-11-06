@@ -1,6 +1,6 @@
 //! Python bindings for audio signal comparison and similarity metrics.
 //!
-//! This module exposes the audio_samples::utils::comparison functions to Python,
+//! This module exposes the `audio_samples::utils::comparison` functions to Python,
 //! providing signal comparison functions like correlation, MSE, SNR, and signal alignment.
 
 use audio_samples::utils::comparison;
@@ -21,16 +21,20 @@ use crate::{PyAudioSamples, audio_err_to_py};
 /// channel and the results are averaged.
 ///
 /// Args:
+///
 ///     a: The first audio signal.
 ///     b: The second audio signal.
 ///
 /// Returns:
+///
 ///     A scalar correlation coefficient in the range [-1, 1].
 ///
 /// Raises:
+///
 ///     ValueError: If the signals have different dimensions or channel configurations.
 ///
 /// Example:
+///
 ///     >>> import numpy as np
 ///     >>> from audio_samples import AudioSamples
 ///     >>> from audio_samples.utils import correlation
@@ -116,16 +120,20 @@ pub fn correlation(py: Python, a: &PyAudioSamples, b: &PyAudioSamples) -> PyResu
 /// and the results are averaged.
 ///
 /// Args:
+///
 ///     a: The first audio signal.
 ///     b: The second audio signal.
 ///
 /// Returns:
+///
 ///     The mean squared error as a non-negative scalar value.
 ///
 /// Raises:
+///
 ///     ValueError: If the signals have different dimensions or channel configurations.
 ///
 /// Example:
+///
 ///     >>> import numpy as np
 ///     >>> from audio_samples import AudioSamples
 ///     >>> from audio_samples.utils import mse
@@ -206,17 +214,21 @@ pub fn mse(py: Python, a: &PyAudioSamples, b: &PyAudioSamples) -> PyResult<f64> 
 /// For multi-channel inputs, power is computed over all samples across all channels.
 ///
 /// Args:
+///
 ///     signal: The signal component.
 ///     noise: The noise component.
 ///
 /// Returns:
+///
 ///     The signal-to-noise ratio in decibels. Returns positive infinity if noise
 ///     power is zero.
 ///
 /// Raises:
+///
 ///     ValueError: If the signals have different dimensions or channel configurations.
 ///
 /// Example:
+///
 ///     >>> import numpy as np
 ///     >>> from audio_samples import AudioSamples
 ///     >>> from audio_samples.utils import snr
@@ -296,17 +308,21 @@ pub fn snr(py: Python, signal: &PyAudioSamples, noise: &PyAudioSamples) -> PyRes
 /// The maximum offset searched is half of the shorter signal length.
 ///
 /// Args:
+///
 ///     reference: The reference signal that defines the target alignment.
 ///     signal: The signal to be aligned to the reference.
 ///
 /// Returns:
+///
 ///     A tuple (aligned_signal, offset_samples) where aligned_signal is the shifted
 ///     signal and offset_samples is the number of samples by which it was shifted.
 ///
 /// Raises:
+///
 ///     ValueError: If the signals have different channel counts or configurations.
 ///
 /// Example:
+///
 ///     >>> import numpy as np
 ///     >>> from audio_samples import AudioSamples
 ///     >>> from audio_samples.utils import align_signals
@@ -455,13 +471,16 @@ macro_rules! dispatch_pair {
 /// yield positive infinity.
 ///
 /// Args:
+///
 ///     reference: The reference (clean) signal.
 ///     test: The signal to compare against the reference.
 ///
 /// Returns:
+///
 ///     The PSNR in decibels. Returns positive infinity for identical signals.
 ///
 /// Raises:
+///
 ///     ValueError: If the signals have different dimensions or channel configurations.
 #[inline]
 pub fn psnr(py: Python, reference: &PyAudioSamples, test: &PyAudioSamples) -> PyResult<f64> {
@@ -477,14 +496,17 @@ pub fn psnr(py: Python, reference: &PyAudioSamples, test: &PyAudioSamples) -> Py
 /// with perceived quality than a single global SNR.
 ///
 /// Args:
+///
 ///     signal: The signal component.
 ///     noise: The noise component.
 ///     segment_len: Number of samples per segment (must be positive, default: 256).
 ///
 /// Returns:
+///
 ///     The mean of the per-segment SNR values in decibels.
 ///
 /// Raises:
+///
 ///     ValueError: If the signals have different dimensions/channels, or `segment_len` is 0.
 #[inline]
 pub fn segmental_snr(
@@ -511,13 +533,16 @@ pub fn segmental_snr(
 /// Lower values indicate greater spectral similarity; identical signals yield 0.0.
 ///
 /// Args:
+///
 ///     a: The first audio signal.
 ///     b: The second audio signal.
 ///
 /// Returns:
+///
 ///     The log-spectral distance as a non-negative scalar value.
 ///
 /// Raises:
+///
 ///     ValueError: If the signals have different dimensions or channel configurations.
 #[inline]
 pub fn log_spectral_distance(py: Python, a: &PyAudioSamples, b: &PyAudioSamples) -> PyResult<f64> {
@@ -532,13 +557,16 @@ pub fn log_spectral_distance(py: Python, a: &PyAudioSamples, b: &PyAudioSamples)
 /// For mono input the returned array has a single element.
 ///
 /// Args:
+///
 ///     a: The first audio signal.
 ///     b: The second audio signal.
 ///
 /// Returns:
+///
 ///     A 1-D NumPy array of per-channel correlation coefficients, in channel order.
 ///
 /// Raises:
+///
 ///     ValueError: If the signals have different dimensions or channel configurations.
 #[inline]
 pub fn correlation_per_channel<'py>(
@@ -558,13 +586,16 @@ pub fn correlation_per_channel<'py>(
 /// For mono input the returned array has a single element.
 ///
 /// Args:
+///
 ///     a: The first audio signal.
 ///     b: The second audio signal.
 ///
 /// Returns:
+///
 ///     A 1-D NumPy array of per-channel MSE values, in channel order.
 ///
 /// Raises:
+///
 ///     ValueError: If the signals have different dimensions or channel configurations.
 #[inline]
 pub fn mse_per_channel<'py>(
@@ -585,13 +616,16 @@ pub fn mse_per_channel<'py>(
 /// returned array has a single element.
 ///
 /// Args:
+///
 ///     signal: The signal component.
 ///     noise: The noise component.
 ///
 /// Returns:
+///
 ///     A 1-D NumPy array of per-channel SNR values in decibels, in channel order.
 ///
 /// Raises:
+///
 ///     ValueError: If the signals have different dimensions or channel configurations.
 #[inline]
 pub fn snr_per_channel<'py>(

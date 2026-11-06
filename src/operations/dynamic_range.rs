@@ -72,17 +72,20 @@ macro_rules! dispatch_sidechain {
 impl PyAudioSamples {
     /// Apply a compressor configuration in place.
     ///
-    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// Modifies the signal in place and returns ``None``. If the ``AudioSamples``
     /// was created from a NumPy array (``new_mono``/``new_multi``), that array
     /// is modified too; pass ``arr.copy()`` to keep the original.
     ///
     /// Args:
+    ///
     ///     compressor_config (CompressorConfig): Parameters controlling threshold, ratio, and timing.
     ///
     /// Returns:
+    ///
     ///     None: Operation mutates the current buffer.
     ///
     /// Raises:
+    ///
     ///     AudioError: If compression fails.
     #[pyo3(signature = (compressor_config: "CompressorConfig"))]
     fn apply_compressor(
@@ -99,17 +102,20 @@ impl PyAudioSamples {
 
     /// Apply a limiter configuration in place.
     ///
-    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// Modifies the signal in place and returns ``None``. If the ``AudioSamples``
     /// was created from a NumPy array (``new_mono``/``new_multi``), that array
     /// is modified too; pass ``arr.copy()`` to keep the original.
     ///
     /// Args:
+    ///
     ///     config (LimiterConfig): Parameters controlling ceiling, attack, and release.
     ///
     /// Returns:
+    ///
     ///     None: Operation mutates the current buffer.
     ///
     /// Raises:
+    ///
     ///     AudioError: If limiting fails.
     #[pyo3(signature = (config: "LimiterConfig"))]
     fn apply_limiter(&mut self, py: Python<'_>, config: PyLimiterConfig) -> PyResult<()> {
@@ -124,10 +130,11 @@ impl PyAudioSamples {
     ///
     /// The compressor's gain reduction is driven by the level of ``sidechain``
     /// rather than the main signal. Sidechain processing must be enabled on the
-    /// configuration (set ``config.side_chain`` to an enabled SideChainConfig).
+    /// configuration (set ``config.side_chain`` to an enabled ``SideChainConfig``).
     /// Only mono-to-mono sidechain processing is supported.
     ///
     /// Note:
+    ///
     ///     Unlike the other dynamics operations in this module (which mutate in
     ///     place), this returns a new buffer. The crate's sidechain method takes
     ///     ``sidechain_signal: &Self`` and ``AudioSamples`` is invariant over its
@@ -136,14 +143,17 @@ impl PyAudioSamples {
     ///     copies and a new result is produced.
     ///
     /// Args:
+    ///
     ///     config (CompressorConfig): Compressor parameters with sidechain enabled.
     ///     sidechain (AudioSamples): External control signal. Must match the main
     ///         signal's dtype and length.
     ///
     /// Returns:
+    ///
     ///     AudioSamples: A new sidechain-compressed buffer.
     ///
     /// Raises:
+    ///
     ///     TypeError: If the main and sidechain dtypes differ.
     ///     ValueError: If sidechain is not enabled, lengths differ, or either
     ///         signal is multi-channel.
@@ -153,7 +163,7 @@ impl PyAudioSamples {
         &self,
         py: Python<'_>,
         config: PyCompressorConfig,
-        sidechain: &PyAudioSamples,
+        sidechain: &Self,
     ) -> PyResult<Self> {
         dispatch_sidechain!(self, sidechain, py, |audio, sc| {
             audio
@@ -169,19 +179,23 @@ impl PyAudioSamples {
     /// enabled on the configuration. Only mono-to-mono processing is supported.
     ///
     /// Note:
+    ///
     ///     Returns a new buffer rather than mutating in place, for the same
     ///     lifetime-invariance reason described on
     ///     :meth:`apply_compressor_sidechain`.
     ///
     /// Args:
+    ///
     ///     config (LimiterConfig): Limiter parameters with sidechain enabled.
     ///     sidechain (AudioSamples): External control signal. Must match the main
     ///         signal's dtype and length.
     ///
     /// Returns:
+    ///
     ///     AudioSamples: A new sidechain-limited buffer.
     ///
     /// Raises:
+    ///
     ///     TypeError: If the main and sidechain dtypes differ.
     ///     ValueError: If sidechain is not enabled, lengths differ, or either
     ///         signal is multi-channel.
@@ -191,7 +205,7 @@ impl PyAudioSamples {
         &self,
         py: Python<'_>,
         config: PyLimiterConfig,
-        sidechain: &PyAudioSamples,
+        sidechain: &Self,
     ) -> PyResult<Self> {
         let limiter_config = config.into();
         dispatch_sidechain!(self, sidechain, py, |audio, sc| {
@@ -208,15 +222,18 @@ impl PyAudioSamples {
     /// does not modify or use the audio content (no envelope following).
     ///
     /// Args:
+    ///
     ///     config (CompressorConfig): Compressor parameters.
     ///     input_levels_db (np.typing.NDArray[np.float64]): Non-empty array of
     ///         input levels in dBFS to evaluate.
     ///
     /// Returns:
+    ///
     ///     np.typing.NDArray[np.float64]: Output levels in dBFS, one per input,
     ///     in the same order.
     ///
     /// Raises:
+    ///
     ///     ValueError: If ``input_levels_db`` is empty or the configuration is invalid.
     ///     AudioError: If the computation fails.
     #[pyo3(signature = (config: "CompressorConfig", input_levels_db: "np.typing.NDArray[np.float64]"))]
@@ -245,13 +262,16 @@ impl PyAudioSamples {
     /// channel is analysed.
     ///
     /// Args:
+    ///
     ///     config (CompressorConfig): Compressor parameters.
     ///
     /// Returns:
+    ///
     ///     np.typing.NDArray[np.float64]: Gain reduction values in dB (each >= 0.0),
     ///     one per sample (first channel for multi-channel audio).
     ///
     /// Raises:
+    ///
     ///     AudioError: If the configuration is invalid or processing fails.
     #[pyo3(signature = (config: "CompressorConfig"))]
     fn get_gain_reduction<'py>(
@@ -269,17 +289,20 @@ impl PyAudioSamples {
 
     /// Apply a downward noise gate in place.
     ///
-    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// Modifies the signal in place and returns ``None``. If the ``AudioSamples``
     /// was created from a NumPy array (``new_mono``/``new_multi``), that array
     /// is modified too; pass ``arr.copy()`` to keep the original.
     ///
     /// Args:
+    ///
     ///     config (GateConfig): Gate parameters controlling threshold, ratio, and timing.
     ///
     /// Returns:
+    ///
     ///     None: Operation mutates the current buffer.
     ///
     /// Raises:
+    ///
     ///     AudioError: If gating fails.
     #[pyo3(signature = (config: "GateConfig"))]
     fn apply_gate(&mut self, py: Python<'_>, config: PyGateConfig) -> PyResult<()> {
@@ -292,18 +315,21 @@ impl PyAudioSamples {
 
     /// Apply a downward expander in place.
     ///
-    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// Modifies the signal in place and returns ``None``. If the ``AudioSamples``
     /// was created from a NumPy array (``new_mono``/``new_multi``), that array
     /// is modified too; pass ``arr.copy()`` to keep the original.
     ///
     /// Args:
+    ///
     ///     config (ExpanderConfig): Expander parameters controlling threshold, ratio,
     ///         and timing.
     ///
     /// Returns:
+    ///
     ///     None: Operation mutates the current buffer.
     ///
     /// Raises:
+    ///
     ///     AudioError: If expansion fails.
     #[pyo3(signature = (config: "ExpanderConfig"))]
     fn apply_expander(&mut self, py: Python<'_>, config: PyExpanderConfig) -> PyResult<()> {

@@ -1,6 +1,6 @@
 //! Python bindings for audio mathematical utilities and canonical unit conversions.
 //!
-//! This module exposes the audio_samples::utils::audio_math functions to Python,
+//! This module exposes the `audio_samples::utils::audio_math` functions to Python,
 //! providing frequency conversions, amplitude/power conversions, time/frame conversions,
 //! musical theory functions, and spectral utilities.
 
@@ -32,14 +32,17 @@ fn opt_non_negative(name: &str, v: Option<Int>) -> PyResult<Option<usize>> {
 /// (``htk=False``); pass ``htk=False`` to match it.
 ///
 /// Args:
+///
 ///     freq_hz (float | array_like): Frequency or frequencies in Hertz.
 ///     htk (bool): Use the HTK scale (default True) or the Slaney scale (False,
 ///         librosa's default).
 ///
 /// Returns:
+///
 ///     float | numpy.ndarray[float64]: Mels, same shape as the input.
 ///
 /// Example:
+///
 ///     >>> from audio_samples.utils import hz_to_mel
 ///     >>> hz_to_mel(1000.0)              # HTK: ~999.99
 ///     >>> hz_to_mel(1000.0, htk=False)   # Slaney (librosa default): 15.0
@@ -58,13 +61,16 @@ pub fn hz_to_mel<'py>(freq_hz: &Bound<'py, PyAny>, htk: bool) -> PyResult<Bound<
 /// ``mel_to_hz`` defaults to Slaney (``htk=False``).
 ///
 /// Args:
+///
 ///     mel (float | array_like): Mel value(s).
 ///     htk (bool): HTK scale (default True) or Slaney (False, librosa's default).
 ///
 /// Returns:
+///
 ///     float | numpy.ndarray[float64]: Frequencies in Hertz, same shape as the input.
 ///
 /// Example:
+///
 ///     >>> from audio_samples.utils import mel_to_hz
 ///     >>> mel_to_hz(15.0, htk=False)  # 1000.0
 #[pyfunction]
@@ -79,23 +85,21 @@ pub fn mel_to_hz<'py>(mel: &Bound<'py, PyAny>, htk: bool) -> PyResult<Bound<'py,
 /// Generates a sequence of frequencies whose spacing is uniform in the mel domain.
 ///
 /// Args:
+///
 ///     n_mels: The number of frequency points to generate.
 ///     fmin: The lower bound of the frequency range in Hertz.
 ///     fmax: The upper bound of the frequency range in Hertz.
 ///
 /// Returns:
+///
 ///     A numpy array of frequencies in Hertz, spaced uniformly in mel scale.
 ///
 /// Example:
+///
 ///     >>> from audio_samples.utils import mel_scale
 ///     >>> freqs = mel_scale(10, 100.0, 8000.0)
 #[inline]
-pub fn mel_scale<'py>(
-    py: Python<'py>,
-    n_mels: usize,
-    fmin: f64,
-    fmax: f64,
-) -> Bound<'py, PyArray1<f64>> {
+pub fn mel_scale(py: Python<'_>, n_mels: usize, fmin: f64, fmax: f64) -> Bound<'_, PyArray1<f64>> {
     let result = audio_math::mel_scale(n_mels, fmin, fmax);
     result.into_pyarray(py)
 }
@@ -104,12 +108,15 @@ pub fn mel_scale<'py>(
 /// ``librosa.hz_to_midi``: ``12 * log2(f / 440) + 69``.
 ///
 /// Args:
+///
 ///     freq_hz (float | array_like): Frequency or frequencies in Hertz.
 ///
 /// Returns:
+///
 ///     float | numpy.ndarray[float64]: MIDI numbers, same shape as the input.
 ///
 /// Example:
+///
 ///     >>> from audio_samples.utils import hz_to_midi
 ///     >>> hz_to_midi(440.0)  # 69.0
 #[pyfunction]
@@ -127,12 +134,15 @@ pub fn hz_to_midi<'py>(freq_hz: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny
 /// ``librosa.midi_to_hz``: ``440 * 2 ** ((m - 69) / 12)``.
 ///
 /// Args:
+///
 ///     midi_note (float | array_like): MIDI number(s).
 ///
 /// Returns:
+///
 ///     float | numpy.ndarray[float64]: Frequencies in Hertz, same shape as the input.
 ///
 /// Example:
+///
 ///     >>> from audio_samples.utils import midi_to_hz
 ///     >>> midi_to_hz(69.0)  # 440.0
 #[pyfunction]
@@ -152,12 +162,15 @@ pub fn midi_to_hz<'py>(midi_note: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyA
 /// Non-positive amplitudes are mapped to -80 dB.
 ///
 /// Args:
+///
 ///     amplitude: The input amplitude ratio.
 ///
 /// Returns:
+///
 ///     The amplitude expressed in decibels.
 ///
 /// Example:
+///
 ///     >>> from audio_samples.utils import amplitude_to_db
 ///     >>> db = amplitude_to_db(0.5)  # Returns ~-6.02 dB
 #[inline]
@@ -170,12 +183,15 @@ pub fn amplitude_to_db(amplitude: f64) -> f64 {
 /// Converts a decibel value into a linear amplitude ratio.
 ///
 /// Args:
+///
 ///     db: A value expressed in decibels.
 ///
 /// Returns:
+///
 ///     The corresponding linear amplitude ratio.
 ///
 /// Example:
+///
 ///     >>> from audio_samples.utils import db_to_amplitude
 ///     >>> amp = db_to_amplitude(-6.0)  # Returns ~0.501
 #[inline]
@@ -190,12 +206,15 @@ pub fn db_to_amplitude(db: f64) -> f64 {
 /// Non-positive power values are mapped to -80 dB.
 ///
 /// Args:
+///
 ///     power: The input power ratio.
 ///
 /// Returns:
+///
 ///     The power expressed in decibels.
 ///
 /// Example:
+///
 ///     >>> from audio_samples.utils import power_to_db
 ///     >>> db = power_to_db(0.5)  # Returns ~-3.01 dB
 #[inline]
@@ -208,12 +227,15 @@ pub fn power_to_db(power: f64) -> f64 {
 /// Converts a decibel value into a linear power ratio.
 ///
 /// Args:
+///
 ///     db: A value expressed in decibels.
 ///
 /// Returns:
+///
 ///     The corresponding linear power ratio.
 ///
 /// Example:
+///
 ///     >>> from audio_samples.utils import db_to_power
 ///     >>> power = db_to_power(-3.0)  # Returns ~0.501
 #[inline]
@@ -232,15 +254,18 @@ pub fn db_to_power(db: f64) -> f64 {
 /// are allowed.
 ///
 /// Args:
+///
 ///     frames (int | array_like[int]): Frame index or indices.
 ///     sample_rate (float): Sampling rate in Hertz.
 ///     hop_size (int): Samples between frames (librosa's ``hop_length``).
 ///     n_fft (Optional[int]): Optional frame-length offset. Default None.
 ///
 /// Returns:
+///
 ///     float | numpy.ndarray[float64]: Times in seconds, same shape as the input.
 ///
 /// Example:
+///
 ///     >>> from audio_samples.utils import frames_to_time
 ///     >>> frames_to_time(100, 44100.0, 512)
 ///     >>> frames_to_time([0, 1, 2], 22050.0, 512, n_fft=2048)
@@ -267,14 +292,17 @@ pub fn frames_to_time<'py>(
 /// ``n_fft`` offset); use ``time_to_frames_floor`` for that.
 ///
 /// Args:
+///
 ///     time_seconds (float | array_like): Time(s) in seconds.
 ///     sample_rate (float): Sampling rate in Hertz.
 ///     hop_size (int): Samples between frames.
 ///
 /// Returns:
+///
 ///     int | numpy.ndarray[int64]: Nearest frame indices, same shape as the input.
 ///
 /// Example:
+///
 ///     >>> from audio_samples.utils import time_to_frames
 ///     >>> time_to_frames(1.0, 44100.0, 512)  # 86
 #[pyfunction]
@@ -295,16 +323,20 @@ pub fn time_to_frames<'py>(
 /// Converts sample indices into time offsets expressed in seconds.
 ///
 /// Args:
+///
 ///     samples: A sample index, or an array-like of non-negative integer indices.
 ///     sample_rate: The sampling rate in Hertz.
 ///
 /// Returns:
+///
 ///     float for a scalar index, otherwise a float64 array of the input's shape.
 ///
 /// Raises:
+///
 ///     ValueError: For negative or non-integral indices in an array.
 ///
 /// Example:
+///
 ///     >>> from audio_samples.utils import samples_to_time
 ///     >>> t = samples_to_time(44100, 44100.0)  # Returns 1.0
 ///     >>> ts = samples_to_time([0, 22050], 44100.0)  # array([0. , 0.5])
@@ -375,13 +407,16 @@ fn map_strings<T>(
 /// ``time_to_samples`` for that.
 ///
 /// Args:
+///
 ///     time_seconds: The time offset in seconds.
 ///     sample_rate: The sampling rate in Hertz.
 ///
 /// Returns:
+///
 ///     The nearest sample index.
 ///
 /// Example:
+///
 ///     >>> from audio_samples.utils import seconds_to_samples
 ///     >>> samples = seconds_to_samples(1.0, 44100.0)  # Returns 44100
 #[inline]
@@ -394,13 +429,16 @@ pub fn seconds_to_samples(time_seconds: f64, sample_rate: f64) -> usize {
 /// Converts time in milliseconds to sample count.
 ///
 /// Args:
+///
 ///     ms: Time in milliseconds.
 ///     sample_rate: The sampling rate in Hertz.
 ///
 /// Returns:
+///
 ///     The corresponding number of samples.
 ///
 /// Example:
+///
 ///     >>> from audio_samples.utils import ms_to_samples
 ///     >>> samples = ms_to_samples(1000.0, 44100.0)  # Returns 44100
 #[inline]
@@ -421,16 +459,20 @@ pub fn ms_to_samples(ms: f64, sample_rate: f64) -> usize {
 /// (`A4+50`, rounded half to even). The octave is required.
 ///
 /// Args:
+///
 ///     note_name: A note name in scientific pitch notation (e.g., "A4", "C#3",
 ///         "Bb2"), or a sequence of names.
 ///
 /// Returns:
+///
 ///     The corresponding MIDI note number (0-127); an int64 array for a sequence.
 ///
 /// Raises:
+///
 ///     ValueError: If the note name is invalid or out of MIDI range.
 ///
 /// Example:
+///
 ///     >>> from audio_samples.utils import note_to_midi
 ///     >>> midi = note_to_midi("A4")  # Returns 69
 ///     >>> midi = note_to_midi("C#4")  # Returns 61
@@ -455,17 +497,21 @@ pub fn note_to_midi<'py>(note_name: &Bound<'py, PyAny>) -> PyResult<Bound<'py, P
 /// Always uses sharp notation for accidentals.
 ///
 /// Args:
+///
 ///     midi_note (int | array_like[int]): A MIDI note number (0-127), or an
 ///         array-like of them.
 ///
 /// Returns:
+///
 ///     str: A note name in scientific pitch notation (e.g., "A4", "C#3"); a
 ///     list of names (flattened) for an array-like.
 ///
 /// Raises:
+///
 ///     ValueError: If the MIDI note is outside the valid range 0-127.
 ///
 /// Example:
+///
 ///     >>> from audio_samples.utils import midi_to_note
 ///     >>> midi_to_note(69)  # "A4"
 ///     >>> midi_to_note(61)  # "C#4"
@@ -501,16 +547,20 @@ pub fn midi_to_note<'py>(midi_note: &Bound<'py, PyAny>) -> PyResult<Bound<'py, P
 /// Converts scientific pitch notation into frequencies expressed in Hertz.
 ///
 /// Args:
+///
 ///     note_name: A note name in scientific pitch notation (e.g., "A4", "C#3"),
 ///         or a sequence of names.
 ///
 /// Returns:
+///
 ///     The corresponding frequency in Hertz; a float64 array for a sequence.
 ///
 /// Raises:
+///
 ///     ValueError: If the note name is invalid or out of MIDI range.
 ///
 /// Example:
+///
 ///     >>> from audio_samples.utils import note_to_frequency
 ///     >>> freq = note_to_frequency("A4")  # Returns 440.0
 pub fn note_to_frequency<'py>(note_name: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
@@ -532,18 +582,22 @@ pub fn note_to_frequency<'py>(note_name: &Bound<'py, PyAny>) -> PyResult<Bound<'
 /// Converts a frequency expressed in Hertz into the nearest musical note and cents offset.
 ///
 /// Args:
+///
 ///     freq_hz: The input frequency in Hertz (positive), or an array-like of
 ///         frequencies.
 ///
 /// Returns:
+///
 ///     A tuple (note_name, cents) where note_name is the nearest pitch and cents is
 ///     the signed deviation from that pitch. For an array-like: a list of names
 ///     (flattened) and a float64 array of cents of the input's shape.
 ///
 /// Raises:
+///
 ///     ValueError: If the frequency is non-positive.
 ///
 /// Example:
+///
 ///     >>> from audio_samples.utils import frequency_to_note
 ///     >>> note, cents = frequency_to_note(440.0)  # Returns ("A4", 0.0)
 ///     >>> note, cents = frequency_to_note(445.0)  # Returns ("A4", ~19.56)
@@ -593,12 +647,15 @@ impl<'py> StrCache<'py> {
 /// Converts a pitch deviation expressed in cents into a frequency ratio.
 ///
 /// Args:
+///
 ///     cents: A pitch deviation in cents.
 ///
 /// Returns:
+///
 ///     A multiplicative frequency ratio.
 ///
 /// Example:
+///
 ///     >>> from audio_samples.utils import cents_to_ratio
 ///     >>> ratio = cents_to_ratio(1200.0)  # Returns 2.0 (one octave)
 ///     >>> ratio = cents_to_ratio(100.0)  # Returns ~1.059 (one semitone)
@@ -612,12 +669,15 @@ pub fn cents_to_ratio(cents: f64) -> f64 {
 /// Converts a frequency ratio into a pitch deviation expressed in cents.
 ///
 /// Args:
+///
 ///     ratio: A frequency ratio. Must be positive.
 ///
 /// Returns:
+///
 ///     The corresponding pitch deviation in cents.
 ///
 /// Example:
+///
 ///     >>> from audio_samples.utils import ratio_to_cents
 ///     >>> cents = ratio_to_cents(2.0)  # Returns 1200.0 (one octave)
 ///     >>> cents = ratio_to_cents(1.5)  # Returns ~702.0 (perfect fifth)
@@ -635,23 +695,22 @@ pub fn ratio_to_cents(ratio: f64) -> f64 {
 /// Generates the positive-frequency bin centres for a real-valued FFT.
 ///
 /// Args:
+///
 ///     n_fft: The FFT size in samples.
 ///     sample_rate: The sampling rate in Hertz.
 ///
 /// Returns:
+///
 ///     A numpy array of frequency bin centres in Hertz, from DC to Nyquist.
 ///     Length is n_fft/2 + 1.
 ///
 /// Example:
+///
 ///     >>> from audio_samples.utils import fft_frequencies
 ///     >>> freqs = fft_frequencies(1024, 44100.0)
 ///     >>> freqs.shape  # (513,)
 #[inline]
-pub fn fft_frequencies<'py>(
-    py: Python<'py>,
-    n_fft: usize,
-    sample_rate: f64,
-) -> Bound<'py, PyArray1<f64>> {
+pub fn fft_frequencies(py: Python<'_>, n_fft: usize, sample_rate: f64) -> Bound<'_, PyArray1<f64>> {
     let result = audio_math::fft_frequencies(n_fft, sample_rate);
     result.into_pyarray(py)
 }
@@ -662,15 +721,18 @@ pub fn fft_frequencies<'py>(
 /// to Slaney (``htk=False``).
 ///
 /// Args:
+///
 ///     n_mels (int): Number of frequencies.
 ///     fmin (float): Lowest frequency in Hertz.
 ///     fmax (float): Highest frequency in Hertz.
 ///     htk (bool): HTK scale (default True) or Slaney (False, librosa's default).
 ///
 /// Returns:
+///
 ///     numpy.ndarray[float64]: shape ``(n_mels,)``, in Hertz.
 ///
 /// Example:
+///
 ///     >>> from audio_samples.utils import mel_frequencies
 ///     >>> mel_frequencies(128, 0.0, 11025.0, htk=False)  # == librosa.mel_frequencies()
 #[pyfunction]
@@ -692,23 +754,21 @@ pub fn mel_frequencies(
 /// Generates a linearly spaced sequence of values between two endpoints.
 ///
 /// Args:
+///
 ///     start: The starting value of the sequence.
 ///     end: The final value of the sequence.
 ///     num: The number of points to generate.
 ///
 /// Returns:
+///
 ///     A numpy array of linearly interpolated values.
 ///
 /// Example:
+///
 ///     >>> from audio_samples.utils import linspace
 ///     >>> vals = linspace(0.0, 1.0, 11)  # [0.0, 0.1, 0.2, ..., 1.0]
 #[inline]
-pub fn linspace<'py>(
-    py: Python<'py>,
-    start: f64,
-    end: f64,
-    num: usize,
-) -> Bound<'py, PyArray1<f64>> {
+pub fn linspace(py: Python<'_>, start: f64, end: f64, num: usize) -> Bound<'_, PyArray1<f64>> {
     let result = audio_math::linspace(start, end, num);
     result.into_pyarray(py)
 }
@@ -723,15 +783,18 @@ pub fn linspace<'py>(
 /// Differs from ``seconds_to_samples``, which rounds.
 ///
 /// Args:
+///
 ///     times (float | array_like): Time(s) in seconds.
 ///     sample_rate (Optional[float]): Sampling rate in Hertz. Give this or
 ///         ``sr`` (librosa defaults to 22050).
 ///     sr (Optional[float]): librosa's name for ``sample_rate`` (give at most one).
 ///
 /// Returns:
+///
 ///     int | numpy.ndarray[int64]: Sample indices, same shape as the input.
 ///
 /// Example:
+///
 ///     >>> from audio_samples.utils import time_to_samples
 ///     >>> time_to_samples([0.0, 0.5, -0.5], sample_rate=100.0)  # [0, 50, -50]
 #[pyfunction]
@@ -756,12 +819,14 @@ pub fn time_to_samples<'py>(
 /// is given).
 ///
 /// Args:
+///
 ///     samples (int | array_like[int]): Sample index or indices (may be negative).
 ///     hop_length (int): Samples between frames. Required (librosa defaults
 ///         to 512).
 ///     n_fft (Optional[int]): Optional frame-length offset.
 ///
 /// Returns:
+///
 ///     int | numpy.ndarray[int64]: Frame indices, same shape as the input.
 #[pyfunction]
 #[pyo3(signature = (samples, *, hop_length, n_fft = None), text_signature = "(samples, *, hop_length, n_fft=None)")]
@@ -785,12 +850,14 @@ pub fn samples_to_frames<'py>(
 /// ``frames * hop_length + n_fft // 2`` (the offset only when ``n_fft`` is given).
 ///
 /// Args:
+///
 ///     frames (int | array_like[int]): Frame index or indices.
 ///     hop_length (int): Samples between frames. Required (librosa defaults
 ///         to 512).
 ///     n_fft (Optional[int]): Optional frame-length offset.
 ///
 /// Returns:
+///
 ///     int | numpy.ndarray[int64]: Sample indices, same shape as the input.
 #[pyfunction]
 #[pyo3(signature = (frames, *, hop_length, n_fft = None), text_signature = "(frames, *, hop_length, n_fft=None)")]
@@ -838,10 +905,12 @@ fn blocks_map<'py>(
 /// Converts block indices to frame indices: ``blocks * block_length``.
 ///
 /// Args:
+///
 ///     blocks (int | ``array_like[int]``): Block index or indices.
 ///     ``block_length`` (int): Frames per block.
 ///
 /// Returns:
+///
 ///     int | numpy.ndarray[int64]: Frame indices, same shape as the input.
 #[pyfunction]
 #[pyo3(signature = (blocks, *, block_length), text_signature = "(blocks, *, block_length)")]
@@ -860,11 +929,13 @@ pub fn blocks_to_frames<'py>(
 /// Converts block indices to sample indices: ``blocks * block_length * hop_length``.
 ///
 /// Args:
+///
 ///     blocks (int | ``array_like[int]``): Block index or indices.
 ///     ``block_length`` (int): Frames per block.
 ///     ``hop_length`` (int): Samples between frames.
 ///
 /// Returns:
+///
 ///     int | numpy.ndarray[int64]: Sample indices, same shape as the input.
 #[pyfunction]
 #[pyo3(signature = (blocks, *, block_length, hop_length), text_signature = "(blocks, *, block_length, hop_length)")]
@@ -887,12 +958,14 @@ pub fn blocks_to_samples<'py>(
 /// Converts block indices to the time in seconds at which each block starts.
 ///
 /// Args:
+///
 ///     blocks (int | ``array_like[int]``): Block index or indices.
 ///     ``block_length`` (int): Frames per block.
 ///     ``hop_length`` (int): Samples between frames.
 ///     ``sample_rate`` (float): Sampling rate in Hertz.
 ///
 /// Returns:
+///
 ///     float | numpy.ndarray[float64]: Times in seconds, same shape as the input.
 #[pyfunction]
 #[pyo3(signature = (blocks, *, block_length, hop_length, sample_rate), text_signature = "(blocks, *, block_length, hop_length, sample_rate)")]
@@ -930,6 +1003,7 @@ pub fn blocks_to_time<'py>(
 /// ``time_to_frames``, which rounds to the nearest frame.
 ///
 /// Args:
+///
 ///     times (float | array_like): Time(s) in seconds.
 ///     sample_rate (Optional[float]): Sampling rate in Hertz. Give this or
 ///         ``sr`` (librosa defaults to 22050).
@@ -939,9 +1013,11 @@ pub fn blocks_to_time<'py>(
 ///     n_fft (Optional[int]): Optional frame-length offset.
 ///
 /// Returns:
+///
 ///     int | numpy.ndarray[int64]: Frame indices, same shape as the input.
 ///
 /// Example:
+///
 ///     >>> from audio_samples.utils import time_to_frames_floor
 ///     >>> time_to_frames_floor([0.0, 0.1, 0.2], sample_rate=22050, hop_length=512)  # [0, 4, 8]
 #[pyfunction]
@@ -1012,6 +1088,7 @@ fn frame_count(x: &Bound<'_, PyAny>, axis: Int) -> PyResult<usize> {
 /// Time (seconds) of each frame of a feature matrix, like ``librosa.times_like``.
 ///
 /// Args:
+///
 ///     X (int | array_like): Number of frames, or an array whose ``axis`` is time.
 ///     sample_rate (Optional[float]): Sampling rate in Hertz. Give this or
 ///         ``sr`` (librosa defaults to 22050).
@@ -1022,6 +1099,7 @@ fn frame_count(x: &Bound<'_, PyAny>, axis: Int) -> PyResult<usize> {
 ///     axis (int): The time axis of ``X``. Default -1.
 ///
 /// Returns:
+///
 ///     numpy.ndarray[float64]: shape ``(n_frames,)``.
 #[pyfunction]
 #[pyo3(signature = (X, *, sample_rate = None, hop_length, n_fft = None, axis = Int(-1), sr = None), text_signature = "(X, *, sample_rate=None, hop_length, n_fft=None, axis=-1, sr=None)")]
@@ -1044,6 +1122,7 @@ pub fn times_like<'py>(
 /// Sample index of each frame of a feature matrix, like ``librosa.samples_like``.
 ///
 /// Args:
+///
 ///     X (int | array_like): Number of frames, or an array whose ``axis`` is time.
 ///     hop_length (int): Samples between frames. Required (librosa defaults
 ///         to 512).
@@ -1051,6 +1130,7 @@ pub fn times_like<'py>(
 ///     axis (int): The time axis of ``X``. Default -1.
 ///
 /// Returns:
+///
 ///     numpy.ndarray[int64]: shape ``(n_frames,)``.
 #[pyfunction]
 #[pyo3(signature = (X, *, hop_length, n_fft = None, axis = Int(-1)), text_signature = "(X, *, hop_length, n_fft=None, axis=-1)")]
@@ -1080,16 +1160,20 @@ pub fn samples_like<'py>(
 /// ``AudioSamples.mu_compress``.
 ///
 /// Args:
+///
 ///     x (float | array_like): Samples in ``[-1, 1]``, any shape.
 ///     mu (float): Compression parameter (> 0). Default 255.
 ///
 /// Returns:
+///
 ///     int | numpy.ndarray[int64]: Codes, same shape as ``x``.
 ///
 /// Raises:
+///
 ///     ValueError: If ``mu <= 0`` or any sample is outside ``[-1, 1]``.
 ///
 /// Example:
+///
 ///     >>> from audio_samples import mu_law_encode
 ///     >>> mu_law_encode([-1.0, 0.0, 1.0])  # array([-128, 0, 127])
 #[pyfunction]
@@ -1160,13 +1244,16 @@ const MU_BLOCK: usize = 4096;
 /// for ``mu=255``).
 ///
 /// Args:
+///
 ///     codes (int | array_like[int]): μ-law codes, any shape.
 ///     mu (float): The ``mu`` used for encoding. Default 255.
 ///
 /// Returns:
+///
 ///     float | numpy.ndarray[float64]: Amplitudes in ``[-1, 1]``, same shape.
 ///
 /// Raises:
+///
 ///     ValueError: If ``mu <= 0`` or a code is out of range.
 #[pyfunction]
 #[pyo3(signature = (codes, *, mu = 255.0), text_signature = "(codes, *, mu=255.0)")]

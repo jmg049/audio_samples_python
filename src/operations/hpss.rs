@@ -11,6 +11,7 @@ impl PyAudioSamples {
     /// Separate harmonic and percussive components using median-filter HPSS.
     ///
     /// Args:
+    ///
     ///     config (StftParams | HpssConfig): Either a complete ``HpssConfig``
     ///         (the remaining arguments must then be omitted), or the
     ///         ``StftParams`` of the analysis STFT.
@@ -26,14 +27,17 @@ impl PyAudioSamples {
     ///         ``DeprecationWarning``.
     ///
     /// Returns:
+    ///
     ///     tuple[AudioSamples, AudioSamples]: ``(harmonic, percussive)``.
     ///
     /// Raises:
+    ///
     ///     TypeError: If ``config`` is neither ``StftParams`` nor ``HpssConfig``,
     ///         or filter arguments are given together with an ``HpssConfig``.
     ///     ValueError: If the configuration is invalid.
     ///
     /// Examples:
+    ///
     ///     >>> harmonic, percussive = audio.hpss(HpssConfig.musical)
     ///     >>> harmonic, percussive = audio.hpss(StftParams(2048, 512, WindowType.hanning, True))
     #[pyo3(

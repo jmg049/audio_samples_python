@@ -48,6 +48,7 @@ fn mel_inversion(
 /// Estimates an STFT magnitude from a mel spectrogram by non-negative least squares.
 ///
 /// Args:
+///
 ///     M (``array_like``): Mel spectrogram ``(n_mels, n_frames)`` or
 ///         ``(channels, n_mels, n_frames)``.
 ///     sr (float): Sample rate in Hz.
@@ -56,6 +57,7 @@ fn mel_inversion(
 ///     fmin, fmax, htk, norm: The filterbank, as ``spectral.mel_filterbank``.
 ///
 /// Returns:
+///
 ///     numpy.ndarray: ``(1 + n_fft // 2, n_frames)``, with a leading channel axis for 3-D
 ///     input, of ``M``'s precision.
 #[pyfunction]
@@ -118,6 +120,7 @@ fn rows_out<F: PyFloat>(py: Python<'_>, y: ndarray::Array2<F>, squeeze: bool) ->
 /// Estimates audio from a mel spectrogram: least squares, then fast Griffin-Lim.
 ///
 /// Args:
+///
 ///     M (``array_like``): Mel spectrogram ``(n_mels, n_frames)`` or
 ///         ``(channels, n_mels, n_frames)``.
 ///     sr (float): Sample rate in Hz.
@@ -132,6 +135,7 @@ fn rows_out<F: PyFloat>(py: Python<'_>, y: ndarray::Array2<F>, squeeze: bool) ->
 ///     fmin, fmax, htk, norm: The filterbank.
 ///
 /// Returns:
+///
 ///     numpy.ndarray: ``(n,)``, or ``(channels, n)`` for 3-D input, of ``M``'s precision.
 #[pyfunction]
 #[pyo3(
@@ -194,6 +198,7 @@ fn mfcc_inversion(
 /// Recovers a mel power spectrogram from MFCCs.
 ///
 /// Args:
+///
 ///     mfcc (``array_like``): ``(n_mfcc, n_frames)`` or ``(channels, n_mfcc, n_frames)``.
 ///     ``n_mels`` (int): Mel bands to recover. Default 128.
 ///     ``dct_type`` (int): 1, 2 or 3. Default 2.
@@ -202,6 +207,7 @@ fn mfcc_inversion(
 ///     lifter (float): The liftering coefficient to undo. Default 0.
 ///
 /// Returns:
+///
 ///     numpy.ndarray: ``(n_mels, n_frames)``, with a leading channel axis for 3-D input,
 ///     of ``mfcc``'s precision.
 #[pyfunction]
@@ -238,10 +244,12 @@ pub fn mfcc_to_mel<'py>(
 /// ``mel_norm`` are as for :func:`mel_to_audio`, where ``mel_norm`` is its ``norm``.
 ///
 /// Args:
+///
 ///     mfcc (``array_like``): ``(n_mfcc, n_frames)`` or ``(channels, n_mfcc, n_frames)``.
 ///     sr (float): Sample rate in Hz.
 ///
 /// Returns:
+///
 ///     numpy.ndarray: ``(n,)``, or ``(channels, n)`` for 3-D input, of ``mfcc``'s precision.
 #[pyfunction]
 #[pyo3(

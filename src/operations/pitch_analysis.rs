@@ -11,6 +11,7 @@ impl PyAudioSamples {
     /// Detect the fundamental frequency using the YIN algorithm.
     ///
     /// Args:
+    ///
     ///     threshold (float): Absolute threshold on YIN's cumulative mean
     ///         normalised difference d'(tau), in [0, 1]. The first lag whose d'
     ///         dips below it is taken. Lower values are **stricter** (a deeper
@@ -20,9 +21,11 @@ impl PyAudioSamples {
     ///     max_frequency (float): Maximum expected frequency in hertz.
     ///
     /// Returns:
+    ///
     ///     float | None: Detected pitch in hertz, or None when no stable pitch is found.
     ///
     /// Raises:
+    ///
     ///     AudioError: If pitch detection fails.
     #[pyo3(signature = (threshold: "float" = 0.1, min_frequency: "float" = 50.0, max_frequency:"float" = 2000.0))]
     fn detect_pitch_yin(
@@ -42,13 +45,16 @@ impl PyAudioSamples {
     /// Detect the fundamental frequency using autocorrelation.
     ///
     /// Args:
+    ///
     ///     min_frequency (float): Minimum expected frequency in hertz.
     ///     max_frequency (float): Maximum expected frequency in hertz.
     ///
     /// Returns:
+    ///
     ///     float | None: Detected pitch in hertz, or None when no stable pitch is found.
     ///
     /// Raises:
+    ///
     ///     AudioError: If pitch detection fails.
     #[inline]
     pub fn detect_pitch_autocorr(
@@ -67,6 +73,7 @@ impl PyAudioSamples {
     /// Track the detected pitch over successive analysis windows.
     ///
     /// Args:
+    ///
     ///     window_size (int): Size of each analysis window in samples; must be greater than zero.
     ///     hop_size (int): Step between windows in samples; must be greater than zero.
     ///     pitch_method (PitchDetectionMethod): Detection strategy to apply per
@@ -78,9 +85,11 @@ impl PyAudioSamples {
     ///     max_frequency (float): Maximum expected frequency in hertz.
     ///
     /// Returns:
+    ///
     ///     PitchContour: Time-ordered pitch track of per-window frames.
     ///
     /// Raises:
+    ///
     ///     ValueError: If window_size or hop_size is zero.
     ///     AudioError: If pitch tracking fails.
     #[pyo3(signature = (window_size: "int", hop_size: "int", pitch_method: "PitchDetectionMethod" = PyPitchDetectionMethod::detect_yin(), threshold: "float" = 0.1, min_frequency: "float" = 50.0, max_frequency: "float" = 2000.0))]
@@ -114,15 +123,18 @@ impl PyAudioSamples {
     /// Estimate the harmonic-to-noise ratio around a fundamental frequency.
     ///
     /// Args:
+    ///
     ///     fundamental_freq (float): Fundamental frequency in hertz.
     ///     num_harmonics (int): Number of harmonics to evaluate; must be greater than zero.
     ///     n_fft (Optional[int]): Optional FFT size in samples; must be greater than zero when provided.
     ///     window_type (Optional[WindowType]): Optional window type applied before the FFT.
     ///
     /// Returns:
+    ///
     ///     float: Harmonic-to-noise ratio value.
     ///
     /// Raises:
+    ///
     ///     ValueError: If num_harmonics or n_fft is zero.
     ///     AudioError: If the analysis fails.
     pub fn harmonic_to_noise_ratio(
@@ -150,6 +162,7 @@ impl PyAudioSamples {
     /// Measure harmonic amplitudes relative to a fundamental frequency.
     ///
     /// Args:
+    ///
     ///     fundamental_freq (float): Fundamental frequency in hertz.
     ///     num_harmonics (int): Number of harmonics to report; must be greater than zero.
     ///     tolerance (float): Frequency tolerance expressed as a fraction of the harmonic.
@@ -157,9 +170,11 @@ impl PyAudioSamples {
     ///     window_type (Optional[WindowType]): Optional window type applied before the FFT.
     ///
     /// Returns:
+    ///
     ///     list[float]: Harmonic magnitudes ordered by harmonic index.
     ///
     /// Raises:
+    ///
     ///     ValueError: If num_harmonics or n_fft is zero.
     ///     AudioError: If the analysis fails.
     pub fn harmonic_analysis(
@@ -189,13 +204,16 @@ impl PyAudioSamples {
     /// Estimate the musical key of the audio signal.
     ///
     /// Args:
+    ///
     ///     stft_params (StftParams): Parameters controlling the underlying STFT analysis.
     ///
     /// Returns:
+    ///
     ///     Key: Detected key, including tonic pitch class, mode (major/minor),
     ///         and confidence score.
     ///
     /// Raises:
+    ///
     ///     AudioError: If key estimation fails.
     pub fn estimate_key(&self, py: Python<'_>, stft_params: &PyStftParams) -> PyResult<PyKey> {
         let stft_params = &stft_params.inner;

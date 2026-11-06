@@ -58,7 +58,7 @@ fn opt_vec<F: FloatElement>(
 }
 
 /// Parses a `scipy.spatial.distance` metric name.
-pub(crate) fn parse_metric(metric: &str) -> PyResult<DistanceMetric> {
+pub fn parse_metric(metric: &str) -> PyResult<DistanceMetric> {
     match metric {
         "euclidean" => Ok(DistanceMetric::Euclidean),
         "sqeuclidean" => Ok(DistanceMetric::SqEuclidean),
@@ -101,7 +101,7 @@ fn parse_steps(obj: Option<&Bound<'_, PyAny>>) -> PyResult<Option<Vec<[usize; 2]
 }
 
 /// A warping path as an `(n, 2)` int64 array.
-fn path_array<'py>(py: Python<'py>, path: Vec<[usize; 2]>) -> Bound<'py, PyArray2<i64>> {
+fn path_array(py: Python<'_>, path: Vec<[usize; 2]>) -> Bound<'_, PyArray2<i64>> {
     // Same size and alignment, so the conversion reuses the path's
     // allocation, and NumPy takes ownership of it: no second buffer.
     let path: Vec<[i64; 2]> = path
@@ -118,6 +118,7 @@ fn path_array<'py>(py: Python<'py>, path: Vec<[usize; 2]>) -> Bound<'py, PyArray
 /// matrix ``C`` of shape ``(N, M)``.
 ///
 /// Args:
+///
 ///     X, Y (Optional[array_like]): Feature sequences.
 ///     C (Optional[array_like]): Precomputed local cost matrix.
 ///     metric (str): ``"euclidean"`` (default), ``"sqeuclidean"``, ``"cosine"``,
@@ -132,6 +133,7 @@ fn path_array<'py>(py: Python<'py>, path: Vec<[usize; 2]>) -> Bound<'py, PyArray
 ///     return_steps (bool): Also return the step matrix. Default False.
 ///
 /// Returns:
+///
 ///     ``D`` (numpy.ndarray[float32 | float64], shape ``(N, M)``); with ``backtrack=True``
 ///     the tuple ``(D, wp)`` where ``wp`` is an int64 array of shape
 ///     ``(path_length, 2)`` ordered from the end of the alignment to its start;
@@ -139,6 +141,7 @@ fn path_array<'py>(py: Python<'py>, path: Vec<[usize; 2]>) -> Bound<'py, PyArray
 ///     is appended. Exactly librosa's return convention.
 ///
 /// Raises:
+///
 ///     ValueError: Incompatible inputs, NaN costs, or no valid path.
 #[pyfunction]
 #[pyo3(
@@ -218,12 +221,14 @@ pub fn dtw<'py>(
 /// ``librosa.sequence.dtw_backtracking``.
 ///
 /// Args:
+///
 ///     steps (array_like[int]): Step matrix from ``dtw(..., return_steps=True)``.
 ///     step_sizes_sigma (Optional[array_like]): The custom steps passed to ``dtw``.
 ///     subseq (bool): Whether ``dtw`` ran with ``subseq=True``.
 ///     start (Optional[int]): Column of the last row to start from (subseq only).
 ///
 /// Returns:
+///
 ///     numpy.ndarray[int64]: shape ``(path_length, 2)``, end first.
 #[pyfunction]
 #[pyo3(
@@ -278,6 +283,7 @@ fn states_out<'py, T: numpy::Element, D: ndarray::Dimension>(
 /// Viterbi decoding of a generative HMM, equivalent to ``librosa.sequence.viterbi``.
 ///
 /// Args:
+///
 ///     prob (array_like): ``(n_states, n_steps)`` observation likelihoods in [0, 1].
 ///     transition (array_like): ``(n_states, n_states)`` row-stochastic matrix.
 ///     p_init (Optional[array_like]): Initial distribution; None = uniform.
@@ -286,10 +292,12 @@ fn states_out<'py, T: numpy::Element, D: ndarray::Dimension>(
 ///         probability (approximate, faster). None = exact.
 ///
 /// Returns:
+///
 ///     numpy.ndarray[int64] of shape ``(n_steps,)`` (librosa returns uint16), or
 ///     ``(states, logp)`` with ``logp`` a float when ``return_logp=True``.
 ///
 /// Raises:
+///
 ///     ValueError: Shape mismatch or invalid probabilities.
 #[pyfunction]
 #[pyo3(
@@ -324,6 +332,7 @@ pub fn viterbi<'py>(
 /// equivalent to ``librosa.sequence.viterbi_discriminative``.
 ///
 /// Args:
+///
 ///     prob (array_like): ``(n_states, n_steps)``; each column sums to 1.
 ///     transition (array_like): ``(n_states, n_states)`` row-stochastic matrix.
 ///     p_state (Optional[array_like]): Marginal state distribution; None = uniform.
@@ -332,6 +341,7 @@ pub fn viterbi<'py>(
 ///     transition_min_prob (Optional[float]): As ``viterbi``.
 ///
 /// Returns:
+///
 ///     numpy.ndarray[int64] ``(n_steps,)`` or ``(states, logp)``.
 #[pyfunction]
 #[pyo3(
@@ -369,6 +379,7 @@ pub fn viterbi_discriminative<'py>(
 /// ``librosa.sequence.viterbi_binary``.
 ///
 /// Args:
+///
 ///     prob (array_like): ``(n_states, n_steps)`` activation probabilities
 ///         (a 1-D array is one state).
 ///     transition (array_like): ``(2, 2)`` shared or ``(n_states, 2, 2)`` per state.
@@ -381,6 +392,7 @@ pub fn viterbi_discriminative<'py>(
 ///         ``numpy.int64``.
 ///
 /// Returns:
+///
 ///     numpy.ndarray[bool | uint16 | int64] ``(n_states, n_steps)``, true or 1
 ///     where the state is on, or ``(states, logp)`` with ``logp`` of shape
 ///     ``(n_states,)``. librosa returns uint16.
@@ -513,6 +525,7 @@ fn is_one_d(obj: &Bound<'_, PyAny>, name: &str) -> PyResult<bool> {
 /// Uniform transition matrix, equivalent to ``librosa.sequence.transition_uniform``.
 ///
 /// Returns:
+///
 ///     numpy.ndarray[float64]: ``(n_states, n_states)`` filled with ``1 / n_states``.
 #[pyfunction]
 #[pyo3(signature = (n_states), text_signature = "(n_states)")]
@@ -546,10 +559,12 @@ fn with_float_slice<R>(
 /// Self-loop transition matrix, equivalent to ``librosa.sequence.transition_loop``.
 ///
 /// Args:
+///
 ///     n_states (int): Number of states (> 1).
 ///     prob (float | array_like): Self-loop probability, one value or one per state.
 ///
 /// Returns:
+///
 ///     numpy.ndarray[float64]: ``(n_states, n_states)``.
 #[pyfunction]
 #[pyo3(signature = (n_states, prob), text_signature = "(n_states, prob)")]
@@ -568,10 +583,12 @@ pub fn transition_loop<'py>(
 /// Cyclic transition matrix, equivalent to ``librosa.sequence.transition_cycle``.
 ///
 /// Args:
+///
 ///     n_states (int): Number of states (> 1).
 ///     prob (float | array_like): Self-loop probability, one value or one per state.
 ///
 /// Returns:
+///
 ///     numpy.ndarray[float64]: ``(n_states, n_states)``.
 #[pyfunction]
 #[pyo3(signature = (n_states, prob), text_signature = "(n_states, prob)")]
@@ -590,6 +607,7 @@ pub fn transition_cycle<'py>(
 /// Localised transition matrix, equivalent to ``librosa.sequence.transition_local``.
 ///
 /// Args:
+///
 ///     n_states (int): Number of states (> 1).
 ///     width (int | array_like[int]): Neighbourhood width, one value or one per state.
 ///     window (str): ``"triangle"`` (default, also ``"triang"``), ``"hann"``,
@@ -597,6 +615,7 @@ pub fn transition_cycle<'py>(
 ///     wrap (bool): Circular state space. Default False.
 ///
 /// Returns:
+///
 ///     numpy.ndarray[float64]: ``(n_states, n_states)``, row-stochastic.
 #[pyfunction]
 #[pyo3(
@@ -637,6 +656,7 @@ pub fn transition_local<'py>(
 /// Recurrence quantification analysis, equivalent to ``librosa.sequence.rqa``.
 ///
 /// Args:
+///
 ///     sim (array_like): ``(N, M)`` similarity / recurrence matrix (bool or float).
 ///     gap_onset (float): Gap opening penalty. Default 1.
 ///     gap_extend (float): Gap extension penalty. Default 1.
@@ -644,6 +664,7 @@ pub fn transition_local<'py>(
 ///     backtrack (bool): Return the best path too. Default True.
 ///
 /// Returns:
+///
 ///     ``score`` (numpy.ndarray[float32 | float64], shape ``(N, M)``), or
 ///     ``(score, path)`` with ``path`` an int64 ``(length, 2)`` array ordered
 ///     from start to end (empty when there is no recurrence).
@@ -679,7 +700,7 @@ pub fn rqa<'py>(
     }
 }
 
-pub(crate) fn parse_mode(mode: &str) -> PyResult<RecurrenceMode> {
+pub fn parse_mode(mode: &str) -> PyResult<RecurrenceMode> {
     match mode {
         "connectivity" => Ok(RecurrenceMode::Connectivity),
         "distance" => Ok(RecurrenceMode::Distance),
@@ -693,7 +714,7 @@ pub(crate) fn parse_mode(mode: &str) -> PyResult<RecurrenceMode> {
     }
 }
 
-pub(crate) fn parse_bandwidth(obj: Option<&Bound<'_, PyAny>>) -> PyResult<Bandwidth> {
+pub fn parse_bandwidth(obj: Option<&Bound<'_, PyAny>>) -> PyResult<Bandwidth> {
     let Some(obj) = obj.filter(|o| !o.is_none()) else {
         return Ok(Bandwidth::MedKScalar);
     };
@@ -728,11 +749,11 @@ pub(crate) fn parse_bandwidth(obj: Option<&Bound<'_, PyAny>>) -> PyResult<Bandwi
 }
 
 /// Connectivity output as a bool array (as librosa), other modes as floats.
-fn similarity_out<'py, F: PyFloat>(
-    py: Python<'py>,
+fn similarity_out<F: PyFloat>(
+    py: Python<'_>,
     m: Array2<F>,
     mode: RecurrenceMode,
-) -> Bound<'py, PyAny> {
+) -> Bound<'_, PyAny> {
     if mode == RecurrenceMode::Connectivity {
         m.mapv(|v| v != F::of(0.0)).into_pyarray(py).into_any()
     } else {
@@ -744,6 +765,7 @@ fn similarity_out<'py, F: PyFloat>(
 /// ``librosa.segment.recurrence_matrix(data, ..., sparse=False)``.
 ///
 /// Args:
+///
 ///     data (array_like): ``(n_features, t)`` features (1-D = one feature).
 ///     k (Optional[int]): Neighbours per frame; None = ``2 * ceil(sqrt(t - 2 * width + 1))``.
 ///     width (int): Minimum time separation of linked frames. Default 1.
@@ -759,6 +781,7 @@ fn similarity_out<'py, F: PyFloat>(
 ///     full (bool): Link every pair in distance/affinity mode. Default False.
 ///
 /// Returns:
+///
 ///     numpy.ndarray: ``(t, t)``; bool for connectivity, otherwise float in
 ///     ``data``'s precision.
 #[pyfunction]
@@ -850,6 +873,7 @@ pub fn recurrence_matrix<'py>(
 /// ``librosa.segment.cross_similarity(data, data_ref, ..., sparse=False)``.
 ///
 /// Args:
+///
 ///     data (array_like): Query features ``(n_features, n)``.
 ///     data_ref (array_like): Reference features ``(n_features, n_ref)``.
 ///     k (Optional[int]): Reference neighbours per query frame; None =
@@ -861,6 +885,7 @@ pub fn recurrence_matrix<'py>(
 ///     full (bool): Link every query frame to its ``min(n_ref, n)`` nearest. Default False.
 ///
 /// Returns:
+///
 ///     numpy.ndarray: ``(n_ref, n)``; bool for connectivity, otherwise float in
 ///     ``data``'s precision.
 #[pyfunction]
@@ -911,12 +936,14 @@ pub fn cross_similarity<'py>(
 /// ``librosa.segment.recurrence_to_lag(rec, pad=pad, axis=axis)`` (dense input).
 ///
 /// Args:
+///
 ///     rec (array_like): ``(t, t)`` recurrence matrix (bool or float).
 ///     pad (bool): Zero-pad to ``(2t, t)`` first. Default True.
 ///     axis (int): The time axis: ``-1``/``1`` (columns, default) or
 ///         ``0``/``-2`` (rows; the result is then ``(t, 2t)``).
 ///
 /// Returns:
+///
 ///     numpy.ndarray: ``(2t, t)`` or ``(t, t)``; bool if ``rec`` is bool, else ``rec``'s precision.
 #[pyfunction]
 #[pyo3(
@@ -962,11 +989,13 @@ pub fn recurrence_to_lag<'py>(
 /// ``librosa.segment.lag_to_recurrence(lag, axis=axis)`` (dense input).
 ///
 /// Args:
+///
 ///     lag (array_like): ``(t, t)`` or ``(2t, t)`` lag matrix.
 ///     axis (int): The time axis: ``-1``/``1`` (columns, default) or
 ///         ``0``/``-2`` (rows; a padded lag matrix is then ``(t, 2t)``).
 ///
 /// Returns:
+///
 ///     numpy.ndarray: ``(t, t)``; bool if ``lag`` is bool, else ``lag``'s precision.
 #[pyfunction]
 #[pyo3(signature = (lag, *, axis = Int(-1)), text_signature = "(lag, *, axis=-1)")]
@@ -1049,11 +1078,7 @@ fn is_bool_array(obj: &Bound<'_, PyAny>) -> PyResult<bool> {
 
 /// The result in C order (copied only when it is not already), as `bool`
 /// for boolean input and as `F` otherwise.
-fn bool_or_float<'py, F: PyFloat>(
-    py: Python<'py>,
-    m: Array2<F>,
-    is_bool: bool,
-) -> Bound<'py, PyAny> {
+fn bool_or_float<F: PyFloat>(py: Python<'_>, m: Array2<F>, is_bool: bool) -> Bound<'_, PyAny> {
     let m = if m.is_standard_layout() {
         m
     } else {
@@ -1070,6 +1095,7 @@ fn bool_or_float<'py, F: PyFloat>(
 /// ``librosa.util.sync(data, idx, aggregate=..., pad=...)`` (axis=-1).
 ///
 /// Args:
+///
 ///     data (array_like): Any shape with frames on the last axis.
 ///     idx (array_like[int] | Sequence[slice]): Boundary frame indices (sorted and
 ///         de-duplicated internally), or one slice of the frames per output entry.
@@ -1080,10 +1106,12 @@ fn bool_or_float<'py, F: PyFloat>(
 ///         with slices.
 ///
 /// Returns:
+///
 ///     numpy.ndarray[float32 | float64]: ``data`` with the last axis replaced by one entry
 ///     per segment.
 ///
 /// Raises:
+///
 ///     ValueError: Negative indices or 0-d data.
 #[pyfunction]
 #[pyo3(

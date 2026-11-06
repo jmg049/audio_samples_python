@@ -11,23 +11,26 @@ use crate::{
 impl PyAudioSamples {
     /// Apply a parametric equalizer configuration in place.
     ///
-    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// Modifies the signal in place and returns ``None``. If the ``AudioSamples``
     /// was created from a NumPy array (``new_mono``/``new_multi``), that array
     /// is modified too; pass ``arr.copy()`` to keep the original.
     ///
     /// Args:
+    ///
     ///     eq (ParametricEq): Equalizer definition containing one or more bands.
     ///
     /// Returns:
+    ///
     ///     None: Operation mutates the current buffer.
     ///
     /// Raises:
+    ///
     ///     AudioError: If filter application fails.
     #[pyo3(signature = (eq: "ParametricEq"))]
     fn apply_parametric_eq(&mut self, py: Python<'_>, eq: PyParametricEq) -> PyResult<()> {
         dispatch_with_view_mut!(self, py, |mut audio| {
             audio
-                .apply_parametric_eq_in_place(&(*eq))
+                .apply_parametric_eq_in_place(&eq)
                 .map_err(audio_err_to_py)
         })
     }
@@ -38,18 +41,21 @@ impl PyAudioSamples {
     /// buffer unchanged.
     ///
     /// Args:
+    ///
     ///     eq (ParametricEq): Equalizer definition containing one or more bands.
     ///
     /// Returns:
+    ///
     ///     AudioSamples: A new equalized buffer.
     ///
     /// Raises:
+    ///
     ///     AudioError: If filter application fails.
     #[pyo3(signature = (eq: "ParametricEq"))]
     fn parametric_eq(&self, py: Python<'_>, eq: PyParametricEq) -> PyResult<Self> {
         dispatch_with_view!(self, py, |audio| {
             audio
-                .apply_parametric_eq(&(*eq))
+                .apply_parametric_eq(&eq)
                 .map_err(audio_err_to_py)
                 .map(|a| Self::from_audio_samples(a.into_owned()))
         })
@@ -57,17 +63,20 @@ impl PyAudioSamples {
 
     /// Apply a single EQ band in place.
     ///
-    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// Modifies the signal in place and returns ``None``. If the ``AudioSamples``
     /// was created from a NumPy array (``new_mono``/``new_multi``), that array
     /// is modified too; pass ``arr.copy()`` to keep the original.
     ///
     /// Args:
+    ///
     ///     band (EqBand): Parametric band definition to apply.
     ///
     /// Returns:
+    ///
     ///     None: Operation mutates the current buffer.
     ///
     /// Raises:
+    ///
     ///     AudioError: If filter application fails.
     #[pyo3(signature = (band: "EqBand"))]
     fn apply_eq_band(&mut self, py: Python<'_>, band: &PyEqBand) -> PyResult<()> {
@@ -84,12 +93,15 @@ impl PyAudioSamples {
     /// unchanged.
     ///
     /// Args:
+    ///
     ///     band (EqBand): Parametric band definition to apply.
     ///
     /// Returns:
+    ///
     ///     AudioSamples: A new buffer with the band applied.
     ///
     /// Raises:
+    ///
     ///     AudioError: If filter application fails.
     #[pyo3(signature = (band: "EqBand"))]
     fn eq_band(&self, py: Python<'_>, band: &PyEqBand) -> PyResult<Self> {
@@ -103,19 +115,22 @@ impl PyAudioSamples {
 
     /// Apply a parametric peak filter in place.
     ///
-    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// Modifies the signal in place and returns ``None``. If the ``AudioSamples``
     /// was created from a NumPy array (``new_mono``/``new_multi``), that array
     /// is modified too; pass ``arr.copy()`` to keep the original.
     ///
     /// Args:
+    ///
     ///     frequency (float): Center frequency in hertz.
     ///     gain_db (float): Gain adjustment in decibels.
     ///     q_factor (float): Quality factor controlling bandwidth.
     ///
     /// Returns:
+    ///
     ///     None: Operation mutates the current buffer.
     ///
     /// Raises:
+    ///
     ///     AudioError: If filter application fails.
     #[pyo3(signature = (frequency: "float", gain_db: "float", q_factor: "float"))]
     fn apply_peak_filter(
@@ -134,19 +149,22 @@ impl PyAudioSamples {
 
     /// Apply a low-shelf filter in place.
     ///
-    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// Modifies the signal in place and returns ``None``. If the ``AudioSamples``
     /// was created from a NumPy array (``new_mono``/``new_multi``), that array
     /// is modified too; pass ``arr.copy()`` to keep the original.
     ///
     /// Args:
+    ///
     ///     frequency (float): Shelf corner frequency in hertz.
     ///     gain_db (float): Gain adjustment in decibels.
     ///     q_factor (float): Shelf slope parameter.
     ///
     /// Returns:
+    ///
     ///     None: Operation mutates the current buffer.
     ///
     /// Raises:
+    ///
     ///     AudioError: If filter application fails.
     #[pyo3(signature = (frequency: "float", gain_db: "float", q_factor: "float"))]
     fn apply_low_shelf(
@@ -165,19 +183,22 @@ impl PyAudioSamples {
 
     /// Apply a high-shelf filter in place.
     ///
-    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// Modifies the signal in place and returns ``None``. If the ``AudioSamples``
     /// was created from a NumPy array (``new_mono``/``new_multi``), that array
     /// is modified too; pass ``arr.copy()`` to keep the original.
     ///
     /// Args:
+    ///
     ///     frequency (float): Shelf corner frequency in hertz.
     ///     gain_db (float): Gain adjustment in decibels.
     ///     q_factor (float): Shelf slope parameter.
     ///
     /// Returns:
+    ///
     ///     None: Operation mutates the current buffer.
     ///
     /// Raises:
+    ///
     ///     AudioError: If filter application fails.
     #[pyo3(signature = (frequency: "float", gain_db: "float", q_factor: "float"))]
     fn apply_high_shelf(
@@ -196,18 +217,21 @@ impl PyAudioSamples {
 
     /// Apply a three-band equalizer in place.
     ///
-    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// Modifies the signal in place and returns ``None``. If the ``AudioSamples``
     /// was created from a NumPy array (``new_mono``/``new_multi``), that array
     /// is modified too; pass ``arr.copy()`` to keep the original.
     ///
     /// Args:
+    ///
     ///     config (ThreeBandEqConfig): Three-band EQ configuration describing the
     ///         low shelf, mid peak, and high shelf bands.
     ///
     /// Returns:
+    ///
     ///     None: Operation mutates the current buffer.
     ///
     /// Raises:
+    ///
     ///     AudioError: If filter application fails.
     #[pyo3(signature = (config: "ThreeBandEqConfig"))]
     fn apply_three_band_eq(&mut self, py: Python<'_>, config: PyThreeBandEqConfig) -> PyResult<()> {
@@ -226,16 +250,19 @@ impl PyAudioSamples {
     /// This is purely analytical and does not modify the audio.
     ///
     /// Args:
+    ///
     ///     eq (ParametricEq): The equalizer whose response to evaluate.
     ///     frequencies (np.typing.NDArray[np.float64]): Frequencies in hertz at
     ///         which to evaluate the response.
     ///
     /// Returns:
+    ///
     ///     tuple[np.typing.NDArray[np.float64], np.typing.NDArray[np.float64]]:
     ///     Linear magnitude (1.0 = unity gain) and phase (radians) arrays, each
     ///     the same length as ``frequencies``.
     ///
     /// Raises:
+    ///
     ///     AudioError: If any enabled band fails to design a filter (e.g. a
     ///         frequency above the Nyquist limit).
     #[pyo3(signature = (eq: "ParametricEq", frequencies: "np.typing.NDArray[np.float64]"))]
@@ -248,7 +275,7 @@ impl PyAudioSamples {
         let freqs = frequencies.try_readonly()?.as_array().to_vec();
         let (magnitudes, phases) = dispatch_with_view!(self, py, |audio| {
             audio
-                .eq_frequency_response(&(*eq), &freqs)
+                .eq_frequency_response(&eq, &freqs)
                 .map_err(audio_err_to_py)
         })?;
         Ok((magnitudes.into_pyarray(py), phases.into_pyarray(py)))

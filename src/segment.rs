@@ -31,6 +31,7 @@ use crate::audio_err_to_py;
 /// A normalised smoothing kernel along a line through the origin.
 ///
 /// Args:
+///
 ///     window (str | tuple | ``array_like``): The window along the line.
 ///     n (int): Its length, before rotation.
 ///     slope (float): The line's slope; 1 is the main diagonal. Default 1.
@@ -38,6 +39,7 @@ use crate::audio_err_to_py;
 ///     ``zero_mean`` (bool): Subtract the mean. Default false.
 ///
 /// Returns:
+///
 ///     numpy.ndarray[float64]: The kernel.
 #[pyfunction]
 #[pyo3(
@@ -148,6 +150,7 @@ fn enhance<'py, F: PyFloat>(
 /// The largest response of a recurrence matrix to diagonal kernels of several slopes.
 ///
 /// Args:
+///
 ///     R (``array_like``): ``(..., n, n)`` or lag matrix.
 ///     n (int): Length of each kernel, before rotation.
 ///     window (str | tuple | ``array_like``): The window along each diagonal. Default ``"hann"``.
@@ -160,6 +163,7 @@ fn enhance<'py, F: PyFloat>(
 ///         ``"wrap"``), ``cval`` and ``origin``.
 ///
 /// Returns:
+///
 ///     numpy.ndarray: The shape of ``R``, of its precision.
 #[pyfunction]
 #[pyo3(
@@ -242,11 +246,13 @@ impl TimelagFiltered {
 /// Wraps a filter so that it runs on a recurrence matrix in lag coordinates.
 ///
 /// Args:
+///
 ///     function (Callable): The filter. It receives the time-lag matrix at position ``index``.
 ///     pad (bool): Pad the lag matrix to twice the length. Default true.
 ///     index (int): Position of the matrix in the call's arguments. Default 0.
 ///
 /// Returns:
+///
 ///     Callable: Takes the same arguments as ``function`` and returns a recurrence matrix.
 #[pyfunction]
 #[pyo3(signature = (function, pad = true, index = Int(0)), text_signature = "(function, pad=True, index=0)")]
@@ -288,6 +294,7 @@ fn boundaries_out(py: Python<'_>, v: Vec<usize>) -> Bound<'_, PyAny> {
 /// Segment boundaries from Ward clustering in which only neighbouring segments merge.
 ///
 /// Args:
+///
 ///     data (``array_like``): Features with time along ``axis``.
 ///     k (int): Number of segments.
 ///     clusterer (Optional[object]): Any object with ``fit`` and ``labels_``, in place of
@@ -295,6 +302,7 @@ fn boundaries_out(py: Python<'_>, v: Vec<usize>) -> Bound<'_, PyAny> {
 ///     axis (int): The time axis. Default -1.
 ///
 /// Returns:
+///
 ///     numpy.ndarray[int64]: The first frame of each segment.
 #[pyfunction]
 #[pyo3(
@@ -340,12 +348,14 @@ pub fn agglomerative<'py>(
 /// Subdivides each interval of a segmentation with :func:`agglomerative`.
 ///
 /// Args:
+///
 ///     data (``array_like``): Features with time along ``axis``.
 ///     frames (``array_like[int]``): Segment boundaries; the ends are added.
 ///     ``n_segments`` (int): The most subsegments per interval. Default 4.
 ///     axis (int): The time axis. Default -1.
 ///
 /// Returns:
+///
 ///     numpy.ndarray[int64]: The first frame of each subsegment.
 #[pyfunction]
 #[pyo3(
@@ -379,10 +389,12 @@ pub fn subsegment<'py>(
 /// The fractional index on one side of an alignment path for each frame on the other.
 ///
 /// Args:
+///
 ///     path (``array_like``): ``(n, 2)`` index pairs, as ``sequence.dtw`` gives.
 ///     inverse (bool): False gives column 0 for each frame of column 1. Default false.
 ///
 /// Returns:
+///
 ///     numpy.ndarray[float64]: One value per frame on the path.
 #[pyfunction]
 #[pyo3(signature = (path, *, inverse = false), text_signature = "(path, *, inverse=False)")]

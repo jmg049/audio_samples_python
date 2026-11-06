@@ -254,10 +254,12 @@ macro_rules! reader_dispatch {
 /// iterate with :meth:`frames`, :meth:`windows`, or :meth:`samples`.
 ///
 /// Args:
+///
 ///     fp (str | Path | BinaryIO): Path to the audio file, or a binary file object with
 ///         ``read``, ``seek`` and ``tell``. The format is detected from the contents.
 ///
 /// Raises:
+///
 ///     OSError: If the file cannot be opened.
 ///     ValueError: If the format is unsupported or the header is corrupt.
 #[pyclass(name = "StreamedAudioReader", module = "audio_samples.io")]
@@ -351,7 +353,7 @@ impl PyStreamedAudioReader {
                 if fp.hasattr("read")? {
                     Self::open_file_object(fp)
                 } else {
-                    Err(not_a_path.into())
+                    Err(not_a_path)
                 }
             }
         }
@@ -384,12 +386,14 @@ impl PyStreamedAudioReader {
     /// Open a WAV or FLAC file for streaming reads.
     ///
     /// Args:
+    ///
     ///     fp (str | Path | BinaryIO): Path to the audio file, or a file object opened in
     ///         binary mode with ``read``, ``seek`` and ``tell``. A file object is read from
     ///         its current position and stays open; decoding calls its methods with the
     ///         GIL held.
     ///
     /// Raises:
+    ///
     ///     OSError: If the file cannot be opened.
     ///     ValueError: If the format is unsupported or the header is corrupt.
     ///     TypeError: If ``fp`` is neither a path nor such a file object.
@@ -455,15 +459,18 @@ impl PyStreamedAudioReader {
     /// ``None`` once the end of the stream is reached (no frames left to read).
     ///
     /// Args:
+    ///
     ///     frame_count (int): Maximum number of frames to read; must be greater than zero.
     ///     dtype (SampleType, optional): Target sample type for the returned array.
     ///         Defaults to the file's own sample type.
     ///
     /// Returns:
+    ///
     ///     AudioSamples | None: The decoded chunk (mono shape ``(frames,)`` or multi-channel
     ///     shape ``(channels, frames)``), or ``None`` at end of stream.
     ///
     /// Raises:
+    ///
     ///     ValueError: If ``frame_count`` is zero.
     ///     RuntimeError: If the reader is closed.
     ///     OSError: If reading fails or the data is corrupt.
@@ -501,9 +508,11 @@ impl PyStreamedAudioReader {
     /// Seek so the next read returns frame ``frame``.
     ///
     /// Args:
+    ///
     ///     frame (int): Target frame index (0-indexed).
     ///
     /// Raises:
+    ///
     ///     OSError: If the frame is beyond the end of the stream or the seek fails.
     ///     RuntimeError: If the reader is closed.
     #[pyo3(signature = (frame: "int"))]
@@ -514,6 +523,7 @@ impl PyStreamedAudioReader {
     /// Reset the stream to the beginning of the audio data.
     ///
     /// Raises:
+    ///
     ///     OSError: If the underlying seek fails.
     ///     RuntimeError: If the reader is closed.
     #[pyo3(signature = ())]
@@ -526,11 +536,13 @@ impl PyStreamedAudioReader {
     /// Each iteration calls :meth:`read_frames`; the final chunk may be shorter.
     ///
     /// Args:
+    ///
     ///     chunk_frames (int): Frames per chunk; must be greater than zero. Defaults to 4096.
     ///     dtype (SampleType, optional): Target sample type. Defaults to the file's own
     ///         sample type.
     ///
     /// Returns:
+    ///
     ///     StreamedFrameIterator: An iterator of :class:`AudioSamples` chunks.
     #[pyo3(signature = (chunk_frames: "int" = 4096, dtype: "SampleType" = None))]
     fn frames(
@@ -554,15 +566,18 @@ impl PyStreamedAudioReader {
     /// ``window`` at the end of the stream are still yielded.
     ///
     /// Args:
+    ///
     ///     window (int): Frames per window; must be greater than zero.
     ///     hop (int): Frames to advance between windows; must be greater than zero.
     ///     dtype (SampleType, optional): Target sample type. Defaults to the file's own
     ///         sample type.
     ///
     /// Returns:
+    ///
     ///     StreamedFrameIterator: An iterator of :class:`AudioSamples` windows.
     ///
     /// Raises:
+    ///
     ///     ValueError: If ``window`` or ``hop`` is zero.
     #[pyo3(signature = (window: "int", hop: "int", dtype: "SampleType" = None))]
     fn windows(
@@ -587,13 +602,15 @@ impl PyStreamedAudioReader {
     /// :meth:`frames`; prefer larger chunks for throughput.
     ///
     /// Args:
+    ///
     ///     dtype (SampleType, optional): Target sample type. Defaults to the file's own
     ///         sample type.
     ///
     /// Returns:
+    ///
     ///     StreamedFrameIterator: An iterator of single-frame :class:`AudioSamples`.
     #[pyo3(signature = (dtype: "SampleType" = None))]
-    fn samples(slf: Py<Self>, dtype: Option<PySampleType>) -> PyStreamedFrameIterator {
+    const fn samples(slf: Py<Self>, dtype: Option<PySampleType>) -> PyStreamedFrameIterator {
         PyStreamedFrameIterator {
             reader: slf,
             window: 1,
@@ -611,7 +628,7 @@ impl PyStreamedAudioReader {
     }
 
     /// Enter the context manager, returning ``self``.
-    fn __enter__(slf: Py<Self>) -> Py<Self> {
+    const fn __enter__(slf: Py<Self>) -> Py<Self> {
         slf
     }
 
@@ -647,7 +664,7 @@ pub struct PyStreamedFrameIterator {
 
 #[pymethods]
 impl PyStreamedFrameIterator {
-    fn __iter__(slf: Py<Self>) -> Py<Self> {
+    const fn __iter__(slf: Py<Self>) -> Py<Self> {
         slf
     }
 
@@ -701,6 +718,7 @@ macro_rules! writer_dispatch {
 /// patched with the final sizes.
 ///
 /// Args:
+///
 ///     fp (str | Path): Output path; ``.wav`` or ``.flac`` selects the format.
 ///     channels (int): Number of channels; must be greater than zero.
 ///     sample_rate (int): Sample rate in Hz; must be greater than zero.
@@ -708,6 +726,7 @@ macro_rules! writer_dispatch {
 ///         only integer types (``i16``/``i24``/``i32``).
 ///
 /// Raises:
+///
 ///     OSError: If the file cannot be created.
 ///     ValueError: If parameters are invalid or the type/format combination is unsupported.
 #[pyclass(name = "StreamedAudioWriter", module = "audio_samples.io")]
@@ -771,6 +790,7 @@ impl PyStreamedAudioWriter {
     /// Create a streaming FLAC writer with an explicit compression level.
     ///
     /// Args:
+    ///
     ///     fp (str | Path): Output ``.flac`` path.
     ///     channels (int): Number of channels; must be greater than zero.
     ///     sample_rate (int): Sample rate in Hz; must be greater than zero.
@@ -780,9 +800,11 @@ impl PyStreamedAudioWriter {
     ///         Defaults to ``i16``.
     ///
     /// Returns:
+    ///
     ///     StreamedAudioWriter: A FLAC streaming writer.
     ///
     /// Raises:
+    ///
     ///     OSError: If the file cannot be created.
     ///     ValueError: If the type is not a FLAC-supported integer type.
     #[staticmethod]
@@ -823,12 +845,15 @@ impl PyStreamedAudioWriter {
     /// The channel count must match the writer's configuration.
     ///
     /// Args:
+    ///
     ///     samples (AudioSamples): Frames to write.
     ///
     /// Returns:
+    ///
     ///     int: The number of frames written.
     ///
     /// Raises:
+    ///
     ///     RuntimeError: If the writer is closed or already finalized.
     ///     ValueError: If the channel count does not match.
     ///     OSError: If the underlying write fails.
@@ -844,6 +869,7 @@ impl PyStreamedAudioWriter {
     /// Flush buffered data to the underlying file without finalizing.
     ///
     /// Raises:
+    ///
     ///     RuntimeError: If the writer is closed.
     ///     OSError: If the flush fails.
     #[pyo3(signature = ())]
@@ -857,6 +883,7 @@ impl PyStreamedAudioWriter {
     /// further :meth:`write_frames` calls fail.
     ///
     /// Raises:
+    ///
     ///     RuntimeError: If the writer is closed.
     ///     OSError: If the underlying seek/flush fails.
     #[pyo3(signature = ())]
@@ -907,6 +934,7 @@ impl PyStreamedAudioWriter {
     /// Finalize (if not already) and release the file handle. Idempotent.
     ///
     /// Raises:
+    ///
     ///     OSError: If finalization fails.
     #[pyo3(signature = ())]
     fn close(&mut self) -> PyResult<()> {
@@ -922,7 +950,7 @@ impl PyStreamedAudioWriter {
     }
 
     /// Enter the context manager, returning ``self``.
-    fn __enter__(slf: Py<Self>) -> Py<Self> {
+    const fn __enter__(slf: Py<Self>) -> Py<Self> {
         slf
     }
 
@@ -977,6 +1005,7 @@ fn create_streamed_flac_for(
 /// either declared up front (``total_frames``) or left open-ended (streaming-size convention).
 ///
 /// Args:
+///
 ///     fp (str | Path): Output ``.wav`` path.
 ///     channels (int): Number of channels; must be greater than zero.
 ///     sample_rate (int): Sample rate in Hz; must be greater than zero.
@@ -985,6 +1014,7 @@ fn create_streamed_flac_for(
 ///         verifies the count on :meth:`finalize`); ``None`` for an open-ended stream.
 ///
 /// Raises:
+///
 ///     OSError: If the file cannot be created.
 ///     ValueError: If parameters are invalid.
 #[pyclass(name = "WavSink", module = "audio_samples.io")]
@@ -1028,12 +1058,15 @@ impl PyWavSink {
     /// Write a chunk of audio frames to the sink.
     ///
     /// Args:
+    ///
     ///     samples (AudioSamples): Frames to write; channel count must match.
     ///
     /// Returns:
+    ///
     ///     int: The number of frames written.
     ///
     /// Raises:
+    ///
     ///     RuntimeError: If the sink is closed or finalized.
     ///     ValueError: If the channel count mismatches or the declared length is exceeded.
     ///     OSError: If the write fails.
@@ -1085,7 +1118,7 @@ impl PyWavSink {
         Ok(())
     }
 
-    fn __enter__(slf: Py<Self>) -> Py<Self> {
+    const fn __enter__(slf: Py<Self>) -> Py<Self> {
         slf
     }
 

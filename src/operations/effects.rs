@@ -60,7 +60,7 @@ fn parse_res_type(obj: &Bound<'_, PyAny>) -> PyResult<ResamplingQuality> {
 }
 
 /// librosa's `ref` of `trim` / `split`: what the dB conversions take, or any callable.
-pub(crate) enum SilenceRef {
+pub enum SilenceRef {
     Builtin(DbReference),
     Callable(Py<PyAny>),
 }
@@ -147,8 +147,8 @@ fn callback_failed(slot: &RefCell<Option<PyErr>>, e: PyErr) -> AudioSampleError 
 /// The reference level with a callable `ref(rms, axis=..., keepdims=True)`, or the
 /// value of a built-in reference. Mono is passed without a channel axis, as librosa
 /// does for 1-D `y`.
-fn silence_reference<'py, F: FloatElement + AudioFloat>(
-    py: Python<'py>,
+fn silence_reference<F: FloatElement + AudioFloat>(
+    py: Python<'_>,
     args: &SilenceArgs,
     rms: ArrayView2<'_, F>,
 ) -> PyResult<f64> {
@@ -182,8 +182,8 @@ fn silence_reference<'py, F: FloatElement + AudioFloat>(
 /// The level of each frame with a callable `aggregate(db, 0)`, as
 /// `numpy.apply_over_axes` calls it, or a built-in combination. Mono is not combined,
 /// as librosa does not for 1-D `y`.
-fn silence_levels<'py, F: FloatElement + AudioFloat>(
-    py: Python<'py>,
+fn silence_levels<F: FloatElement + AudioFloat>(
+    py: Python<'_>,
     args: &SilenceArgs,
     db: ArrayView2<'_, F>,
 ) -> PyResult<ndarray::Array1<F>> {
@@ -290,14 +290,17 @@ impl PyAudioSamples {
     /// ``round(n / rate)`` samples.
     ///
     /// Args:
+    ///
     ///     rate (float): Speed-up factor (2.0 = twice as fast, half the length).
     ///     n_fft, hop_length, win_length, window, center, pad_mode: STFT
     ///         parameters (librosa's ``**kwargs``), as ``stft_matrix``.
     ///
     /// Returns:
+    ///
     ///     AudioSamples: the stretched audio (input sample type and rate).
     ///
     /// Raises:
+    ///
     ///     ValueError: If ``rate`` is not positive, the result would be empty,
     ///         or STFT parameters are invalid.
     #[pyo3(
@@ -353,6 +356,7 @@ impl PyAudioSamples {
     /// ``rate``, then cut/pad to the original length.
     ///
     /// Args:
+    ///
     ///     n_steps (float): Shift in steps (semitones by default); fractional
     ///         and negative values allowed.
     ///     bins_per_octave (int): Steps per octave. Default 12.
@@ -367,9 +371,11 @@ impl PyAudioSamples {
     ///         parameters of the time stretch.
     ///
     /// Returns:
+    ///
     ///     AudioSamples: the shifted audio, same length, type and rate.
     ///
     /// Raises:
+    ///
     ///     ValueError: For a non-finite ``n_steps``, ``scale=True`` or invalid
     ///         parameters.
     #[pyo3(
@@ -452,12 +458,15 @@ impl PyAudioSamples {
     /// ``zi`` / ``return_zf``.
     ///
     /// Args:
+    ///
     ///     coef (float): Coefficient. Default 0.97.
     ///
     /// Returns:
+    ///
     ///     AudioSamples: the filtered audio.
     ///
     /// Raises:
+    ///
     ///     ValueError: For a non-finite ``coef`` or fewer than two samples.
     #[pyo3(signature = (*, coef = 0.97), text_signature = "($self, *, coef=0.97)")]
     fn preemphasis(&self, py: Python<'_>, coef: f64) -> PyResult<Self> {
@@ -478,12 +487,15 @@ impl PyAudioSamples {
     /// of ``preemphasis``), equivalent to ``librosa.effects.deemphasis(y, coef=coef)``.
     ///
     /// Args:
+    ///
     ///     coef (float): Coefficient (not 3). Default 0.97.
     ///
     /// Returns:
+    ///
     ///     AudioSamples: the filtered audio.
     ///
     /// Raises:
+    ///
     ///     ValueError: For a non-finite ``coef``, ``coef == 3`` or fewer than two
     ///         samples.
     #[pyo3(signature = (*, coef = 0.97), text_signature = "($self, *, coef=0.97)")]
@@ -510,6 +522,7 @@ impl PyAudioSamples {
     /// ``trim_silence`` (sample-wise absolute dBFS threshold).
     ///
     /// Args:
+    ///
     ///     top_db (float): Threshold below the reference in dB. Required
     ///         (librosa defaults to 60).
     ///     ref (float | "max" | numpy.max): Reference RMS amplitude; the default
@@ -522,10 +535,12 @@ impl PyAudioSamples {
     ///         here or in ``ref`` runs with the GIL held.
     ///
     /// Returns:
+    ///
     ///     tuple: ``(trimmed, index)``: the trimmed ``AudioSamples`` and an int64
     ///     array ``[start, end]`` of the kept sample range.
     ///
     /// Raises:
+    ///
     ///     ValueError: For invalid parameters, or if everything is silent
     ///         (librosa returns an empty array and ``[0, 0]``; an
     ///         ``AudioSamples`` cannot be empty, use ``split_db`` to test).
@@ -601,9 +616,11 @@ impl PyAudioSamples {
     /// Non-silent intervals, equivalent to ``librosa.effects.split(y, ...)``.
     ///
     /// Args:
+    ///
     ///     top_db, ref, frame_length, hop_length, aggregate: As ``trim_db``.
     ///
     /// Returns:
+    ///
     ///     numpy.ndarray[int64]: shape ``(n_intervals, 2)`` of ``[start, end)``
     ///     sample ranges (``(0, 2)`` if everything is silent).
     #[pyo3(
@@ -653,15 +670,18 @@ impl PyAudioSamples {
     /// ``librosa.effects.remix(y, intervals, align_zeros=...)``.
     ///
     /// Args:
+    ///
     ///     intervals (array_like): ``(n, 2)`` ``[start, end)`` sample ranges, in
     ///         output order; clipped to the signal, empty ranges skipped.
     ///     align_zeros (bool): Snap boundaries to the nearest zero crossing of
     ///         the (mono downmix of the) signal. Default False (librosa: True).
     ///
     /// Returns:
+    ///
     ///     AudioSamples: the remixed audio.
     ///
     /// Raises:
+    ///
     ///     ValueError: For malformed or all-empty intervals.
     #[pyo3(
         signature = (intervals, *, align_zeros = false),
@@ -708,6 +728,7 @@ impl PyAudioSamples {
     /// follows librosa exactly.
     ///
     /// Args:
+    ///
     ///     kernel_size (int | tuple[int, int]): Median filter lengths. Default 31.
     ///     power (float): Mask exponent. Default 2.
     ///     mask (bool): Must be False. librosa documents that True returns the masks,
@@ -719,6 +740,7 @@ impl PyAudioSamples {
     ///         method uses it.
     ///
     /// Returns:
+    ///
     ///     AudioSamples: the harmonic component, same length.
     #[pyo3(
         signature = (*, kernel_size = None, power = 2.0, mask = false, margin = None, n_fft = Int(2048), hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant"),
@@ -797,9 +819,11 @@ impl PyAudioSamples {
     /// Percussive component, equivalent to ``librosa.effects.percussive(y, ...)``.
     ///
     /// Args:
+    ///
     ///     As ``harmonic``.
     ///
     /// Returns:
+    ///
     ///     AudioSamples: the percussive component, same length.
     #[pyo3(
         signature = (*, kernel_size = None, power = 2.0, mask = false, margin = None, n_fft = Int(2048), hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant"),
@@ -880,9 +904,11 @@ impl PyAudioSamples {
     /// ``hpss`` is the older, non-librosa method).
     ///
     /// Args:
+    ///
     ///     As ``harmonic``.
     ///
     /// Returns:
+    ///
     ///     tuple[AudioSamples, AudioSamples]: ``(harmonic, percussive)``; with
     ///     margins of 1 they sum to the input up to round-off.
     #[pyo3(
@@ -927,15 +953,18 @@ impl PyAudioSamples {
     /// ``librosa.lpc(y, order=order)``.
     ///
     /// Args:
+    ///
     ///     order (int): Prediction order; each channel needs more than
     ///         ``order`` samples.
     ///
     /// Returns:
+    ///
     ///     numpy.ndarray[float32 | float64]: shape ``(channels, order + 1)``, rows
     ///     ``[1, a_1, ..., a_order]``. librosa returns ``(order + 1,)`` for 1-D
     ///     input; index ``[0]``.
     ///
     /// Raises:
+    ///
     ///     ValueError: For a too-short or non-finite channel.
     #[pyo3(signature = (*, order), text_signature = "($self, *, order)")]
     fn lpc<'py>(&self, py: Python<'py>, order: Int) -> PyResult<Bound<'py, PyAny>> {
@@ -952,6 +981,7 @@ impl PyAudioSamples {
     /// See ``audio_samples.effects.griffinlim`` for the arguments.
     ///
     /// Args:
+    ///
     ///     S (array_like): ``(1 + n_fft // 2, n_frames)`` or
     ///         ``(channels, 1 + n_fft // 2, n_frames)`` non-negative magnitude.
     ///     sample_rate (int): Sample rate of the result (keyword-only).
@@ -967,6 +997,7 @@ impl PyAudioSamples {
     ///         float64 for I32 and F64); integer output is rounded and saturated.
     ///
     /// Returns:
+    ///
     ///     AudioSamples: audio of sample type ``dtype`` (mono for one channel).
     #[staticmethod]
     #[pyo3(

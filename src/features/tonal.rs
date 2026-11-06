@@ -29,6 +29,7 @@ fn infer_n_fft(n_fft: Option<Int>, n_bins: usize) -> PyResult<std::num::NonZeroU
 /// ``librosa.filters.chroma(sr=sr, n_fft=n_fft, ..., dtype=numpy.float64)``.
 ///
 /// Args:
+///
 ///     sr (float): Sample rate (Hz).
 ///     n_fft (int): FFT length.
 ///     n_chroma (int): Number of chroma bins. Default 12.
@@ -42,10 +43,12 @@ fn infer_n_fft(n_fft: Option<Int>, n_bins: usize) -> PyResult<std::num::NonZeroU
 ///     base_c (bool): Row 0 is C (True, default) or A.
 ///
 /// Returns:
+///
 ///     numpy.ndarray[float64]: shape ``(n_chroma, 1 + n_fft // 2)`` (librosa's
 ///     default dtype is float32; this is always float64).
 ///
 /// Raises:
+///
 ///     ValueError: For invalid parameters.
 #[pyfunction]
 #[pyo3(
@@ -53,8 +56,8 @@ fn infer_n_fft(n_fft: Option<Int>, n_bins: usize) -> PyResult<std::num::NonZeroU
     text_signature = "(*, sr, n_fft, n_chroma=12, tuning=0.0, ctroct=5.0, octwidth=2.0, norm=2.0, base_c=True)"
 )]
 #[allow(clippy::too_many_arguments)]
-pub fn chroma_filterbank<'py>(
-    py: Python<'py>,
+pub fn chroma_filterbank(
+    py: Python<'_>,
     sr: f64,
     n_fft: Int,
     n_chroma: Int,
@@ -63,7 +66,7 @@ pub fn chroma_filterbank<'py>(
     octwidth: Option<f64>,
     norm: Option<f64>,
     base_c: bool,
-) -> PyResult<Bound<'py, PyArray2<f64>>> {
+) -> PyResult<Bound<'_, PyArray2<f64>>> {
     let cfg = ChromaFilterbankConfig {
         n_chroma: positive("n_chroma", n_chroma)?,
         tuning,
@@ -81,6 +84,7 @@ pub fn chroma_filterbank<'py>(
 /// ``librosa.util.normalize``.
 ///
 /// Args:
+///
 ///     S (array_like): Array of any shape (finite values).
 ///     norm (Optional[float]): ``numpy.inf`` (max-abs, default), ``-numpy.inf``
 ///         (min-abs), 0 (count of non-zeros), ``p > 0`` (Lp), or None (no-op).
@@ -92,9 +96,11 @@ pub fn chroma_filterbank<'py>(
 ///         True fills them with the unit-norm constant.
 ///
 /// Returns:
+///
 ///     numpy.ndarray[float32 | float64]: same shape as ``S``.
 ///
 /// Raises:
+///
 ///     ValueError: For an invalid norm/threshold/axis, ``fill=True`` with
 ///         ``norm=0``, or non-finite input.
 #[pyfunction]
@@ -128,15 +134,18 @@ pub fn normalize<'py>(
 /// ``librosa.pitch_tuning``.
 ///
 /// Args:
+///
 ///     frequencies (array_like): Frequencies in Hz; non-positive values are ignored.
 ///     resolution (float): Histogram resolution in fractions of a bin, in ``(0, 1)``.
 ///         Default 0.01.
 ///     bins_per_octave (int): Bins per octave of the reference grid. Default 12.
 ///
 /// Returns:
+///
 ///     float: tuning in ``[-0.5, 0.5)`` fractions of a bin (0.0 for no input).
 ///
 /// Raises:
+///
 ///     ValueError: If ``resolution`` is not in ``(0, 1)``.
 #[pyfunction]
 #[pyo3(
@@ -161,6 +170,7 @@ pub fn pitch_tuning(
 /// ``librosa.feature.chroma_stft(S=S, sr=sr, ...)``.
 ///
 /// Args:
+///
 ///     S (array_like): Power spectrogram (librosa's expectation; a magnitude
 ///         spectrogram gives "energy" chroma), shape ``(1 + n_fft // 2, T)`` or
 ///         ``(channels, 1 + n_fft // 2, T)``.
@@ -173,9 +183,11 @@ pub fn pitch_tuning(
 ///     ctroct, octwidth, base_c: Filterbank parameters (see ``chroma_filterbank``).
 ///
 /// Returns:
+///
 ///     numpy.ndarray[float32 | float64]: shape ``(n_chroma, T)`` or ``(channels, n_chroma, T)``.
 ///
 /// Raises:
+///
 ///     ValueError: For invalid parameters or a bin count that does not match ``n_fft``.
 #[pyfunction]
 #[pyo3(
@@ -235,6 +247,7 @@ fn piptrack_cfg(
 /// ``librosa.piptrack(S=S, sr=sr, ...)``.
 ///
 /// Args:
+///
 ///     S (array_like): Magnitude spectrogram, ``(1 + n_fft // 2, T)`` or
 ///         ``(channels, 1 + n_fft // 2, T)``.
 ///     sr (float): Sample rate (Hz). Required (librosa defaults to 22050).
@@ -246,10 +259,12 @@ fn piptrack_cfg(
 ///         (default) = per-frame maximum, a number = absolute threshold.
 ///
 /// Returns:
+///
 ///     tuple[numpy.ndarray[float32 | float64], numpy.ndarray[float32 | float64]]: ``(pitches,
 ///     magnitudes)``, both shaped like ``S``; zero except at detected peaks.
 ///
 /// Raises:
+///
 ///     ValueError: For invalid parameters or a bin count that does not match ``n_fft``.
 #[pyfunction]
 #[pyo3(
@@ -285,6 +300,7 @@ pub fn piptrack_from_spectrogram<'py>(
 /// ``librosa.estimate_tuning(S=S, sr=sr, ...)``.
 ///
 /// Args:
+///
 ///     S (array_like): Magnitude or power spectrogram, ``(F, T)`` or
 ///         ``(channels, F, T)`` (all channels are pooled).
 ///     sr (float): Sample rate (Hz). Required (librosa defaults to 22050).
@@ -294,9 +310,11 @@ pub fn piptrack_from_spectrogram<'py>(
 ///     fmin, fmax, threshold, ref: ``piptrack`` parameters (librosa's ``**kwargs``).
 ///
 /// Returns:
+///
 ///     float: tuning in ``[-0.5, 0.5)`` fractions of a bin.
 ///
 /// Raises:
+///
 ///     ValueError: For invalid parameters.
 #[pyfunction]
 #[pyo3(
@@ -330,6 +348,7 @@ pub fn estimate_tuning_from_spectrogram(
 /// Tuning estimate from a signal, equivalent to ``librosa.estimate_tuning(y=y, sr=sr, ...)``.
 ///
 /// Args:
+///
 ///     y (array_like): Signal, ``(n,)`` or ``(channels, n)`` (channels are pooled).
 ///     sr (float): Sample rate (Hz). Required (librosa defaults to 22050).
 ///     n_fft (int): FFT length. Default 2048.
@@ -340,9 +359,11 @@ pub fn estimate_tuning_from_spectrogram(
 ///     fmin, fmax, threshold, ref: ``piptrack`` parameters.
 ///
 /// Returns:
+///
 ///     float: tuning in ``[-0.5, 0.5)`` fractions of a bin.
 ///
 /// Raises:
+///
 ///     ValueError: For invalid parameters or a signal too short for an uncentred STFT.
 #[pyfunction]
 #[pyo3(
@@ -382,7 +403,7 @@ pub fn estimate_tuning_from_signal(
 }
 
 /// Registers the tonal functions.
-pub(crate) fn add(m: &Bound<'_, PyModule>) -> PyResult<()> {
+pub fn add(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(chroma_filterbank, m)?)?;
     m.add_function(wrap_pyfunction!(normalize, m)?)?;
     m.add_function(wrap_pyfunction!(pitch_tuning, m)?)?;

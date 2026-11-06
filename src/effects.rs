@@ -34,7 +34,7 @@ use crate::audio_err_to_py;
 use crate::rhythm::{cplanes, out3, planes, rows};
 
 /// Maps the Rust error, turning "empty result" errors into `ValueError`.
-pub(crate) fn effects_err(e: audio_samples::AudioSampleError) -> PyErr {
+pub fn effects_err(e: audio_samples::AudioSampleError) -> PyErr {
     if matches!(e, audio_samples::AudioSampleError::EmptyData { .. }) {
         value_err("y", e)
     } else {
@@ -43,7 +43,7 @@ pub(crate) fn effects_err(e: audio_samples::AudioSampleError) -> PyErr {
 }
 
 /// librosa's scalar-or-pair `kernel_size`.
-pub(crate) fn parse_kernel_size(obj: &Bound<'_, PyAny>) -> PyResult<(NonZeroUsize, NonZeroUsize)> {
+pub fn parse_kernel_size(obj: &Bound<'_, PyAny>) -> PyResult<(NonZeroUsize, NonZeroUsize)> {
     let v = i64_vec(obj, "kernel_size")?;
     match (is_scalar(obj)?, v.as_slice()) {
         (true, [k]) => {
@@ -59,7 +59,7 @@ pub(crate) fn parse_kernel_size(obj: &Bound<'_, PyAny>) -> PyResult<(NonZeroUsiz
 }
 
 /// librosa's scalar-or-pair `margin`.
-pub(crate) fn parse_margin(obj: &Bound<'_, PyAny>) -> PyResult<(f64, f64)> {
+pub fn parse_margin(obj: &Bound<'_, PyAny>) -> PyResult<(f64, f64)> {
     let a = f64_array(obj, "margin")?;
     let v: Vec<f64> = a.as_array().iter().copied().collect();
     match (is_scalar(obj)?, v.as_slice()) {
@@ -73,7 +73,7 @@ pub(crate) fn parse_margin(obj: &Bound<'_, PyAny>) -> PyResult<(f64, f64)> {
 }
 
 /// [`HpssMaskConfig`] from librosa's `kernel_size`, `power`, `margin`.
-pub(crate) fn hpss_mask_config(
+pub fn hpss_mask_config(
     kernel_size: &Bound<'_, PyAny>,
     power: f64,
     margin: &Bound<'_, PyAny>,
@@ -87,11 +87,7 @@ pub(crate) fn hpss_mask_config(
 }
 
 /// A `(n,)` or `(channels, n)` output, matching the input's rank.
-fn rows_out<'py, T: numpy::Element>(
-    py: Python<'py>,
-    a: Array2<T>,
-    squeeze: bool,
-) -> Bound<'py, PyAny> {
+fn rows_out<T: numpy::Element>(py: Python<'_>, a: Array2<T>, squeeze: bool) -> Bound<'_, PyAny> {
     crate::rhythm::out2(py, a, squeeze)
 }
 
@@ -107,6 +103,7 @@ fn rows_out<'py, T: numpy::Element>(
 /// frame-to-frame phase differences (librosa 1.0's algorithm).
 ///
 /// Args:
+///
 ///     D (array_like): complex STFT of shape ``(n_bins, n_frames)`` or
 ///         ``(channels, n_bins, n_frames)``.
 ///     rate (Optional[float]): Speed-up factor (> 1 is faster / fewer frames).
@@ -118,10 +115,12 @@ fn rows_out<'py, T: numpy::Element>(
 ///     n_fft (Optional[int]): Deprecated and unused, as ``hop_length``.
 ///
 /// Returns:
+///
 ///     numpy.ndarray[complex64 | complex128]: shape ``(n_bins, ceil(n_frames / rate))`` (or
 ///     ``len(t_out)`` frames), with a leading channel axis for 3-D input.
 ///
 /// Raises:
+///
 ///     ValueError: If neither or both of ``rate`` / ``t_out`` are given, or a
 ///         value is out of range.
 #[pyfunction]
@@ -242,6 +241,7 @@ fn emphasis<'py, F: PyFloat>(
 /// ``librosa.effects.preemphasis``.
 ///
 /// Args:
+///
 ///     y (array_like): Signal ``(n,)`` or ``(channels, n)``.
 ///     coef (float): Coefficient. Default 0.97.
 ///     zi (Optional[float | array_like]): Initial filter state (one value, or
@@ -249,10 +249,12 @@ fn emphasis<'py, F: PyFloat>(
 ///     return_zf (bool): Also return the final state. Default False.
 ///
 /// Returns:
+///
 ///     numpy.ndarray[float32 | float64] of the input's shape, or ``(y, zf)`` with
 ///     ``return_zf=True`` (``zf`` of shape ``(1,)`` or ``(channels, 1)``).
 ///
 /// Raises:
+///
 ///     ValueError: For a non-finite ``coef`` / ``zi``, or fewer than two samples
 ///         with the default ``zi``.
 #[pyfunction]
@@ -281,6 +283,7 @@ pub fn preemphasis<'py>(
 /// ``preemphasis``), equivalent to ``librosa.effects.deemphasis``.
 ///
 /// Args:
+///
 ///     y (array_like): Signal ``(n,)`` or ``(channels, n)``.
 ///     coef (float): Coefficient. Default 0.97 (3 only with an explicit ``zi``).
 ///     zi (Optional[float | array_like]): Initial filter state. None uses
@@ -289,9 +292,11 @@ pub fn preemphasis<'py>(
 ///     return_zf (bool): Also return the final state. Default False.
 ///
 /// Returns:
+///
 ///     numpy.ndarray[float32 | float64] of the input's shape, or ``(y, zf)``.
 ///
 /// Raises:
+///
 ///     ValueError: As ``preemphasis``.
 #[pyfunction]
 #[pyo3(
@@ -322,6 +327,7 @@ pub fn deemphasis<'py>(
 /// Soft mask ``X**p / (X**p + X_ref**p)``, equivalent to ``librosa.util.softmask``.
 ///
 /// Args:
+///
 ///     X (array_like): Non-negative values selected by the mask.
 ///     X_ref (array_like): Non-negative reference, same shape.
 ///     power (float): Exponent (> 0). ``numpy.inf`` gives a hard (bool) mask
@@ -330,10 +336,12 @@ pub fn deemphasis<'py>(
 ///         else 0. Default False.
 ///
 /// Returns:
+///
 ///     numpy.ndarray: values in ``[0, 1]`` in ``X``'s precision (bool for
 ///     ``power=inf``), same shape.
 ///
 /// Raises:
+///
 ///     ValueError: For mismatched shapes, negative input or ``power <= 0``.
 #[pyfunction]
 #[pyo3(
@@ -369,6 +377,7 @@ pub fn softmask<'py>(
 /// ``softmask(P, margin_p * H)``.
 ///
 /// Args:
+///
 ///     S (array_like): Magnitude/power spectrogram (real, non-negative) or
 ///         complex STFT, shape ``(n_bins, n_frames)`` or
 ///         ``(channels, n_bins, n_frames)``.
@@ -380,11 +389,13 @@ pub fn softmask<'py>(
 ///         Default 1.
 ///
 /// Returns:
+///
 ///     tuple: ``(harmonic, percussive)`` of the input's shape and dtype
 ///     (complex input keeps its phase), or with ``mask=True`` the masks in ``S``'s precision
 ///     (bool for ``power=inf``, as librosa).
 ///
 /// Raises:
+///
 ///     ValueError: For invalid parameters or negative magnitudes.
 #[pyfunction]
 #[pyo3(
@@ -535,7 +546,7 @@ fn nn_extreme<F: FloatElement + AudioFloat>(
 ) {
     for (o, column) in frame.iter_mut().zip(neighbours.columns()) {
         let mut best = column[0];
-        for &v in column.iter() {
+        for &v in column {
             if pick(v, best) || v.is_nan() {
                 best = v;
             }
@@ -613,6 +624,7 @@ fn sparse_rec<'py>(rec: &Bound<'py, PyAny>) -> PyResult<Option<SparseRec<'py>>> 
 /// without neighbours are copied.
 ///
 /// Args:
+///
 ///     S (array_like): Features ``(n_features, n_frames)``.
 ///     rec (Optional[array_like]): ``(n_frames, n_frames)`` recurrence matrix, dense
 ///         (bool or float) or ``scipy.sparse`` in any format, where every stored entry
@@ -629,9 +641,11 @@ fn sparse_rec<'py>(rec: &Bound<'py, PyAny>) -> PyResult<Option<SparseRec<'py>>> 
 ///         ``full``.
 ///
 /// Returns:
+///
 ///     numpy.ndarray[float32 | float64]: filtered ``(n_features, n_frames)``.
 ///
 /// Raises:
+///
 ///     ValueError: For a wrong-shaped ``rec`` or invalid arguments.
 ///     TypeError: For an aggregate that is not callable or unknown keyword arguments.
 #[pyfunction]
@@ -837,7 +851,7 @@ fn recurrence_config(kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<RecurrenceC
 // =============================================================================
 
 /// Parses `init` / `rng` into a [`GriffinLimInit`].
-pub(crate) fn griffinlim_init(init: Option<&str>, rng: RngArg) -> PyResult<GriffinLimInit> {
+pub fn griffinlim_init(init: Option<&str>, rng: RngArg) -> PyResult<GriffinLimInit> {
     match init {
         None => Ok(GriffinLimInit::ZeroPhase),
         Some("random") => Ok(GriffinLimInit::Random(rng.0)),
@@ -907,7 +921,7 @@ fn seed_from_numpy(obj: &Bound<'_, PyAny>) -> PyResult<u64> {
 
 /// [`GriffinLimConfig`] from librosa's `griffinlim` keyword arguments.
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn griffinlim_config(
+pub fn griffinlim_config(
     n_bins: usize,
     n_iter: Int,
     hop_length: Option<Int>,
@@ -936,6 +950,7 @@ pub(crate) fn griffinlim_config(
 /// equivalent to ``librosa.griffinlim``.
 ///
 /// Args:
+///
 ///     S (array_like): Non-negative magnitude ``(1 + n_fft // 2, n_frames)`` or
 ///         ``(channels, 1 + n_fft // 2, n_frames)``.
 ///     n_iter (int): Iterations. Default 32.
@@ -955,9 +970,11 @@ pub(crate) fn griffinlim_config(
 ///     random_state: Deprecated alias of ``rng``.
 ///
 /// Returns:
+///
 ///     numpy.ndarray[float32 | float64]: shape ``(n,)`` for 2-D ``S``, ``(channels, n)`` for 3-D.
 ///
 /// Raises:
+///
 ///     ValueError: For invalid parameters or a bin count that does not match ``n_fft``.
 #[pyfunction]
 #[pyo3(
@@ -1010,16 +1027,19 @@ pub fn griffinlim<'py>(
 /// Linear-prediction coefficients by Burg's method, equivalent to ``librosa.lpc``.
 ///
 /// Args:
+///
 ///     y (array_like): Finite signal ``(n,)`` or ``(channels, n)`` with more
 ///         than ``order`` samples.
 ///     order (int): Prediction order.
 ///     axis (int): Must be -1.
 ///
 /// Returns:
+///
 ///     numpy.ndarray[float32 | float64]: ``(order + 1,)`` coefficients ``[1, a_1, ...]``
 ///     (``(channels, order + 1)`` for 2-D input).
 ///
 /// Raises:
+///
 ///     ValueError: For a too-short or non-finite signal.
 #[pyfunction]
 #[pyo3(signature = (y, *, order, axis = Int(-1)), text_signature = "(y, *, order, axis=-1)")]
@@ -1064,6 +1084,7 @@ pub fn lpc<'py>(
 /// Synthesises a click track, equivalent to ``librosa.clicks``.
 ///
 /// Args:
+///
 ///     times (Optional[array_like]): Click times in seconds.
 ///     frames (Optional[array_like]): Click frame indices (used when ``times``
 ///         is None).
@@ -1080,11 +1101,13 @@ pub fn lpc<'py>(
 ///         dtype) or ``numpy.float64``. Default None: float64.
 ///
 /// Returns:
+///
 ///     numpy.ndarray[float64 | float32]: 1-D click signal (float64 unless
 ///     ``dtype`` says otherwise; librosa returns float32, and the values agree
 ///     to float32 rounding).
 ///
 /// Raises:
+///
 ///     ValueError: If neither ``times`` nor ``frames`` is given, a time is
 ///         negative, or parameters are invalid.
 #[pyfunction]

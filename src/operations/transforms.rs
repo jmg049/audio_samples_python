@@ -28,12 +28,15 @@ impl PyAudioSamples {
     /// ``k * sample_rate / n_fft`` Hz.
     ///
     /// Args:
+    ///
     ///     n_fft (int): FFT size in samples; must be greater than zero.
     ///
     /// Returns:
+    ///
     ///     numpy.ndarray: Complex spectrum shaped (channels, n_fft // 2 + 1).
     ///
     /// Raises:
+    ///
     ///     ValueError: If n_fft is zero.
     ///     AudioError: If the FFT computation fails.
     #[pyo3(signature = (n_fft: "int"))]
@@ -56,12 +59,15 @@ impl PyAudioSamples {
     /// :meth:`fft` for the complex values).
     ///
     /// Args:
+    ///
     ///     n_fft (int): FFT size in samples; must be greater than zero.
     ///
     /// Returns:
+    ///
     ///     numpy.ndarray: Magnitude spectrum shaped (channels, n_fft // 2 + 1).
     ///
     /// Raises:
+    ///
     ///     ValueError: If n_fft is zero.
     ///     AudioError: If the RFFT computation fails.
     #[pyo3(signature = (n_fft: "int"))]
@@ -75,12 +81,15 @@ impl PyAudioSamples {
     /// Compute the Short-Time Fourier Transform (STFT).
     ///
     /// Args:
+    ///
     ///     params (StftParams): Configuration controlling window length, hop size, and window type.
     ///
     /// Returns:
+    ///
     ///     StftResult: Object containing complex spectrum, frequency bins, and time stamps.
     ///
     /// Raises:
+    ///
     ///     AudioError: If the STFT computation fails.
     #[pyo3(signature = (params: "StftParams"))]
     fn stft(&self, py: Python<'_>, params: PyStftParams) -> PyResult<PyStftResult> {
@@ -93,12 +102,15 @@ impl PyAudioSamples {
     /// Invert a Short-Time Fourier Transform result.
     ///
     /// Args:
+    ///
     ///     stft_result (StftResult): Output from `stft` to be reconstructed.
     ///
     /// Returns:
+    ///
     ///     AudioSamples: Reconstructed time-domain signal.
     ///
     /// Raises:
+    ///
     ///     AudioError: If reconstruction fails.
     #[classmethod]
     #[pyo3(signature = (stft_result: "StftResult"))]
@@ -114,9 +126,8 @@ impl PyAudioSamples {
             )
         })?;
 
-        let reconstructed = <AudioSamples<f64> as AudioTransforms>::istft(stft_result)
-            .map_err(Into::into)
-            .map_err(audio_err_to_py)?;
+        let reconstructed =
+            <AudioSamples<f64> as AudioTransforms>::istft(stft_result).map_err(audio_err_to_py)?;
 
         Ok(Self::from_audio_samples(reconstructed))
     }
@@ -124,14 +135,17 @@ impl PyAudioSamples {
     /// Estimate the power spectral density across overlapping windows.
     ///
     /// Args:
+    ///
     ///     window_size (int): STFT window length in samples; must be greater than zero.
     ///     overlap (float): Fractional overlap between successive windows.
     ///
     /// Returns:
+    ///
     ///     Psd: Power spectral density carrying both the frequency axis and the
     ///         power-per-Hz density, averaged over time.
     ///
     /// Raises:
+    ///
     ///     ValueError: If window_size is zero.
     ///     AudioError: If the PSD computation fails.
     #[pyo3(signature = (window_size: "int"=2048, overlap: "float"=0.5))]
@@ -154,11 +168,13 @@ impl PyAudioSamples {
     /// Compute a mel-frequency spectrogram.
     ///
     /// Args:
+    ///
     ///     spec_params (SpectrogramParams): Parameters controlling the underlying STFT.
     ///     mel_params (MelParams): Configuration for the mel filterbank.
     ///     log_params (Optional[LogParams]): Optional parameters for decibel conversion.
     ///
     /// Returns:
+    ///
     ///     numpy.ndarray: Mel spectrogram shaped (mel_bins, frames). Without
     ///         ``log_params`` the values are ``sqrt(M @ |X|**2)`` (the square root
     ///         of the mel power spectrogram, following the ``spectrograms`` crate),
@@ -167,9 +183,11 @@ impl PyAudioSamples {
     ///         ``melspectrogram()``.
     ///
     /// Raises:
+    ///
     ///     AudioError: If spectrogram computation fails.
     ///
     /// Notes:
+    ///
     ///     With ``M`` the mel filterbank and ``|X|**2`` the STFT power:
     ///
     ///     - without ``log_params`` the result is ``sqrt(M @ |X|**2)``, the
@@ -220,17 +238,21 @@ impl PyAudioSamples {
     /// Compute a gammatone spectrogram using ERB-scaled filters.
     ///
     /// Args:
+    ///
     ///     spec_params (SpectrogramParams): Parameters controlling the underlying STFT.
     ///     erb_params (ErbParams): Configuration for the ERB filterbank.
     ///     log_params (Optional[LogParams]): Optional parameters for decibel conversion.
     ///
     /// Returns:
+    ///
     ///     numpy.ndarray: Gammatone spectrogram shaped (bands, frames).
     ///
     /// Raises:
+    ///
     ///     AudioError: If spectrogram computation fails.
     ///
     /// Notes:
+    ///
     ///     ``log_params.floor_db`` is an absolute floor in dB re 1, not a
     ///     range below the maximum (librosa's ``top_db``).
     #[pyo3(signature = (spec_params: "SpectrogramParams", erb_params: "ErbParams", log_params: "Optional[LogParams]"=None))]
@@ -266,20 +288,24 @@ impl PyAudioSamples {
     /// Compute mel-frequency cepstral coefficients (MFCCs).
     ///
     /// Args:
+    ///
     ///     stft_params (StftParams): Parameters used to generate the STFT.
     ///     n_mels (int): Number of mel bands; must be greater than zero.
     ///     mfcc_params (MfccParams): Configuration for the cepstral projection.
     ///
     /// Returns:
+    ///
     ///     numpy.ndarray: MFCC matrix shaped (coefficients, frames). This follows
     ///         the ``spectrograms`` crate's MFCC (not librosa's); for
     ///         ``librosa.feature.mfcc``-compatible output use ``mfcc_frames()``.
     ///
     /// Raises:
+    ///
     ///     ValueError: If n_mels is zero.
     ///     AudioError: If the MFCC computation fails.
     ///
     /// Notes:
+    ///
     ///     Pipeline: mel power spectrogram (Slaney scale, ``n_mels`` bands from
     ///     0 Hz to ``sample_rate / 2``, no filter normalisation), then
     ///     ``L = 10*log10(max(., 1e-8))``, then an **unnormalised** DCT-II
@@ -314,13 +340,16 @@ impl PyAudioSamples {
     /// Compute chromagram (pitch-class energy) features.
     ///
     /// Args:
+    ///
     ///     stft_params (StftParams): Parameters used to generate the STFT.
     ///     chroma_params (ChromaParams): Configuration for chroma projection.
     ///
     /// Returns:
+    ///
     ///     numpy.ndarray: Chromagram shaped (pitch_classes, frames).
     ///
     /// Raises:
+    ///
     ///     AudioError: If chroma computation fails.
     #[pyo3(signature = (stft_params: "StftParams", chroma_params: "ChromaParams"))]
     fn chroma<'py>(
@@ -352,18 +381,21 @@ impl PyAudioSamples {
     /// (``numpy.convolve(x, h, 'valid')``).
     ///
     /// Args:
+    ///
     ///     other (AudioSamples): Signal to convolve with. Must be mono and share
     ///         this signal's data type and sample rate.
     ///
     /// Returns:
+    ///
     ///     AudioSamples: The convolved mono signal.
     ///
     /// Raises:
+    ///
     ///     AudioParameterError: If the two signals have different sample rates.
     ///     TypeError: If the two signals have different data types.
     ///     AudioError: If either signal is multi-channel or the FFT fails.
     #[pyo3(signature = (other: "AudioSamples"))]
-    fn convolve(&self, py: Python<'_>, other: &PyAudioSamples) -> PyResult<Self> {
+    fn convolve(&self, py: Python<'_>, other: &Self) -> PyResult<Self> {
         convolve_or_deconvolve(self, other, py, ConvOp::Convolve)
     }
 
@@ -375,39 +407,40 @@ impl PyAudioSamples {
     /// rate.
     ///
     /// Args:
+    ///
     ///     other (AudioSamples): The denominator signal. Must be mono and share
     ///         this signal's data type.
     ///     regularization (float): Non-negative regularisation factor.
     ///
     /// Returns:
+    ///
     ///     AudioSamples: The deconvolved mono signal.
     ///
     /// Raises:
+    ///
     ///     AudioParameterError: If the two signals have different sample rates.
     ///     TypeError: If the two signals have different data types.
     ///     AudioError: If either signal is multi-channel or the FFT fails.
     #[pyo3(signature = (other: "AudioSamples", regularization: "float" = 0.0))]
-    fn deconvolve(
-        &self,
-        py: Python<'_>,
-        other: &PyAudioSamples,
-        regularization: f64,
-    ) -> PyResult<Self> {
+    fn deconvolve(&self, py: Python<'_>, other: &Self, regularization: f64) -> PyResult<Self> {
         convolve_or_deconvolve(self, other, py, ConvOp::Deconvolve(regularization))
     }
 
     /// Compute the Constant-Q Transform (CQT) of a mono signal.
     ///
     /// Args:
+    ///
     ///     params (CqtParams): CQT configuration (bins per octave, number of
     ///         octaves, minimum frequency).
     ///     hop_size (int): Hop size in samples between successive frames; must be
     ///         greater than zero.
     ///
     /// Returns:
+    ///
     ///     numpy.ndarray: Complex CQT coefficients shaped (frequency_bins, time_frames).
     ///
     /// Raises:
+    ///
     ///     ValueError: If hop_size is zero.
     ///     AudioError: If the signal is multi-channel or the computation fails.
     #[pyo3(signature = (params: "CqtParams", hop_size: "int"))]
@@ -439,12 +472,14 @@ impl PyAudioSamples {
     /// an ``AudioSamples`` instance.
     ///
     /// Args:
+    ///
     ///     complex_spect (numpy.ndarray): Complex 2-D STFT or FFT matrix.
     ///     power (Optional[float]): Exponent applied to the magnitude values, as
     ///         ``numpy.abs(D) ** power``; any number, fractional or negative.
     ///         Defaults to 1 (raw magnitude).
     ///
     /// Returns:
+    ///
     ///     tuple[numpy.ndarray, numpy.ndarray]: The real-valued magnitude matrix
     ///         and the complex unit-magnitude phase matrix.
     #[staticmethod]

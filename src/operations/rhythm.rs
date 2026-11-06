@@ -157,6 +157,7 @@ impl PyAudioSamples {
     /// ``t - lag`` to ``t``.
     ///
     /// Args:
+    ///
     ///     lag (int): Time lag of the difference in frames. Default 1.
     ///     max_size (int): Maximum filter across frequency on the reference
     ///         (SuperFlux); 1 disables it. Default 1.
@@ -172,11 +173,13 @@ impl PyAudioSamples {
     ///         ``melspectrogram``.
     ///
     /// Returns:
+    ///
     ///     numpy.ndarray[float32 | float64]: shape ``(channels, n_frames)`` with
     ///     ``n_frames = 1 + len // hop_length``. librosa returns ``(n_frames,)``
     ///     for 1-D input; index ``[0]`` to get it.
     ///
     /// Raises:
+    ///
     ///     ValueError: For invalid parameters.
     #[pyo3(
         signature = (*, lag = Int(1), max_size = Int(1), detrend = false, center = true, aggregate = None, n_fft = Int(2048), hop_length = Int(512), win_length = None, window = WindowArg(Window::Hann), pad_mode = "constant", power = 2.0, n_mels = Int(128), fmin = 0.0, fmax = None, htk = false, norm = MelNormArg(MelFilterNorm::Slaney)),
@@ -238,6 +241,7 @@ impl PyAudioSamples {
     /// ``librosa.onset.onset_strength_multi(y=..., sr=self.sample_rate, ...)``.
     ///
     /// Args:
+    ///
     ///     channels (Optional[Sequence[int] | Sequence[slice]]): Sub-band boundaries in
     ///         mel bins: values above ``n_mels`` are dropped, the rest sorted and
     ///         de-duplicated, each consecutive pair is one band. Or one slice of the
@@ -248,11 +252,13 @@ impl PyAudioSamples {
     ///         ``n_mels``, ``fmin``, ``fmax``, ``htk``, ``norm`` as ``onset_strength``.
     ///
     /// Returns:
+    ///
     ///     numpy.ndarray[float32 | float64]: shape ``(channels, n_bands, n_frames)``
     ///     (``n_mels`` rows with ``aggregate=False``). librosa returns
     ///     ``(n_bands, n_frames)`` for 1-D input; index ``[0]`` to get it.
     ///
     /// Raises:
+    ///
     ///     ValueError: For invalid parameters or boundaries.
     #[pyo3(
         signature = (*, channels = None, lag = Int(1), max_size = Int(1), detrend = false, center = true, aggregate = None, n_fft = Int(2048), hop_length = Int(512), win_length = None, window = WindowArg(Window::Hann), pad_mode = "constant", power = 2.0, n_mels = Int(128), fmin = 0.0, fmax = None, htk = false, norm = MelNormArg(MelFilterNorm::Slaney)),
@@ -320,6 +326,7 @@ impl PyAudioSamples {
     /// normalised to ``[0, 1]``, peak-picked and optionally backtracked.
     ///
     /// Args:
+    ///
     ///     hop_length (int): Hop of the onset envelope. Default 512.
     ///     backtrack (bool): Move onsets back to the preceding local minimum of
     ///         ``energy``. Default False.
@@ -334,9 +341,11 @@ impl PyAudioSamples {
     ///         (30 ms / 100 ms windows, ``delta=0.07``).
     ///
     /// Returns:
+    ///
     ///     numpy.ndarray: 1-D onset frames or samples (int64), or times (float64).
     ///
     /// Raises:
+    ///
     ///     ValueError: For multi-channel audio, invalid parameters or
     ///         ``sparse=False``.
     #[pyo3(
@@ -386,6 +395,7 @@ impl PyAudioSamples {
     /// ``librosa.feature.tempogram(y=..., sr=self.sample_rate, ...)``.
     ///
     /// Args:
+    ///
     ///     hop_length (int): Hop of the onset envelope. Default 512.
     ///     win_length (int): Autocorrelation window (lag bins). Default 384.
     ///     center (bool): Centre the windows. Default True.
@@ -394,10 +404,12 @@ impl PyAudioSamples {
     ///         a p-norm, or None).
     ///
     /// Returns:
+    ///
     ///     numpy.ndarray[float32 | float64]: shape ``(channels, win_length, n_frames)``.
     ///     librosa returns ``(win_length, n_frames)`` for 1-D input; index ``[0]``.
     ///
     /// Raises:
+    ///
     ///     ValueError: For invalid parameters.
     #[pyo3(
         signature = (*, hop_length = Int(512), win_length = Int(384), center = true, window = WindowArg(Window::Hann), norm = Some(f64::INFINITY)),
@@ -423,12 +435,14 @@ impl PyAudioSamples {
     /// ``librosa.feature.fourier_tempogram(y=..., sr=self.sample_rate, ...)``.
     ///
     /// Args:
+    ///
     ///     hop_length (int): Hop of the onset envelope. Default 512.
     ///     win_length (int): STFT length in frames. Default 384.
     ///     center (bool): Centred frames. Default True.
     ///     window: Analysis window. Default ``"hann"``.
     ///
     /// Returns:
+    ///
     ///     numpy.ndarray[complex64 | complex128]: shape
     ///     ``(channels, win_length // 2 + 1, n_frames + 1)`` (centred). librosa
     ///     returns the 2-D array for 1-D input; index ``[0]``.
@@ -458,6 +472,7 @@ impl PyAudioSamples {
     /// ``librosa.feature.tempo(y=..., sr=self.sample_rate, ...)``.
     ///
     /// Args:
+    ///
     ///     hop_length (int): Hop of the onset envelope. Default 512.
     ///     start_bpm (float): Prior centre. Default 120.
     ///     std_bpm (float): Prior spread in octaves. Default 1.
@@ -469,11 +484,13 @@ impl PyAudioSamples {
     ///         of the BPM returning a log-density.
     ///
     /// Returns:
+    ///
     ///     numpy.ndarray[float64]: shape ``(channels, 1)`` (``(channels, n_frames)``
     ///     with ``aggregate=None``). librosa returns ``(1,)`` for 1-D input;
     ///     index ``[0]``.
     ///
     /// Raises:
+    ///
     ///     ValueError: For invalid parameters.
     #[pyo3(
         signature = (*, hop_length = Int(512), start_bpm = 120.0, std_bpm = 1.0, ac_size = 8.0, max_tempo = Some(320.0), aggregate = AggregateArg::mean(), prior = None),
@@ -521,6 +538,7 @@ impl PyAudioSamples {
     /// aggregate=numpy.median)``, as in librosa.
     ///
     /// Args:
+    ///
     ///     hop_length (int): Hop of the onset envelope. Default 512.
     ///     start_bpm (float): Prior centre of the tempo estimate. Default 120.
     ///     tightness (float): Tempo-consistency weight. Default 100.
@@ -533,12 +551,14 @@ impl PyAudioSamples {
     ///     sparse (bool): Must be True.
     ///
     /// Returns:
+    ///
     ///     tuple: ``(tempo, beats)`` as librosa: ``tempo`` is the estimate as a
     ///     float64 array of shape ``(1,)`` (``bpm`` unchanged when given, ``0.0``
     ///     for silence); ``beats`` is a 1-D int64 (frames/samples) or float64
     ///     (time) array.
     ///
     /// Raises:
+    ///
     ///     ValueError: For multi-channel audio, invalid parameters or
     ///         ``sparse=False``.
     #[pyo3(
@@ -584,6 +604,7 @@ impl PyAudioSamples {
     /// ``librosa.beat.plp(y=..., sr=self.sample_rate, ...)``.
     ///
     /// Args:
+    ///
     ///     hop_length (int): Hop of the (median-aggregated) onset envelope.
     ///         Default 512.
     ///     win_length (int): Fourier tempogram window in frames. Default 384.
@@ -592,10 +613,12 @@ impl PyAudioSamples {
     ///     prior: Tempo prior (see ``tempo``).
     ///
     /// Returns:
+    ///
     ///     numpy.ndarray[float32 | float64]: shape ``(channels, n_frames)``, values in
     ///     ``[0, 1]``. librosa returns ``(n_frames,)`` for 1-D input; index ``[0]``.
     ///
     /// Raises:
+    ///
     ///     ValueError: If ``tempo_max <= tempo_min`` or parameters are invalid.
     #[pyo3(
         signature = (*, hop_length = Int(512), win_length = Int(384), tempo_min = Some(30.0), tempo_max = Some(300.0), prior = None),
@@ -625,6 +648,7 @@ impl PyAudioSamples {
     /// ``librosa.feature.tempogram_ratio(y=..., sr=self.sample_rate, ...)``.
     ///
     /// Args:
+    ///
     ///     hop_length (int): Hop of the onset envelope. Default 512.
     ///     win_length, center, window, norm: Tempogram parameters (as ``tempogram``).
     ///     start_bpm, std_bpm, max_tempo, prior: Per-frame tempo estimation (as
@@ -635,6 +659,7 @@ impl PyAudioSamples {
     ///     fill_value (float): Value outside the tempogram range. Default 0.
     ///
     /// Returns:
+    ///
     ///     numpy.ndarray[float32 | float64]: shape ``(channels, n_factors, n_frames)``, or
     ///     ``(channels, n_factors, 1)`` when aggregated (librosa drops the time
     ///     axis instead). For 1-D input librosa returns the array without the
@@ -698,12 +723,14 @@ impl PyAudioSamples {
     /// equivalent to ``librosa.feature.hybrid_tempogram(y=..., sr=self.sample_rate, ...)``.
     ///
     /// Args:
+    ///
     ///     hop_length (int): Hop of the onset envelope. Default 512.
     ///     win_length (int): Window of both tempograms (>= 3). Default 384.
     ///     center (bool): Centred frames. Default True.
     ///     window: Window of both tempograms. Default ``"hann"``.
     ///
     /// Returns:
+    ///
     ///     numpy.ndarray[float32 | float64]: shape ``(channels, win_length // 2 + 1, n_frames)``
     ///     on the ``fourier_tempo_frequencies`` grid. librosa returns the 2-D
     ///     array for 1-D input; index ``[0]``.

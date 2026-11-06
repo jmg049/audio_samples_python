@@ -69,7 +69,7 @@ fn as_ndarray<'py>(obj: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyUntypedArra
         .cast_into::<PyUntypedArray>()?)
 }
 
-pub(crate) fn norm_axis(name: &str, axis: i64, ndim: usize) -> PyResult<Axis> {
+pub fn norm_axis(name: &str, axis: i64, ndim: usize) -> PyResult<Axis> {
     let n = ndim as i64;
     if axis < -n || axis >= n {
         return Err(value_err(
@@ -129,10 +129,12 @@ fn unsupported_dtype<R>(name: &str, arr: &Bound<'_, PyUntypedArray>) -> PyResult
 /// maximum; the last is when it exceeds its neighbour.
 ///
 /// Args:
+///
 ///     x (``array_like``): Values of any real dtype.
 ///     axis (int): Axis to compare along. Default 0.
 ///
 /// Returns:
+///
 ///     numpy.ndarray[bool]: Same shape as ``x``.
 #[pyfunction]
 #[pyo3(signature = (x, *, axis = Int(0)), text_signature = "(x, *, axis=0)")]
@@ -147,10 +149,12 @@ pub fn localmax<'py>(x: &Bound<'py, PyAny>, axis: Int) -> PyResult<Bound<'py, Py
 /// minimum; the last is when it is below its neighbour.
 ///
 /// Args:
+///
 ///     x (``array_like``): Values of any real dtype.
 ///     axis (int): Axis to compare along. Default 0.
 ///
 /// Returns:
+///
 ///     numpy.ndarray[bool]: Same shape as ``x``.
 #[pyfunction]
 #[pyo3(signature = (x, *, axis = Int(0)), text_signature = "(x, *, axis=0)")]
@@ -177,11 +181,13 @@ fn local_extrema<'py>(x: &Bound<'py, PyAny>, axis: Int, max: bool) -> PyResult<B
 /// Squared magnitude.
 ///
 /// Args:
+///
 ///     x (``complex`` | ``array_like``): Values. Complex input gives its real type; real input
 ///         keeps its dtype.
 ///     dtype (Optional[numpy.dtype]): Output dtype.
 ///
 /// Returns:
+///
 ///     float | int | numpy.ndarray: ``x.real ** 2 + x.imag ** 2``.
 #[pyfunction]
 #[pyo3(signature = (x, dtype = None))]
@@ -289,10 +295,12 @@ where
 /// Complex phasors ``mag * (cos(angles) + 1j * sin(angles))``.
 ///
 /// Args:
+///
 ///     angles (float | ``array_like``): Angles in radians.
 ///     mag (Optional[``complex`` | ``array_like``]): Multiplier, broadcast to ``angles``.
 ///
 /// Returns:
+///
 ///     ``complex`` | numpy.ndarray: ``complex64`` for ``float32`` angles, otherwise
 ///     ``complex128``.
 #[pyfunction]
@@ -324,6 +332,7 @@ fn zero_crossings_in<'py, F: PyFloatElement>(
 /// Marks the sign changes of a signal along one axis.
 ///
 /// Args:
+///
 ///     y (``array_like``): The signal, of any dimension.
 ///     threshold (Optional[float]): Magnitudes up to this count as zero. None means 0.
 ///         Default 1e-10.
@@ -335,6 +344,7 @@ fn zero_crossings_in<'py, F: PyFloatElement>(
 ///     axis (int): The time axis. Default -1.
 ///
 /// Returns:
+///
 ///     numpy.ndarray[bool]: The marks, of the shape of ``y``.
 #[pyfunction]
 #[pyo3(
@@ -380,6 +390,7 @@ fn generated_length(sr: f64, length: Option<Int>, duration: Option<f64>) -> PyRe
 /// A cosine of a given frequency and phase, as float64.
 ///
 /// Args:
+///
 ///     frequency (float): In Hz.
 ///     sr (float): Sample rate in Hz. Default 22050.
 ///     length (Optional[int]): Samples.
@@ -388,6 +399,7 @@ fn generated_length(sr: f64, length: Option<Int>, duration: Option<f64>) -> PyRe
 ///         like a sine.
 ///
 /// Returns:
+///
 ///     numpy.ndarray[float64]: The samples.
 #[pyfunction]
 #[pyo3(
@@ -411,6 +423,7 @@ pub fn tone(
 /// A swept cosine, as float64.
 ///
 /// Args:
+///
 ///     fmin (float): Starting frequency in Hz.
 ///     fmax (float): Frequency at the end in Hz.
 ///     sr (float): Sample rate in Hz. Default 22050.
@@ -420,6 +433,7 @@ pub fn tone(
 ///     phi (Optional[float]): Phase offset in radians. None means ``-pi / 2``.
 ///
 /// Returns:
+///
 ///     numpy.ndarray[float64]: The samples.
 #[pyfunction]
 #[pyo3(
@@ -447,10 +461,12 @@ pub fn chirp(
 /// The smallest positive normal value of the input's floating-point type.
 ///
 /// Args:
+///
 ///     x (``complex`` | ``array_like`` | numpy.dtype-bearing value): Determines the type. Complex
 ///         types use their real type; non-float input uses ``float32``.
 ///
 /// Returns:
+///
 ///     numpy.floating: The value, as a ``NumPy`` scalar of that type.
 #[pyfunction]
 #[inline]
@@ -501,6 +517,7 @@ pub fn tiny<'py>(x: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
 /// Places the axes of an array at given positions of a higher-dimensional view.
 ///
 /// Args:
+///
 ///     x (numpy.ndarray): The array.
 ///     ndim (int): Dimensions of the result.
 ///     axes (int | sequence of int): Position of each axis of ``x``; negative counts
@@ -508,6 +525,7 @@ pub fn tiny<'py>(x: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
 ///         is always axis ``axes[i]`` of the result.
 ///
 /// Returns:
+///
 ///     numpy.ndarray: A view of the same data.
 #[pyfunction]
 #[pyo3(signature = (x, *, ndim, axes))]
@@ -585,10 +603,12 @@ pub fn expand_to<'py>(
 /// Stacks arrays of one shape along a new axis.
 ///
 /// Args:
+///
 ///     arrays (sequence of ``array_like``): At least one array.
 ///     axis (int): Position of the new axis. Default 0.
 ///
 /// Returns:
+///
 ///     numpy.ndarray: The stacked array, of the arrays' common dtype.
 #[pyfunction]
 #[pyo3(signature = (arrays, *, axis = Int(0)), text_signature = "(arrays, *, axis=0)")]
@@ -640,12 +660,14 @@ fn parse_pad_mode(kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Option<(&'stat
 /// Pads an array along one axis to a given length, keeping the data centred.
 ///
 /// Args:
+///
 ///     data (numpy.ndarray): The array.
 ///     size (int): Length of ``axis`` in the result.
 ///     axis (int): The axis to pad. Default -1.
 ///     **kwargs: ``mode`` and its arguments, as for ``numpy.pad``. Default: zeros.
 ///
 /// Returns:
+///
 ///     numpy.ndarray: The padded array, of the input's dtype.
 #[pyfunction]
 #[pyo3(signature = (data, *, size, axis = Int(-1), **kwargs), text_signature = "(data, *, size, axis=-1, **kwargs)")]
@@ -733,12 +755,14 @@ fn opt_i64(obj: Option<Int>) -> Option<i64> {
 /// sorts.
 ///
 /// Args:
+///
 ///     frames (``array_like[int]``): Non-negative frame indices.
 ///     ``x_min`` (Optional[int]): Lower bound. Default 0.
 ///     ``x_max`` (Optional[int]): Upper bound.
 ///     pad (bool): Clip to the bounds and include them, rather than only filter.
 ///
 /// Returns:
+///
 ///     numpy.ndarray[int64]: Sorted, unique indices.
 #[pyfunction]
 #[pyo3(signature = (frames, *, x_min = Some(Int(0)), x_max = None, pad = true), text_signature = "(frames, *, x_min=0, x_max=None, pad=True)")]
@@ -759,6 +783,7 @@ pub fn fix_frames<'py>(
 /// Converts boundary indices to the slices between consecutive boundaries.
 ///
 /// Args:
+///
 ///     idx (``array_like[int]``): Boundary indices.
 ///     ``idx_min`` (Optional[int]): Lower bound.
 ///     ``idx_max`` (Optional[int]): Upper bound.
@@ -766,6 +791,7 @@ pub fn fix_frames<'py>(
 ///     pad (bool): Clip to the bounds and include them, rather than only filter.
 ///
 /// Returns:
+///
 ///     list[slice]: One slice per pair of consecutive boundaries.
 #[pyfunction]
 #[pyo3(signature = (idx, *, idx_min = None, idx_max = None, step = None, pad = true), text_signature = "(idx, *, idx_min=None, idx_max=None, step=None, pad=True)")]
@@ -812,6 +838,7 @@ pub fn index_to_slice<'py>(
 /// Sorts the rows or columns of a matrix by a key computed from them.
 ///
 /// Args:
+///
 ///     S (numpy.ndarray): The matrix.
 ///     axis (int): The axis to reorder: -1 reorders columns, 0 rows. Default -1.
 ///     index (bool): Also return the permutation.
@@ -820,6 +847,7 @@ pub fn index_to_slice<'py>(
 ///         order.
 ///
 /// Returns:
+///
 ///     numpy.ndarray | tuple[numpy.ndarray, numpy.ndarray[int64]]: The sorted matrix,
 ///     and the permutation when ``index`` is true.
 #[pyfunction]
@@ -878,12 +906,14 @@ pub fn axis_sort<'py>(
 /// Circularly shifts each column (or row) of a matrix by ``factor`` times its index.
 ///
 /// Args:
+///
 ///     X (numpy.ndarray | scipy.sparse array or matrix | SparseRows): The matrix.
 ///     factor (int): Shift per index. Default 1.
 ///     axis (int): -1 shifts columns by their column index, 0 shifts rows by their row
 ///         index. Default -1.
 ///
 /// Returns:
+///
 ///     The sheared matrix, in the input's form and dtype.
 #[pyfunction]
 #[pyo3(name = "shear", signature = (X, *, factor = Int(1), axis = Int(-1)), text_signature = "(X, *, factor=1, axis=-1)")]
@@ -1008,7 +1038,7 @@ impl SparseRows {
 }
 
 /// The non-zero entries of a dense matrix as [`SparseRows`].
-pub(crate) fn dense_to_rows<'py>(dense: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+pub fn dense_to_rows<'py>(dense: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
     fn compress<'py, T: numpy::Element + Copy + PartialEq + Default>(
         py: Python<'py>,
         dense: &Bound<'py, PyArray2<T>>,
@@ -1070,12 +1100,14 @@ pub(crate) fn dense_to_rows<'py>(dense: &Bound<'py, PyAny>) -> PyResult<Bound<'p
 /// ``quantile`` are dropped.
 ///
 /// Args:
+///
 ///     x (``array_like``): 1-D or 2-D values; 1-D is one row.
 ///     quantile (float): Fraction of each row's total magnitude that may be discarded,
 ///         in ``[0, 1)``. Default 0.01.
 ///     dtype (Optional[numpy.dtype]): dtype of the stored values. Default: the input's.
 ///
 /// Returns:
+///
 ///     ``SparseRows``: The kept entries.
 #[pyfunction]
 #[pyo3(signature = (x, *, quantile = 0.01, dtype = None))]
@@ -1163,6 +1195,7 @@ pub fn sparsify_rows<'py>(
 /// Central-difference gradient of periodic data along one axis.
 ///
 /// Args:
+///
 ///     data (``array_like``): Values. ``float32`` and ``complex64`` keep their precision;
 ///         anything else is computed in ``float64``.
 ///     ``edge_order`` (int): 1 or 2. Accepted for both orders: wrapped central differences
@@ -1170,6 +1203,7 @@ pub fn sparsify_rows<'py>(
 ///     axis (int): The periodic axis. Default -1.
 ///
 /// Returns:
+///
 ///     numpy.ndarray: Same shape as ``data``.
 #[pyfunction]
 #[pyo3(signature = (data, *, edge_order = Int(1), axis = Int(-1)), text_signature = "(data, *, edge_order=1, axis=-1)")]
@@ -1220,6 +1254,7 @@ pub fn cyclic_gradient<'py>(
 /// Sets the entries of a matrix outside a diagonal band to a value, in place.
 ///
 /// Args:
+///
 ///     x (numpy.ndarray): The 2-D matrix, changed in place.
 ///     radius (float): Half-width of the band as a fraction of the shorter side.
 ///     value (number): The value written outside the band. Default 0.
@@ -1254,10 +1289,12 @@ pub fn fill_off_diagonal<'py>(
 /// Counts the distinct values in each lane along an axis.
 ///
 /// Args:
+///
 ///     data (``array_like``): Values of any numeric dtype. All NaNs count as one value.
 ///     axis (int): The axis of the lanes. Default -1.
 ///
 /// Returns:
+///
 ///     numpy.ndarray[int64]: The input's shape without ``axis``.
 #[pyfunction]
 #[pyo3(signature = (data, *, axis = Int(-1)), text_signature = "(data, *, axis=-1)")]
@@ -1277,10 +1314,12 @@ pub fn count_unique<'py>(data: &Bound<'py, PyAny>, axis: Int) -> PyResult<Bound<
 /// Tells for each lane along an axis whether all its values are distinct.
 ///
 /// Args:
+///
 ///     data (``array_like``): Values of any numeric dtype. All NaNs count as one value.
 ///     axis (int): The axis of the lanes. Default -1.
 ///
 /// Returns:
+///
 ///     numpy.ndarray[bool]: The input's shape without ``axis``.
 #[pyfunction]
 #[pyo3(signature = (data, *, axis = Int(-1)), text_signature = "(data, *, axis=-1)")]
@@ -1297,7 +1336,7 @@ pub fn is_unique<'py>(data: &Bound<'py, PyAny>, axis: Int) -> PyResult<Bound<'py
     }, else unsupported_dtype("data", &arr))
 }
 
-pub(crate) fn parse_kind(kind: &Bound<'_, PyAny>) -> PyResult<InterpKind> {
+pub fn parse_kind(kind: &Bound<'_, PyAny>) -> PyResult<InterpKind> {
     if let Ok(k) = kind.extract::<i64>() {
         return match k {
             0 => Ok(InterpKind::Zero),
@@ -1333,6 +1372,7 @@ pub(crate) fn parse_kind(kind: &Bound<'_, PyAny>) -> PyResult<InterpKind> {
 /// Interpolates sampled data along one axis.
 ///
 /// Args:
+///
 ///     x (``array_like``): Sample positions, 1-D, in any order.
 ///     y (``array_like``): Samples; ``axis`` has one element per position.
 ///     xi (``array_like``): Query positions, of any shape.
@@ -1343,6 +1383,7 @@ pub(crate) fn parse_kind(kind: &Bound<'_, PyAny>) -> PyResult<InterpKind> {
 ///     axis (int): The axis of ``y`` that follows ``x``. Default -1.
 ///
 /// Returns:
+///
 ///     numpy.ndarray: ``y``'s shape with ``axis`` replaced by the axes of ``xi``, of
 ///     ``float32`` for ``float32`` ``y``, otherwise ``float64``.
 #[pyfunction]
@@ -1400,6 +1441,7 @@ pub fn interp1d<'py>(
 /// Interpolates two arrays sampled on different grids onto one grid and combines them.
 ///
 /// Args:
+///
 ///     x1 (``array_like``): The first array.
 ///     ``x1_pos`` (``array_like``): Its sample positions along ``axis``.
 ///     x2 (``array_like``): The second array.
@@ -1412,6 +1454,7 @@ pub fn interp1d<'py>(
 ///     axis (int): The interpolated axis. Default -2.
 ///
 /// Returns:
+///
 ///     numpy.ndarray | tuple[numpy.ndarray, numpy.ndarray]: The combined array, or both
 ///     arrays when ``op`` is ``None``.
 #[pyfunction]
@@ -1564,11 +1607,13 @@ fn default_dtype<'py>(
 /// The real dtype of a complex dtype.
 ///
 /// Args:
+///
 ///     d (numpy.dtype): A dtype, or anything ``numpy.dtype`` accepts. A real floating
 ///         dtype is returned as it is.
 ///     default (numpy.dtype): Returned for any other dtype. Default ``float32``.
 ///
 /// Returns:
+///
 ///     numpy.dtype: The real dtype.
 #[pyfunction]
 #[pyo3(signature = (d, *, default = None))]
@@ -1590,11 +1635,13 @@ pub fn dtype_c2r<'py>(
 /// The complex dtype of a real dtype.
 ///
 /// Args:
+///
 ///     d (numpy.dtype): A dtype, or anything ``numpy.dtype`` accepts. A complex dtype is
 ///         returned as it is.
 ///     default (numpy.dtype): Returned for any other dtype. Default ``complex64``.
 ///
 /// Returns:
+///
 ///     numpy.dtype: The complex dtype.
 #[pyfunction]
 #[pyo3(signature = (d, *, default = None))]
@@ -1616,6 +1663,7 @@ pub fn dtype_r2c<'py>(
 /// Decodes little-endian signed integer PCM to floats in ``[-1, 1)``.
 ///
 /// Args:
+///
 ///     x (bytes-like | numpy.ndarray): The buffer.
 ///     ``n_bytes`` (int): Bytes per sample: 1, 2, 3, 4 or 8. Default 2.
 ///     dtype (Optional[numpy.dtype]): Output dtype. Default ``float32`` up to 3 bytes per
@@ -1623,6 +1671,7 @@ pub fn dtype_r2c<'py>(
 ///         not.
 ///
 /// Returns:
+///
 ///     numpy.ndarray: One float per sample.
 #[pyfunction]
 #[pyo3(signature = (x, *, n_bytes = Int(2), dtype = None), text_signature = "(x, *, n_bytes=2, dtype=None)")]
@@ -1699,6 +1748,7 @@ pub fn buf_to_float<'py>(
 /// Lists audio files under a directory.
 ///
 /// Args:
+///
 ///     directory (str | os.PathLike): Where to look; ``~`` expands to the home directory.
 ///     ext (Optional[str | list[str]]): Extensions without the dot. Default: ``aac``,
 ///         ``au``, ``flac``, ``m4a``, ``mp3``, ``ogg``, ``wav``.
@@ -1710,6 +1760,7 @@ pub fn buf_to_float<'py>(
 ///     offset (int): Skip this many paths; a negative value counts from the end.
 ///
 /// Returns:
+///
 ///     list[str]: Sorted absolute paths.
 #[pyfunction]
 #[pyo3(signature = (directory, *, ext = None, recurse = true, case_sensitive = false, limit = None, offset = Int(0)), text_signature = "(directory, *, ext=None, recurse=True, case_sensitive=False, limit=None, offset=0)")]
@@ -1777,12 +1828,15 @@ pub fn find_files<'py>(
 /// Checks that audio samples are a floating-point array, at least 1-D, finite everywhere.
 ///
 /// Args:
+///
 ///     y (numpy.ndarray): The samples.
 ///
 /// Returns:
+///
 ///     bool: ``True``.
 ///
 /// Raises:
+///
 ///     ``TypeError``: ``y`` is not a floating-point ``numpy.ndarray``.
 ///     ``ValueError``: ``y`` is 0-D or holds a NaN or infinity.
 #[pyfunction]
@@ -1823,12 +1877,15 @@ pub fn valid_audio(y: &Bound<'_, PyAny>) -> PyResult<bool> {
 /// Checks that intervals have shape ``(n, 2)`` and non-negative durations.
 ///
 /// Args:
+///
 ///     intervals (``array_like``): One ``[start, end]`` row per interval.
 ///
 /// Returns:
+///
 ///     bool: ``True``.
 ///
 /// Raises:
+///
 ///     ``ValueError``: The shape is wrong or a duration is negative.
 #[pyfunction]
 #[inline]
@@ -1845,10 +1902,12 @@ pub fn valid_intervals(intervals: &Bound<'_, PyAny>) -> PyResult<bool> {
 /// Whether a value is an integer above zero.
 ///
 /// Args:
+///
 ///     x (Any): The value. ``None``, floats and everything else that is not an integer
 ///         give ``False``.
 ///
 /// Returns:
+///
 ///     bool: The answer.
 #[pyfunction]
 #[inline]
@@ -1873,13 +1932,16 @@ pub fn is_positive_int(x: &Bound<'_, PyAny>) -> PyResult<bool> {
 /// Converts a number to an ``int`` with a chosen rounding.
 ///
 /// Args:
+///
 ///     x (float): The value.
 ///     cast (Optional[Callable]): Rounds ``x`` before conversion. Default: floor.
 ///
 /// Returns:
+///
 ///     int: The integer.
 ///
 /// Raises:
+///
 ///     ``TypeError``: ``cast`` is not callable.
 #[pyfunction]
 #[pyo3(signature = (x, *, cast = None))]
@@ -1911,16 +1973,19 @@ fn f64_vec(obj: &Bound<'_, PyAny>, name: &str) -> PyResult<Vec<f64>> {
 /// Matches each source event to the nearest target event.
 ///
 /// Args:
+///
 ///     ``events_from`` (``array_like``): Source events, in any order.
 ///     ``events_to`` (``array_like``): Target events, in any order.
 ///     left (bool): A source event may match a target before it. Default true.
 ///     right (bool): A source event may match a target after it. Default true.
 ///
 /// Returns:
+///
 ///     numpy.ndarray[int64]: For each source event, an index into ``events_to``. A source
 ///     event half-way between two targets goes to the later one.
 ///
 /// Raises:
+///
 ///     ``ValueError``: A list is empty, or the restrictions leave an event without a match.
 #[pyfunction]
 #[pyo3(signature = (events_from, events_to, left = true, right = true))]
@@ -1944,15 +2009,18 @@ pub fn match_events<'py>(
 /// Overlap is the Jaccard index; on a tie the lowest target index wins.
 ///
 /// Args:
+///
 ///     ``intervals_from`` (``array_like``): Source intervals, ``(n, 2)``.
 ///     ``intervals_to`` (``array_like``): Target intervals, ``(m, 2)``.
 ///     strict (bool): A source interval that overlaps nothing is an error; when false it
 ///         matches the nearest target (the earlier at equal distance). Default true.
 ///
 /// Returns:
+///
 ///     numpy.ndarray[int64]: For each source interval, an index into ``intervals_to``.
 ///
 /// Raises:
+///
 ///     ``ValueError``: A list is empty or invalid, or with ``strict`` an interval overlaps
 ///     no target.
 #[pyfunction]

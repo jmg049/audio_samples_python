@@ -35,9 +35,11 @@ use crate::{PyAudioSamples, audio_err_to_py, dispatch_typed};
 /// Centre frequencies and sample rates of the semitones from MIDI 24 to 108.
 ///
 /// Args:
+///
 ///     tuning (float): Deviation from A440 in fractions of a semitone.
 ///
 /// Returns:
+///
 ///     tuple[numpy.ndarray[float64], numpy.ndarray[float64]]: Centre frequencies and sample
 ///     rates in Hz, 85 of each.
 #[pyfunction]
@@ -117,6 +119,7 @@ fn parse_layout(flayout: &str) -> PyResult<FilterLayout> {
 /// One band-pass filter per semitone, of minimum order for the specified response.
 ///
 /// Args:
+///
 ///     ``center_freqs`` (Optional[array_like]): Centre frequencies in Hz; give together with
 ///         ``sample_rates``. Default: :func:`mr_frequencies`.
 ///     tuning (float): Used when ``center_freqs`` is not given.
@@ -127,6 +130,7 @@ fn parse_layout(flayout: &str) -> PyResult<FilterLayout> {
 ///         ``ftype`` (``"ellip"``, ``"butter"``, ``"cheby1"``, ``"cheby2"``).
 ///
 /// Returns:
+///
 ///     tuple[list, numpy.ndarray[float64]]: One filter per band: an ``(n, 6)`` array of
 ///     sections, or a ``(b, a)`` tuple; and the sample rates.
 #[pyfunction]
@@ -215,6 +219,7 @@ fn iirt_config(
 /// The energy of each semitone band per frame.
 ///
 /// Args:
+///
 ///     y (``array_like``): Signal ``(n,)`` or ``(channels, n)``, finite.
 ///     sr (int): Sample rate in Hz.
 ///     ``win_length`` (int): Frame length in samples. Default 2048.
@@ -227,6 +232,7 @@ fn iirt_config(
 ///     **kwargs: The filterbank's parameters; see :func:`semitone_filterbank`.
 ///
 /// Returns:
+///
 ///     numpy.ndarray: ``(85, n_frames)``, with a leading channel axis for 2-D input, of
 ///     ``y``'s precision.
 #[pyfunction]
@@ -268,6 +274,7 @@ impl PyAudioSamples {
     /// The energy of each semitone band per frame.
     ///
     /// Args:
+    ///
     ///     ``win_length`` (int): Frame length in samples. Default 2048.
     ///     ``hop_length`` (Optional[int]): Samples between frames. Default ``win_length // 4``.
     ///     center (bool): Pad so that frames are centred. Default true.
@@ -278,6 +285,7 @@ impl PyAudioSamples {
     ///     **kwargs: The filterbank's parameters.
     ///
     /// Returns:
+    ///
     ///     numpy.ndarray: ``(channels, 85, n_frames)``, ``float32`` for ``u8``, ``i16``,
     ///     ``I24`` and ``f32`` audio, otherwise ``float64``.
     #[pyo3(
@@ -347,6 +355,7 @@ where
 /// The fast Mellin (scale) transform along one axis.
 ///
 /// Args:
+///
 ///     y (``array_like``): Finite samples, at least 3 along ``axis``.
 ///     ``t_min`` (float): Where the exponential grid starts, in samples. Default 0.5.
 ///     ``n_fmt`` (Optional[int]): Grid points. Default: enough for the signal's resolution.
@@ -356,6 +365,7 @@ where
 ///     axis (int): The time axis. Default -1.
 ///
 /// Returns:
+///
 ///     numpy.ndarray: ``n_fmt // 2 + 1`` complex coefficients along ``axis``, ``complex64``
 ///     for ``float32`` input, otherwise ``complex128``.
 #[pyfunction]

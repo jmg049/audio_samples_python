@@ -15,12 +15,15 @@ impl PyAudioSamples {
     /// Convert the audio buffer to mono using the provided strategy.
     ///
     /// Args:
+    ///
     ///     method (MonoConversionMethod): Conversion method describing how to combine channels.
     ///
     /// Returns:
+    ///
     ///     AudioSamples: New buffer with a single channel.
     ///
     /// Raises:
+    ///
     ///     AudioError: If channel conversion fails.
     fn to_mono(&self, py: Python<'_>, method: Option<PyMonoConversionMethod>) -> PyResult<Self> {
         let method = method.unwrap_or_default().inner;
@@ -34,12 +37,15 @@ impl PyAudioSamples {
     /// Convert the audio buffer to stereo using the provided strategy.
     ///
     /// Args:
+    ///
     ///     method (StereoConversionMethod): Conversion method describing how to expand channels.
     ///
     /// Returns:
+    ///
     ///     AudioSamples: New buffer with two channels.
     ///
     /// Raises:
+    ///
     ///     AudioError: If channel conversion fails.
     fn to_stereo(
         &self,
@@ -57,12 +63,15 @@ impl PyAudioSamples {
     /// Duplicate the buffer into the requested number of channels.
     ///
     /// Args:
+    ///
     ///     n_channels (int): Target channel count; must be greater than zero.
     ///
     /// Returns:
+    ///
     ///     AudioSamples: New buffer with the duplicated channels.
     ///
     /// Raises:
+    ///
     ///     AudioError: If duplication fails or the channel count is invalid.
     fn duplicate_to_channels(&self, py: Python<'_>, n_channels: usize) -> PyResult<Self> {
         dispatch_with_view!(self, py, |audio| {
@@ -77,12 +86,15 @@ impl PyAudioSamples {
     /// Extract a single channel from the buffer.
     ///
     /// Args:
+    ///
     ///     channel_index (int): Zero-based index of the channel to extract.
     ///
     /// Returns:
+    ///
     ///     AudioSamples: Buffer representing the selected channel.
     ///
     /// Raises:
+    ///
     ///     AudioError: If the channel index is out of range or extraction fails.
     fn extract_channel(&self, py: Python<'_>, channel_index: usize) -> PyResult<Self> {
         dispatch_with_view!(self, py, |audio| {
@@ -96,18 +108,21 @@ impl PyAudioSamples {
     #[pyo3(signature = (channel1: "int", channel2: "int"))]
     /// Swap two channels in place.
     ///
-    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// Modifies the signal in place and returns ``None``. If the ``AudioSamples``
     /// was created from a NumPy array (``new_mono``/``new_multi``), that array
     /// is modified too; pass ``arr.copy()`` to keep the original.
     ///
     /// Args:
+    ///
     ///     channel1 (int): Zero-based index of the first channel.
     ///     channel2 (int): Zero-based index of the second channel.
     ///
     /// Returns:
+    ///
     ///     None: Operation mutates the current buffer.
     ///
     /// Raises:
+    ///
     ///     AudioError: If swapping fails or indices are invalid.
     fn swap_channels(&mut self, py: Python<'_>, channel1: usize, channel2: usize) -> PyResult<()> {
         dispatch_with_view_mut!(self, py, |mut audio| {
@@ -121,17 +136,20 @@ impl PyAudioSamples {
     #[pyo3(signature = (pan_value: "float"))]
     /// Apply stereo panning to the buffer in place.
     ///
-    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// Modifies the signal in place and returns ``None``. If the ``AudioSamples``
     /// was created from a NumPy array (``new_mono``/``new_multi``), that array
     /// is modified too; pass ``arr.copy()`` to keep the original.
     ///
     /// Args:
+    ///
     ///     pan_value (float): Normalized pan value; negative favors left, positive favors right.
     ///
     /// Returns:
+    ///
     ///     None: Operation mutates the current buffer.
     ///
     /// Raises:
+    ///
     ///     AudioError: If the pan adjustment fails.
     fn pan(&mut self, py: Python<'_>, pan_value: f64) -> PyResult<()> {
         dispatch_with_view_mut!(self, py, |mut audio| {
@@ -144,17 +162,20 @@ impl PyAudioSamples {
     #[pyo3(signature = (balance: "float"))]
     /// Adjust the stereo balance in place.
     ///
-    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// Modifies the signal in place and returns ``None``. If the ``AudioSamples``
     /// was created from a NumPy array (``new_mono``/``new_multi``), that array
     /// is modified too; pass ``arr.copy()`` to keep the original.
     ///
     /// Args:
+    ///
     ///     balance (float): Balance offset; negative favors left, positive favors right.
     ///
     /// Returns:
+    ///
     ///     None: Operation mutates the current buffer.
     ///
     /// Raises:
+    ///
     ///     AudioError: If the balance adjustment fails.
     fn balance(&mut self, py: Python<'_>, balance: f64) -> PyResult<()> {
         dispatch_with_view_mut!(self, py, |mut audio| {
@@ -171,13 +192,16 @@ impl PyAudioSamples {
     /// buffer before returning it.
     ///
     /// Args:
+    ///
     ///     channel_index (int): Zero-based index of the channel to borrow.
     ///         Ignored for mono audio.
     ///
     /// Returns:
+    ///
     ///     AudioSamples: An owned mono buffer containing the selected channel.
     ///
     /// Raises:
+    ///
     ///     ValueError: If the channel index is out of range.
     fn borrow_channel(&self, py: Python<'_>, channel_index: usize) -> PyResult<Self> {
         dispatch_with_view!(self, py, |audio| {
@@ -197,13 +221,16 @@ impl PyAudioSamples {
     /// rate is taken from the first input.
     ///
     /// Args:
+    ///
     ///     channels (list[AudioSamples]): Non-empty list of mono buffers, all of
     ///         the same dtype and length.
     ///
     /// Returns:
+    ///
     ///     AudioSamples: A multi-channel buffer with one channel per input.
     ///
     /// Raises:
+    ///
     ///     ValueError: If the list is empty, the dtypes differ, or the inputs do
     ///         not all have the same sample count.
     fn interleave_channels(py: Python<'_>, channels: &Bound<'_, PyList>) -> PyResult<Self> {
@@ -213,12 +240,11 @@ impl PyAudioSamples {
             ));
         }
 
-        let channels_vec: Vec<PyRef<PyAudioSamples>> = channels
+        let channels_vec: Vec<PyRef<Self>> = channels
             .iter()
             .map(|item| {
-                item.extract::<PyRef<PyAudioSamples>>().map_err(|e| {
-                    PyValueError::new_err(format!("Expected AudioSamples, got: {}", e))
-                })
+                item.extract::<PyRef<Self>>()
+                    .map_err(|e| PyValueError::new_err(format!("Expected AudioSamples, got: {e}")))
             })
             .collect::<PyResult<Vec<_>>>()?;
 
@@ -271,9 +297,11 @@ impl PyAudioSamples {
     /// :meth:`interleave_channels`.
     ///
     /// Returns:
+    ///
     ///     list[AudioSamples]: One owned mono buffer per input channel.
     ///
     /// Raises:
+    ///
     ///     AudioError: If channel separation fails.
     fn deinterleave_channels(&self, py: Python<'_>) -> PyResult<Vec<Self>> {
         dispatch_with_view!(self, py, |audio| {

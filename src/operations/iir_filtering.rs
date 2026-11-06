@@ -18,17 +18,20 @@ use crate::{
 impl PyAudioSamples {
     /// Apply an arbitrary IIR filter design in place.
     ///
-    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// Modifies the signal in place and returns ``None``. If the ``AudioSamples``
     /// was created from a NumPy array (``new_mono``/``new_multi``), that array
     /// is modified too; pass ``arr.copy()`` to keep the original.
     ///
     /// Args:
+    ///
     ///     design (IirFilterDesign): Filter definition including coefficients and structure.
     ///
     /// Returns:
+    ///
     ///     None: Operation mutates the current buffer.
     ///
     /// Raises:
+    ///
     ///     AudioError: If filter application fails.
     #[pyo3(signature = (design: "IirFilterDesign"))]
     fn apply_iir_filter(&mut self, py: Python<'_>, design: &PyIirFilterDesign) -> PyResult<()> {
@@ -42,18 +45,21 @@ impl PyAudioSamples {
 
     /// Apply a Butterworth low-pass filter in place.
     ///
-    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// Modifies the signal in place and returns ``None``. If the ``AudioSamples``
     /// was created from a NumPy array (``new_mono``/``new_multi``), that array
     /// is modified too; pass ``arr.copy()`` to keep the original.
     ///
     /// Args:
+    ///
     ///     order (int): Filter order; must be greater than zero.
     ///     cutoff_frequency (float): Cutoff frequency in hertz.
     ///
     /// Returns:
+    ///
     ///     None: Operation mutates the current buffer.
     ///
     /// Raises:
+    ///
     ///     ValueError: If order is zero.
     ///     AudioError: If filter design or application fails.
     #[pyo3(signature = (order: "int", cutoff_frequency: "float"))]
@@ -74,18 +80,21 @@ impl PyAudioSamples {
 
     /// Apply a Butterworth high-pass filter in place.
     ///
-    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// Modifies the signal in place and returns ``None``. If the ``AudioSamples``
     /// was created from a NumPy array (``new_mono``/``new_multi``), that array
     /// is modified too; pass ``arr.copy()`` to keep the original.
     ///
     /// Args:
+    ///
     ///     order (int): Filter order; must be greater than zero.
     ///     cutoff_frequency (float): Cutoff frequency in hertz.
     ///
     /// Returns:
+    ///
     ///     None: Operation mutates the current buffer.
     ///
     /// Raises:
+    ///
     ///     ValueError: If order is zero.
     ///     AudioError: If filter design or application fails.
     #[pyo3(signature = (order: "int", cutoff_frequency: "float"))]
@@ -106,19 +115,22 @@ impl PyAudioSamples {
 
     /// Apply a Butterworth band-pass filter in place.
     ///
-    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// Modifies the signal in place and returns ``None``. If the ``AudioSamples``
     /// was created from a NumPy array (``new_mono``/``new_multi``), that array
     /// is modified too; pass ``arr.copy()`` to keep the original.
     ///
     /// Args:
+    ///
     ///     order (int): Filter order; must be greater than zero.
     ///     low_frequency (float): Lower cutoff frequency in hertz.
     ///     high_frequency (float): Upper cutoff frequency in hertz.
     ///
     /// Returns:
+    ///
     ///     None: Operation mutates the current buffer.
     ///
     /// Raises:
+    ///
     ///     ValueError: If order is zero.
     ///     AudioError: If filter design or application fails.
     #[pyo3(signature = (order: "int", low_frequency: "float", high_frequency: "float"))]
@@ -140,11 +152,12 @@ impl PyAudioSamples {
 
     /// Apply a Chebyshev Type I filter in place.
     ///
-    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// Modifies the signal in place and returns ``None``. If the ``AudioSamples``
     /// was created from a NumPy array (``new_mono``/``new_multi``), that array
     /// is modified too; pass ``arr.copy()`` to keep the original.
     ///
     /// Args:
+    ///
     ///     order (int): Filter order; must be greater than zero.
     ///     cutoff_frequency (float): Cutoff frequency in hertz.
     ///     passband_ripple (float): Maximum ripple within the passband in decibels.
@@ -153,9 +166,11 @@ impl PyAudioSamples {
     ///         :meth:`apply_iir_filter`.
     ///
     /// Returns:
+    ///
     ///     None: Operation mutates the current buffer.
     ///
     /// Raises:
+    ///
     ///     ValueError: If order is zero.
     ///     AudioError: If filter design or application fails.
     #[pyo3(signature = (order: "int", cutoff_frequency: "float", passband_ripple: "float", response: "FilterResponse | str"))]
@@ -185,9 +200,11 @@ impl PyAudioSamples {
     /// ``DeprecationWarning``.
     ///
     /// Args:
+    ///
     ///     frequencies (list[float]): Frequencies in hertz.
     ///
     /// Returns:
+    ///
     ///     tuple[list[float], list[float]]: All-ones magnitudes and all-zero phases.
     #[pyo3(signature = (frequencies: "list[float]"))]
     fn frequency_response(
@@ -207,18 +224,21 @@ IirFilterDesign.frequency_response(frequencies, sample_rate) or SosFilter.freque
     }
     /// Apply a Butterworth low-pass filter in place.
     ///
-    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// Modifies the signal in place and returns ``None``. If the ``AudioSamples``
     /// was created from a NumPy array (``new_mono``/``new_multi``), that array
     /// is modified too; pass ``arr.copy()`` to keep the original.
     ///
     /// Args:
+    ///
     ///     order (int): Filter order; must be greater than zero.
     ///     cutoff_frequency (float): Cutoff frequency in hertz.
     ///
     /// Returns:
+    ///
     ///     None: Operation mutates the current buffer.
     ///
     /// Raises:
+    ///
     ///     ValueError: If order is zero.
     ///     AudioError: If filter design or application fails.
     #[pyo3(signature = (order: "int", cutoff_frequency: "float"))]
@@ -238,18 +258,21 @@ IirFilterDesign.frequency_response(frequencies, sample_rate) or SosFilter.freque
 
     /// Apply a Butterworth high-pass filter in place.
     ///
-    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// Modifies the signal in place and returns ``None``. If the ``AudioSamples``
     /// was created from a NumPy array (``new_mono``/``new_multi``), that array
     /// is modified too; pass ``arr.copy()`` to keep the original.
     ///
     /// Args:
+    ///
     ///     order (int): Filter order; must be greater than zero.
     ///     cutoff_frequency (float): Cutoff frequency in hertz.
     ///
     /// Returns:
+    ///
     ///     None: Operation mutates the current buffer.
     ///
     /// Raises:
+    ///
     ///     ValueError: If order is zero.
     ///     AudioError: If filter design or application fails.
     #[pyo3(signature = (order: "int", cutoff_frequency: "float"))]
@@ -269,19 +292,22 @@ IirFilterDesign.frequency_response(frequencies, sample_rate) or SosFilter.freque
 
     /// Apply a Butterworth band-pass filter in place.
     ///
-    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// Modifies the signal in place and returns ``None``. If the ``AudioSamples``
     /// was created from a NumPy array (``new_mono``/``new_multi``), that array
     /// is modified too; pass ``arr.copy()`` to keep the original.
     ///
     /// Args:
+    ///
     ///     order (int): Filter order; must be greater than zero.
     ///     low_frequency (float): Lower cutoff frequency in hertz.
     ///     high_frequency (float): Upper cutoff frequency in hertz.
     ///
     /// Returns:
+    ///
     ///     None: Operation mutates the current buffer.
     ///
     /// Raises:
+    ///
     ///     ValueError: If order is zero.
     ///     AudioError: If filter design or application fails.
     #[pyo3(signature = (order: "int", low_frequency: "float", high_frequency: "float"))]
@@ -306,7 +332,7 @@ IirFilterDesign.frequency_response(frequencies, sample_rate) or SosFilter.freque
 
     /// Apply a Chebyshev Type II low-pass filter in place.
     ///
-    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// Modifies the signal in place and returns ``None``. If the ``AudioSamples``
     /// was created from a NumPy array (``new_mono``/``new_multi``), that array
     /// is modified too; pass ``arr.copy()`` to keep the original.
     ///
@@ -315,15 +341,18 @@ IirFilterDesign.frequency_response(frequencies, sample_rate) or SosFilter.freque
     /// attenuation rather than passband ripple.
     ///
     /// Args:
+    ///
     ///     order (int): Filter order; must be greater than zero.
     ///     cutoff_frequency (float): Stopband edge frequency in hertz.
     ///     stopband_attenuation (float): Minimum stopband attenuation in decibels
     ///         (typically 20-80 dB); must be positive.
     ///
     /// Returns:
+    ///
     ///     None: Operation mutates the current buffer.
     ///
     /// Raises:
+    ///
     ///     ValueError: If order is zero or a parameter is invalid.
     ///     AudioError: If filter design or application fails.
     #[pyo3(signature = (order: "int", cutoff_frequency: "float", stopband_attenuation: "float"))]
@@ -350,20 +379,23 @@ IirFilterDesign.frequency_response(frequencies, sample_rate) or SosFilter.freque
 
     /// Apply a Chebyshev Type II high-pass filter in place.
     ///
-    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// Modifies the signal in place and returns ``None``. If the ``AudioSamples``
     /// was created from a NumPy array (``new_mono``/``new_multi``), that array
     /// is modified too; pass ``arr.copy()`` to keep the original.
     ///
     /// Args:
+    ///
     ///     order (int): Filter order; must be greater than zero.
     ///     cutoff_frequency (float): Stopband edge frequency in hertz.
     ///     stopband_attenuation (float): Minimum stopband attenuation in decibels;
     ///         must be positive.
     ///
     /// Returns:
+    ///
     ///     None: Operation mutates the current buffer.
     ///
     /// Raises:
+    ///
     ///     ValueError: If order is zero or a parameter is invalid.
     ///     AudioError: If filter design or application fails.
     #[pyo3(signature = (order: "int", cutoff_frequency: "float", stopband_attenuation: "float"))]
@@ -390,11 +422,12 @@ IirFilterDesign.frequency_response(frequencies, sample_rate) or SosFilter.freque
 
     /// Apply a Chebyshev Type II band-pass filter in place.
     ///
-    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// Modifies the signal in place and returns ``None``. If the ``AudioSamples``
     /// was created from a NumPy array (``new_mono``/``new_multi``), that array
     /// is modified too; pass ``arr.copy()`` to keep the original.
     ///
     /// Args:
+    ///
     ///     order (int): Prototype filter order per edge; must be greater than zero.
     ///     low_frequency (float): Lower band edge in hertz.
     ///     high_frequency (float): Upper band edge in hertz.
@@ -402,9 +435,11 @@ IirFilterDesign.frequency_response(frequencies, sample_rate) or SosFilter.freque
     ///         must be positive.
     ///
     /// Returns:
+    ///
     ///     None: Operation mutates the current buffer.
     ///
     /// Raises:
+    ///
     ///     ValueError: If order is zero or a parameter is invalid.
     ///     AudioError: If filter design or application fails.
     #[pyo3(signature = (order: "int", low_frequency: "float", high_frequency: "float", stopband_attenuation: "float"))]
@@ -433,11 +468,12 @@ IirFilterDesign.frequency_response(frequencies, sample_rate) or SosFilter.freque
 
     /// Apply a Chebyshev Type II band-stop filter in place.
     ///
-    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// Modifies the signal in place and returns ``None``. If the ``AudioSamples``
     /// was created from a NumPy array (``new_mono``/``new_multi``), that array
     /// is modified too; pass ``arr.copy()`` to keep the original.
     ///
     /// Args:
+    ///
     ///     order (int): Prototype filter order per edge; must be greater than zero.
     ///     low_frequency (float): Lower band edge in hertz.
     ///     high_frequency (float): Upper band edge in hertz.
@@ -445,9 +481,11 @@ IirFilterDesign.frequency_response(frequencies, sample_rate) or SosFilter.freque
     ///         must be positive.
     ///
     /// Returns:
+    ///
     ///     None: Operation mutates the current buffer.
     ///
     /// Raises:
+    ///
     ///     ValueError: If order is zero or a parameter is invalid.
     ///     AudioError: If filter design or application fails.
     #[pyo3(signature = (order: "int", low_frequency: "float", high_frequency: "float", stopband_attenuation: "float"))]
@@ -480,7 +518,7 @@ IirFilterDesign.frequency_response(frequencies, sample_rate) or SosFilter.freque
 
     /// Apply an elliptic (Cauer) low-pass filter in place.
     ///
-    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// Modifies the signal in place and returns ``None``. If the ``AudioSamples``
     /// was created from a NumPy array (``new_mono``/``new_multi``), that array
     /// is modified too; pass ``arr.copy()`` to keep the original.
     ///
@@ -489,6 +527,7 @@ IirFilterDesign.frequency_response(frequencies, sample_rate) or SosFilter.freque
     /// passband ripple and the stopband attenuation.
     ///
     /// Args:
+    ///
     ///     order (int): Filter order; must be greater than zero.
     ///     cutoff_frequency (float): Passband edge frequency in hertz.
     ///     passband_ripple (float): Peak passband ripple in decibels; must be positive.
@@ -496,9 +535,11 @@ IirFilterDesign.frequency_response(frequencies, sample_rate) or SosFilter.freque
     ///         must be positive and greater than ``passband_ripple``.
     ///
     /// Returns:
+    ///
     ///     None: Operation mutates the current buffer.
     ///
     /// Raises:
+    ///
     ///     ValueError: If order is zero or a parameter is invalid.
     ///     AudioError: If filter design or application fails.
     #[pyo3(signature = (order: "int", cutoff_frequency: "float", passband_ripple: "float", stopband_attenuation: "float"))]
@@ -527,11 +568,12 @@ IirFilterDesign.frequency_response(frequencies, sample_rate) or SosFilter.freque
 
     /// Apply an elliptic (Cauer) high-pass filter in place.
     ///
-    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// Modifies the signal in place and returns ``None``. If the ``AudioSamples``
     /// was created from a NumPy array (``new_mono``/``new_multi``), that array
     /// is modified too; pass ``arr.copy()`` to keep the original.
     ///
     /// Args:
+    ///
     ///     order (int): Filter order; must be greater than zero.
     ///     cutoff_frequency (float): Passband edge frequency in hertz.
     ///     passband_ripple (float): Peak passband ripple in decibels; must be positive.
@@ -539,9 +581,11 @@ IirFilterDesign.frequency_response(frequencies, sample_rate) or SosFilter.freque
     ///         must be positive and greater than ``passband_ripple``.
     ///
     /// Returns:
+    ///
     ///     None: Operation mutates the current buffer.
     ///
     /// Raises:
+    ///
     ///     ValueError: If order is zero or a parameter is invalid.
     ///     AudioError: If filter design or application fails.
     #[pyo3(signature = (order: "int", cutoff_frequency: "float", passband_ripple: "float", stopband_attenuation: "float"))]
@@ -570,11 +614,12 @@ IirFilterDesign.frequency_response(frequencies, sample_rate) or SosFilter.freque
 
     /// Apply an elliptic (Cauer) band-pass filter in place.
     ///
-    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// Modifies the signal in place and returns ``None``. If the ``AudioSamples``
     /// was created from a NumPy array (``new_mono``/``new_multi``), that array
     /// is modified too; pass ``arr.copy()`` to keep the original.
     ///
     /// Args:
+    ///
     ///     order (int): Prototype filter order per edge; must be greater than zero.
     ///     low_frequency (float): Lower band edge in hertz.
     ///     high_frequency (float): Upper band edge in hertz.
@@ -583,9 +628,11 @@ IirFilterDesign.frequency_response(frequencies, sample_rate) or SosFilter.freque
     ///         must be positive and greater than ``passband_ripple``.
     ///
     /// Returns:
+    ///
     ///     None: Operation mutates the current buffer.
     ///
     /// Raises:
+    ///
     ///     ValueError: If order is zero or a parameter is invalid.
     ///     AudioError: If filter design or application fails.
     #[pyo3(signature = (order: "int", low_frequency: "float", high_frequency: "float", passband_ripple: "float", stopband_attenuation: "float"))]
@@ -616,11 +663,12 @@ IirFilterDesign.frequency_response(frequencies, sample_rate) or SosFilter.freque
 
     /// Apply an elliptic (Cauer) band-stop filter in place.
     ///
-    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// Modifies the signal in place and returns ``None``. If the ``AudioSamples``
     /// was created from a NumPy array (``new_mono``/``new_multi``), that array
     /// is modified too; pass ``arr.copy()`` to keep the original.
     ///
     /// Args:
+    ///
     ///     order (int): Prototype filter order per edge; must be greater than zero.
     ///     low_frequency (float): Lower band edge in hertz.
     ///     high_frequency (float): Upper band edge in hertz.
@@ -629,9 +677,11 @@ IirFilterDesign.frequency_response(frequencies, sample_rate) or SosFilter.freque
     ///         must be positive and greater than ``passband_ripple``.
     ///
     /// Returns:
+    ///
     ///     None: Operation mutates the current buffer.
     ///
     /// Raises:
+    ///
     ///     ValueError: If order is zero or a parameter is invalid.
     ///     AudioError: If filter design or application fails.
     #[pyo3(signature = (order: "int", low_frequency: "float", high_frequency: "float", passband_ripple: "float", stopband_attenuation: "float"))]
@@ -666,7 +716,7 @@ IirFilterDesign.frequency_response(frequencies, sample_rate) or SosFilter.freque
 
     /// Apply a Bessel low-pass filter in place.
     ///
-    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// Modifies the signal in place and returns ``None``. If the ``AudioSamples``
     /// was created from a NumPy array (``new_mono``/``new_multi``), that array
     /// is modified too; pass ``arr.copy()`` to keep the original.
     ///
@@ -674,13 +724,16 @@ IirFilterDesign.frequency_response(frequencies, sample_rate) or SosFilter.freque
     /// preserving the wave shape of in-band signals. The cutoff is the -3 dB point.
     ///
     /// Args:
+    ///
     ///     order (int): Filter order; must be greater than zero.
     ///     cutoff_frequency (float): -3 dB cutoff frequency in hertz.
     ///
     /// Returns:
+    ///
     ///     None: Operation mutates the current buffer.
     ///
     /// Raises:
+    ///
     ///     ValueError: If order is zero or a parameter is invalid.
     ///     AudioError: If filter design or application fails.
     #[pyo3(signature = (order: "int", cutoff_frequency: "float"))]
@@ -701,18 +754,21 @@ IirFilterDesign.frequency_response(frequencies, sample_rate) or SosFilter.freque
 
     /// Apply a Bessel high-pass filter in place.
     ///
-    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// Modifies the signal in place and returns ``None``. If the ``AudioSamples``
     /// was created from a NumPy array (``new_mono``/``new_multi``), that array
     /// is modified too; pass ``arr.copy()`` to keep the original.
     ///
     /// Args:
+    ///
     ///     order (int): Filter order; must be greater than zero.
     ///     cutoff_frequency (float): -3 dB cutoff frequency in hertz.
     ///
     /// Returns:
+    ///
     ///     None: Operation mutates the current buffer.
     ///
     /// Raises:
+    ///
     ///     ValueError: If order is zero or a parameter is invalid.
     ///     AudioError: If filter design or application fails.
     #[pyo3(signature = (order: "int", cutoff_frequency: "float"))]
@@ -733,19 +789,22 @@ IirFilterDesign.frequency_response(frequencies, sample_rate) or SosFilter.freque
 
     /// Apply a Bessel band-pass filter in place.
     ///
-    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// Modifies the signal in place and returns ``None``. If the ``AudioSamples``
     /// was created from a NumPy array (``new_mono``/``new_multi``), that array
     /// is modified too; pass ``arr.copy()`` to keep the original.
     ///
     /// Args:
+    ///
     ///     order (int): Prototype filter order per edge; must be greater than zero.
     ///     low_frequency (float): Lower band edge in hertz.
     ///     high_frequency (float): Upper band edge in hertz.
     ///
     /// Returns:
+    ///
     ///     None: Operation mutates the current buffer.
     ///
     /// Raises:
+    ///
     ///     ValueError: If order is zero or a parameter is invalid.
     ///     AudioError: If filter design or application fails.
     #[pyo3(signature = (order: "int", low_frequency: "float", high_frequency: "float"))]
@@ -772,19 +831,22 @@ IirFilterDesign.frequency_response(frequencies, sample_rate) or SosFilter.freque
 
     /// Apply a Bessel band-stop filter in place.
     ///
-    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// Modifies the signal in place and returns ``None``. If the ``AudioSamples``
     /// was created from a NumPy array (``new_mono``/``new_multi``), that array
     /// is modified too; pass ``arr.copy()`` to keep the original.
     ///
     /// Args:
+    ///
     ///     order (int): Prototype filter order per edge; must be greater than zero.
     ///     low_frequency (float): Lower band edge in hertz.
     ///     high_frequency (float): Upper band edge in hertz.
     ///
     /// Returns:
+    ///
     ///     None: Operation mutates the current buffer.
     ///
     /// Raises:
+    ///
     ///     ValueError: If order is zero or a parameter is invalid.
     ///     AudioError: If filter design or application fails.
     #[pyo3(signature = (order: "int", low_frequency: "float", high_frequency: "float"))]
@@ -811,7 +873,7 @@ IirFilterDesign.frequency_response(frequencies, sample_rate) or SosFilter.freque
 
     /// Apply a zero-phase (forward-backward) IIR filter in place.
     ///
-    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// Modifies the signal in place and returns ``None``. If the ``AudioSamples``
     /// was created from a NumPy array (``new_mono``/``new_multi``), that array
     /// is modified too; pass ``arr.copy()`` to keep the original.
     ///
@@ -821,12 +883,15 @@ IirFilterDesign.frequency_response(frequencies, sample_rate) or SosFilter.freque
     /// avoided (e.g. analysis or offline processing).
     ///
     /// Args:
+    ///
     ///     design (IirFilterDesign): Filter definition to apply forward and backward.
     ///
     /// Returns:
+    ///
     ///     None: Operation mutates the current buffer.
     ///
     /// Raises:
+    ///
     ///     AudioError: If filter design or application fails.
     #[pyo3(signature = (design: "IirFilterDesign"))]
     fn filtfilt(&mut self, py: Python<'_>, design: &PyIirFilterDesign) -> PyResult<()> {
@@ -862,14 +927,17 @@ impl PySosFilter {
     /// filter starts with zeroed delay lines.
     ///
     /// Args:
+    ///
     ///     design (IirFilterDesign): Filter specification (type, order,
     ///         frequencies, ripple/attenuation).
     ///     sample_rate (float): Sample rate of the signal in hertz.
     ///
     /// Returns:
+    ///
     ///     SosFilter: A freshly-reset streaming filter implementing the design.
     ///
     /// Raises:
+    ///
     ///     AudioError: If the design is invalid (out-of-range frequency,
     ///         unsupported response, order too high, etc.).
     #[staticmethod]
@@ -887,10 +955,12 @@ impl PySosFilter {
     /// :meth:`IirFilterDesign.sos`, with rows ``[b0, b1, b2, a0, a1, a2]``.
     ///
     /// Args:
+    ///
     ///     sos (np.typing.NDArray[np.float64]): Section coefficients, shape ``(n, 6)``.
     ///     sample_rate (float): Sample rate in hertz (used by :meth:`frequency_response`).
     ///
     /// Raises:
+    ///
     ///     ValueError: If the array is not ``(n, 6)``, is empty, contains
     ///         non-finite values, or has a zero ``a0``.
     #[staticmethod]
@@ -931,9 +1001,11 @@ impl PySosFilter {
     /// nor modified. Returns a new array.
     ///
     /// Args:
+    ///
     ///     samples (np.typing.NDArray[np.float64]): The whole signal.
     ///
     /// Returns:
+    ///
     ///     np.typing.NDArray[np.float64]: Filtered signal, same length.
     #[pyo3(signature = (samples: "np.typing.NDArray[np.float64]"))]
     fn filtfilt<'py>(
@@ -953,9 +1025,11 @@ impl PySosFilter {
     /// Feeds ``x`` through each section in order; internal state is updated.
     ///
     /// Args:
+    ///
     ///     x (float): Input sample.
     ///
     /// Returns:
+    ///
     ///     float: The filtered output sample.
     #[pyo3(signature = (x: "float"))]
     fn process_sample(&mut self, x: f64) -> f64 {
@@ -968,9 +1042,11 @@ impl PySosFilter {
     /// state carries across the whole array.
     ///
     /// Args:
+    ///
     ///     samples (np.typing.NDArray[np.float64]): Input samples.
     ///
     /// Returns:
+    ///
     ///     np.typing.NDArray[np.float64]: Filtered output, same length as input.
     #[pyo3(signature = (samples: "np.typing.NDArray[np.float64]"))]
     fn process_samples<'py>(
@@ -989,9 +1065,11 @@ impl PySosFilter {
     /// array is modified directly.
     ///
     /// Args:
+    ///
     ///     samples (np.typing.NDArray[np.float64]): Input/output buffer; modified in place.
     ///
     /// Returns:
+    ///
     ///     None: The provided array is modified in place.
     #[pyo3(signature = (samples: "np.typing.NDArray[np.float64]"))]
     fn process_samples_in_place(&mut self, samples: &Bound<'_, PyArray1<f64>>) -> PyResult<()> {
@@ -1006,9 +1084,11 @@ impl PySosFilter {
     /// same result as one call over the whole signal.
     ///
     /// Args:
+    ///
     ///     block (np.typing.NDArray[np.float64]): Input/output block; modified in place.
     ///
     /// Returns:
+    ///
     ///     None: The provided array is modified in place.
     #[pyo3(signature = (block: "np.typing.NDArray[np.float64]"))]
     fn process_block(&mut self, block: &Bound<'_, PyArray1<f64>>) -> PyResult<()> {
@@ -1021,6 +1101,7 @@ impl PySosFilter {
     /// with the same coefficients.
     ///
     /// Returns:
+    ///
     ///     None.
     #[pyo3(signature = ())]
     fn reset(&mut self) {
@@ -1034,9 +1115,11 @@ impl PySosFilter {
     /// phases. The sample rate fixed at construction is used.
     ///
     /// Args:
+    ///
     ///     frequencies (np.typing.NDArray[np.float64]): Frequencies in hertz.
     ///
     /// Returns:
+    ///
     ///     tuple[np.typing.NDArray[np.float64], np.typing.NDArray[np.float64]]:
     ///     Magnitude and phase (radians) arrays, each the same length as
     ///     ``frequencies``.

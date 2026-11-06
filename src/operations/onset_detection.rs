@@ -15,12 +15,15 @@ impl PyAudioSamples {
     /// Detect onset times using the configured algorithm.
     ///
     /// Args:
+    ///
     ///     config (OnsetDetectionConfig): Parameters controlling peak picking and preprocessing.
     ///
     /// Returns:
+    ///
     ///     list[float]: Onset times in seconds.
     ///
     /// Raises:
+    ///
     ///     AudioError: If onset detection fails.
     #[pyo3(signature = (config: "OnsetDetectionConfig"))]
     fn detect_onsets(&self, py: Python<'_>, config: PyOnsetDetectionConfig) -> PyResult<Vec<f64>> {
@@ -32,13 +35,16 @@ impl PyAudioSamples {
     /// Compute the energy-based onset detection function.
     ///
     /// Args:
+    ///
     ///     config (OnsetDetectionConfig): Parameters controlling the detection function.
     ///
     /// Returns:
+    ///
     ///     tuple[list[float], list[float]]: ``(times, values)``: frame times in
     ///         seconds first, then the detection-function value of each frame.
     ///
     /// Raises:
+    ///
     ///     AudioError: If the detection function computation fails.
     #[pyo3(signature = (config: "OnsetDetectionConfig"))]
     fn onset_detection_function(
@@ -58,12 +64,15 @@ impl PyAudioSamples {
     /// Detect onset times using spectral flux.
     ///
     /// Args:
+    ///
     ///     config (SpectralFluxConfig): Parameters configuring the flux computation and picker.
     ///
     /// Returns:
+    ///
     ///     list[float]: Onset times in seconds.
     ///
     /// Raises:
+    ///
     ///     AudioError: If onset detection fails.
     #[pyo3(signature = (config: "SpectralFluxConfig"))]
     fn detect_onsets_spectral_flux(
@@ -81,16 +90,19 @@ impl PyAudioSamples {
     /// Compute spectral flux values without peak picking.
     ///
     /// Args:
+    ///
     ///     cqt_params (CqtParams): Parameters controlling the constant-Q transform.
     ///     window_size (int): Frame size in samples; must be greater than zero.
     ///     hop_size (int): Hop size in samples; must be greater than zero.
     ///     method (SpectralFluxMethod): Flux computation strategy.
     ///
     /// Returns:
+    ///
     ///     tuple[list[float], list[float]]: ``(times, flux)``: the frame times in
     ///         seconds first, then the flux values (one per frame).
     ///
     /// Raises:
+    ///
     ///     ValueError: If window_size or hop_size is zero.
     ///     AudioError: If flux computation fails.
     #[pyo3(signature = (cqt_params: "CqtParams", window_size: "int", hop_size: "int", method: "SpectralFluxMethod"))]
@@ -121,12 +133,15 @@ impl PyAudioSamples {
     /// Detect onset times using the complex-domain method.
     ///
     /// Args:
+    ///
     ///     config (ComplexOnsetConfig): Parameters controlling magnitude and phase processing.
     ///
     /// Returns:
+    ///
     ///     list[float]: Onset times in seconds.
     ///
     /// Raises:
+    ///
     ///     AudioError: If onset detection fails.
     #[pyo3(signature = (config: "ComplexOnsetConfig"))]
     fn complex_onset_detection(
@@ -144,12 +159,15 @@ impl PyAudioSamples {
     /// Compute the complex-domain onset detection function without peak picking.
     ///
     /// Args:
+    ///
     ///     config (ComplexOnsetConfig): Parameters controlling magnitude and phase processing.
     ///
     /// Returns:
+    ///
     ///     list[float]: Complex onset detection function values.
     ///
     /// Raises:
+    ///
     ///     AudioError: If detection function computation fails.
     #[pyo3(signature = (config: "ComplexOnsetConfig"))]
     fn onset_detection_function_complex(
@@ -167,12 +185,15 @@ impl PyAudioSamples {
     /// Compute the complex-domain magnitude difference matrix.
     ///
     /// Args:
+    ///
     ///     config (ComplexOnsetConfig): Parameters controlling magnitude and phase processing.
     ///
     /// Returns:
+    ///
     ///     numpy.ndarray: Magnitude difference matrix with axes (frequency_bins, frames).
     ///
     /// Raises:
+    ///
     ///     AudioError: If matrix computation fails.
     #[pyo3(signature = (config: "ComplexOnsetConfig"))]
     fn magnitude_difference_matrix<'py>(
@@ -191,12 +212,15 @@ impl PyAudioSamples {
     /// Compute the complex-domain phase deviation matrix.
     ///
     /// Args:
+    ///
     ///     config (ComplexOnsetConfig): Parameters controlling magnitude and phase processing.
     ///
     /// Returns:
+    ///
     ///     numpy.ndarray: Phase deviation matrix with axes (frequency_bins, frames).
     ///
     /// Raises:
+    ///
     ///     AudioError: If matrix computation fails.
     #[pyo3(signature = (config: "ComplexOnsetConfig"))]
     fn phase_deviation_matrix<'py>(

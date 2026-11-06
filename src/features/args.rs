@@ -45,7 +45,7 @@ fn string_arg(obj: &Bound<'_, PyAny>) -> PyResult<Option<String>> {
 
 /// piptrack `ref`: `None` / `numpy.max` / `"max"` (per-frame maximum),
 /// `numpy.mean` / `"mean"` (per-frame mean) or a number (absolute threshold).
-pub(crate) fn parse_piptrack_ref(obj: &Bound<'_, PyAny>) -> PyResult<PiptrackReference> {
+pub fn parse_piptrack_ref(obj: &Bound<'_, PyAny>) -> PyResult<PiptrackReference> {
     if obj.is_none() {
         return Ok(PiptrackReference::FrameMax);
     }
@@ -76,8 +76,8 @@ pub(crate) fn parse_piptrack_ref(obj: &Bound<'_, PyAny>) -> PyResult<PiptrackRef
     Ok(PiptrackReference::Value(v))
 }
 
-/// reassigned_spectrogram `ref_power`: a number or `numpy.max` / `"max"`.
-pub(crate) fn parse_reassign_ref(obj: &Bound<'_, PyAny>) -> PyResult<ReassignRefPower> {
+/// `reassigned_spectrogram` `ref_power`: a number or `numpy.max` / `"max"`.
+pub fn parse_reassign_ref(obj: &Bound<'_, PyAny>) -> PyResult<ReassignRefPower> {
     if numpy_callable(obj, &["max", "amax"])?.is_some()
         || string_arg(obj)?.as_deref() == Some("max")
     {
@@ -94,8 +94,8 @@ pub(crate) fn parse_reassign_ref(obj: &Bound<'_, PyAny>) -> PyResult<ReassignRef
     Ok(ReassignRefPower::Value(v))
 }
 
-/// zero_crossing_rate `ref_magnitude`: `None`, a number or `numpy.max` / `"max"`.
-pub(crate) fn parse_zcr_ref(obj: &Bound<'_, PyAny>) -> PyResult<ZeroCrossingReference> {
+/// `zero_crossing_rate` `ref_magnitude`: `None`, a number or `numpy.max` / `"max"`.
+pub fn parse_zcr_ref(obj: &Bound<'_, PyAny>) -> PyResult<ZeroCrossingReference> {
     if obj.is_none() {
         return Ok(ZeroCrossingReference::None);
     }
@@ -116,7 +116,7 @@ pub(crate) fn parse_zcr_ref(obj: &Bound<'_, PyAny>) -> PyResult<ZeroCrossingRefe
 }
 
 /// pyin `fill_na`: `None` (best-guess pitch), NaN (default) or a number.
-pub(crate) fn parse_fill_na(obj: &Bound<'_, PyAny>) -> PyResult<UnvoicedFill> {
+pub fn parse_fill_na(obj: &Bound<'_, PyAny>) -> PyResult<UnvoicedFill> {
     if obj.is_none() {
         return Ok(UnvoicedFill::BestGuess);
     }
@@ -139,7 +139,7 @@ pub(crate) fn parse_fill_na(obj: &Bound<'_, PyAny>) -> PyResult<UnvoicedFill> {
 ///
 /// Returns the aggregate and whether it was `numpy.mean` (which ignores
 /// `weights`).
-pub(crate) fn parse_aggregate(obj: &Bound<'_, PyAny>) -> PyResult<(SalienceAggregate, bool)> {
+pub fn parse_aggregate(obj: &Bound<'_, PyAny>) -> PyResult<(SalienceAggregate, bool)> {
     if obj.is_none() {
         return Ok((SalienceAggregate::Average, false));
     }
@@ -178,7 +178,7 @@ pub(crate) fn parse_aggregate(obj: &Bound<'_, PyAny>) -> PyResult<(SalienceAggre
 /// and `"high"` select [`ResamplingQuality::High`]; `"soxr_mq"`/`"medium"`
 /// [`ResamplingQuality::Medium`]; `"soxr_lq"`/`"soxr_qq"`/`"fast"`
 /// [`ResamplingQuality::Fast`].
-pub(crate) fn parse_res_type(res_type: &str) -> PyResult<ResamplingQuality> {
+pub fn parse_res_type(res_type: &str) -> PyResult<ResamplingQuality> {
     match res_type {
         "soxr_hq" | "soxr_vhq" | "high" => Ok(ResamplingQuality::High),
         "soxr_mq" | "medium" => Ok(ResamplingQuality::Medium),
@@ -195,7 +195,7 @@ pub(crate) fn parse_res_type(res_type: &str) -> PyResult<ResamplingQuality> {
 }
 
 /// chroma `cqt_mode`: `"full"` or `"hybrid"`.
-pub(crate) fn parse_cqt_mode(mode: &str) -> PyResult<CqtMode> {
+pub fn parse_cqt_mode(mode: &str) -> PyResult<CqtMode> {
     match mode {
         "full" => Ok(CqtMode::Full),
         "hybrid" => Ok(CqtMode::Hybrid),
@@ -207,7 +207,7 @@ pub(crate) fn parse_cqt_mode(mode: &str) -> PyResult<CqtMode> {
 }
 
 /// One weighting curve name (`"A"`, `"B"`, `"C"`, `"D"`, `"Z"`; case-insensitive).
-pub(crate) fn parse_weighting(name: &str, kind: &str) -> PyResult<FrequencyWeighting> {
+pub fn parse_weighting(name: &str, kind: &str) -> PyResult<FrequencyWeighting> {
     match kind.to_ascii_uppercase().as_str() {
         "A" => Ok(FrequencyWeighting::A),
         "B" => Ok(FrequencyWeighting::B),
@@ -222,7 +222,7 @@ pub(crate) fn parse_weighting(name: &str, kind: &str) -> PyResult<FrequencyWeigh
 }
 
 /// librosa's `intervals` of the VQT: only `"equal"` (equal temperament) is supported.
-pub(crate) fn check_intervals(obj: &Bound<'_, PyAny>) -> PyResult<()> {
+pub fn check_intervals(obj: &Bound<'_, PyAny>) -> PyResult<()> {
     match string_arg(obj)?.as_deref() {
         Some("equal") => Ok(()),
         _ => Err(value_err(
@@ -245,7 +245,7 @@ impl<'a, 'py> FromPyObject<'a, 'py> for FillNaArg {
     }
 }
 
-/// reassigned_spectrogram `ref_power` as a signature parameter.
+/// `reassigned_spectrogram` `ref_power` as a signature parameter.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ReassignRefArg(pub ReassignRefPower);
 
@@ -264,7 +264,7 @@ impl<'a, 'py> FromPyObject<'a, 'py> for ReassignRefArg {
 /// A NumPy array argument viewed with a leading channel axis added when the
 /// input lacks one (`(F, T)` as `(1, F, T)`, `(n,)` as `(1, n)`), without
 /// copying the data. `D` is the dimension of the view.
-pub(crate) struct ChannelView<'py, F: numpy::Element, D> {
+pub struct ChannelView<'py, F: numpy::Element, D> {
     arr: numpy::PyReadonlyArrayDyn<'py, F>,
     _dim: std::marker::PhantomData<D>,
 }
@@ -291,7 +291,7 @@ impl<F: numpy::Element, D: ndarray::Dimension> ChannelView<'_, F, D> {
 /// dimensions, or `D::NDIM - 1` when `lift` is set; returns the input's number
 /// of dimensions too. Otherwise raises `ValueError("{name}: expected {what},
 /// got {n} dimensions")`.
-pub(crate) fn channel_view<'py, F: crate::args::FloatElement, D: ndarray::Dimension>(
+pub fn channel_view<'py, F: crate::args::FloatElement, D: ndarray::Dimension>(
     obj: &Bound<'py, PyAny>,
     name: &str,
     what: &str,
@@ -317,7 +317,7 @@ pub(crate) fn channel_view<'py, F: crate::args::FloatElement, D: ndarray::Dimens
 
 /// A spectrogram-like input of shape `(F, T)` or `(channels, F, T)` as a
 /// `(channels, F, T)` view (no copy) plus the input's number of dimensions.
-pub(crate) fn spec3<'py, F: crate::args::FloatElement>(
+pub fn spec3<'py, F: crate::args::FloatElement>(
     obj: &Bound<'py, PyAny>,
     name: &str,
 ) -> PyResult<(ChannelView<'py, F, Ix3>, usize)> {
@@ -331,7 +331,7 @@ pub(crate) fn spec3<'py, F: crate::args::FloatElement>(
 
 /// A signal of shape `(n,)` or `(channels, n)` as a `(channels, n)` view (no
 /// copy) plus the input's number of dimensions.
-pub(crate) fn signal2<'py, F: crate::args::FloatElement>(
+pub fn signal2<'py, F: crate::args::FloatElement>(
     obj: &Bound<'py, PyAny>,
     name: &str,
 ) -> PyResult<(ChannelView<'py, F, Ix2>, usize)> {
@@ -340,11 +340,11 @@ pub(crate) fn signal2<'py, F: crate::args::FloatElement>(
 
 /// Drops the leading (length-1) channel axis of `a` when `drop_channel` is set,
 /// i.e. when the input had no channel axis (librosa's shape convention).
-pub(crate) fn squeeze_out<'py, T: numpy::Element>(
-    py: Python<'py>,
+pub fn squeeze_out<T: numpy::Element>(
+    py: Python<'_>,
     a: ArrayD<T>,
     drop_channel: bool,
-) -> Bound<'py, PyAny> {
+) -> Bound<'_, PyAny> {
     if drop_channel && a.shape().first() == Some(&1) {
         a.index_axis_move(Axis(0), 0).into_pyarray(py).into_any()
     } else {
@@ -353,13 +353,13 @@ pub(crate) fn squeeze_out<'py, T: numpy::Element>(
 }
 
 /// A 1-D float vector from an array-like (any shape is flattened).
-pub(crate) fn f64_vec(obj: &Bound<'_, PyAny>, name: &str) -> PyResult<Vec<f64>> {
+pub fn f64_vec(obj: &Bound<'_, PyAny>, name: &str) -> PyResult<Vec<f64>> {
     let a = f64_array(obj, name)?;
     Ok(a.as_array().iter().copied().collect())
 }
 
 /// A strictly one-dimensional float vector.
-pub(crate) fn f64_vec1(obj: &Bound<'_, PyAny>, name: &str) -> PyResult<Vec<f64>> {
+pub fn f64_vec1(obj: &Bound<'_, PyAny>, name: &str) -> PyResult<Vec<f64>> {
     let a = f64_array(obj, name)?;
     if a.ndim() != 1 {
         return Err(value_err(
@@ -372,7 +372,7 @@ pub(crate) fn f64_vec1(obj: &Bound<'_, PyAny>, name: &str) -> PyResult<Vec<f64>>
 
 /// `numpy.fft.rfftfreq(n_fft, 1 / sr)` with numpy's rounding (librosa's
 /// `fft_frequencies`).
-pub(crate) fn rfft_frequencies(n_fft: usize, sr: f64) -> Vec<f64> {
+pub fn rfft_frequencies(n_fft: usize, sr: f64) -> Vec<f64> {
     let val = 1.0 / (n_fft as f64 * (1.0 / sr));
     (0..=n_fft / 2).map(|k| k as f64 * val).collect()
 }
@@ -380,7 +380,7 @@ pub(crate) fn rfft_frequencies(n_fft: usize, sr: f64) -> Vec<f64> {
 /// librosa's `freq` argument of the spectral descriptors: `None` means
 /// `fft_frequencies(sr, n_fft = 2 * (n_bins - 1))`; otherwise a 1-D array of
 /// one centre frequency per bin.
-pub(crate) fn bin_frequencies(
+pub fn bin_frequencies(
     freq: Option<&Bound<'_, PyAny>>,
     sr: f64,
     n_bins: usize,
@@ -393,7 +393,7 @@ pub(crate) fn bin_frequencies(
 }
 
 /// `freq` as an array when it has a frequency for every frame (two or more dimensions).
-pub(crate) fn freq_matrix<'py, F: crate::args::FloatElement>(
+pub fn freq_matrix<'py, F: crate::args::FloatElement>(
     freq: Option<&Bound<'py, PyAny>>,
 ) -> PyResult<Option<numpy::PyReadonlyArrayDyn<'py, F>>> {
     let Some(f) = freq.filter(|f| freq_is_matrix(f)) else {
@@ -404,7 +404,7 @@ pub(crate) fn freq_matrix<'py, F: crate::args::FloatElement>(
 
 /// Whether `freq` has two or more dimensions (a frequency for every frame). Anything
 /// that is not an array of them is left to the 1-D conversion and its errors.
-pub(crate) fn freq_is_matrix(f: &Bound<'_, PyAny>) -> bool {
+pub fn freq_is_matrix(f: &Bound<'_, PyAny>) -> bool {
     if f.is_none() {
         return false;
     }
@@ -415,7 +415,7 @@ pub(crate) fn freq_is_matrix(f: &Bound<'_, PyAny>) -> bool {
 }
 
 /// A `(bins, frames)` or `(channels, bins, frames)` `freq` as a 3-D view.
-pub(crate) fn freq3<'a, F: crate::args::FloatElement>(
+pub fn freq3<'a, F: crate::args::FloatElement>(
     freq: &'a numpy::PyReadonlyArrayDyn<'_, F>,
 ) -> PyResult<ndarray::ArrayView3<'a, F>> {
     let view = freq.as_array();

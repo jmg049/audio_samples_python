@@ -36,6 +36,7 @@ impl PyAudioSamples {
     /// spectrogram use ``features.spectral_centroid_from_spectrogram``.
     ///
     /// Args:
+    ///
     ///     n_fft (int): FFT length. Default 2048.
     ///     hop_length (int): Samples between frames. Default 512.
     ///     win_length (Optional[int]): Window length; None = ``n_fft``.
@@ -44,10 +45,12 @@ impl PyAudioSamples {
     ///     pad_mode (str): Padding for ``center``. Default ``"constant"``.
     ///
     /// Returns:
+    ///
     ///     numpy.ndarray[float32 | float64]: shape ``(channels, 1, n_frames)`` in Hz (librosa
     ///     returns ``(1, n_frames)`` for 1-D input; index ``[0]``).
     ///
     /// Raises:
+    ///
     ///     ValueError: For invalid parameters or a too-short uncentred signal.
     #[pyo3(
         signature = (*, n_fft = Int(2048), hop_length = Int(512), win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant"),
@@ -80,15 +83,18 @@ impl PyAudioSamples {
     /// ``librosa.feature.spectral_bandwidth(y=..., sr=self.sample_rate, ...)``.
     ///
     /// Args:
+    ///
     ///     n_fft, hop_length (default 512), win_length, window, center, pad_mode:
     ///         As ``spectral_centroid_frames``.
     ///     norm (bool): Normalise each frame to unit sum. Default True.
     ///     p (float): Order of the deviation. Default 2.
     ///
     /// Returns:
+    ///
     ///     numpy.ndarray[float32 | float64]: shape ``(channels, 1, n_frames)`` in Hz.
     ///
     /// Raises:
+    ///
     ///     ValueError: For invalid parameters.
     #[pyo3(
         signature = (*, n_fft = Int(2048), hop_length = Int(512), win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", norm = true, p = 2.0),
@@ -126,14 +132,17 @@ impl PyAudioSamples {
     /// ``librosa.feature.spectral_rolloff(y=..., sr=self.sample_rate, ...)``.
     ///
     /// Args:
+    ///
     ///     n_fft, hop_length (default 512), win_length, window, center, pad_mode:
     ///         As ``spectral_centroid_frames``.
     ///     roll_percent (float): Energy fraction in ``(0, 1)``. Default 0.85.
     ///
     /// Returns:
+    ///
     ///     numpy.ndarray[float32 | float64]: shape ``(channels, 1, n_frames)`` in Hz.
     ///
     /// Raises:
+    ///
     ///     ValueError: For invalid parameters.
     #[pyo3(
         signature = (*, n_fft = Int(2048), hop_length = Int(512), win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", roll_percent = 0.85),
@@ -169,15 +178,18 @@ impl PyAudioSamples {
     /// ``librosa.feature.spectral_flatness(y=..., ...)``.
     ///
     /// Args:
+    ///
     ///     n_fft, hop_length (default 512), win_length, window, center, pad_mode:
     ///         As ``spectral_centroid_frames``.
     ///     amin (float): Floor of ``|S| ** power``. Default 1e-10.
     ///     power (float): Exponent of the magnitude. Default 2.0.
     ///
     /// Returns:
+    ///
     ///     numpy.ndarray[float32 | float64]: shape ``(channels, 1, n_frames)``, in ``[0, 1]``.
     ///
     /// Raises:
+    ///
     ///     ValueError: For invalid parameters.
     #[pyo3(
         signature = (*, n_fft = Int(2048), hop_length = Int(512), win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", amin = 1e-10, power = 2.0),
@@ -215,6 +227,7 @@ impl PyAudioSamples {
     /// ``librosa.feature.spectral_contrast(y=..., sr=self.sample_rate, ...)``.
     ///
     /// Args:
+    ///
     ///     n_fft, hop_length (default 512), win_length, window, center, pad_mode:
     ///         As ``spectral_centroid_frames``.
     ///     fmin (float): Upper edge of the lowest band (Hz). Default 200.
@@ -223,9 +236,11 @@ impl PyAudioSamples {
     ///     linear (bool): Linear difference instead of dB. Default False.
     ///
     /// Returns:
+    ///
     ///     numpy.ndarray[float32 | float64]: shape ``(channels, n_bands + 1, n_frames)``.
     ///
     /// Raises:
+    ///
     ///     ValueError: For invalid parameters (e.g. the top band above Nyquist).
     #[pyo3(
         signature = (*, n_fft = Int(2048), hop_length = Int(512), win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", fmin = 200.0, n_bands = Int(6), quantile = 0.02, linear = false),
@@ -267,15 +282,18 @@ impl PyAudioSamples {
     /// equivalent to ``librosa.feature.poly_features(y=..., sr=self.sample_rate, ...)``.
     ///
     /// Args:
+    ///
     ///     n_fft, hop_length (default 512), win_length, window, center, pad_mode:
     ///         As ``spectral_centroid_frames``.
     ///     order (int): Polynomial order. Default 1.
     ///
     /// Returns:
+    ///
     ///     numpy.ndarray[float32 | float64]: shape ``(channels, order + 1, n_frames)``,
     ///     highest power first.
     ///
     /// Raises:
+    ///
     ///     ValueError: For invalid parameters.
     #[pyo3(
         signature = (*, n_fft = Int(2048), hop_length = Int(512), win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", order = Int(1)),
@@ -313,16 +331,19 @@ impl PyAudioSamples {
     /// Unlike the scalar ``rms()``, this returns one value per frame.
     ///
     /// Args:
+    ///
     ///     frame_length (int): Samples per frame. Default 2048.
     ///     hop_length (int): Samples between frames. Default 512.
     ///     center (bool): Centre frames (pad ``frame_length // 2``). Default True.
     ///     pad_mode (str): Padding for ``center``. Default ``"constant"``.
     ///
     /// Returns:
+    ///
     ///     numpy.ndarray[float32 | float64]: shape ``(channels, 1, n_frames)`` (librosa's
     ///     default dtype is float32).
     ///
     /// Raises:
+    ///
     ///     ValueError: For invalid parameters or a too-short uncentred signal.
     #[pyo3(
         signature = (*, frame_length = Int(2048), hop_length = Int(512), center = true, pad_mode = "constant"),
@@ -352,6 +373,7 @@ impl PyAudioSamples {
     /// returns one fraction per frame. Centring always uses edge padding, as librosa.
     ///
     /// Args:
+    ///
     ///     frame_length (int): Samples per frame. Default 2048.
     ///     hop_length (int): Samples between frames. Default 512.
     ///     center (bool): Centre frames. Default True.
@@ -361,9 +383,11 @@ impl PyAudioSamples {
     ///     zero_pos (bool): Zero counts as positive. Default True.
     ///
     /// Returns:
+    ///
     ///     numpy.ndarray[float32 | float64]: shape ``(channels, 1, n_frames)``.
     ///
     /// Raises:
+    ///
     ///     ValueError: For invalid parameters.
     #[pyo3(
         signature = (*, frame_length = Int(2048), hop_length = Int(512), center = true, threshold = 1e-10, ref_magnitude = None, pad = false, zero_pos = true),
@@ -401,6 +425,7 @@ impl PyAudioSamples {
     /// ``librosa.reassigned_spectrogram(y=..., sr=self.sample_rate, ...)``.
     ///
     /// Args:
+    ///
     ///     n_fft (int): FFT length. Default 2048.
     ///     hop_length (Optional[int]): None = ``win_length // 4``.
     ///     win_length (Optional[int]): None = ``n_fft``.
@@ -415,10 +440,12 @@ impl PyAudioSamples {
     ///     pad_mode (str): Padding for ``center``. Default ``"constant"``.
     ///
     /// Returns:
+    ///
     ///     tuple: ``(freqs, times, mags)``, each numpy.ndarray[float32 | float64] of shape
     ///     ``(channels, 1 + n_fft // 2, n_frames)``.
     ///
     /// Raises:
+    ///
     ///     ValueError: For invalid parameters.
     #[pyo3(
         signature = (*, n_fft = Int(2048), hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, reassign_frequencies = true, reassign_times = true, ref_power = ReassignRefArg(audio_samples::operations::features::ReassignRefPower::Value(1e-6)), fill_nan = false, clip = true, pad_mode = "constant"),

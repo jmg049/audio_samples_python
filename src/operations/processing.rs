@@ -47,12 +47,13 @@ impl PyAudioSamples {
     /// was created from, if any, is left unchanged).
     ///
     /// Args:
+    ///
     ///     factor (float): Multiplier applied to every sample; values above 1.0 amplify and below 1.0 attenuate.
     #[pyo3(signature = (factor: "float"))]
     pub fn scale(&mut self, py: Python<'_>, factor: f64) -> PyResult<()> {
         Ok({
             let result = dispatch_with_view!(self, py, |audio| {
-                PyAudioSamples::from_audio_samples(audio.scale(factor).into_owned())
+                Self::from_audio_samples(audio.scale(factor).into_owned())
             });
             *self = result;
         })
@@ -64,11 +65,13 @@ impl PyAudioSamples {
     /// was created from, if any, is left unchanged).
     ///
     /// Args:
+    ///
     ///     min (float): Lower bound for the normalized output.
     ///     max (float): Upper bound for the normalized output.
     ///     method (NormalizationMethod | str): Strategy controlling the normalization.
     ///
     /// Raises:
+    ///
     ///     AudioError: If normalization fails.
     #[pyo3(signature = (min: "float", max: "float", method: "NormalizationMethod | str"))]
     pub fn normalize(
@@ -112,10 +115,12 @@ impl PyAudioSamples {
     /// was created from, if any, is left unchanged).
     ///
     /// Args:
+    ///
     ///     min_val (float): Lower bound for clamping.
     ///     max_val (float): Upper bound for clamping.
     ///
     /// Raises:
+    ///
     ///     AudioError: If clamping fails or the bounds are invalid.
     #[pyo3(signature = (min_val: "float", max_val: "float"))]
     pub fn clip(&mut self, py: Python<'_>, min_val: f64, max_val: f64) -> PyResult<()> {
@@ -135,6 +140,7 @@ impl PyAudioSamples {
     /// was created from, if any, is left unchanged).
     ///
     /// Raises:
+    ///
     ///     AudioError: If offset removal fails.
     #[pyo3(signature = ())]
     pub fn remove_dc_offset(&mut self, py: Python<'_>) -> PyResult<()> {
@@ -149,12 +155,15 @@ impl PyAudioSamples {
     /// Apply mu-law compression to the signal.
     ///
     /// Args:
+    ///
     ///     mu (float): Mu parameter controlling the compression curve.
     ///
     /// Returns:
+    ///
     ///     AudioSamples: New buffer containing the compressed samples.
     ///
     /// Raises:
+    ///
     ///     AudioError: If compression fails.
     #[pyo3(signature = (mu: "float"))]
     pub fn mu_compress(&self, py: Python<'_>, mu: f64) -> PyResult<Self> {
@@ -167,12 +176,15 @@ impl PyAudioSamples {
     /// Apply mu-law expansion to the signal.
     ///
     /// Args:
+    ///
     ///     mu (float): Mu parameter used during compression.
     ///
     /// Returns:
+    ///
     ///     AudioSamples: New buffer containing the expanded samples.
     ///
     /// Raises:
+    ///
     ///     AudioError: If expansion fails.
     #[pyo3(signature = (mu: "float"))]
     pub fn mu_expand(&self, py: Python<'_>, mu: f64) -> PyResult<Self> {
@@ -189,12 +201,15 @@ impl PyAudioSamples {
     /// ``self`` is not modified.
     ///
     /// Args:
+    ///
     ///     cutoff_hz (float): Cutoff frequency in hertz, in (0, Nyquist).
     ///
     /// Returns:
+    ///
     ///     AudioSamples: New buffer containing the filtered signal.
     ///
     /// Raises:
+    ///
     ///     AudioError: If filtering fails.
     #[pyo3(signature = (cutoff_hz: "float"))]
     pub fn low_pass_filter(&self, py: Python<'_>, cutoff_hz: f64) -> PyResult<Self> {
@@ -213,12 +228,15 @@ impl PyAudioSamples {
     /// ``self`` is not modified.
     ///
     /// Args:
+    ///
     ///     cutoff_hz (float): Cutoff frequency in hertz, in (0, Nyquist).
     ///
     /// Returns:
+    ///
     ///     AudioSamples: New buffer containing the filtered signal.
     ///
     /// Raises:
+    ///
     ///     AudioError: If filtering fails.
     #[pyo3(signature = (cutoff_hz: "float"))]
     pub fn high_pass_filter(&self, py: Python<'_>, cutoff_hz: f64) -> PyResult<Self> {
@@ -236,13 +254,16 @@ impl PyAudioSamples {
     /// 'bandpass', fs=fs, output='sos'), x)``. ``self`` is not modified.
     ///
     /// Args:
+    ///
     ///     low_cutoff_hz (float): Lower -3 dB edge in hertz.
     ///     high_cutoff_hz (float): Upper -3 dB edge in hertz.
     ///
     /// Returns:
+    ///
     ///     AudioSamples: New buffer containing the filtered signal.
     ///
     /// Raises:
+    ///
     ///     AudioError: If filtering fails.
     #[pyo3(signature = (low_cutoff_hz: "float", high_cutoff_hz: "float"))]
     pub fn band_pass_filter(
@@ -281,15 +302,18 @@ impl PyAudioSamples {
     ///   where the transition bands differ; not bit-identical).
     ///
     /// Args:
+    ///
     ///     target_sample_rate (int): Output sample rate in Hz (> 0).
     ///     quality (ResamplingQuality | str): ``ResamplingQuality.fast`` (default),
     ///         ``.medium``, ``.high``, or the names ``"fast"``, ``"medium"``,
     ///         ``"high"``.
     ///
     /// Returns:
+    ///
     ///     AudioSamples: the resampled audio (a copy when the rates are equal).
     ///
     /// Raises:
+    ///
     ///     ValueError: If ``target_sample_rate`` is not a positive integer, or an
     ///         unknown quality name is given.
     #[pyo3(signature = (target_sample_rate: "int", quality: "ResamplingQuality | str" = QualityArg(PyResamplingQuality::resample_fast())), text_signature = "($self, target_sample_rate, quality='fast')")]
@@ -310,7 +334,7 @@ impl PyAudioSamples {
         let quality = *quality.0;
         dispatch_with_view_detached!(self, py, |audio| audio
             .resample(target_sample_rate, quality)
-            .map(PyAudioSamples::from_audio_samples))
+            .map(Self::from_audio_samples))
         .map_err(audio_err_to_py)
     }
 
@@ -318,10 +342,12 @@ impl PyAudioSamples {
     /// moved into the array rather than copied out of an ``AudioSamples``.
     ///
     /// Args:
+    ///
     ///     ``target_sample_rate`` (int): As ``resample``.
     ///     quality (ResamplingQuality | str): As ``resample``.
     ///
     /// Returns:
+    ///
     ///     numpy.ndarray: Time on the last axis.
     fn _resample_array<'py>(
         &self,
@@ -367,17 +393,20 @@ impl PyAudioSamples {
     /// quality tiers).
     ///
     /// Args:
+    ///
     ///     ratio (float): Output rate / input rate (> 0).
     ///     quality (ResamplingQuality | str): As ``resample``; default ``"fast"``.
     ///
     /// Returns:
+    ///
     ///     AudioSamples: the resampled audio at ``round(sample_rate * ratio)`` Hz.
     ///
     /// Raises:
+    ///
     ///     ValueError: If ``ratio`` is not positive or the target rate rounds to 0.
     #[pyo3(signature = (ratio: "float", quality: "ResamplingQuality | str" = QualityArg(PyResamplingQuality::resample_fast())), text_signature = "($self, ratio, quality='fast')")]
-    pub fn resample_by_ratio<'py>(
-        &'py self,
+    pub fn resample_by_ratio(
+        &self,
         py: Python<'_>,
         ratio: f64,
         quality: QualityArg,
@@ -387,7 +416,7 @@ impl PyAudioSamples {
             let resampled = audio
                 .resample_by_ratio(ratio, *quality)
                 .map_err(audio_err_to_py)?;
-            return Ok(PyAudioSamples::from_audio_samples(resampled));
+            return Ok(Self::from_audio_samples(resampled));
         })
     }
     /// Apply a sample-wise window to the signal.
@@ -398,15 +427,18 @@ impl PyAudioSamples {
     /// work for every sample type.
     ///
     /// Args:
+    ///
     ///     window (numpy.ndarray): 1-D sequence of coefficients matching the
     ///         audio length. Any real array-like is accepted (e.g. float32);
     ///         it is converted to float64.
     ///
     /// Returns:
+    ///
     ///     AudioSamples: New buffer of the same sample type with the window
     ///     applied.
     ///
     /// Raises:
+    ///
     ///     ValueError: If the window length does not equal the audio length.
     ///     AudioError: If windowing fails.
     #[pyo3(signature = (window: "np.typing.NDArray[np.floating]"))]
@@ -458,18 +490,22 @@ impl PyAudioSamples {
     /// every sample type.
     ///
     /// Args:
+    ///
     ///     coefficients (numpy.ndarray): 1-D array-like of FIR taps ``h``
     ///         (non-empty, converted to float64). ``[1.0]`` leaves the signal
     ///         unchanged.
     ///
     /// Returns:
+    ///
     ///     AudioSamples: Filtered buffer with ``N - M + 1`` samples per channel.
     ///
     /// Raises:
+    ///
     ///     ValueError: If ``coefficients`` is empty.
     ///     AudioParameterError: If the audio is shorter than the filter.
     ///
     /// Examples:
+    ///
     ///     >>> import numpy as np, audio_samples as aus
     ///     >>> x = aus.AudioSamples.new_mono(np.array([1.0, 2.0, 3.0, 4.0, 5.0]), sample_rate=8000)
     ///     >>> x.apply_filter(np.array([1.0, 0.5])).to_numpy()
@@ -503,12 +539,15 @@ impl PyAudioSamples {
     /// ``M - 1`` samples shorter.
     ///
     /// Args:
+    ///
     ///     coefficients (numpy.ndarray): 1-D array-like of FIR taps (non-empty).
     ///
     /// Returns:
+    ///
     ///     None: Operation mutates the current buffer.
     ///
     /// Raises:
+    ///
     ///     ValueError: If ``coefficients`` is empty.
     ///     AudioParameterError: If the audio is shorter than the filter.
     #[pyo3(signature = (coefficients: "np.typing.NDArray[np.floating]"))]

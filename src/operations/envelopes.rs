@@ -11,9 +11,11 @@ impl PyAudioSamples {
     /// Compute a rectified amplitude envelope.
     ///
     /// Returns:
+    ///
     ///     numpy.ndarray: Envelope array shaped like the input (channels by samples).
     ///
     /// Raises:
+    ///
     ///     AudioError: If envelope computation fails.
     #[pyo3(signature = ())]
     fn amplitude_envelope<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
@@ -26,13 +28,16 @@ impl PyAudioSamples {
     /// Compute a root-mean-square envelope over sliding windows.
     ///
     /// Args:
+    ///
     ///     window_size (int): Analysis window size in samples; must be greater than zero.
     ///     hop_size (int): Step between windows in samples; must be greater than zero.
     ///
     /// Returns:
+    ///
     ///     numpy.ndarray: RMS envelope shaped (channels, frames).
     ///
     /// Raises:
+    ///
     ///     ValueError: If window_size or hop_size is zero.
     ///     AudioError: If envelope computation fails.
     #[pyo3(signature = (window_size: "int", hop_size: "int"))]
@@ -53,13 +58,16 @@ impl PyAudioSamples {
     /// Compute attack and decay envelopes using an envelope follower.
     ///
     /// Args:
+    ///
     ///     follower (EnvelopeFollower): Configuration describing attack and release behavior.
     ///     method (DynamicRangeMethod): Detection strategy applied to the follower.
     ///
     /// Returns:
+    ///
     ///     tuple[numpy.ndarray, numpy.ndarray]: Attack and decay envelopes shaped like the input.
     ///
     /// Raises:
+    ///
     ///     AudioError: If envelope computation fails.
     #[pyo3(signature = (follower: "EnvelopeFollower", method: "DynamicRangeMethod"))]
     fn attack_decay_envelope<'py>(
@@ -77,9 +85,11 @@ impl PyAudioSamples {
     /// Compute the analytic envelope via the Hilbert transform.
     ///
     /// Returns:
+    ///
     ///     numpy.ndarray: Instantaneous amplitude shaped like the input.
     ///
     /// Raises:
+    ///
     ///     AudioError: If envelope computation fails.
     #[pyo3(signature = ())]
     fn analytic_envelope<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
@@ -92,13 +102,16 @@ impl PyAudioSamples {
     /// Compute a moving-average envelope over the rectified signal.
     ///
     /// Args:
+    ///
     ///     window_size (int): Number of samples per averaging window; must be greater than zero.
     ///     hop_size (int): Step between windows in samples; must be greater than zero.
     ///
     /// Returns:
+    ///
     ///     numpy.ndarray: Moving-average envelope shaped (channels, frames).
     ///
     /// Raises:
+    ///
     ///     ValueError: If window_size or hop_size is zero.
     ///     AudioError: If envelope computation fails.
     #[pyo3(signature = (window_size: "int", hop_size: "int"))]

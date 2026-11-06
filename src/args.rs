@@ -41,7 +41,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyString, PyTuple};
 
 /// `ValueError(f"{name} ...")`.
-pub(crate) fn value_err(name: &str, msg: impl std::fmt::Display) -> PyErr {
+pub fn value_err(name: &str, msg: impl std::fmt::Display) -> PyErr {
     PyValueError::new_err(format!("{name}: {msg}"))
 }
 
@@ -50,7 +50,7 @@ pub(crate) fn value_err(name: &str, msg: impl std::fmt::Display) -> PyErr {
 /// signal-sized buffers. An FFT size, a window length, a number of states or a
 /// sample count beyond it can only request an allocation that fails, and Rust
 /// aborts the whole process on allocation failure.
-pub(crate) const MAX_SIZE_PARAM: i64 = 1 << 31;
+pub const MAX_SIZE_PARAM: i64 = 1 << 31;
 
 /// A Python `int` parameter.
 ///
@@ -105,7 +105,7 @@ fn check_size(name: &str, v: i64) -> PyResult<()> {
 
 /// A `sample_rate` keyword given as a Python int, as `u32` (out of range ->
 /// `ValueError`; zero is rejected by the caller's `NonZeroU32` conversion).
-pub(crate) fn sample_rate_u32(v: Int) -> PyResult<u32> {
+pub fn sample_rate_u32(v: Int) -> PyResult<u32> {
     u32::try_from(v.0).map_err(|_| {
         value_err(
             "sample_rate",
@@ -115,12 +115,12 @@ pub(crate) fn sample_rate_u32(v: Int) -> PyResult<u32> {
 }
 
 /// An axis or signed offset parameter as `isize`.
-pub(crate) fn signed(name: &str, v: Int) -> PyResult<isize> {
+pub fn signed(name: &str, v: Int) -> PyResult<isize> {
     isize::try_from(v.0).map_err(|_| value_err(name, format!("out of range, got {v}")))
 }
 
 /// A strictly positive, size-like integer parameter (at most [`MAX_SIZE_PARAM`]).
-pub(crate) fn positive(name: &str, v: impl Into<i64>) -> PyResult<NonZeroUsize> {
+pub fn positive(name: &str, v: impl Into<i64>) -> PyResult<NonZeroUsize> {
     let v = v.into();
     check_size(name, v)?;
     usize::try_from(v)
@@ -130,15 +130,12 @@ pub(crate) fn positive(name: &str, v: impl Into<i64>) -> PyResult<NonZeroUsize> 
 }
 
 /// An optional strictly positive integer parameter (`None` stays `None`).
-pub(crate) fn opt_positive<T: Into<i64>>(
-    name: &str,
-    v: Option<T>,
-) -> PyResult<Option<NonZeroUsize>> {
+pub fn opt_positive<T: Into<i64>>(name: &str, v: Option<T>) -> PyResult<Option<NonZeroUsize>> {
     v.map(|v| positive(name, v)).transpose()
 }
 
 /// A non-negative, size-like integer parameter (at most [`MAX_SIZE_PARAM`]).
-pub(crate) fn non_negative(name: &str, v: impl Into<i64>) -> PyResult<usize> {
+pub fn non_negative(name: &str, v: impl Into<i64>) -> PyResult<usize> {
     let v = v.into();
     check_size(name, v)?;
     usize::try_from(v).map_err(|_| value_err(name, format!("must be >= 0, got {}", Int(v))))
@@ -151,7 +148,7 @@ fn numpy(py: Python<'_>) -> PyResult<Bound<'_, PyModule>> {
 
 /// Floating-point precision of an array argument, chosen by [`precision_of`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum Precision {
+pub enum Precision {
     /// `float32` / `complex64`.
     F32,
     /// `float64` / `complex128`.
@@ -161,7 +158,7 @@ pub(crate) enum Precision {
 /// Precision a free function computes in for the array-like `obj`: [`Precision::F32`]
 /// for a numpy array of dtype `float32` or `complex64` and for `float32` audio,
 /// [`Precision::F64`] for everything else (other dtypes, lists and scalars are converted to `float64`).
-pub(crate) fn precision_of(obj: &Bound<'_, PyAny>) -> Precision {
+pub fn precision_of(obj: &Bound<'_, PyAny>) -> Precision {
     let py = obj.py();
     if let Ok(arr) = obj.cast::<numpy::PyUntypedArray>() {
         let dt = arr.dtype();
@@ -180,7 +177,7 @@ pub(crate) fn precision_of(obj: &Bound<'_, PyAny>) -> Precision {
 }
 
 /// A real floating-point element type of a numpy array (`f32` or `f64`).
-pub(crate) trait FloatElement: numpy::Element + Copy {
+pub trait FloatElement: numpy::Element + Copy {
     /// The numpy name of the real dtype.
     const REAL_NAME: &'static str;
     /// The numpy name of the matching complex dtype.
@@ -194,7 +191,7 @@ impl FloatElement for f32 {
     const COMPLEX_NAME: &'static str = "complex64";
     #[allow(clippy::cast_possible_truncation)]
     fn from_f64(v: f64) -> Self {
-        v as f32
+        v as Self
     }
 }
 
@@ -208,7 +205,7 @@ impl FloatElement for f64 {
 
 /// The float types the bindings compute in (`f32`, `f64`): the Rust crate's
 /// [`AudioFloat`](audio_samples::AudioFloat) that is also a numpy element.
-pub(crate) trait PyFloat: audio_samples::AudioFloat + FloatElement {}
+pub trait PyFloat: audio_samples::AudioFloat + FloatElement {}
 
 impl PyFloat for f32 {}
 impl PyFloat for f64 {}
@@ -283,7 +280,7 @@ fn python_real(obj: &Bound<'_, PyAny>) -> Option<f64> {
 ///
 /// Complex input raises `TypeError` rather than silently dropping the
 /// imaginary part.
-pub(crate) fn float_array_as<'py, F: FloatElement>(
+pub fn float_array_as<'py, F: FloatElement>(
     obj: &Bound<'py, PyAny>,
     name: &str,
 ) -> PyResult<PyReadonlyArrayDyn<'py, F>> {
@@ -329,7 +326,7 @@ pub(crate) fn float_array_as<'py, F: FloatElement>(
 ///
 /// A NumPy array that already has that dtype is used as is; other NumPy arrays
 /// are cast through the C API; anything else goes through `numpy.asarray`.
-pub(crate) fn complex_array_as<'py, F: FloatElement>(
+pub fn complex_array_as<'py, F: FloatElement>(
     obj: &Bound<'py, PyAny>,
     name: &str,
 ) -> PyResult<PyReadonlyArrayDyn<'py, Complex<F>>>
@@ -369,7 +366,7 @@ where
 /// On a free-threaded build the result is always a copy, made under a
 /// rust-numpy borrow: another thread can start writing the array as soon as a
 /// borrow is released, and this function's result outlives any borrow it takes.
-pub(crate) fn array_cow<'a, 'py, E: numpy::Element + Clone>(
+pub fn array_cow<'a, 'py, E: numpy::Element + Clone>(
     obj: &'a Bound<'py, PyAny>,
     convert: impl FnOnce(&Bound<'py, PyAny>) -> PyResult<PyReadonlyArrayDyn<'py, E>>,
 ) -> PyResult<ndarray::CowArray<'a, E, ndarray::IxDyn>> {
@@ -400,7 +397,7 @@ pub(crate) fn array_cow<'a, 'py, E: numpy::Element + Clone>(
 /// On a free-threaded build a mutable borrow can be active on another thread,
 /// so `f` runs under a real borrow, and the call raises `TypeError` if the array
 /// is being written. Other inputs are converted as by [`float_array_as`].
-pub(crate) fn with_float_view<F: FloatElement, R>(
+pub fn with_float_view<F: FloatElement, R>(
     obj: &Bound<'_, PyAny>,
     name: &str,
     f: impl FnOnce(ndarray::ArrayViewD<'_, F>) -> PyResult<R>,
@@ -421,7 +418,7 @@ pub(crate) fn with_float_view<F: FloatElement, R>(
 ///
 /// Complex input raises `TypeError` rather than silently dropping the
 /// imaginary part.
-pub(crate) fn f64_array<'py>(
+pub fn f64_array<'py>(
     obj: &Bound<'py, PyAny>,
     name: &str,
 ) -> PyResult<PyReadonlyArrayDyn<'py, f64>> {
@@ -430,10 +427,7 @@ pub(crate) fn f64_array<'py>(
 
 /// A 2-D `(n_bins, T)` or 3-D `(channels, n_bins, T)` array as 3-D (a 2-D
 /// array becomes one channel).
-pub(crate) fn to_3d<T: Clone>(
-    a: ndarray::ArrayViewD<'_, T>,
-    name: &str,
-) -> PyResult<ndarray::Array3<T>> {
+pub fn to_3d<T: Clone>(a: ndarray::ArrayViewD<'_, T>, name: &str) -> PyResult<ndarray::Array3<T>> {
     use ndarray::{Axis, Ix2, Ix3};
     match a.ndim() {
         2 => Ok(a
@@ -492,7 +486,7 @@ pub(crate) use with_sample_type;
 /// (`istft_matrix`, `icqt`, `griffinlim_cqt`): the `dtype` argument if given,
 /// otherwise `float32` audio for a `complex64`/`float32` input matrix and
 /// `float64` audio for anything else.
-pub(crate) fn output_sample_type(
+pub fn output_sample_type(
     dtype: Option<crate::types::PySampleType>,
     matrix: &Bound<'_, PyAny>,
 ) -> crate::types::PySampleType {
@@ -512,7 +506,7 @@ const MAX_EXACT_INT: f64 = 9.007_199_254_740_992e15;
 /// the C API, without a range check (the Rust conversions saturate). Anything
 /// else is converted to `float64` and must hold integers below 2**53 in
 /// magnitude (the range in which `float64` holds every integer exactly).
-pub(crate) fn with_i64_view<R>(
+pub fn with_i64_view<R>(
     obj: &Bound<'_, PyAny>,
     name: &str,
     f: impl FnOnce(ndarray::ArrayViewD<'_, i64>) -> PyResult<R>,
@@ -557,7 +551,7 @@ pub(crate) fn with_i64_view<R>(
 
 /// Converts an array-like of integers to a `Vec<i64>` (flattened, logical
 /// order), rejecting non-integral values.
-pub(crate) fn i64_vec(obj: &Bound<'_, PyAny>, name: &str) -> PyResult<Vec<i64>> {
+pub fn i64_vec(obj: &Bound<'_, PyAny>, name: &str) -> PyResult<Vec<i64>> {
     with_i64_view(obj, name, |v| Ok(v.iter().copied().collect()))
 }
 
@@ -565,7 +559,7 @@ pub(crate) fn i64_vec(obj: &Bound<'_, PyAny>, name: &str) -> PyResult<Vec<i64>> 
 ///
 /// NumPy arrays, Python numbers, lists and tuples are answered without
 /// calling into NumPy.
-pub(crate) fn is_scalar(obj: &Bound<'_, PyAny>) -> PyResult<bool> {
+pub fn is_scalar(obj: &Bound<'_, PyAny>) -> PyResult<bool> {
     use pyo3::types::{PyFloat, PyInt, PyList};
     if let Ok(a) = obj.cast::<numpy::PyUntypedArray>() {
         return Ok(a.ndim() == 0);
@@ -584,7 +578,7 @@ pub(crate) fn is_scalar(obj: &Bound<'_, PyAny>) -> PyResult<bool> {
 
 /// Applies `f` element-wise, librosa style: a scalar input gives a Python
 /// `float`, an array-like gives a `float64` array of the same shape.
-pub(crate) fn map_f64<'py>(
+pub fn map_f64<'py>(
     obj: &Bound<'py, PyAny>,
     name: &str,
     f: impl Fn(f64) -> f64,
@@ -604,7 +598,7 @@ pub(crate) fn map_f64<'py>(
 }
 
 /// Like [`map_f64`] but producing integers (`int` / `int64` array).
-pub(crate) fn map_f64_to_i64<'py>(
+pub fn map_f64_to_i64<'py>(
     obj: &Bound<'py, PyAny>,
     name: &str,
     f: impl Fn(f64) -> i64,
@@ -651,7 +645,7 @@ fn slice_map_out<'py, T: Copy, R: numpy::Element>(
 /// `scalar_f(x)` as a Python number, an array-like gives `slice_f` over its
 /// elements as an array of the same shape. `slice_f` must agree with
 /// `scalar_f` element by element.
-pub(crate) fn map_f64_slice<'py, R>(
+pub fn map_f64_slice<'py, R>(
     obj: &Bound<'py, PyAny>,
     name: &str,
     scalar_f: impl Fn(f64) -> R,
@@ -674,7 +668,7 @@ where
 }
 
 /// [`map_i64`] for conversions with a slice form (see [`map_f64_slice`]).
-pub(crate) fn map_i64_slice<'py, R>(
+pub fn map_i64_slice<'py, R>(
     obj: &Bound<'py, PyAny>,
     name: &str,
     scalar_f: impl Fn(i64) -> R,
@@ -695,7 +689,7 @@ where
 }
 
 /// Integer-in variant of [`map_f64`]: the input must hold integers.
-pub(crate) fn map_i64<'py, R>(
+pub fn map_i64<'py, R>(
     obj: &Bound<'py, PyAny>,
     name: &str,
     f: impl Fn(i64) -> R,
@@ -765,7 +759,7 @@ fn window_from_name(name: &str) -> PyResult<Window> {
 /// `("kaiser", beta)` / `("gaussian", std)` (or `(name,)`), a bare number
 /// (a Kaiser `beta`, as `scipy.signal.get_window` does), or an array of
 /// coefficients (used as given, like librosa).
-pub(crate) fn parse_window(obj: &Bound<'_, PyAny>) -> PyResult<Window> {
+pub fn parse_window(obj: &Bound<'_, PyAny>) -> PyResult<Window> {
     if let Ok(s) = obj.cast::<PyString>() {
         return window_from_name(&s.to_cow()?);
     }
@@ -822,7 +816,7 @@ pub(crate) fn parse_window(obj: &Bound<'_, PyAny>) -> PyResult<Window> {
 }
 
 /// Parses librosa's `pad_mode` (the subset supported by the Rust STFT).
-pub(crate) fn parse_pad_mode(mode: &str) -> PyResult<StftPadMode> {
+pub fn parse_pad_mode(mode: &str) -> PyResult<StftPadMode> {
     match mode {
         "constant" => Ok(StftPadMode::Constant),
         "reflect" => Ok(StftPadMode::Reflect),
@@ -838,7 +832,7 @@ pub(crate) fn parse_pad_mode(mode: &str) -> PyResult<StftPadMode> {
 }
 
 /// Builds an [`StftConfig`] from librosa's STFT keyword arguments.
-pub(crate) fn stft_config(
+pub fn stft_config(
     n_fft: Int,
     hop_length: Option<Int>,
     win_length: Option<Int>,
@@ -858,7 +852,7 @@ pub(crate) fn stft_config(
 
 /// Parses a mel filter `norm`: `None`, `"slaney"` or a number `p` (Lp norm,
 /// `numpy.inf` allowed).
-pub(crate) fn parse_mel_norm(obj: &Bound<'_, PyAny>) -> PyResult<MelFilterNorm> {
+pub fn parse_mel_norm(obj: &Bound<'_, PyAny>) -> PyResult<MelFilterNorm> {
     if obj.is_none() {
         return Ok(MelFilterNorm::None);
     }
@@ -878,7 +872,7 @@ pub(crate) fn parse_mel_norm(obj: &Bound<'_, PyAny>) -> PyResult<MelFilterNorm> 
 }
 
 /// Builds a [`MelFilterbankConfig`] from librosa's mel keyword arguments.
-pub(crate) fn mel_config(
+pub fn mel_config(
     n_mels: Int,
     fmin: f64,
     fmax: Option<f64>,
@@ -895,13 +889,13 @@ pub(crate) fn mel_config(
 }
 
 /// `htk` flag to [`MelScale`].
-pub(crate) const fn mel_scale(htk: bool) -> MelScale {
+pub const fn mel_scale(htk: bool) -> MelScale {
     if htk { MelScale::Htk } else { MelScale::Slaney }
 }
 
 /// Parses a dB reference: a number, the string `"max"`, or `numpy.max` /
 /// `numpy.amax` (librosa's `ref=np.max`).
-pub(crate) fn parse_db_ref(obj: &Bound<'_, PyAny>) -> PyResult<DbReference> {
+pub fn parse_db_ref(obj: &Bound<'_, PyAny>) -> PyResult<DbReference> {
     let py = obj.py();
     if let Ok(s) = obj.cast::<PyString>() {
         return match &*s.to_cow()? {
@@ -931,7 +925,7 @@ pub(crate) fn parse_db_ref(obj: &Bound<'_, PyAny>) -> PyResult<DbReference> {
 /// A Python slice on an axis of length `n`, in the terms of [`ndarray::Slice`]: a
 /// negative step reverses the range `start..end` there, where Python counts down from
 /// `start`.
-pub(crate) fn slice_on_axis(
+pub fn slice_on_axis(
     slice: &Bound<'_, pyo3::types::PySlice>,
     n: usize,
 ) -> PyResult<ndarray::Slice> {
@@ -948,7 +942,7 @@ pub(crate) fn slice_on_axis(
 }
 
 /// Parses librosa's `axes` argument of the dB conversions: `"auto"` or `None`.
-pub(crate) fn parse_db_axes(obj: &Bound<'_, PyAny>) -> PyResult<DbAxes> {
+pub fn parse_db_axes(obj: &Bound<'_, PyAny>) -> PyResult<DbAxes> {
     if obj.is_none() {
         return Ok(DbAxes::All);
     }

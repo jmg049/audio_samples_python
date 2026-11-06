@@ -147,12 +147,12 @@ pub enum PySampleType {
 impl From<SampleType> for PySampleType {
     fn from(value: SampleType) -> Self {
         match value {
-            SampleType::U8 => PySampleType::U8,
-            SampleType::I16 => PySampleType::I16,
-            SampleType::I24 => PySampleType::I24,
-            SampleType::I32 => PySampleType::I32,
-            SampleType::F32 => PySampleType::F32,
-            SampleType::F64 => PySampleType::F64,
+            SampleType::U8 => Self::U8,
+            SampleType::I16 => Self::I16,
+            SampleType::I24 => Self::I24,
+            SampleType::I32 => Self::I32,
+            SampleType::F32 => Self::F32,
+            SampleType::F64 => Self::F64,
             _ => unreachable!("unknown SampleType variant"),
         }
     }
@@ -177,7 +177,7 @@ impl PySampleType {
         }
     }
 
-    pub(crate) fn from_native(st: SampleType) -> Option<Self> {
+    pub(crate) const fn from_native(st: SampleType) -> Option<Self> {
         match st {
             SampleType::U8 => Some(Self::U8),
             SampleType::I16 => Some(Self::I16),
@@ -204,7 +204,7 @@ pub struct PyPadSide {
 impl PyPadSide {
     /// Pad on the left side (beginning) of the signal.
     #[classattr]
-    fn left() -> Self {
+    const fn left() -> Self {
         Self {
             inner: PadSide::Left,
         }
@@ -212,7 +212,7 @@ impl PyPadSide {
 
     /// Pad on the right side (end) of the signal.
     #[classattr]
-    fn right() -> Self {
+    const fn right() -> Self {
         Self {
             inner: PadSide::Right,
         }
@@ -273,8 +273,8 @@ impl PyNormalizationMethod {
     /// mapped to a fixed range. This method preserves relative distances but
     /// is sensitive to outliers.
     #[classattr]
-    fn minmax() -> Self {
-        PyNormalizationMethod {
+    const fn minmax() -> Self {
+        Self {
             inner: NormalizationMethod::MinMax,
         }
     }
@@ -285,8 +285,8 @@ impl PyNormalizationMethod {
     /// deviation. This produces zero-mean, unit-variance data and is commonly
     /// used in statistical and machine learning pipelines.
     #[classattr]
-    fn zscore() -> Self {
-        PyNormalizationMethod {
+    const fn zscore() -> Self {
+        Self {
             inner: NormalizationMethod::ZScore,
         }
     }
@@ -296,8 +296,8 @@ impl PyNormalizationMethod {
     /// Scales samples so that the maximum absolute amplitude equals 1. This
     /// preserves waveform shape while enforcing a strict amplitude bound.
     #[classattr]
-    fn peak() -> Self {
-        PyNormalizationMethod {
+    const fn peak() -> Self {
+        Self {
             inner: NormalizationMethod::Peak,
         }
     }
@@ -307,8 +307,8 @@ impl PyNormalizationMethod {
     /// Recentres samples by subtracting the mean value without rescaling their
     /// variance.
     #[classattr]
-    fn mean() -> Self {
-        PyNormalizationMethod {
+    const fn mean() -> Self {
+        Self {
             inner: NormalizationMethod::Mean,
         }
     }
@@ -318,8 +318,8 @@ impl PyNormalizationMethod {
     /// Recentres samples by subtracting the median value. This method is more
     /// robust to outliers than mean-based normalisation.
     #[classattr]
-    fn median() -> Self {
-        PyNormalizationMethod {
+    const fn median() -> Self {
+        Self {
             inner: NormalizationMethod::Median,
         }
     }
@@ -360,8 +360,8 @@ impl PyWindowType {
     /// Good general-purpose window with a balanced trade-off between frequency
     /// resolution and spectral leakage.
     #[classattr]
-    fn hanning() -> Self {
-        PyWindowType {
+    const fn hanning() -> Self {
+        Self {
             inner: WindowType::Hanning,
         }
     }
@@ -371,8 +371,8 @@ impl PyWindowType {
     /// Similar to the Hanning window, with slightly different coefficients and
     /// side-lobe behaviour.
     #[classattr]
-    fn hamming() -> Self {
-        PyWindowType {
+    const fn hamming() -> Self {
+        Self {
             inner: WindowType::Hamming,
         }
     }
@@ -382,8 +382,8 @@ impl PyWindowType {
     /// Low spectral leakage at the cost of a wider main lobe and reduced
     /// frequency resolution.
     #[classattr]
-    fn blackman() -> Self {
-        PyWindowType {
+    const fn blackman() -> Self {
+        Self {
             inner: WindowType::Blackman,
         }
     }
@@ -392,8 +392,8 @@ impl PyWindowType {
     ///
     /// Best frequency resolution but high spectral leakage.
     #[classattr]
-    fn rectangular() -> Self {
-        PyWindowType {
+    const fn rectangular() -> Self {
+        Self {
             inner: WindowType::Rectangular,
         }
     }
@@ -411,8 +411,8 @@ impl PyWindowType {
     ///     wider main lobes.
     #[classmethod]
     #[pyo3(signature = (beta: "float"))]
-    fn kaiser(_cls: &Bound<'_, PyType>, beta: f64) -> Self {
-        PyWindowType {
+    const fn kaiser(_cls: &Bound<'_, PyType>, beta: f64) -> Self {
+        Self {
             inner: WindowType::Kaiser { beta },
         }
     }
@@ -428,8 +428,8 @@ impl PyWindowType {
     ///     Standard deviation controlling the width of the Gaussian envelope.
     #[classmethod]
     #[pyo3(signature = (std: "float"))]
-    fn gaussian(_cls: &Bound<'_, PyType>, std: f64) -> Self {
-        PyWindowType {
+    const fn gaussian(_cls: &Bound<'_, PyType>, std: f64) -> Self {
+        Self {
             inner: WindowType::Gaussian { std },
         }
     }
@@ -469,8 +469,8 @@ impl PyFadeCurve {
     ///
     /// Constant rate of change over time.
     #[classattr]
-    fn linear() -> Self {
-        PyFadeCurve {
+    const fn linear() -> Self {
+        Self {
             inner: FadeCurve::Linear,
         }
     }
@@ -479,8 +479,8 @@ impl PyFadeCurve {
     ///
     /// Faster change at the beginning, slower towards the end.
     #[classattr]
-    fn exponential() -> Self {
-        PyFadeCurve {
+    const fn exponential() -> Self {
+        Self {
             inner: FadeCurve::Exponential,
         }
     }
@@ -489,8 +489,8 @@ impl PyFadeCurve {
     ///
     /// Slower change at the beginning, faster towards the end.
     #[classattr]
-    fn logarithmic() -> Self {
-        PyFadeCurve {
+    const fn logarithmic() -> Self {
+        Self {
             inner: FadeCurve::Logarithmic,
         }
     }
@@ -499,8 +499,8 @@ impl PyFadeCurve {
     ///
     /// S-shaped curve with smooth transitions at both the start and end.
     #[classattr]
-    fn smooth_step() -> Self {
-        PyFadeCurve {
+    const fn smooth_step() -> Self {
+        Self {
             inner: FadeCurve::SmoothStep,
         }
     }
@@ -539,8 +539,8 @@ impl PyVadMethod {
     ///
     /// Uses signal energy (e.g. RMS) and a threshold to detect activity.
     #[classattr]
-    fn energy() -> Self {
-        PyVadMethod {
+    const fn energy() -> Self {
+        Self {
             inner: VadMethod::Energy,
         }
     }
@@ -549,8 +549,8 @@ impl PyVadMethod {
     ///
     /// Uses the rate of sign changes in the waveform as an indicator of activity.
     #[classattr]
-    fn zcr() -> Self {
-        PyVadMethod {
+    const fn zcr() -> Self {
+        Self {
             inner: VadMethod::ZeroCrossing,
         }
     }
@@ -559,8 +559,8 @@ impl PyVadMethod {
     ///
     /// Integrates both energy and ZCR cues for more robust detection.
     #[classattr]
-    fn combined() -> Self {
-        PyVadMethod {
+    const fn combined() -> Self {
+        Self {
             inner: VadMethod::Combined,
         }
     }
@@ -571,8 +571,8 @@ impl PyVadMethod {
     /// ``voice_activity_mask`` / ``speech_regions`` raise an error when this
     /// method is selected. Use ``energy``, ``zcr`` or ``combined``.
     #[classattr]
-    fn spectral() -> Self {
-        PyVadMethod {
+    const fn spectral() -> Self {
+        Self {
             inner: VadMethod::Spectral,
         }
     }
@@ -613,24 +613,24 @@ pub struct PyVadChannelPolicy {
 impl PyVadChannelPolicy {
     /// Average all channels to a mono signal and run VAD once.
     #[classattr]
-    fn average_to_mono() -> Self {
-        PyVadChannelPolicy {
+    const fn average_to_mono() -> Self {
+        Self {
             inner: VadChannelPolicy::AverageToMono,
         }
     }
 
     /// Run VAD independently on each channel and mark activity if any channel is active.
     #[classattr]
-    fn any_channel() -> Self {
-        PyVadChannelPolicy {
+    const fn any_channel() -> Self {
+        Self {
             inner: VadChannelPolicy::AnyChannel,
         }
     }
 
     /// Run VAD independently on each channel and mark activity only if all channels are active.
     #[classattr]
-    fn all_channels() -> Self {
-        PyVadChannelPolicy {
+    const fn all_channels() -> Self {
+        Self {
             inner: VadChannelPolicy::AllChannels,
         }
     }
@@ -643,8 +643,8 @@ impl PyVadChannelPolicy {
     ///     Zero-based channel index to use for VAD.
     #[classmethod]
     #[pyo3(signature = (ch: "int"))]
-    fn channel(_cls: &Bound<'_, PyType>, ch: usize) -> Self {
-        PyVadChannelPolicy {
+    const fn channel(_cls: &Bound<'_, PyType>, ch: usize) -> Self {
+        Self {
             inner: VadChannelPolicy::Channel(ch),
         }
     }
@@ -680,47 +680,47 @@ impl PyVadConfig {
     ///
     /// Parameters
     /// ----------
-    /// method : VadMethod
+    /// method : ``VadMethod``
     ///     Voice activity detection method to use (positional-only).
-    /// channel_policy : VadChannelPolicy
+    /// ``channel_policy`` : ``VadChannelPolicy``
     ///     Policy for handling multi-channel audio (positional-only, second).
-    /// frame_size : int
+    /// ``frame_size`` : int
     ///     Frame size in samples.
-    /// hop_size : int
+    /// ``hop_size`` : int
     ///     Hop size in samples (frame step). Must be less than or equal to
     ///     ``frame_size``.
-    /// pad_end : bool
+    /// ``pad_end`` : bool
     ///     Whether to include a final partial frame padded with zeros.
-    /// energy_threshold_db : float
+    /// ``energy_threshold_db`` : float
     ///     Energy threshold in dBFS (RMS). Typical values range from approximately
     ///     -60.0 (very sensitive) to -30.0.
-    /// zcr_min : float
+    /// ``zcr_min`` : float
     ///     Minimum acceptable zero crossing rate, expressed as crossings per
     ///     sample in the range [0, 1].
-    /// zcr_max : float
+    /// ``zcr_max`` : float
     ///     Maximum acceptable zero crossing rate, expressed as crossings per
     ///     sample in the range [0, 1].
-    /// min_speech_frames : int
+    /// ``min_speech_frames`` : int
     ///     Minimum number of consecutive speech frames required to keep a speech
     ///     region.
-    /// min_silence_frames : int
+    /// ``min_silence_frames`` : int
     ///     Minimum number of consecutive non-speech frames required to keep a
     ///     silence region. Shorter silence gaps are filled as speech.
-    /// hangover_frames : int
+    /// ``hangover_frames`` : int
     ///     Number of frames to keep speech active after energy drops.
-    /// smooth_frames : int
+    /// ``smooth_frames`` : int
     ///     Majority-vote smoothing window in frames. A value of 1 disables
     ///     smoothing.
-    /// speech_band_low_hz : float
+    /// ``speech_band_low_hz`` : float
     ///     Lower bound of the speech band in Hz (used by spectral VAD).
-    /// speech_band_high_hz : float
+    /// ``speech_band_high_hz`` : float
     ///     Upper bound of the speech band in Hz (used by spectral VAD).
-    /// spectral_ratio_threshold : float
+    /// ``spectral_ratio_threshold`` : float
     ///     Threshold on speech-band energy ratio (used by spectral VAD).
     ///
     /// Returns
     /// -------
-    /// VadConfig
+    /// ``VadConfig``
     ///     A new VAD configuration instance.
     ///
     /// Notes
@@ -746,7 +746,7 @@ impl PyVadConfig {
         speech_band_high_hz: f64,
         spectral_ratio_threshold: f64,
     ) -> PyResult<Self> {
-        Ok(PyVadConfig {
+        Ok(Self {
             inner: VadConfig::new(
                 method.inner,
                 nzu_or_err(frame_size)?,
@@ -773,7 +773,7 @@ impl PyVadConfig {
     /// ``VadMethod.energy`` with default parameters.
     #[classattr]
     fn energy_only() -> Self {
-        PyVadConfig {
+        Self {
             inner: VadConfig::energy_only(),
         }
     }
@@ -785,12 +785,12 @@ impl PyVadConfig {
     ///
     /// Returns
     /// -------
-    /// VadConfig
+    /// ``VadConfig``
     ///     Returns the validated configuration if validation succeeds.
     ///
     /// Raises
     /// ------
-    /// ValueError
+    /// ``ValueError``
     ///     If any configuration parameter is invalid or inconsistent.
     #[pyo3(signature = ())]
     fn validate(&mut self) -> PyResult<Self> {
@@ -927,21 +927,21 @@ pub struct PyResamplingQuality {
 
 impl PyResamplingQuality {
     #[inline]
-    pub fn resample_fast() -> Self {
+    pub const fn resample_fast() -> Self {
         Self {
             inner: ResamplingQuality::Fast,
         }
     }
 
     #[inline]
-    pub fn resample_mediuem() -> Self {
+    pub const fn resample_mediuem() -> Self {
         Self {
             inner: ResamplingQuality::Medium,
         }
     }
 
     #[inline]
-    pub fn resample_high() -> Self {
+    pub const fn resample_high() -> Self {
         Self {
             inner: ResamplingQuality::High,
         }
@@ -953,8 +953,8 @@ impl PyResamplingQuality {
     /// Fast resampling: short windowed sinc (passband 0.80 x Nyquist, 70 dB
     /// stopband) when downsampling, linear interpolation when upsampling.
     #[classattr]
-    fn fast() -> Self {
-        PyResamplingQuality {
+    const fn fast() -> Self {
+        Self {
             inner: ResamplingQuality::Fast,
         }
     }
@@ -962,8 +962,8 @@ impl PyResamplingQuality {
     /// Medium quality resampling: windowed sinc, passband 0.90 x Nyquist,
     /// 100 dB stopband.
     #[classattr]
-    fn medium() -> Self {
-        PyResamplingQuality {
+    const fn medium() -> Self {
+        Self {
             inner: ResamplingQuality::Medium,
         }
     }
@@ -971,8 +971,8 @@ impl PyResamplingQuality {
     /// High quality resampling: windowed sinc, passband 0.913 x Nyquist,
     /// 125 dB stopband (close to librosa's default ``soxr_hq``).
     #[classattr]
-    fn high() -> Self {
-        PyResamplingQuality {
+    const fn high() -> Self {
+        Self {
             inner: ResamplingQuality::High,
         }
     }
@@ -1016,8 +1016,8 @@ impl PySpectrogramScale {
     /// Preserves absolute magnitude relationships and is most appropriate for
     /// quantitative analysis and energy measurements.
     #[classattr]
-    fn linear() -> Self {
-        PySpectrogramScale {
+    const fn linear() -> Self {
+        Self {
             inner: SpectrogramScale::Linear,
         }
     }
@@ -1027,8 +1027,8 @@ impl PySpectrogramScale {
     /// Compresses dynamic range to improve visualisation of low-energy components
     /// alongside strong spectral peaks.
     #[classattr]
-    fn log() -> Self {
-        PySpectrogramScale {
+    const fn log() -> Self {
+        Self {
             inner: SpectrogramScale::Log,
         }
     }
@@ -1038,8 +1038,8 @@ impl PySpectrogramScale {
     /// Applies a perceptually motivated nonlinear mapping of frequency designed
     /// to better approximate human auditory resolution.
     #[classattr]
-    fn mel() -> Self {
-        PySpectrogramScale {
+    const fn mel() -> Self {
+        Self {
             inner: SpectrogramScale::Mel,
         }
     }
@@ -1082,8 +1082,8 @@ impl PyMonoConversionMethod {
     ///
     /// Each input channel contributes equally to the output mono signal.
     #[classattr]
-    fn average() -> Self {
-        PyMonoConversionMethod {
+    const fn average() -> Self {
+        Self {
             inner: MonoConversionMethod::Average,
         }
     }
@@ -1092,8 +1092,8 @@ impl PyMonoConversionMethod {
     ///
     /// Intended primarily for stereo input.
     #[classattr]
-    fn left() -> Self {
-        PyMonoConversionMethod {
+    const fn left() -> Self {
+        Self {
             inner: MonoConversionMethod::Left,
         }
     }
@@ -1102,8 +1102,8 @@ impl PyMonoConversionMethod {
     ///
     /// Intended primarily for stereo input.
     #[classattr]
-    fn right() -> Self {
-        PyMonoConversionMethod {
+    const fn right() -> Self {
+        Self {
             inner: MonoConversionMethod::Right,
         }
     }
@@ -1119,16 +1119,16 @@ impl PyMonoConversionMethod {
     ///     channels.
     #[classmethod]
     #[pyo3(signature = (weights: "list[float]"))]
-    fn weighted(_cls: &Bound<'_, PyType>, weights: Vec<f64>) -> Self {
-        PyMonoConversionMethod {
+    const fn weighted(_cls: &Bound<'_, PyType>, weights: Vec<f64>) -> Self {
+        Self {
             inner: MonoConversionMethod::Weighted(weights),
         }
     }
 
     /// Use the centre channel if available, otherwise average left and right.
     #[classattr]
-    fn center() -> Self {
-        PyMonoConversionMethod {
+    const fn center() -> Self {
+        Self {
             inner: MonoConversionMethod::Center,
         }
     }
@@ -1168,8 +1168,8 @@ pub struct PyStereoConversionMethod {
 impl PyStereoConversionMethod {
     /// Duplicate mono signal to both left and right channels.
     #[classattr]
-    fn duplicate() -> Self {
-        PyStereoConversionMethod {
+    const fn duplicate() -> Self {
+        Self {
             inner: StereoConversionMethod::Duplicate,
         }
     }
@@ -1181,28 +1181,28 @@ impl PyStereoConversionMethod {
     ///
     /// Parameters
     /// ----------
-    /// pan_value : float
+    /// ``pan_value`` : float
     ///     Pan position in the range [-1, 1].
     #[classmethod]
     #[pyo3(signature = (pan_value: "float"))]
-    fn pan(_cls: &Bound<'_, PyType>, pan_value: f64) -> Self {
-        PyStereoConversionMethod {
+    const fn pan(_cls: &Bound<'_, PyType>, pan_value: f64) -> Self {
+        Self {
             inner: StereoConversionMethod::Pan(pan_value),
         }
     }
 
     /// Use as the left channel, filling the right channel with silence.
     #[classattr]
-    fn left() -> Self {
-        PyStereoConversionMethod {
+    const fn left() -> Self {
+        Self {
             inner: StereoConversionMethod::Left,
         }
     }
 
     /// Use as the right channel, filling the left channel with silence.
     #[classattr]
-    fn right() -> Self {
-        PyStereoConversionMethod {
+    const fn right() -> Self {
+        Self {
             inner: StereoConversionMethod::Right,
         }
     }
@@ -1230,6 +1230,7 @@ impl_py_repr!(PyStereoConversionMethod);
 /// - ``PitchDetectionMethod.harmonic_product`` (not implemented)
 ///
 /// Notes:
+///
 ///     Only ``yin`` and ``autocorrelation`` are implemented. ``track_pitch``
 ///     raises ``AudioParameterError`` for ``cepstrum`` and
 ///     ``harmonic_product``.
@@ -1245,25 +1246,25 @@ pub struct PyPitchDetectionMethod {
 
 impl PyPitchDetectionMethod {
     #[inline]
-    pub fn detect_yin() -> Self {
+    pub const fn detect_yin() -> Self {
         Self {
             inner: PitchDetectionMethod::Yin,
         }
     }
     #[inline]
-    pub fn detect_autocorrelation() -> Self {
+    pub const fn detect_autocorrelation() -> Self {
         Self {
             inner: PitchDetectionMethod::Autocorrelation,
         }
     }
     #[inline]
-    pub fn detect_cepstrum() -> Self {
+    pub const fn detect_cepstrum() -> Self {
         Self {
             inner: PitchDetectionMethod::Cepstrum,
         }
     }
     #[inline]
-    pub fn detect_harmonic_product() -> Self {
+    pub const fn detect_harmonic_product() -> Self {
         Self {
             inner: PitchDetectionMethod::HarmonicProduct,
         }
@@ -1277,8 +1278,8 @@ impl PyPitchDetectionMethod {
     /// Accurate fundamental frequency estimation for speech and musical
     /// signals, at moderate computational cost.
     #[classattr]
-    fn yin() -> Self {
-        PyPitchDetectionMethod {
+    const fn yin() -> Self {
+        Self {
             inner: PitchDetectionMethod::Yin,
         }
     }
@@ -1288,8 +1289,8 @@ impl PyPitchDetectionMethod {
     /// Simple and fast, but sensitive to noise and octave errors for complex or
     /// weakly periodic signals.
     #[classattr]
-    fn autocorrelation() -> Self {
-        PyPitchDetectionMethod {
+    const fn autocorrelation() -> Self {
+        Self {
             inner: PitchDetectionMethod::Autocorrelation,
         }
     }
@@ -1299,8 +1300,8 @@ impl PyPitchDetectionMethod {
     /// Reserved; ``track_pitch`` raises ``AudioParameterError`` for this method.
     /// Use ``yin`` or ``autocorrelation``.
     #[classattr]
-    fn cepstrum() -> Self {
-        PyPitchDetectionMethod {
+    const fn cepstrum() -> Self {
+        Self {
             inner: PitchDetectionMethod::Cepstrum,
         }
     }
@@ -1310,8 +1311,8 @@ impl PyPitchDetectionMethod {
     /// Reserved; ``track_pitch`` raises ``AudioParameterError`` for this method.
     /// Use ``yin`` or ``autocorrelation``.
     #[classattr]
-    fn harmonic_product() -> Self {
-        PyPitchDetectionMethod {
+    const fn harmonic_product() -> Self {
+        Self {
             inner: PitchDetectionMethod::HarmonicProduct,
         }
     }
@@ -1354,8 +1355,8 @@ impl PyIirFilterType {
     /// Provides smooth behaviour and predictable phase characteristics at the
     /// cost of wider transition bands.
     #[classattr]
-    fn butterworth() -> Self {
-        PyIirFilterType {
+    const fn butterworth() -> Self {
+        Self {
             inner: IirFilterType::Butterworth,
         }
     }
@@ -1365,8 +1366,8 @@ impl PyIirFilterType {
     /// Introduces controlled ripple in the passband to achieve a sharper
     /// transition region than Butterworth designs.
     #[classattr]
-    fn chebyshev_type_i() -> Self {
-        PyIirFilterType {
+    const fn chebyshev_type_i() -> Self {
+        Self {
             inner: IirFilterType::ChebyshevI,
         }
     }
@@ -1376,8 +1377,8 @@ impl PyIirFilterType {
     /// Introduces ripple in the stopband while preserving a monotonic passband
     /// response, allowing sharper transitions than Butterworth designs.
     #[classattr]
-    fn chebyshev_type_ii() -> Self {
-        PyIirFilterType {
+    const fn chebyshev_type_ii() -> Self {
+        Self {
             inner: IirFilterType::ChebyshevII,
         }
     }
@@ -1387,8 +1388,8 @@ impl PyIirFilterType {
     /// Introduces ripple in both passband and stopband, yielding the steepest
     /// transition region for a given filter order.
     #[classattr]
-    fn elliptic() -> Self {
-        PyIirFilterType {
+    const fn elliptic() -> Self {
+        Self {
             inner: IirFilterType::Elliptic,
         }
     }
@@ -1399,8 +1400,8 @@ impl PyIirFilterType {
     /// passband, preserving wave shape at the cost of a gentle, monotonic
     /// magnitude roll-off.
     #[classattr]
-    fn bessel() -> Self {
-        PyIirFilterType {
+    const fn bessel() -> Self {
+        Self {
             inner: IirFilterType::Bessel,
         }
     }
@@ -1444,8 +1445,8 @@ impl PyFilterResponse {
     /// Attenuates frequencies above the cutoff frequency while preserving
     /// lower-frequency components.
     #[classattr]
-    fn lowpass() -> Self {
-        PyFilterResponse {
+    const fn lowpass() -> Self {
+        Self {
             inner: FilterResponse::LowPass,
         }
     }
@@ -1455,8 +1456,8 @@ impl PyFilterResponse {
     /// Attenuates frequencies below the cutoff frequency while preserving
     /// higher-frequency components.
     #[classattr]
-    fn highpass() -> Self {
-        PyFilterResponse {
+    const fn highpass() -> Self {
+        Self {
             inner: FilterResponse::HighPass,
         }
     }
@@ -1466,8 +1467,8 @@ impl PyFilterResponse {
     /// Preserves frequencies within a specified band while attenuating
     /// frequencies outside that range.
     #[classattr]
-    fn bandpass() -> Self {
-        PyFilterResponse {
+    const fn bandpass() -> Self {
+        Self {
             inner: FilterResponse::BandPass,
         }
     }
@@ -1477,8 +1478,8 @@ impl PyFilterResponse {
     /// Attenuates frequencies within a specified band while preserving
     /// frequencies outside that range.
     #[classattr]
-    fn bandstop() -> Self {
-        PyFilterResponse {
+    const fn bandstop() -> Self {
+        Self {
             inner: FilterResponse::BandStop,
         }
     }
@@ -1491,7 +1492,7 @@ impl_py_repr!(PyFilterResponse);
 
 /// Extract a `FilterResponse` from a `FilterResponse` instance or a string
 /// such as ``"lowpass"``, ``"highpass"``, ``"bandpass"`` or ``"bandstop"``.
-pub(crate) fn filter_response_arg(obj: &Bound<'_, PyAny>) -> PyResult<FilterResponse> {
+pub fn filter_response_arg(obj: &Bound<'_, PyAny>) -> PyResult<FilterResponse> {
     use std::str::FromStr;
     if let Ok(r) = obj.extract::<PyFilterResponse>() {
         Ok(r.inner)
@@ -1552,29 +1553,29 @@ impl PyIirFilterDesign {
     ///
     /// Parameters
     /// ----------
-    /// filter_type : IirFilterType
+    /// ``filter_type`` : ``IirFilterType``
     ///     IIR filter family (e.g. Butterworth, Chebyshev).
-    /// response : FilterResponse
+    /// response : ``FilterResponse``
     ///     Desired frequency response shape (low-pass, high-pass, band-pass, etc.).
     /// order : int
     ///     Filter order (number of poles).
-    /// cutoff_frequency : float, optional
+    /// ``cutoff_frequency`` : float, optional
     ///     Cutoff frequency in Hz for low-pass and high-pass filters.
-    /// low_frequency : float, optional
+    /// ``low_frequency`` : float, optional
     ///     Lower cutoff frequency in Hz for band-pass and band-stop filters.
-    /// high_frequency : float, optional
+    /// ``high_frequency`` : float, optional
     ///     Upper cutoff frequency in Hz for band-pass and band-stop filters.
-    /// passband_ripple : float, optional
+    /// ``passband_ripple`` : float, optional
     ///     Passband ripple in dB (Chebyshev I, elliptic).
-    /// stopband_attenuation : float, optional
+    /// ``stopband_attenuation`` : float, optional
     ///     Stopband attenuation in dB (Chebyshev II, elliptic).
-    /// bessel_norm : str, optional
+    /// ``bessel_norm`` : str, optional
     ///     Bessel normalisation: ``"mag"`` (default, -3 dB at the cutoff),
     ///     ``"phase"`` (SciPy's default) or ``"delay"``.
     ///
     /// Returns
     /// -------
-    /// IirFilterDesign
+    /// ``IirFilterDesign``
     ///     A new filter design description.
     ///
     /// Notes
@@ -1628,37 +1629,37 @@ impl PyIirFilterDesign {
 
     /// Filter order (number of poles).
     #[getter]
-    fn order(&self) -> usize {
+    const fn order(&self) -> usize {
         self.inner.order.get()
     }
 
     /// Cutoff frequency in Hz for low-pass and high-pass filters.
     #[getter]
-    fn cutoff_frequency(&self) -> Option<f64> {
+    const fn cutoff_frequency(&self) -> Option<f64> {
         self.inner.cutoff_frequency
     }
 
     /// Lower cutoff frequency in Hz for band-pass and band-stop filters.
     #[getter]
-    fn low_frequency(&self) -> Option<f64> {
+    const fn low_frequency(&self) -> Option<f64> {
         self.inner.low_frequency
     }
 
     /// Upper cutoff frequency in Hz for band-pass and band-stop filters.
     #[getter]
-    fn high_frequency(&self) -> Option<f64> {
+    const fn high_frequency(&self) -> Option<f64> {
         self.inner.high_frequency
     }
 
     /// Passband ripple in dB, if applicable.
     #[getter]
-    fn passband_ripple(&self) -> Option<f64> {
+    const fn passband_ripple(&self) -> Option<f64> {
         self.inner.passband_ripple
     }
 
     /// Stopband attenuation in dB, if applicable.
     #[getter]
-    fn stopband_attenuation(&self) -> Option<f64> {
+    const fn stopband_attenuation(&self) -> Option<f64> {
         self.inner.stopband_attenuation
     }
 
@@ -1668,13 +1669,13 @@ impl PyIirFilterDesign {
     /// ----------
     /// order : int
     ///     Filter order.
-    /// cutoff_frequency : float
+    /// ``cutoff_frequency`` : float
     ///     Cutoff frequency in Hz.
     ///
     /// Returns
     /// -------
     ///
-    /// IirFilterDesign
+    /// ``IirFilterDesign``
     ///     A new Butterworth low-pass filter design instance.
     ///
     /// Errors
@@ -1701,7 +1702,7 @@ impl PyIirFilterDesign {
     /// ----------
     /// order : int
     ///     Filter order.
-    /// cutoff_frequency : float
+    /// ``cutoff_frequency`` : float
     ///     Cutoff frequency in Hz.
     #[classmethod]
     #[pyo3(signature = (order: "int", cutoff_frequency: "float"))]
@@ -1723,9 +1724,9 @@ impl PyIirFilterDesign {
     /// ----------
     /// order : int
     ///     Filter order.
-    /// low_frequency : float
+    /// ``low_frequency`` : float
     ///     Lower cutoff frequency in Hz.
-    /// high_frequency : float
+    /// ``high_frequency`` : float
     ///     Upper cutoff frequency in Hz.
     #[classmethod]
     #[pyo3(signature = (order: "int", low_frequency: "float", high_frequency: "float"))]
@@ -1971,9 +1972,11 @@ impl PyIirFilterDesign {
     /// fs=sample_rate)``, so it can be passed straight to ``scipy.signal.sosfilt``.
     ///
     /// Args:
+    ///
     ///     sample_rate (float): Sample rate in hertz.
     ///
     /// Raises:
+    ///
     ///     ValueError: If the design is invalid for ``sample_rate``.
     #[pyo3(signature = (sample_rate: "float"))]
     fn sos<'py>(&self, py: Python<'py>, sample_rate: f64) -> PyResult<Bound<'py, PyArray2<f64>>> {
@@ -1990,15 +1993,18 @@ impl PyIirFilterDesign {
     /// Evaluate the frequency response of the design.
     ///
     /// Args:
+    ///
     ///     frequencies (np.typing.NDArray[np.float64]): Frequencies in hertz.
     ///     sample_rate (float): Sample rate in hertz.
     ///
     /// Returns:
+    ///
     ///     tuple[np.typing.NDArray[np.float64], np.typing.NDArray[np.float64]]:
     ///     Linear magnitude and phase (radians, wrapped to (-pi, pi]) — the
     ///     equivalent of ``scipy.signal.sosfreqz(sos, worN=frequencies, fs=sample_rate)``.
     ///
     /// Raises:
+    ///
     ///     ValueError: If the design is invalid for ``sample_rate``.
     #[pyo3(signature = (frequencies: "np.typing.NDArray[np.float64]", sample_rate: "float"))]
     fn frequency_response<'py>(
@@ -2049,7 +2055,7 @@ impl PyEqBandType {
     /// Boosts or attenuates a narrow frequency region centred at the target
     /// frequency. Positive gain produces a peak; negative gain produces a notch.
     #[classattr]
-    fn peak() -> Self {
+    const fn peak() -> Self {
         Self {
             inner: EqBandType::Peak,
         }
@@ -2060,7 +2066,7 @@ impl PyEqBandType {
     /// Applies a broadband boost or cut to frequencies below the corner
     /// frequency.
     #[classattr]
-    fn low_shelf() -> Self {
+    const fn low_shelf() -> Self {
         Self {
             inner: EqBandType::LowShelf,
         }
@@ -2071,7 +2077,7 @@ impl PyEqBandType {
     /// Applies a broadband boost or cut to frequencies above the corner
     /// frequency.
     #[classattr]
-    fn high_shelf() -> Self {
+    const fn high_shelf() -> Self {
         Self {
             inner: EqBandType::HighShelf,
         }
@@ -2081,7 +2087,7 @@ impl PyEqBandType {
     ///
     /// Attenuates frequencies above the cutoff frequency.
     #[classattr]
-    fn low_pass() -> Self {
+    const fn low_pass() -> Self {
         Self {
             inner: EqBandType::LowPass,
         }
@@ -2091,7 +2097,7 @@ impl PyEqBandType {
     ///
     /// Attenuates frequencies below the cutoff frequency.
     #[classattr]
-    fn high_pass() -> Self {
+    const fn high_pass() -> Self {
         Self {
             inner: EqBandType::HighPass,
         }
@@ -2102,7 +2108,7 @@ impl PyEqBandType {
     /// Preserves frequencies within a specified band while attenuating
     /// frequencies outside that range.
     #[classattr]
-    fn band_pass() -> Self {
+    const fn band_pass() -> Self {
         Self {
             inner: EqBandType::BandPass,
         }
@@ -2113,7 +2119,7 @@ impl PyEqBandType {
     /// Attenuates frequencies within a specified band while preserving
     /// frequencies outside that range.
     #[classattr]
-    fn band_stop() -> Self {
+    const fn band_stop() -> Self {
         Self {
             inner: EqBandType::BandStop,
         }
@@ -2148,15 +2154,15 @@ impl PyEqBand {
     ///
     /// Parameters
     /// ----------
-    /// band_type : EqBandType
+    /// ``band_type`` : ``EqBandType``
     ///     Type of EQ band (peak, shelf, pass, etc.).
     /// frequency : float
     ///     Centre frequency in Hz (for peak / notch) or corner frequency (for
     ///     shelving and pass filters).
-    /// gain_db : float
+    /// ``gain_db`` : float
     ///     Gain in decibels. Positive values boost, negative values attenuate.
     ///     For purely filtering bands (e.g. low-pass), this is typically zero.
-    /// q_factor : float
+    /// ``q_factor`` : float
     ///     Quality factor controlling bandwidth or slope. Higher values produce
     ///     narrower bandwidths or steeper transitions.
     ///
@@ -2184,13 +2190,13 @@ impl PyEqBand {
     /// ----------
     /// frequency : float
     ///     Centre frequency in Hz.
-    /// gain_db : float
+    /// ``gain_db`` : float
     ///     Gain in decibels. Positive values boost, negative values attenuate.
-    /// q_factor : float
+    /// ``q_factor`` : float
     ///     Quality factor controlling bandwidth.
     #[classmethod]
     #[pyo3(signature = (frequency: "float", gain_db: "float", q_factor: "float"))]
-    fn peak(_cls: &Bound<'_, PyType>, frequency: f64, gain_db: f64, q_factor: f64) -> Self {
+    const fn peak(_cls: &Bound<'_, PyType>, frequency: f64, gain_db: f64, q_factor: f64) -> Self {
         Self {
             inner: EqBand::peak(frequency, gain_db, q_factor),
         }
@@ -2202,13 +2208,18 @@ impl PyEqBand {
     /// ----------
     /// frequency : float
     ///     Corner frequency in Hz.
-    /// gain_db : float
+    /// ``gain_db`` : float
     ///     Gain in decibels.
-    /// q_factor : float
+    /// ``q_factor`` : float
     ///     Shelf slope control.
     #[classmethod]
     #[pyo3(signature = (frequency: "float", gain_db: "float", q_factor: "float"))]
-    fn low_shelf(_cls: &Bound<'_, PyType>, frequency: f64, gain_db: f64, q_factor: f64) -> Self {
+    const fn low_shelf(
+        _cls: &Bound<'_, PyType>,
+        frequency: f64,
+        gain_db: f64,
+        q_factor: f64,
+    ) -> Self {
         Self {
             inner: EqBand::low_shelf(frequency, gain_db, q_factor),
         }
@@ -2220,13 +2231,18 @@ impl PyEqBand {
     /// ----------
     /// frequency : float
     ///     Corner frequency in Hz.
-    /// gain_db : float
+    /// ``gain_db`` : float
     ///     Gain in decibels.
-    /// q_factor : float
+    /// ``q_factor`` : float
     ///     Shelf slope control.
     #[classmethod]
     #[pyo3(signature = (frequency: "float", gain_db: "float", q_factor: "float"))]
-    fn high_shelf(_cls: &Bound<'_, PyType>, frequency: f64, gain_db: f64, q_factor: f64) -> Self {
+    const fn high_shelf(
+        _cls: &Bound<'_, PyType>,
+        frequency: f64,
+        gain_db: f64,
+        q_factor: f64,
+    ) -> Self {
         Self {
             inner: EqBand::high_shelf(frequency, gain_db, q_factor),
         }
@@ -2234,25 +2250,25 @@ impl PyEqBand {
 
     /// Centre or cutoff frequency in Hz.
     #[getter]
-    fn frequency(&self) -> f64 {
+    const fn frequency(&self) -> f64 {
         self.inner.frequency
     }
 
     /// Gain in decibels.
     #[getter]
-    fn gain_db(&self) -> f64 {
+    const fn gain_db(&self) -> f64 {
         self.inner.gain_db
     }
 
     /// Quality factor controlling bandwidth or slope.
     #[getter]
-    fn q_factor(&self) -> f64 {
+    const fn q_factor(&self) -> f64 {
         self.inner.q_factor
     }
 
     /// Whether this band is enabled.
     #[getter]
-    fn enabled(&self) -> bool {
+    const fn enabled(&self) -> bool {
         self.inner.enabled
     }
 }
@@ -2280,7 +2296,7 @@ impl PyParametricEq {
     /// Create a new empty parametric equaliser.
     #[new]
     #[pyo3(signature = ())]
-    fn new() -> Self {
+    const fn new() -> Self {
         Self {
             inner: ParametricEq::new(),
         }
@@ -2290,7 +2306,7 @@ impl PyParametricEq {
     ///
     /// Parameters
     /// ----------
-    /// band : EqBand
+    /// band : ``EqBand``
     ///     Band configuration to append to the equaliser.
     #[pyo3(signature = (band))]
     fn add_band(&mut self, band: &PyEqBand) {
@@ -2306,7 +2322,7 @@ impl PyParametricEq {
     ///
     /// Returns
     /// -------
-    /// EqBand or None
+    /// ``EqBand`` or None
     ///     The removed band if the index was valid, otherwise ``None``.
     #[pyo3(signature = (index))]
     fn remove_band(&mut self, index: usize) -> Option<PyEqBand> {
@@ -2317,20 +2333,20 @@ impl PyParametricEq {
 
     /// Overall output gain in decibels.
     #[getter]
-    fn output_gain_db(&self) -> f64 {
+    const fn output_gain_db(&self) -> f64 {
         self.inner.output_gain_db
     }
 
     /// Whether the equaliser is currently bypassed.
     #[getter]
-    fn bypassed(&self) -> bool {
+    const fn bypassed(&self) -> bool {
         self.inner.bypassed
     }
 
     /// Number of EQ bands.
     ///
     /// Enables use of ``len(eq)`` in Python.
-    fn __len__(&self) -> usize {
+    const fn __len__(&self) -> usize {
         self.inner.bands.len()
     }
 }
@@ -2365,8 +2381,8 @@ impl PyKneeType {
     /// Applies an abrupt transition at the threshold, yielding precise dynamics
     /// control at the potential cost of audible artefacts.
     #[classattr]
-    fn hard() -> Self {
-        PyKneeType {
+    const fn hard() -> Self {
+        Self {
             inner: KneeType::Hard,
         }
     }
@@ -2376,8 +2392,8 @@ impl PyKneeType {
     /// Applies a gradual transition around the threshold, producing smoother
     /// and more perceptually natural behaviour.
     #[classattr]
-    fn soft() -> Self {
-        PyKneeType {
+    const fn soft() -> Self {
+        Self {
             inner: KneeType::Soft,
         }
     }
@@ -2422,8 +2438,8 @@ impl PyDynamicRangeMethod {
     /// Estimates average signal power over time, producing smoother and more
     /// perceptually stable gain control.
     #[classattr]
-    fn rms() -> Self {
-        PyDynamicRangeMethod {
+    const fn rms() -> Self {
+        Self {
             inner: DynamicRangeMethod::Rms,
         }
     }
@@ -2433,8 +2449,8 @@ impl PyDynamicRangeMethod {
     /// Responds to instantaneous signal peaks, providing tight peak control with
     /// increased sensitivity to transients.
     #[classattr]
-    fn peak() -> Self {
-        PyDynamicRangeMethod {
+    const fn peak() -> Self {
+        Self {
             inner: DynamicRangeMethod::Peak,
         }
     }
@@ -2444,8 +2460,8 @@ impl PyDynamicRangeMethod {
     /// Combines RMS and peak estimation to balance smoothness and transient
     /// control.
     #[classattr]
-    fn hybrid() -> Self {
-        PyDynamicRangeMethod {
+    const fn hybrid() -> Self {
+        Self {
             inner: DynamicRangeMethod::Hybrid,
         }
     }
@@ -2486,22 +2502,22 @@ impl PySideChainConfig {
     /// ----------
     /// enabled : bool
     ///     Whether side-chain processing is enabled.
-    /// high_pass_freq : float or None, optional
+    /// ``high_pass_freq`` : float or None, optional
     ///     High-pass filter cutoff frequency in Hz for the side-chain signal.
     ///     Useful for reducing low-frequency pumping effects.
-    /// low_pass_freq : float or None, optional
+    /// ``low_pass_freq`` : float or None, optional
     ///     Low-pass filter cutoff frequency in Hz for the side-chain signal.
     ///     Useful for focusing compression on specific frequency ranges.
-    /// pre_emphasis_db : float, optional
+    /// ``pre_emphasis_db`` : float, optional
     ///     Pre-emphasis applied to the side-chain signal in decibels.
-    /// external_mix : float, optional
+    /// ``external_mix`` : float, optional
     ///     Mix ratio between internal and external side-chain signal in the
     ///     range ``[0.0, 1.0]``. ``0.0`` selects internal only, ``1.0`` selects
     ///     external only.
     ///
     /// Returns
     /// -------
-    /// SideChainConfig
+    /// ``SideChainConfig``
     ///     A new side-chain configuration.
     ///
     /// Notes
@@ -2523,30 +2539,30 @@ impl PySideChainConfig {
         inner.low_pass_freq = low_pass_freq;
         inner.pre_emphasis_db = pre_emphasis_db;
         inner.external_mix = external_mix;
-        PySideChainConfig { inner }
+        Self { inner }
     }
 
     /// Whether side-chain processing is enabled.
     #[getter]
-    fn enabled(&self) -> bool {
+    const fn enabled(&self) -> bool {
         self.inner.enabled
     }
 
     /// High-pass filter cutoff frequency in Hz for the side-chain signal, if set.
     #[getter]
-    fn high_pass_freq(&self) -> Option<f64> {
+    const fn high_pass_freq(&self) -> Option<f64> {
         self.inner.high_pass_freq
     }
 
     /// Low-pass filter cutoff frequency in Hz for the side-chain signal, if set.
     #[getter]
-    fn low_pass_freq(&self) -> Option<f64> {
+    const fn low_pass_freq(&self) -> Option<f64> {
         self.inner.low_pass_freq
     }
 
     /// Pre-emphasis applied to the side-chain signal in decibels.
     #[getter]
-    fn pre_emphasis_db(&self) -> f64 {
+    const fn pre_emphasis_db(&self) -> f64 {
         self.inner.pre_emphasis_db
     }
 
@@ -2554,7 +2570,7 @@ impl PySideChainConfig {
     ///
     /// Values are expected in the range ``[0.0, 1.0]``.
     #[getter]
-    fn external_mix(&self) -> f64 {
+    const fn external_mix(&self) -> f64 {
         self.inner.external_mix
     }
 }
@@ -2596,36 +2612,36 @@ impl PyCompressorConfig {
     ///
     /// Parameters
     /// ----------
-    /// threshold_db : float
+    /// ``threshold_db`` : float
     ///     Threshold level in decibels. Signal levels above this value will be
     ///     compressed. Typically negative (e.g. -40 to 0 dB).
     /// ratio : float
     ///     Compression ratio. ``1.0`` means no compression; larger values apply
     ///     stronger compression.
-    /// attack_ms : float
+    /// ``attack_ms`` : float
     ///     Attack time in milliseconds. Controls how quickly compression engages
     ///     once the signal exceeds the threshold.
-    /// release_ms : float
+    /// ``release_ms`` : float
     ///     Release time in milliseconds. Controls how quickly compression
     ///     disengages once the signal falls below the threshold.
-    /// makeup_gain_db : float
+    /// ``makeup_gain_db`` : float
     ///     Makeup gain in decibels applied after compression.
-    /// knee_type : KneeType
+    /// ``knee_type`` : ``KneeType``
     ///     Knee characteristic controlling transition smoothness around the
     ///     threshold.
-    /// knee_width_db : float
+    /// ``knee_width_db`` : float
     ///     Width of the knee region in decibels for soft-knee behaviour.
-    /// detection_method : DynamicRangeMethod
+    /// ``detection_method`` : ``DynamicRangeMethod``
     ///     Signal level detection method driving gain reduction.
-    /// side_chain : SideChainConfig
+    /// ``side_chain`` : ``SideChainConfig``
     ///     Side-chain configuration.
-    /// lookahead_ms : float
+    /// ``lookahead_ms`` : float
     ///     Lookahead time in milliseconds. Allows the compressor to anticipate
     ///     upcoming peaks.
     ///
     /// Returns
     /// -------
-    /// CompressorConfig
+    /// ``CompressorConfig``
     ///     A new compressor configuration.
     #[new]
     #[pyo3(signature = (*, threshold_db: "float", ratio: "float", attack_ms: "float", release_ms: "float", makeup_gain_db: "float", knee_type: "KneeType", knee_width_db: "float", detection_method: "DynamicRangeMethod", side_chain: "SideChainConfig", lookahead_ms: "float"))]
@@ -2657,37 +2673,37 @@ impl PyCompressorConfig {
 
     /// Threshold level in decibels.
     #[getter]
-    fn threshold_db(&self) -> f64 {
+    const fn threshold_db(&self) -> f64 {
         self.inner.threshold_db
     }
 
     /// Compression ratio (``1.0`` = no compression).
     #[getter]
-    fn ratio(&self) -> f64 {
+    const fn ratio(&self) -> f64 {
         self.inner.ratio
     }
 
     /// Attack time in milliseconds.
     #[getter]
-    fn attack_ms(&self) -> f64 {
+    const fn attack_ms(&self) -> f64 {
         self.inner.attack_ms
     }
 
     /// Release time in milliseconds.
     #[getter]
-    fn release_ms(&self) -> f64 {
+    const fn release_ms(&self) -> f64 {
         self.inner.release_ms
     }
 
     /// Makeup gain in decibels applied after compression.
     #[getter]
-    fn makeup_gain_db(&self) -> f64 {
+    const fn makeup_gain_db(&self) -> f64 {
         self.inner.makeup_gain_db
     }
 
     /// Knee characteristic.
     #[getter]
-    fn knee_type(&self) -> PyKneeType {
+    const fn knee_type(&self) -> PyKneeType {
         PyKneeType {
             inner: self.inner.knee_type,
         }
@@ -2695,13 +2711,13 @@ impl PyCompressorConfig {
 
     /// Knee width in decibels.
     #[getter]
-    fn knee_width_db(&self) -> f64 {
+    const fn knee_width_db(&self) -> f64 {
         self.inner.knee_width_db
     }
 
     /// Detection method driving gain reduction.
     #[getter]
-    fn detection_method(&self) -> PyDynamicRangeMethod {
+    const fn detection_method(&self) -> PyDynamicRangeMethod {
         PyDynamicRangeMethod {
             inner: self.inner.detection_method,
         }
@@ -2709,7 +2725,7 @@ impl PyCompressorConfig {
 
     /// Side-chain configuration.
     #[getter]
-    fn side_chain(&self) -> PySideChainConfig {
+    const fn side_chain(&self) -> PySideChainConfig {
         PySideChainConfig {
             inner: self.inner.side_chain,
         }
@@ -2717,7 +2733,7 @@ impl PyCompressorConfig {
 
     /// Lookahead time in milliseconds.
     #[getter]
-    fn lookahead_ms(&self) -> f64 {
+    const fn lookahead_ms(&self) -> f64 {
         self.inner.lookahead_ms
     }
 
@@ -2725,7 +2741,7 @@ impl PyCompressorConfig {
     ///
     /// Tuned for moderate dynamic control and natural sounding speech or vocals.
     #[classattr]
-    fn vocal() -> Self {
+    const fn vocal() -> Self {
         Self {
             inner: CompressorConfig::vocal(),
         }
@@ -2735,7 +2751,7 @@ impl PyCompressorConfig {
     ///
     /// Tuned for fast transient control and strong dynamic shaping.
     #[classattr]
-    fn drum() -> Self {
+    const fn drum() -> Self {
         Self {
             inner: CompressorConfig::drum(),
         }
@@ -2745,7 +2761,7 @@ impl PyCompressorConfig {
     ///
     /// Tuned for gentle dynamic glue on groups or mix buses.
     #[classattr]
-    fn bus() -> Self {
+    const fn bus() -> Self {
         Self {
             inner: CompressorConfig::bus(),
         }
@@ -2755,18 +2771,18 @@ impl PyCompressorConfig {
     ///
     /// Parameters
     /// ----------
-    /// sample_rate : float
+    /// ``sample_rate`` : float
     ///     Audio sample rate in Hz, used to validate time- and frequency-dependent
     ///     constraints.
     ///
     /// Returns
     /// -------
-    /// CompressorConfig
+    /// ``CompressorConfig``
     ///    The validated compressor configuration.
     ///
     /// Raises
     /// ------
-    /// ValueError
+    /// ``ValueError``
     ///     If any configuration parameter is invalid.
     #[pyo3(signature = (sample_rate: "float"))]
     fn validate(&mut self, sample_rate: f64) -> PyResult<Self> {
@@ -2808,38 +2824,38 @@ impl PyLimiterConfig {
     ///
     /// Parameters
     /// ----------
-    /// ceiling_db : float
+    /// ``ceiling_db`` : float
     ///     Maximum allowed output level in decibels. Typically negative
     ///     (e.g. -0.1 to -3.0 dB).
-    /// attack_ms : float
+    /// ``attack_ms`` : float
     ///     Attack time in milliseconds. Controls how quickly limiting engages as
     ///     the signal approaches the ceiling.
-    /// release_ms : float
+    /// ``release_ms`` : float
     ///     Release time in milliseconds. Controls how quickly limiting disengages
     ///     once the signal falls below the ceiling.
-    /// knee_type : KneeType
+    /// ``knee_type`` : ``KneeType``
     ///     Knee characteristic controlling transition smoothness around the
     ///     ceiling.
-    /// knee_width_db : float
+    /// ``knee_width_db`` : float
     ///     Width of the knee region in decibels for soft-knee behaviour.
-    /// detection_method : DynamicRangeMethod
+    /// ``detection_method`` : ``DynamicRangeMethod``
     ///     Signal level detection method driving limiting.
-    /// side_chain : SideChainConfig
+    /// ``side_chain`` : ``SideChainConfig``
     ///     Side-chain configuration.
-    /// lookahead_ms : float
+    /// ``lookahead_ms`` : float
     ///     Lookahead time in milliseconds. Allows the limiter to anticipate
     ///     upcoming peaks.
-    /// isp_limiting : bool
+    /// ``isp_limiting`` : bool
     ///     Reserved flag for inter-sample peak (ISP) limiting. Not implemented:
     ///     it currently has no effect (sample peaks only).
     ///
     /// Returns
     /// -------
-    /// LimiterConfig
+    /// ``LimiterConfig``
     ///     A new limiter configuration.
     #[new]
     #[pyo3(signature = (*, ceiling_db: "float", attack_ms: "float", release_ms: "float", knee_type, knee_width_db, detection_method, side_chain, lookahead_ms, isp_limiting))]
-    fn new(
+    const fn new(
         ceiling_db: f64,
         attack_ms: f64,
         release_ms: f64,
@@ -2861,30 +2877,30 @@ impl PyLimiterConfig {
             isp_limiting,
         );
         inner.side_chain = side_chain.inner;
-        Ok(PyLimiterConfig { inner })
+        Ok(Self { inner })
     }
 
     /// Ceiling level in decibels.
     #[getter]
-    fn ceiling_db(&self) -> f64 {
+    const fn ceiling_db(&self) -> f64 {
         self.inner.ceiling_db
     }
 
     /// Attack time in milliseconds.
     #[getter]
-    fn attack_ms(&self) -> f64 {
+    const fn attack_ms(&self) -> f64 {
         self.inner.attack_ms
     }
 
     /// Release time in milliseconds.
     #[getter]
-    fn release_ms(&self) -> f64 {
+    const fn release_ms(&self) -> f64 {
         self.inner.release_ms
     }
 
     /// Knee characteristic.
     #[getter]
-    fn knee_type(&self) -> PyKneeType {
+    const fn knee_type(&self) -> PyKneeType {
         PyKneeType {
             inner: self.inner.knee_type,
         }
@@ -2892,13 +2908,13 @@ impl PyLimiterConfig {
 
     /// Knee width in decibels.
     #[getter]
-    fn knee_width_db(&self) -> f64 {
+    const fn knee_width_db(&self) -> f64 {
         self.inner.knee_width_db
     }
 
     /// Detection method used for limiting.
     #[getter]
-    fn detection_method(&self) -> PyDynamicRangeMethod {
+    const fn detection_method(&self) -> PyDynamicRangeMethod {
         PyDynamicRangeMethod {
             inner: self.inner.detection_method,
         }
@@ -2914,7 +2930,7 @@ impl PyLimiterConfig {
 
     /// Lookahead time in milliseconds.
     #[getter]
-    fn lookahead_ms(&self) -> f64 {
+    const fn lookahead_ms(&self) -> f64 {
         self.inner.lookahead_ms
     }
 
@@ -2923,7 +2939,7 @@ impl PyLimiterConfig {
     /// Reserved flag: inter-sample (true-peak) limiting is not implemented and
     /// this flag currently has no effect; the limiter measures sample peaks.
     #[getter]
-    fn isp_limiting(&self) -> bool {
+    const fn isp_limiting(&self) -> bool {
         self.inner.isp_limiting
     }
 
@@ -2932,8 +2948,8 @@ impl PyLimiterConfig {
     /// Tuned for minimal audible impact while preventing clipping.
     #[classmethod]
     #[pyo3(signature=())]
-    fn transparent(_cls: &Bound<'_, PyType>) -> Self {
-        PyLimiterConfig {
+    const fn transparent(_cls: &Bound<'_, PyType>) -> Self {
+        Self {
             inner: LimiterConfig::transparent(),
         }
     }
@@ -2943,8 +2959,8 @@ impl PyLimiterConfig {
     /// Tuned for loudness maximisation with controlled transparency.
     #[classmethod]
     #[pyo3(signature=())]
-    fn mastering(_cls: &Bound<'_, PyType>) -> Self {
-        PyLimiterConfig {
+    const fn mastering(_cls: &Bound<'_, PyType>) -> Self {
+        Self {
             inner: LimiterConfig::mastering(),
         }
     }
@@ -2954,8 +2970,8 @@ impl PyLimiterConfig {
     /// Tuned for aggressive peak control and regulatory compliance.
     #[classmethod]
     #[pyo3(signature=())]
-    fn broadcast(_cls: &Bound<'_, PyType>) -> Self {
-        PyLimiterConfig {
+    const fn broadcast(_cls: &Bound<'_, PyType>) -> Self {
+        Self {
             inner: LimiterConfig::broadcast(),
         }
     }
@@ -2964,18 +2980,18 @@ impl PyLimiterConfig {
     ///
     /// Parameters
     /// ----------
-    /// sample_rate : float
+    /// ``sample_rate`` : float
     ///     Audio sample rate in Hz, used to validate time- and frequency-dependent
     ///     constraints.
     ///
     /// Returns
     /// -------
-    /// LimiterConfig
+    /// ``LimiterConfig``
     ///   The validated limiter configuration.
     ///
     /// Raises
     /// ------
-    /// ValueError
+    /// ``ValueError``
     ///     If any configuration parameter is invalid.
     #[pyo3(signature=(sample_rate: "float"))]
     fn validate(&mut self, sample_rate: f64) -> PyResult<Self> {
@@ -3024,8 +3040,8 @@ impl PyAdaptiveThresholdMethod {
     /// threshold. Responds quickly to rapid changes but can be sensitive to
     /// noise and transient outliers.
     #[classattr]
-    fn delta() -> Self {
-        PyAdaptiveThresholdMethod {
+    const fn delta() -> Self {
+        Self {
             inner: AdaptiveThresholdMethod::Delta,
         }
     }
@@ -3036,8 +3052,8 @@ impl PyAdaptiveThresholdMethod {
     /// onset strength function, yielding increased robustness at the cost of
     /// slower adaptation.
     #[classattr]
-    fn percentile() -> Self {
-        PyAdaptiveThresholdMethod {
+    const fn percentile() -> Self {
+        Self {
             inner: AdaptiveThresholdMethod::Percentile,
         }
     }
@@ -3047,8 +3063,8 @@ impl PyAdaptiveThresholdMethod {
     /// Combines delta-based and percentile-based thresholds to balance
     /// responsiveness and robustness across a wide range of signals.
     #[classattr]
-    fn combined() -> Self {
-        PyAdaptiveThresholdMethod {
+    const fn combined() -> Self {
+        Self {
             inner: AdaptiveThresholdMethod::Combined,
         }
     }
@@ -3088,8 +3104,8 @@ impl PyNoiseColor {
     /// Exhibits approximately uniform spectral energy density across the
     /// frequency spectrum, resulting in a bright and broadband character.
     #[classattr]
-    fn white() -> Self {
-        PyNoiseColor {
+    const fn white() -> Self {
+        Self {
             inner: NoiseColor::White,
         }
     }
@@ -3099,8 +3115,8 @@ impl PyNoiseColor {
     /// Exhibits decreasing spectral energy with increasing frequency, producing
     /// a perceptually balanced spectrum across octaves.
     #[classattr]
-    fn pink() -> Self {
-        PyNoiseColor {
+    const fn pink() -> Self {
+        Self {
             inner: NoiseColor::Pink,
         }
     }
@@ -3110,8 +3126,8 @@ impl PyNoiseColor {
     /// Exhibits strongly attenuated high-frequency content, yielding a smoother
     /// and more correlated temporal structure.
     #[classattr]
-    fn brown() -> Self {
-        PyNoiseColor {
+    const fn brown() -> Self {
+        Self {
             inner: NoiseColor::Brown,
         }
     }
@@ -3153,17 +3169,17 @@ impl PyPerturbationMethod {
     ///
     /// Parameters
     /// ----------
-    /// target_snr_db : float
+    /// ``target_snr_db`` : float
     ///     Target signal-to-noise ratio in decibels.
     ///
     /// Returns
     /// -------
-    /// PerturbationMethod
+    /// ``PerturbationMethod``
     ///     A Gaussian-noise perturbation configuration.
     #[classmethod]
     #[pyo3(signature=(target_snr_db: "float"))]
-    fn white_noise(cls: &Bound<'_, PyType>, target_snr_db: f64) -> Self {
-        PyPerturbationMethod::gaussian(cls, target_snr_db, PyNoiseColor::white())
+    const fn white_noise(cls: &Bound<'_, PyType>, target_snr_db: f64) -> Self {
+        Self::gaussian(cls, target_snr_db, PyNoiseColor::white())
     }
 
     /// Pink noise injection with a target signal-to-noise ratio.
@@ -3173,18 +3189,18 @@ impl PyPerturbationMethod {
     ///
     /// Parameters
     /// ----------
-    /// target_snr_db : float
+    /// ``target_snr_db`` : float
     ///    Target signal-to-noise ratio in decibels.
     ///
     /// Returns
     /// -------
     ///
-    /// PerturbationMethod
+    /// ``PerturbationMethod``
     ///     A Gaussian-noise perturbation configuration.
     #[classmethod]
     #[pyo3(signature=(target_snr_db: "float"))]
-    fn pink_noise(cls: &Bound<'_, PyType>, target_snr_db: f64) -> Self {
-        PyPerturbationMethod::gaussian(cls, target_snr_db, PyNoiseColor::pink())
+    const fn pink_noise(cls: &Bound<'_, PyType>, target_snr_db: f64) -> Self {
+        Self::gaussian(cls, target_snr_db, PyNoiseColor::pink())
     }
 
     /// Brown noise injection with a target signal-to-noise ratio.
@@ -3194,18 +3210,18 @@ impl PyPerturbationMethod {
     ///
     /// Parameters
     /// ----------
-    /// target_snr_db : float
+    /// ``target_snr_db`` : float
     ///     Target signal-to-noise ratio in decibels.
     ///
     /// Returns
     /// -------
     ///
-    /// PerturbationMethod
+    /// ``PerturbationMethod``
     ///    A Gaussian-noise perturbation configuration.
     #[classmethod]
     #[pyo3(signature=(target_snr_db: "float"))]
-    fn brown_noise(cls: &Bound<'_, PyType>, target_snr_db: f64) -> Self {
-        PyPerturbationMethod::gaussian(cls, target_snr_db, PyNoiseColor::brown())
+    const fn brown_noise(cls: &Bound<'_, PyType>, target_snr_db: f64) -> Self {
+        Self::gaussian(cls, target_snr_db, PyNoiseColor::brown())
     }
 
     /// Gaussian noise injection with a target signal-to-noise ratio.
@@ -3215,19 +3231,23 @@ impl PyPerturbationMethod {
     ///
     /// Parameters
     /// ----------
-    /// target_snr_db : float
+    /// ``target_snr_db`` : float
     ///     Target signal-to-noise ratio in decibels.
-    /// noise_color : NoiseColor
+    /// ``noise_color`` : ``NoiseColor``
     ///     Noise colour (spectral distribution) to use.
     ///
     /// Returns
     /// -------
-    /// PerturbationMethod
+    /// ``PerturbationMethod``
     ///     A Gaussian-noise perturbation configuration.
     #[classmethod]
     #[pyo3(signature=(target_snr_db: "float", noise_color: "NoiseColor"))]
-    fn gaussian(_cls: &Bound<'_, PyType>, target_snr_db: f64, noise_color: PyNoiseColor) -> Self {
-        PyPerturbationMethod {
+    const fn gaussian(
+        _cls: &Bound<'_, PyType>,
+        target_snr_db: f64,
+        noise_color: PyNoiseColor,
+    ) -> Self {
+        Self {
             inner: PerturbationMethod::GaussianNoise {
                 target_snr_db,
                 noise_color: noise_color.inner,
@@ -3242,19 +3262,19 @@ impl PyPerturbationMethod {
     ///
     /// Parameters
     /// ----------
-    /// min_gain_db : float
+    /// ``min_gain_db`` : float
     ///     Minimum gain in decibels.
-    /// max_gain_db : float
+    /// ``max_gain_db`` : float
     ///     Maximum gain in decibels.
     ///
     /// Returns
     /// -------
-    /// PerturbationMethod
+    /// ``PerturbationMethod``
     ///     A random-gain perturbation configuration.
     #[classmethod]
     #[pyo3(signature=(min_gain_db: "float", max_gain_db: "float"))]
-    fn random_gain(_cls: &Bound<'_, PyType>, min_gain_db: f64, max_gain_db: f64) -> Self {
-        PyPerturbationMethod {
+    const fn random_gain(_cls: &Bound<'_, PyType>, min_gain_db: f64, max_gain_db: f64) -> Self {
+        Self {
             inner: PerturbationMethod::RandomGain {
                 min_gain_db,
                 max_gain_db,
@@ -3269,17 +3289,17 @@ impl PyPerturbationMethod {
     ///
     /// Parameters
     /// ----------
-    /// cutoff_hz : float
+    /// ``cutoff_hz`` : float
     ///     High-pass cutoff frequency in Hz.
     ///
     /// Returns
     /// -------
-    /// PerturbationMethod
+    /// ``PerturbationMethod``
     ///     A high-pass filter perturbation configuration.
     #[classmethod]
     #[pyo3(signature=(cutoff_hz: "float"))]
-    fn high_pass_filter(_cls: &Bound<'_, PyType>, cutoff_hz: f64) -> Self {
-        PyPerturbationMethod {
+    const fn high_pass_filter(_cls: &Bound<'_, PyType>, cutoff_hz: f64) -> Self {
+        Self {
             inner: PerturbationMethod::HighPassFilter {
                 cutoff_hz,
                 slope_db_per_octave: None,
@@ -3291,23 +3311,23 @@ impl PyPerturbationMethod {
     ///
     /// Parameters
     /// ----------
-    /// cutoff_hz : float
+    /// ``cutoff_hz`` : float
     ///     High-pass cutoff frequency in Hz.
-    /// slope_db_per_octave : float
+    /// ``slope_db_per_octave`` : float
     ///     Filter slope in dB per octave.
     ///
     /// Returns
     /// -------
-    /// PerturbationMethod
+    /// ``PerturbationMethod``
     ///     A high-pass filter perturbation configuration.
     #[classmethod]
     #[pyo3(signature=(cutoff_hz: "float", slope_db_per_octave: "float"))]
-    fn high_pass_filter_with_slope(
+    const fn high_pass_filter_with_slope(
         _cls: &Bound<'_, PyType>,
         cutoff_hz: f64,
         slope_db_per_octave: f64,
     ) -> Self {
-        PyPerturbationMethod {
+        Self {
             inner: PerturbationMethod::HighPassFilter {
                 cutoff_hz,
                 slope_db_per_octave: Some(slope_db_per_octave),
@@ -3322,17 +3342,17 @@ impl PyPerturbationMethod {
     ///
     /// Parameters
     /// ----------
-    /// cutoff_hz : float
+    /// ``cutoff_hz`` : float
     ///     Low-pass cutoff frequency in Hz.
     ///
     /// Returns
     /// -------
-    /// PerturbationMethod
+    /// ``PerturbationMethod``
     ///     A low-pass filter perturbation configuration.
     #[classmethod]
     #[pyo3(signature=(cutoff_hz: "float"))]
-    fn low_pass_filter(_cls: &Bound<'_, PyType>, cutoff_hz: f64) -> Self {
-        PyPerturbationMethod {
+    const fn low_pass_filter(_cls: &Bound<'_, PyType>, cutoff_hz: f64) -> Self {
+        Self {
             inner: PerturbationMethod::LowPassFilter {
                 cutoff_hz,
                 slope_db_per_octave: None,
@@ -3344,23 +3364,23 @@ impl PyPerturbationMethod {
     ///
     /// Parameters
     /// ----------
-    /// cutoff_hz : float
+    /// ``cutoff_hz`` : float
     ///     Low-pass cutoff frequency in Hz.
-    /// slope_db_per_octave : float
+    /// ``slope_db_per_octave`` : float
     ///     Filter slope in dB per octave.
     ///
     /// Returns
     /// -------
-    /// PerturbationMethod
+    /// ``PerturbationMethod``
     ///     A low-pass filter perturbation configuration.
     #[classmethod]
     #[pyo3(signature=(cutoff_hz: "float", slope_db_per_octave: "float"))]
-    fn low_pass_filter_with_slope(
+    const fn low_pass_filter_with_slope(
         _cls: &Bound<'_, PyType>,
         cutoff_hz: f64,
         slope_db_per_octave: f64,
     ) -> Self {
-        PyPerturbationMethod {
+        Self {
             inner: PerturbationMethod::LowPassFilter {
                 cutoff_hz,
                 slope_db_per_octave: Some(slope_db_per_octave),
@@ -3377,17 +3397,21 @@ impl PyPerturbationMethod {
     /// ----------
     /// semitones : float
     ///     Pitch shift in semitones. Positive shifts up; negative shifts down.
-    /// preserve_formants : bool, optional
+    /// ``preserve_formants`` : bool, optional
     ///     Whether to attempt formant preservation.
     ///
     /// Returns
     /// -------
-    /// PerturbationMethod
+    /// ``PerturbationMethod``
     ///     A pitch-shift perturbation configuration.
     #[classmethod]
     #[pyo3(signature=(semitones: "float", preserve_formants: "bool"=false))]
-    fn pitch_shift(_cls: &Bound<'_, PyType>, semitones: f64, preserve_formants: bool) -> Self {
-        PyPerturbationMethod {
+    const fn pitch_shift(
+        _cls: &Bound<'_, PyType>,
+        semitones: f64,
+        preserve_formants: bool,
+    ) -> Self {
+        Self {
             inner: PerturbationMethod::PitchShift {
                 semitones,
                 preserve_formants,
@@ -3399,17 +3423,17 @@ impl PyPerturbationMethod {
     ///
     /// Parameters
     /// ----------
-    /// sample_rate : float
+    /// ``sample_rate`` : float
     ///     Sample rate in Hz, used to validate frequency-dependent parameters.
     ///
     /// Returns
     /// -------
-    /// PerturbationMethod
+    /// ``PerturbationMethod``
     ///     This instance. Returned to allow call chaining.
     ///
     /// Raises
     /// ------
-    /// ValueError
+    /// ``ValueError``
     ///     If the perturbation parameters are invalid.
     #[pyo3(signature=(sample_rate: "float"))]
     fn validate(&self, sample_rate: f64) -> PyResult<Self> {
@@ -3453,7 +3477,7 @@ impl PyPerturbationConfig {
     ///
     /// Parameters
     /// ----------
-    /// method : PerturbationMethod
+    /// method : ``PerturbationMethod``
     ///     The perturbation method to apply.
     /// seed : Optional[int]
     ///     Optional random seed for deterministic behaviour. If ``None``, a
@@ -3461,14 +3485,14 @@ impl PyPerturbationConfig {
     ///
     /// Returns
     /// -------
-    /// PerturbationConfig
+    /// ``PerturbationConfig``
     ///     A new perturbation configuration.
     #[new]
     #[pyo3(signature=(method: "PerturbationMethod", seed: "Option[u64]"=None))]
-    fn new(method: PyPerturbationMethod, seed: Option<u64>) -> Self {
+    const fn new(method: PyPerturbationMethod, seed: Option<u64>) -> Self {
         let mut inner = PerturbationConfig::new(method.inner);
         inner.seed = seed;
-        PyPerturbationConfig { inner }
+        Self { inner }
     }
 
     /// Random seed used for deterministic perturbation, if specified.
@@ -3478,7 +3502,7 @@ impl PyPerturbationConfig {
     /// Optional[int]
     ///     The seed value, or ``None`` if no seed is configured.
     #[getter]
-    fn seed(&self) -> Option<u64> {
+    const fn seed(&self) -> Option<u64> {
         self.inner.seed
     }
 
@@ -3486,17 +3510,17 @@ impl PyPerturbationConfig {
     ///
     /// Parameters
     /// ----------
-    /// sample_rate : float
+    /// ``sample_rate`` : float
     ///     Sample rate in Hz, used to validate frequency-dependent parameters.
     ///
     /// Returns
     /// -------
-    /// PerturbationConfig
+    /// ``PerturbationConfig``
     ///     This instance. Returned to allow call chaining.
     ///
     /// Raises
     /// ------
-    /// ValueError
+    /// ``ValueError``
     ///     If the configuration or underlying perturbation method is invalid.
     #[pyo3(signature=(sample_rate: "float"))]
     fn validate(&self, sample_rate: f64) -> PyResult<Self> {
@@ -3555,7 +3579,7 @@ impl PyHpssConfig {
             median_filter_percussive,
             mask_softness,
         );
-        Ok(PyHpssConfig { inner: hpss_config })
+        Ok(Self { inner: hpss_config })
     }
 
     /// Create configuration optimized for musical content.
@@ -3566,7 +3590,7 @@ impl PyHpssConfig {
     /// - Softer masking for more musical results
     #[classattr]
     fn musical() -> Self {
-        PyHpssConfig {
+        Self {
             inner: HpssConfig::musical(),
         }
     }
@@ -3578,7 +3602,7 @@ impl PyHpssConfig {
     /// - Harder masking for cleaner drum isolation
     #[classattr]
     fn percussive() -> Self {
-        PyHpssConfig {
+        Self {
             inner: HpssConfig::percussive(),
         }
     }
@@ -3591,7 +3615,7 @@ impl PyHpssConfig {
     /// - Harder masking for cleaner tonal isolation
     #[classattr]
     fn harmonic() -> Self {
-        PyHpssConfig {
+        Self {
             inner: HpssConfig::harmonic(),
         }
     }
@@ -3604,7 +3628,7 @@ impl PyHpssConfig {
     /// - Smaller filters for faster processing
     #[classattr]
     fn realtime() -> Self {
-        PyHpssConfig {
+        Self {
             inner: HpssConfig::realtime(),
         }
     }
@@ -3613,12 +3637,12 @@ impl PyHpssConfig {
     ///
     /// Parameters
     /// ----------
-    /// n_fft: int
-    ///     FFT size in samples (should be power of 2 and >= win_size)
-    /// win_size: int
+    /// ``n_fft``: int
+    ///     FFT size in samples (should be power of 2 and >= ``win_size``)
+    /// ``win_size``: int
     ///     Window size in samples (should be power of 2)
-    /// hop_size: int
-    ///     Hop size in samples (typically win_size/4)
+    /// ``hop_size``: int
+    ///     Hop size in samples (typically ``win_size/4``)
     #[pyo3(signature=(n_fft: "int",  hop_size: "int"))]
     fn set_stft_params(&mut self, n_fft: usize, hop_size: usize) -> PyResult<()> {
         let n_fft = nzu_or_err(n_fft)?;
@@ -3636,7 +3660,7 @@ impl PyHpssConfig {
     /// percussive: int
     ///     Percussive filter size (odd numbers recommended)
     #[pyo3(signature=(harmonic_size: "int", percussive_size: "int"))]
-    fn set_filter_sizes(&mut self, harmonic_size: usize, percussive_size: usize) {
+    const fn set_filter_sizes(&mut self, harmonic_size: usize, percussive_size: usize) {
         self.inner.set_filter_sizes(harmonic_size, percussive_size);
     }
 
@@ -3647,7 +3671,7 @@ impl PyHpssConfig {
     /// softness: float
     ///     Softness value (0.0 = hard mask, 1.0 = completely soft)
     #[pyo3(signature=(softness: "float"))]
-    fn set_mask_softness(&mut self, softness: f64) {
+    const fn set_mask_softness(&mut self, softness: f64) {
         self.inner.set_mask_softness(softness);
     }
 
@@ -3670,7 +3694,7 @@ impl PyHpssConfig {
 
     /// Calculate the number of frequency bins for this configuration.
     #[pyo3(signature=())]
-    fn num_freq_bins(&self) -> usize {
+    const fn num_freq_bins(&self) -> usize {
         self.inner.num_freq_bins().get()
     }
 
@@ -3707,21 +3731,21 @@ pub struct PyAdaptiveThresholdConfig {
 
 #[pymethods]
 impl PyAdaptiveThresholdConfig {
-    /// Create a new AdaptiveThresholdConfig.
+    /// Create a new ``AdaptiveThresholdConfig``.
     ///
     /// Parameters
     /// ----------
-    /// method : AdaptiveThresholdMethod
+    /// method : ``AdaptiveThresholdMethod``
     ///     Adaptive thresholding method to use.
     /// delta : float
     ///     Delta offset for delta-based thresholding.
     /// percentile : float
     ///    Percentile value for percentile-based thresholding.
-    /// window_size : int
+    /// ``window_size`` : int
     ///    Size of the rolling window in frames.
-    /// min_threshold : float
+    /// ``min_threshold`` : float
     ///    Minimum allowable threshold.
-    /// max_threshold : float
+    /// ``max_threshold`` : float
     ///   Maximum allowable threshold.
     ///
     /// Returns
@@ -3730,7 +3754,7 @@ impl PyAdaptiveThresholdConfig {
     ///   A new adaptive threshold configuration.
     #[new]
     #[pyo3(signature = (method: "AdaptiveThresholdMethod", *, delta: "float", percentile: "float", window_size: "int", min_threshold: "float", max_threshold: "float"))]
-    fn new(
+    const fn new(
         method: PyAdaptiveThresholdMethod,
         delta: f64,
         percentile: f64,
@@ -3738,7 +3762,7 @@ impl PyAdaptiveThresholdConfig {
         min_threshold: f64,
         max_threshold: f64,
     ) -> Self {
-        PyAdaptiveThresholdConfig {
+        Self {
             inner: AdaptiveThresholdConfig::new(
                 method.inner,
                 delta,
@@ -3756,17 +3780,17 @@ impl PyAdaptiveThresholdConfig {
     /// ----------
     /// delta : float
     ///     Delta offset for thresholding.
-    /// window_size : int
+    /// ``window_size`` : int
     ///     Size of the rolling window in frames.
     ///
     /// Returns
     /// -------
-    /// AdaptiveThresholdConfig
+    /// ``AdaptiveThresholdConfig``
     ///     A new delta-based adaptive threshold configuration.
     #[classmethod]
     #[pyo3(signature = (delta: "float", window_size: "int"))]
-    fn delta(_cls: &Bound<'_, PyType>, delta: f64, window_size: usize) -> Self {
-        PyAdaptiveThresholdConfig {
+    const fn delta(_cls: &Bound<'_, PyType>, delta: f64, window_size: usize) -> Self {
+        Self {
             inner: AdaptiveThresholdConfig::delta(delta, window_size),
         }
     }
@@ -3777,17 +3801,17 @@ impl PyAdaptiveThresholdConfig {
     /// ----------
     /// percentile : float
     ///     Percentile value for thresholding.
-    /// window_size : int
+    /// ``window_size`` : int
     ///     Size of the rolling window in frames.
     ///
     /// Returns
     /// -------
-    /// AdaptiveThresholdConfig
+    /// ``AdaptiveThresholdConfig``
     ///     A new percentile-based adaptive threshold configuration.
     #[classmethod]
     #[pyo3(signature = (percentile: "float", window_size: "int"))]
-    fn percentile(_cls: &Bound<'_, PyType>, percentile: f64, window_size: usize) -> Self {
-        PyAdaptiveThresholdConfig {
+    const fn percentile(_cls: &Bound<'_, PyType>, percentile: f64, window_size: usize) -> Self {
+        Self {
             inner: AdaptiveThresholdConfig::percentile(percentile, window_size),
         }
     }
@@ -3800,42 +3824,47 @@ impl PyAdaptiveThresholdConfig {
     ///    Delta offset for thresholding.
     /// percentile : float
     ///    Percentile value for thresholding.
-    /// window_size : int
+    /// ``window_size`` : int
     ///    Size of the rolling window in frames.
     ///
     /// Returns
     /// -------
-    /// AdaptiveThresholdConfig
+    /// ``AdaptiveThresholdConfig``
     ///    A new combined adaptive threshold configuration.
     #[classmethod]
     #[pyo3(signature = (delta: "float", percentile: "float", window_size: "int"))]
-    fn combined(_cls: &Bound<'_, PyType>, delta: f64, percentile: f64, window_size: usize) -> Self {
-        PyAdaptiveThresholdConfig {
+    const fn combined(
+        _cls: &Bound<'_, PyType>,
+        delta: f64,
+        percentile: f64,
+        window_size: usize,
+    ) -> Self {
+        Self {
             inner: AdaptiveThresholdConfig::combined(delta, percentile, window_size),
         }
     }
 
     /// Minimum allowable threshold.
     #[getter]
-    fn min_threshold(&self) -> f64 {
+    const fn min_threshold(&self) -> f64 {
         self.inner.min_threshold
     }
 
     /// Maximum allowable threshold.
     #[getter]
-    fn max_threshold(&self) -> f64 {
+    const fn max_threshold(&self) -> f64 {
         self.inner.max_threshold
     }
 
     /// Set the minimum allowable threshold.
     #[setter]
-    fn set_min_threshold(&mut self, value: f64) {
+    const fn set_min_threshold(&mut self, value: f64) {
         self.inner.min_threshold = value;
     }
 
     /// Set the maximum allowable threshold.
     #[setter]
-    fn set_max_threshold(&mut self, value: f64) {
+    const fn set_max_threshold(&mut self, value: f64) {
         self.inner.max_threshold = value;
     }
 
@@ -3874,25 +3903,25 @@ pub struct PyPeakPickingConfig {
 
 #[pymethods]
 impl PyPeakPickingConfig {
-    /// Create a new PeakPickingConfig.
+    /// Create a new ``PeakPickingConfig``.
     ///
     /// Parameters
     /// ----------
-    /// adaptive_threshold_config : AdaptiveThresholdConfig
+    /// ``adaptive_threshold_config`` : ``AdaptiveThresholdConfig``
     ///     Adaptive thresholding configuration.
-    /// min_peak_separation : int
+    /// ``min_peak_separation`` : int
     ///     Minimum separation between detected peaks in frames.
-    /// pre_emphasis : bool
+    /// ``pre_emphasis`` : bool
     ///     Whether to apply pre-emphasis filtering.
-    /// pre_emphasis_coeff : float
+    /// ``pre_emphasis_coeff`` : float
     ///     Pre-emphasis filter coefficient.
-    /// median_filter : bool
+    /// ``median_filter`` : bool
     ///     Whether to apply median filtering.
-    /// median_filter_length : int
+    /// ``median_filter_length`` : int
     ///     Length of the median filter in frames.
-    /// normalize_onset_strength : bool
+    /// ``normalize_onset_strength`` : bool
     ///     Whether to normalize the onset strength function.
-    /// normalization_method : NormalizationMethod
+    /// ``normalization_method`` : ``NormalizationMethod``
     ///     Method for normalization.
     #[new]
     #[pyo3(signature = (*, adaptive_threshold_config: "AdaptiveThresholdConfig",
@@ -3915,7 +3944,7 @@ impl PyPeakPickingConfig {
     ) -> PyResult<Self> {
         let min_peak_separation = nzu_or_err(min_peak_separation)?;
         let median_filter_length = nzu_or_err(median_filter_length)?;
-        Ok(PyPeakPickingConfig {
+        Ok(Self {
             inner: PeakPickingConfig::new(
                 adaptive_threshold_config.inner,
                 min_peak_separation,
@@ -3931,31 +3960,31 @@ impl PyPeakPickingConfig {
 
     /// Music preset configuration (class attribute: ``PeakPickingConfig.music``).
     #[classattr]
-    fn music() -> Self {
-        PyPeakPickingConfig {
+    const fn music() -> Self {
+        Self {
             inner: PeakPickingConfig::music(),
         }
     }
 
     /// Speech preset configuration (class attribute: ``PeakPickingConfig.speech``).
     #[classattr]
-    fn speech() -> Self {
-        PyPeakPickingConfig {
+    const fn speech() -> Self {
+        Self {
             inner: PeakPickingConfig::speech(),
         }
     }
 
     /// Drums preset configuration (class attribute: ``PeakPickingConfig.drums``).
     #[classattr]
-    fn drums() -> Self {
-        PyPeakPickingConfig {
+    const fn drums() -> Self {
+        Self {
             inner: PeakPickingConfig::drums(),
         }
     }
 
     /// Minimum separation between detected peaks in frames.
     #[getter]
-    fn min_peak_separation(&self) -> usize {
+    const fn min_peak_separation(&self) -> usize {
         self.inner.min_peak_separation.get()
     }
 
@@ -3974,7 +4003,7 @@ impl PyPeakPickingConfig {
 
     /// Enable or disable pre-emphasis filtering.
     #[pyo3(signature = (enabled: "bool", coeff: "float"))]
-    fn set_pre_emphasis(&mut self, enabled: bool, coeff: f64) {
+    const fn set_pre_emphasis(&mut self, enabled: bool, coeff: f64) {
         self.inner.pre_emphasis = enabled;
         self.inner.pre_emphasis_coeff = coeff;
     }
@@ -4020,8 +4049,8 @@ impl PySpectralFluxMethod {
     /// Measures positive changes in spectral energy between successive frames.
     /// Performs well for transient and percussive onsets.
     #[classattr]
-    fn energy() -> Self {
-        PySpectralFluxMethod {
+    const fn energy() -> Self {
+        Self {
             inner: SpectralFluxMethod::Energy,
         }
     }
@@ -4031,8 +4060,8 @@ impl PySpectralFluxMethod {
     /// Measures positive changes in spectral magnitude and is more sensitive
     /// to subtle spectral variation, making it effective for tonal material.
     #[classattr]
-    fn magnitude() -> Self {
-        PySpectralFluxMethod {
+    const fn magnitude() -> Self {
+        Self {
             inner: SpectralFluxMethod::Magnitude,
         }
     }
@@ -4043,8 +4072,8 @@ impl PySpectralFluxMethod {
     /// robustness to noise and spectral smearing at increased computational
     /// cost.
     #[classattr]
-    fn complex() -> Self {
-        PySpectralFluxMethod {
+    const fn complex() -> Self {
+        Self {
             inner: SpectralFluxMethod::Complex,
         }
     }
@@ -4054,8 +4083,8 @@ impl PySpectralFluxMethod {
     /// Suppresses negative phase contributions to balance sensitivity and
     /// robustness.
     #[classattr]
-    fn rectified_complex() -> Self {
-        PySpectralFluxMethod {
+    const fn rectified_complex() -> Self {
+        Self {
             inner: SpectralFluxMethod::RectifiedComplex,
         }
     }
@@ -4082,23 +4111,23 @@ pub struct PySpectralFluxConfig {
 
 #[pymethods]
 impl PySpectralFluxConfig {
-    /// Create a new SpectralFluxConfig.
+    /// Create a new ``SpectralFluxConfig``.
     ///
     /// Parameters
     /// ----------
-    /// cqt_params : CqtParams
+    /// ``cqt_params`` : ``CqtParams``
     ///     CQT parameters object from spectrograms module.
-    /// hop_size : int
+    /// ``hop_size`` : int
     ///     Hop size in samples (must be > 0).
-    /// window_size : Optional[int]
+    /// ``window_size`` : Optional[int]
     ///     Window size in samples (must be > 0 if provided). If ``None``, defaults to CQT's minimum window size.
-    /// flux_method : SpectralFluxMethod
+    /// ``flux_method`` : ``SpectralFluxMethod``
     ///     Spectral flux computation method.
-    /// peak_picking : PeakPickingConfig
+    /// ``peak_picking`` : ``PeakPickingConfig``
     ///     Peak picking configuration.
     /// rectify : bool
     ///     Whether to rectify the onset strength function.
-    /// log_compression : float
+    /// ``log_compression`` : float
     ///     Logarithmic compression factor.
     ///
     /// Returns
@@ -4117,9 +4146,9 @@ impl PySpectralFluxConfig {
         log_compression: f64,
     ) -> PyResult<Self> {
         let hop_size_nz = nzu_or_err(hop_size)?;
-        let window_size_nz = window_size.map(|w| nzu_or_err(w)).transpose()?;
+        let window_size_nz = window_size.map(nzu_or_err).transpose()?;
 
-        Ok(PySpectralFluxConfig {
+        Ok(Self {
             inner: SpectralFluxConfig::new(
                 cqt_params.into(),
                 hop_size_nz,
@@ -4135,7 +4164,7 @@ impl PySpectralFluxConfig {
     /// Percussive preset configuration.
     #[classattr]
     fn percussive() -> Self {
-        PySpectralFluxConfig {
+        Self {
             inner: SpectralFluxConfig::percussive(),
         }
     }
@@ -4143,7 +4172,7 @@ impl PySpectralFluxConfig {
     /// Musical preset configuration.
     #[classattr]
     fn musical() -> Self {
-        PySpectralFluxConfig {
+        Self {
             inner: SpectralFluxConfig::musical(),
         }
     }
@@ -4151,7 +4180,7 @@ impl PySpectralFluxConfig {
     /// Complex preset configuration.
     #[classattr]
     fn complex() -> Self {
-        PySpectralFluxConfig {
+        Self {
             inner: SpectralFluxConfig::complex(),
         }
     }
@@ -4179,7 +4208,7 @@ impl PySpectralFluxConfig {
 
     /// Get the hop size in samples.
     #[getter]
-    fn hop_size(&self) -> usize {
+    const fn hop_size(&self) -> usize {
         self.inner.hop_size.get()
     }
 
@@ -4199,13 +4228,13 @@ impl PySpectralFluxConfig {
     /// Set the window size in samples.
     #[setter]
     fn set_window_size(&mut self, value: Option<usize>) -> PyResult<()> {
-        self.inner.window_size = value.map(|w| nzu_or_err(w)).transpose()?;
+        self.inner.window_size = value.map(nzu_or_err).transpose()?;
         Ok(())
     }
 
     /// Get the spectral flux computation method.
     #[getter]
-    fn flux_method(&self) -> PySpectralFluxMethod {
+    const fn flux_method(&self) -> PySpectralFluxMethod {
         PySpectralFluxMethod {
             inner: self.inner.flux_method,
         }
@@ -4213,20 +4242,22 @@ impl PySpectralFluxConfig {
 
     /// Set the spectral flux computation method.
     #[setter]
-    fn set_flux_method(&mut self, value: PySpectralFluxMethod) {
+    const fn set_flux_method(&mut self, value: PySpectralFluxMethod) {
         self.inner.flux_method = value.inner;
     }
 
     /// Get the peak picking configuration.
     ///
     /// Returns a **copy**: setting fields on the returned object does not change
-    /// this config. Modify the copy and assign it back::
+    /// this config. Modify the copy and assign it back:
+    ///
+    /// ::
     ///
     ///     pp = config.peak_picking
     ///     pp.min_peak_separation = 256
     ///     config.peak_picking = pp
     #[getter]
-    fn peak_picking(&self) -> PyPeakPickingConfig {
+    const fn peak_picking(&self) -> PyPeakPickingConfig {
         PyPeakPickingConfig {
             inner: self.inner.peak_picking,
         }
@@ -4234,31 +4265,31 @@ impl PySpectralFluxConfig {
 
     /// Set the peak picking configuration.
     #[setter]
-    fn set_peak_picking(&mut self, value: PyPeakPickingConfig) {
+    const fn set_peak_picking(&mut self, value: PyPeakPickingConfig) {
         self.inner.peak_picking = value.inner;
     }
 
     /// Get whether to rectify the onset strength function.
     #[getter]
-    fn rectify(&self) -> bool {
+    const fn rectify(&self) -> bool {
         self.inner.rectify
     }
 
     /// Set whether to rectify the onset strength function.
     #[setter]
-    fn set_rectify(&mut self, value: bool) {
+    const fn set_rectify(&mut self, value: bool) {
         self.inner.rectify = value;
     }
 
     /// Get the logarithmic compression factor.
     #[getter]
-    fn log_compression(&self) -> f64 {
+    const fn log_compression(&self) -> f64 {
         self.inner.log_compression
     }
 
     /// Set the logarithmic compression factor.
     #[setter]
-    fn set_log_compression(&mut self, value: f64) {
+    const fn set_log_compression(&mut self, value: f64) {
         self.inner.log_compression = value;
     }
 }
@@ -4283,27 +4314,27 @@ pub struct PyComplexOnsetConfig {
 
 #[pymethods]
 impl PyComplexOnsetConfig {
-    /// Create a new ComplexOnsetConfig.
+    /// Create a new ``ComplexOnsetConfig``.
     ///
     /// Parameters
     /// ----------
-    /// cqt_config : CqtConfig
+    /// ``cqt_config`` : ``CqtConfig``
     ///     CQT configuration object.
-    /// hop_size : int
+    /// ``hop_size`` : int
     ///     Hop size in samples.
-    /// window_size : Optional[int]
+    /// ``window_size`` : Optional[int]
     ///     Window size in samples. If ``None``, defaults to CQT's minimum window size.
-    /// peak_picking : PeakPickingConfig
+    /// ``peak_picking`` : ``PeakPickingConfig``
     ///     Peak picking configuration.
-    /// magnitude_weight : float
+    /// ``magnitude_weight`` : float
     ///     Weighting factor for magnitude component.
-    /// phase_weight : float    
+    /// ``phase_weight`` : float    
     ///     Weighting factor for phase component.
-    /// magnitude_rectify : bool
+    /// ``magnitude_rectify`` : bool
     ///     Whether to rectify the magnitude component.
-    /// phase_rectify : bool
+    /// ``phase_rectify`` : bool
     ///     Whether to rectify the phase component.
-    /// log_compression : float
+    /// ``log_compression`` : float
     ///     Logarithmic compression factor.
     ///
     /// Returns
@@ -4324,9 +4355,9 @@ impl PyComplexOnsetConfig {
         log_compression: f64,
     ) -> PyResult<Self> {
         let hop_size_nz = nzu_or_err(hop_size)?;
-        let window_size_nz = window_size.map(|w| nzu_or_err(w)).transpose()?;
+        let window_size_nz = window_size.map(nzu_or_err).transpose()?;
 
-        Ok(PyComplexOnsetConfig {
+        Ok(Self {
             inner: ComplexOnsetConfig::new(
                 cqt_params.into(),
                 hop_size_nz,
@@ -4344,7 +4375,7 @@ impl PyComplexOnsetConfig {
     /// Percussive preset configuration.
     #[classattr]
     fn percussive() -> Self {
-        PyComplexOnsetConfig {
+        Self {
             inner: ComplexOnsetConfig::percussive(),
         }
     }
@@ -4352,7 +4383,7 @@ impl PyComplexOnsetConfig {
     /// Musical preset configuration.
     #[classattr]
     fn musical() -> Self {
-        PyComplexOnsetConfig {
+        Self {
             inner: ComplexOnsetConfig::musical(),
         }
     }
@@ -4360,14 +4391,14 @@ impl PyComplexOnsetConfig {
     /// Speech preset configuration.
     #[classattr]
     fn speech() -> Self {
-        PyComplexOnsetConfig {
+        Self {
             inner: ComplexOnsetConfig::speech(),
         }
     }
 
     /// Set the magnitude and phase weighting factors.
     #[pyo3(signature = (magnitude_weight: "float", phase_weight: "float"))]
-    fn set_weights(&mut self, magnitude_weight: f64, phase_weight: f64) {
+    const fn set_weights(&mut self, magnitude_weight: f64, phase_weight: f64) {
         self.inner.magnitude_weight = magnitude_weight;
         self.inner.phase_weight = phase_weight;
     }
@@ -4395,7 +4426,7 @@ impl PyComplexOnsetConfig {
 
     /// Get the hop size in samples.
     #[getter]
-    fn hop_size(&self) -> usize {
+    const fn hop_size(&self) -> usize {
         self.inner.hop_size.get()
     }
 
@@ -4415,20 +4446,22 @@ impl PyComplexOnsetConfig {
     /// Set the window size in samples.
     #[setter]
     fn set_window_size(&mut self, value: Option<usize>) -> PyResult<()> {
-        self.inner.window_size = value.map(|w| nzu_or_err(w)).transpose()?;
+        self.inner.window_size = value.map(nzu_or_err).transpose()?;
         Ok(())
     }
 
     /// Get the peak picking configuration.
     ///
     /// Returns a **copy**: setting fields on the returned object does not change
-    /// this config. Modify the copy and assign it back::
+    /// this config. Modify the copy and assign it back:
+    ///
+    /// ::
     ///
     ///     pp = config.peak_picking
     ///     pp.min_peak_separation = 256
     ///     config.peak_picking = pp
     #[getter]
-    fn peak_picking(&self) -> PyPeakPickingConfig {
+    const fn peak_picking(&self) -> PyPeakPickingConfig {
         PyPeakPickingConfig {
             inner: self.inner.peak_picking,
         }
@@ -4436,67 +4469,67 @@ impl PyComplexOnsetConfig {
 
     /// Set the peak picking configuration.
     #[setter]
-    fn set_peak_picking(&mut self, value: PyPeakPickingConfig) {
+    const fn set_peak_picking(&mut self, value: PyPeakPickingConfig) {
         self.inner.peak_picking = value.inner;
     }
 
     /// Get the magnitude weighting factor.
     #[getter]
-    fn magnitude_weight(&self) -> f64 {
+    const fn magnitude_weight(&self) -> f64 {
         self.inner.magnitude_weight
     }
 
     /// Set the magnitude weighting factor.
     #[setter]
-    fn set_magnitude_weight(&mut self, value: f64) {
+    const fn set_magnitude_weight(&mut self, value: f64) {
         self.inner.magnitude_weight = value;
     }
 
     /// Get the phase weighting factor.
     #[getter]
-    fn phase_weight(&self) -> f64 {
+    const fn phase_weight(&self) -> f64 {
         self.inner.phase_weight
     }
 
     /// Set the phase weighting factor.
     #[setter]
-    fn set_phase_weight(&mut self, value: f64) {
+    const fn set_phase_weight(&mut self, value: f64) {
         self.inner.phase_weight = value;
     }
 
     /// Get whether to rectify the magnitude component.
     #[getter]
-    fn magnitude_rectify(&self) -> bool {
+    const fn magnitude_rectify(&self) -> bool {
         self.inner.magnitude_rectify
     }
 
     /// Set whether to rectify the magnitude component.
     #[setter]
-    fn set_magnitude_rectify(&mut self, value: bool) {
+    const fn set_magnitude_rectify(&mut self, value: bool) {
         self.inner.magnitude_rectify = value;
     }
 
     /// Get whether to rectify the phase component.
     #[getter]
-    fn phase_rectify(&self) -> bool {
+    const fn phase_rectify(&self) -> bool {
         self.inner.phase_rectify
     }
 
     /// Set whether to rectify the phase component.
     #[setter]
-    fn set_phase_rectify(&mut self, value: bool) {
+    const fn set_phase_rectify(&mut self, value: bool) {
         self.inner.phase_rectify = value;
     }
 
     /// Get the logarithmic compression factor.
     #[getter]
-    fn log_compression(&self) -> f64 {
+    const fn log_compression(&self) -> f64 {
         self.inner.log_compression
     }
 
     /// Set the logarithmic compression factor.
     #[setter]
-    fn set_log_compression(&mut self, value: f64) {
+    const fn set_log_compression(&mut self, value: f64) {
         self.inner.log_compression = value;
     }
 }
@@ -4504,11 +4537,12 @@ impl PyComplexOnsetConfig {
 impl_py_wrapper_core!(PyComplexOnsetConfig, ComplexOnsetConfig);
 impl_py_repr!(PyComplexOnsetConfig);
 
-/// Python wrapper for OnsetDetectionConfig.
+/// Python wrapper for ``OnsetDetectionConfig``.
 ///
 /// Configuration for onset detection using spectral flux method.
 ///
 /// Notes:
+///
 ///     The keyword defaults of the constructor
 ///     ``OnsetDetectionConfig(cqt_params, hop_size, ...)`` are not those of
 ///     ``OnsetDetectionConfig.default()``: the constructor uses
@@ -4531,29 +4565,29 @@ pub struct PyOnsetDetectionConfig {
 
 #[pymethods]
 impl PyOnsetDetectionConfig {
-    /// Create a new OnsetDetectionConfig with custom parameters.
+    /// Create a new ``OnsetDetectionConfig`` with custom parameters.
     ///
     /// Parameters
     /// ----------
-    /// cqt_params : PyCqtParams
+    /// ``cqt_params`` : ``PyCqtParams``
     ///     CQT configuration for spectral analysis
-    /// hop_size : int
+    /// ``hop_size`` : int
     ///     Hop size for frame-based analysis in samples
-    /// window_size : Optional[int]
+    /// ``window_size`` : Optional[int]
     ///     Window size for CQT analysis in samples (None = auto-calculate)
     /// threshold : float
     ///     Threshold for onset detection
-    /// min_onset_interval_secs : float
+    /// ``min_onset_interval_secs`` : float
     ///     Minimum time between consecutive onsets in seconds
-    /// pre_emphasis : float
+    /// ``pre_emphasis`` : float
     ///     Pre-emphasis factor for signal processing
-    /// adaptive_threshold : bool
+    /// ``adaptive_threshold`` : bool
     ///     Whether to use adaptive thresholding
-    /// median_filter_length : int
+    /// ``median_filter_length`` : int
     ///     Length of median filter for smoothing
-    /// adaptive_threshold_multiplier : float
+    /// ``adaptive_threshold_multiplier`` : float
     ///     Multiplier for adaptive threshold
-    /// peak_picking : PyPeakPickingConfig
+    /// ``peak_picking`` : ``PyPeakPickingConfig``
     ///     Peak picking configuration
     ///
     /// Notes
@@ -4585,7 +4619,7 @@ impl PyOnsetDetectionConfig {
             .map(|p| p.inner)
             .unwrap_or_else(PeakPickingConfig::default);
 
-        Ok(PyOnsetDetectionConfig {
+        Ok(Self {
             inner: OnsetDetectionConfig::new(
                 cqt_params.into(),
                 hop_size_nz,
@@ -4601,34 +4635,34 @@ impl PyOnsetDetectionConfig {
         })
     }
 
-    /// Create a default OnsetDetectionConfig.
+    /// Create a default ``OnsetDetectionConfig``.
     #[classmethod]
     fn default(_cls: &Bound<'_, PyType>) -> Self {
-        PyOnsetDetectionConfig {
+        Self {
             inner: OnsetDetectionConfig::default(),
         }
     }
 
-    /// Create an OnsetDetectionConfig optimized for general music.
+    /// Create an ``OnsetDetectionConfig`` optimized for general music.
     #[classmethod]
     fn musical(_cls: &Bound<'_, PyType>) -> Self {
-        PyOnsetDetectionConfig {
+        Self {
             inner: OnsetDetectionConfig::musical(),
         }
     }
 
-    /// Create an OnsetDetectionConfig optimized for percussive sounds.
+    /// Create an ``OnsetDetectionConfig`` optimized for percussive sounds.
     #[classmethod]
     fn percussive(_cls: &Bound<'_, PyType>) -> Self {
-        PyOnsetDetectionConfig {
+        Self {
             inner: OnsetDetectionConfig::percussive(),
         }
     }
 
-    /// Create an OnsetDetectionConfig optimized for speech.
+    /// Create an ``OnsetDetectionConfig`` optimized for speech.
     #[classmethod]
     fn speech(_cls: &Bound<'_, PyType>) -> Self {
-        PyOnsetDetectionConfig {
+        Self {
             inner: OnsetDetectionConfig::speech(),
         }
     }
@@ -4647,7 +4681,7 @@ impl PyOnsetDetectionConfig {
 
     /// Get the hop size in samples.
     #[getter]
-    fn hop_size(&self) -> usize {
+    const fn hop_size(&self) -> usize {
         self.inner.hop_size.get()
     }
 
@@ -4667,61 +4701,61 @@ impl PyOnsetDetectionConfig {
     /// Set the window size in samples.
     #[setter]
     fn set_window_size(&mut self, value: Option<usize>) -> PyResult<()> {
-        self.inner.window_size = value.map(|w| nzu_or_err(w)).transpose()?;
+        self.inner.window_size = value.map(nzu_or_err).transpose()?;
         Ok(())
     }
 
     /// Get the onset detection threshold.
     #[getter]
-    fn threshold(&self) -> f64 {
+    const fn threshold(&self) -> f64 {
         self.inner.threshold
     }
 
     /// Set the onset detection threshold.
     #[setter]
-    fn set_threshold(&mut self, value: f64) {
+    const fn set_threshold(&mut self, value: f64) {
         self.inner.threshold = value;
     }
 
     /// Get the minimum onset interval in seconds.
     #[getter]
-    fn min_onset_interval_secs(&self) -> f64 {
+    const fn min_onset_interval_secs(&self) -> f64 {
         self.inner.min_onset_interval_secs
     }
 
     /// Set the minimum onset interval in seconds.
     #[setter]
-    fn set_min_onset_interval_secs(&mut self, value: f64) {
+    const fn set_min_onset_interval_secs(&mut self, value: f64) {
         self.inner.min_onset_interval_secs = value;
     }
 
     /// Get the pre-emphasis factor.
     #[getter]
-    fn pre_emphasis(&self) -> f64 {
+    const fn pre_emphasis(&self) -> f64 {
         self.inner.pre_emphasis
     }
 
     /// Set the pre-emphasis factor.
     #[setter]
-    fn set_pre_emphasis(&mut self, value: f64) {
+    const fn set_pre_emphasis(&mut self, value: f64) {
         self.inner.pre_emphasis = value;
     }
 
     /// Get whether adaptive thresholding is enabled.
     #[getter]
-    fn adaptive_threshold(&self) -> bool {
+    const fn adaptive_threshold(&self) -> bool {
         self.inner.adaptive_threshold
     }
 
     /// Set whether adaptive thresholding is enabled.
     #[setter]
-    fn set_adaptive_threshold(&mut self, value: bool) {
+    const fn set_adaptive_threshold(&mut self, value: bool) {
         self.inner.adaptive_threshold = value;
     }
 
     /// Get the median filter length.
     #[getter]
-    fn median_filter_length(&self) -> usize {
+    const fn median_filter_length(&self) -> usize {
         self.inner.median_filter_length.get()
     }
 
@@ -4734,26 +4768,28 @@ impl PyOnsetDetectionConfig {
 
     /// Get the adaptive threshold multiplier.
     #[getter]
-    fn adaptive_threshold_multiplier(&self) -> f64 {
+    const fn adaptive_threshold_multiplier(&self) -> f64 {
         self.inner.adaptive_threshold_multiplier
     }
 
     /// Set the adaptive threshold multiplier.
     #[setter]
-    fn set_adaptive_threshold_multiplier(&mut self, value: f64) {
+    const fn set_adaptive_threshold_multiplier(&mut self, value: f64) {
         self.inner.adaptive_threshold_multiplier = value;
     }
 
     /// Get the peak picking configuration.
     ///
     /// Returns a **copy**: setting fields on the returned object does not change
-    /// this config. Modify the copy and assign it back::
+    /// this config. Modify the copy and assign it back:
+    ///
+    /// ::
     ///
     ///     pp = config.peak_picking
     ///     pp.min_peak_separation = 256
     ///     config.peak_picking = pp
     #[getter]
-    fn peak_picking(&self) -> PyPeakPickingConfig {
+    const fn peak_picking(&self) -> PyPeakPickingConfig {
         PyPeakPickingConfig {
             inner: self.inner.peak_picking,
         }
@@ -4761,7 +4797,7 @@ impl PyOnsetDetectionConfig {
 
     /// Set the peak picking configuration.
     #[setter]
-    fn set_peak_picking(&mut self, value: PyPeakPickingConfig) {
+    const fn set_peak_picking(&mut self, value: PyPeakPickingConfig) {
         self.inner.peak_picking = value.inner;
     }
 }
@@ -4769,7 +4805,7 @@ impl PyOnsetDetectionConfig {
 impl_py_wrapper_core!(PyOnsetDetectionConfig, OnsetDetectionConfig);
 impl_py_repr!(PyOnsetDetectionConfig);
 
-/// Python wrapper for EnvelopeFollower.
+/// Python wrapper for ``EnvelopeFollower``.
 ///
 /// Envelope follower for attack/release envelope tracking.
 #[pyclass(
@@ -4784,17 +4820,17 @@ pub struct PyEnvelopeFollower {
 
 #[pymethods]
 impl PyEnvelopeFollower {
-    /// Create a new EnvelopeFollower.
+    /// Create a new ``EnvelopeFollower``.
     ///
     /// Parameters
     /// ----------
-    /// attack_ms : float
+    /// ``attack_ms`` : float
     ///     Attack time in milliseconds
-    /// release_ms : float
+    /// ``release_ms`` : float
     ///     Release time in milliseconds
-    /// sample_rate : float
+    /// ``sample_rate`` : float
     ///     Sample rate in Hz
-    /// detection_method : DynamicRangeMethod
+    /// ``detection_method`` : ``DynamicRangeMethod``
     ///     Detection method (Peak, Rms, or Hybrid)
     #[new]
     #[pyo3(signature = (attack_ms, release_ms, sample_rate, detection_method))]
@@ -4804,7 +4840,7 @@ impl PyEnvelopeFollower {
         sample_rate: f64,
         detection_method: PyDynamicRangeMethod,
     ) -> Self {
-        PyEnvelopeFollower {
+        Self {
             inner: EnvelopeFollower::new(
                 attack_ms,
                 release_ms,
@@ -4814,10 +4850,10 @@ impl PyEnvelopeFollower {
         }
     }
 
-    /// Create a default EnvelopeFollower with 10ms attack and 100ms release at 44100 Hz.
+    /// Create a default ``EnvelopeFollower`` with 10ms attack and 100ms release at 44100 Hz.
     #[classmethod]
     fn default(_cls: &Bound<'_, PyType>) -> Self {
-        PyEnvelopeFollower {
+        Self {
             inner: EnvelopeFollower::new(10.0, 100.0, 44100.0, DynamicRangeMethod::Peak),
         }
     }
@@ -4879,7 +4915,7 @@ impl PyEnvelopeFollower {
 impl_py_wrapper_core!(PyEnvelopeFollower, EnvelopeFollower);
 impl_py_repr!(PyEnvelopeFollower);
 
-/// Python wrapper for BeatTrackingConfig.
+/// Python wrapper for ``BeatTrackingConfig``.
 ///
 /// Configuration for beat detection.
 #[pyclass(
@@ -4894,45 +4930,45 @@ pub struct PyBeatTrackingConfig {
 
 #[pymethods]
 impl PyBeatTrackingConfig {
-    /// Create a new BeatTrackingConfig.
+    /// Create a new ``BeatTrackingConfig``.
     ///
     /// Parameters
     /// ----------
-    /// tempo_bpm : float
+    /// ``tempo_bpm`` : float
     ///     Target tempo in beats per minute
     /// tolerance : float, optional
     ///     Beat timing tolerance in seconds. If None, defaults to 10% of the inter-beat interval
-    /// onset_config : OnsetDetectionConfig
+    /// ``onset_config`` : ``OnsetDetectionConfig``
     ///     Configuration for onset detection
     #[new]
     #[pyo3(signature = (tempo_bpm, onset_config, tolerance=None))]
     fn new(tempo_bpm: f64, onset_config: PyOnsetDetectionConfig, tolerance: Option<f64>) -> Self {
-        PyBeatTrackingConfig {
+        Self {
             inner: BeatTrackingConfig::new(tempo_bpm, tolerance, onset_config.inner),
         }
     }
 
     /// Get the tempo in BPM.
     #[getter]
-    fn tempo_bpm(&self) -> f64 {
+    const fn tempo_bpm(&self) -> f64 {
         self.inner.tempo_bpm
     }
 
     /// Set the tempo in BPM.
     #[setter]
-    fn set_tempo_bpm(&mut self, tempo_bpm: f64) {
+    const fn set_tempo_bpm(&mut self, tempo_bpm: f64) {
         self.inner.tempo_bpm = tempo_bpm;
     }
 
     /// Get the tolerance in seconds.
     #[getter]
-    fn tolerance(&self) -> Option<f64> {
+    const fn tolerance(&self) -> Option<f64> {
         self.inner.tolerance
     }
 
     /// Set the tolerance in seconds.
     #[setter]
-    fn set_tolerance(&mut self, tolerance: Option<f64>) {
+    const fn set_tolerance(&mut self, tolerance: Option<f64>) {
         self.inner.tolerance = tolerance;
     }
 
@@ -4954,7 +4990,7 @@ impl PyBeatTrackingConfig {
 impl_py_wrapper_core!(PyBeatTrackingConfig, BeatTrackingConfig);
 impl_py_repr!(PyBeatTrackingConfig);
 
-/// Python wrapper for BeatTrackingData.
+/// Python wrapper for ``BeatTrackingData``.
 ///
 /// Beat tracking results containing tempo and beat timestamps.
 #[pyclass(
@@ -4969,27 +5005,27 @@ pub struct PyBeatTrackingData {
 
 #[pymethods]
 impl PyBeatTrackingData {
-    /// Create a new BeatTrackingData.
+    /// Create a new ``BeatTrackingData``.
     ///
     /// Parameters
     /// ----------
-    /// tempo_bpm : float
+    /// ``tempo_bpm`` : float
     ///     Estimated tempo in beats per minute
-    /// beat_times : list[float]
+    /// ``beat_times`` : list[float]
     ///     Beat timestamps in seconds
-    /// config : BeatTrackingConfig
+    /// config : ``BeatTrackingConfig``
     ///     Configuration used for beat detection
     #[new]
     #[pyo3(signature = (tempo_bpm, beat_times, config))]
     fn new(tempo_bpm: f64, beat_times: Vec<f64>, config: PyBeatTrackingConfig) -> Self {
-        PyBeatTrackingData {
+        Self {
             inner: BeatTrackingData::new(tempo_bpm, beat_times, config.inner),
         }
     }
 
     /// Get the estimated tempo in BPM.
     #[getter]
-    fn tempo_bpm(&self) -> f64 {
+    const fn tempo_bpm(&self) -> f64 {
         self.inner.tempo_bpm
     }
 
@@ -5061,24 +5097,24 @@ impl PyChannelReduction {
     /// This is the default strategy and preserves the strictest behaviour by
     /// refusing to silently collapse channels.
     #[classattr]
-    fn error() -> Self {
-        PyChannelReduction {
+    const fn error() -> Self {
+        Self {
             inner: ChannelReduction::Error,
         }
     }
 
     /// Use the first channel (index 0) and ignore the rest.
     #[classattr]
-    fn first() -> Self {
-        PyChannelReduction {
+    const fn first() -> Self {
+        Self {
             inner: ChannelReduction::First,
         }
     }
 
     /// Average the corresponding samples across all channels.
     #[classattr]
-    fn average() -> Self {
-        PyChannelReduction {
+    const fn average() -> Self {
+        Self {
             inner: ChannelReduction::Average,
         }
     }
@@ -5093,8 +5129,8 @@ impl PyChannelReduction {
     ///     Zero-based channel index to select.
     #[staticmethod]
     #[pyo3(signature = (index: "int"))]
-    fn channel(index: usize) -> Self {
-        PyChannelReduction {
+    const fn channel(index: usize) -> Self {
+        Self {
             inner: ChannelReduction::Channel(index),
         }
     }
@@ -5127,27 +5163,27 @@ impl PyGateConfig {
     ///
     /// Parameters
     /// ----------
-    /// threshold_db : float
+    /// ``threshold_db`` : float
     ///     Gate threshold in dBFS. Signals below this level are attenuated.
     ///     Typical range: [-80.0, 0.0].
     /// ratio : float
     ///     Attenuation ratio applied below the threshold. Higher values produce
     ///     more aggressive gating; values near 1.0 approach unity gain. Must be
     ///     greater than 0.0.
-    /// attack_ms : float
+    /// ``attack_ms`` : float
     ///     Attack time in milliseconds. Controls how quickly the gate opens once
     ///     the signal rises above the threshold. Valid range: [0.01, 1000.0] ms.
-    /// release_ms : float
+    /// ``release_ms`` : float
     ///     Release time in milliseconds. Controls how quickly the gate closes once
     ///     the signal falls below the threshold. Valid range: [1.0, 10000.0] ms.
     ///
     /// Returns
     /// -------
-    /// GateConfig
+    /// ``GateConfig``
     ///     A new gate configuration.
     #[new]
     #[pyo3(signature = (*, threshold_db: "float", ratio: "float", attack_ms: "float", release_ms: "float"))]
-    fn new(threshold_db: f64, ratio: f64, attack_ms: f64, release_ms: f64) -> Self {
+    const fn new(threshold_db: f64, ratio: f64, attack_ms: f64, release_ms: f64) -> Self {
         Self {
             inner: GateConfig::with_params(threshold_db, ratio, attack_ms, release_ms),
         }
@@ -5155,25 +5191,25 @@ impl PyGateConfig {
 
     /// Gate threshold in dBFS.
     #[getter]
-    fn threshold_db(&self) -> f64 {
+    const fn threshold_db(&self) -> f64 {
         self.inner.threshold_db
     }
 
     /// Attenuation ratio applied below the threshold.
     #[getter]
-    fn ratio(&self) -> f64 {
+    const fn ratio(&self) -> f64 {
         self.inner.ratio
     }
 
     /// Attack time in milliseconds.
     #[getter]
-    fn attack_ms(&self) -> f64 {
+    const fn attack_ms(&self) -> f64 {
         self.inner.attack_ms
     }
 
     /// Release time in milliseconds.
     #[getter]
-    fn release_ms(&self) -> f64 {
+    const fn release_ms(&self) -> f64 {
         self.inner.release_ms
     }
 
@@ -5182,7 +5218,7 @@ impl PyGateConfig {
     /// Moderate threshold and a high ratio for firmly attenuating background
     /// noise and room tone between phrases.
     #[classattr]
-    fn noise_gate() -> Self {
+    const fn noise_gate() -> Self {
         Self {
             inner: GateConfig::noise_gate(),
         }
@@ -5192,12 +5228,12 @@ impl PyGateConfig {
     ///
     /// Returns
     /// -------
-    /// GateConfig
+    /// ``GateConfig``
     ///     The validated gate configuration.
     ///
     /// Raises
     /// ------
-    /// ValueError
+    /// ``ValueError``
     ///     If any configuration parameter is invalid.
     #[pyo3(signature = ())]
     fn validate(&mut self) -> PyResult<Self> {
@@ -5237,25 +5273,25 @@ impl PyExpanderConfig {
     ///
     /// Parameters
     /// ----------
-    /// threshold_db : float
+    /// ``threshold_db`` : float
     ///     Expansion threshold in dBFS. Signals below this level are attenuated.
     ///     Typical range: [-80.0, 0.0].
     /// ratio : float
     ///     Expansion ratio applied below the threshold. Values greater than 1.0
     ///     produce increasing attenuation the further the signal falls below the
     ///     threshold. Must be greater than 0.0.
-    /// attack_ms : float
+    /// ``attack_ms`` : float
     ///     Attack time in milliseconds. Valid range: [0.01, 1000.0] ms.
-    /// release_ms : float
+    /// ``release_ms`` : float
     ///     Release time in milliseconds. Valid range: [1.0, 10000.0] ms.
     ///
     /// Returns
     /// -------
-    /// ExpanderConfig
+    /// ``ExpanderConfig``
     ///     A new expander configuration.
     #[new]
     #[pyo3(signature = (*, threshold_db: "float", ratio: "float", attack_ms: "float", release_ms: "float"))]
-    fn new(threshold_db: f64, ratio: f64, attack_ms: f64, release_ms: f64) -> Self {
+    const fn new(threshold_db: f64, ratio: f64, attack_ms: f64, release_ms: f64) -> Self {
         Self {
             inner: ExpanderConfig::with_params(threshold_db, ratio, attack_ms, release_ms),
         }
@@ -5263,25 +5299,25 @@ impl PyExpanderConfig {
 
     /// Expansion threshold in dBFS.
     #[getter]
-    fn threshold_db(&self) -> f64 {
+    const fn threshold_db(&self) -> f64 {
         self.inner.threshold_db
     }
 
     /// Expansion ratio applied below the threshold.
     #[getter]
-    fn ratio(&self) -> f64 {
+    const fn ratio(&self) -> f64 {
         self.inner.ratio
     }
 
     /// Attack time in milliseconds.
     #[getter]
-    fn attack_ms(&self) -> f64 {
+    const fn attack_ms(&self) -> f64 {
         self.inner.attack_ms
     }
 
     /// Release time in milliseconds.
     #[getter]
-    fn release_ms(&self) -> f64 {
+    const fn release_ms(&self) -> f64 {
         self.inner.release_ms
     }
 
@@ -5290,7 +5326,7 @@ impl PyExpanderConfig {
     /// A low ratio and relaxed envelope times for subtle dynamic-range
     /// enhancement without obvious pumping.
     #[classattr]
-    fn gentle() -> Self {
+    const fn gentle() -> Self {
         Self {
             inner: ExpanderConfig::gentle(),
         }
@@ -5300,12 +5336,12 @@ impl PyExpanderConfig {
     ///
     /// Returns
     /// -------
-    /// ExpanderConfig
+    /// ``ExpanderConfig``
     ///     The validated expander configuration.
     ///
     /// Raises
     /// ------
-    /// ValueError
+    /// ``ValueError``
     ///     If any configuration parameter is invalid.
     #[pyo3(signature = ())]
     fn validate(&mut self) -> PyResult<Self> {
@@ -5345,30 +5381,30 @@ impl PyThreeBandEqConfig {
     ///
     /// Parameters
     /// ----------
-    /// low_freq : float
+    /// ``low_freq`` : float
     ///     Low shelf corner frequency in Hz. Must be greater than 0.0 and less
     ///     than ``mid_freq``.
-    /// low_gain : float
+    /// ``low_gain`` : float
     ///     Low shelf gain in dB.
-    /// mid_freq : float
+    /// ``mid_freq`` : float
     ///     Mid peak centre frequency in Hz. Must be greater than ``low_freq`` and
     ///     less than ``high_freq``.
-    /// mid_gain : float
+    /// ``mid_gain`` : float
     ///     Mid peak gain in dB.
-    /// mid_q : float
+    /// ``mid_q`` : float
     ///     Mid peak Q factor. Must be greater than 0.0.
-    /// high_freq : float
+    /// ``high_freq`` : float
     ///     High shelf corner frequency in Hz. Must be greater than ``mid_freq``.
-    /// high_gain : float
+    /// ``high_gain`` : float
     ///     High shelf gain in dB.
     ///
     /// Returns
     /// -------
-    /// ThreeBandEqConfig
+    /// ``ThreeBandEqConfig``
     ///     A new three-band EQ configuration.
     #[new]
     #[pyo3(signature = (*, low_freq: "float", low_gain: "float", mid_freq: "float", mid_gain: "float", mid_q: "float", high_freq: "float", high_gain: "float"))]
-    fn new(
+    const fn new(
         low_freq: f64,
         low_gain: f64,
         mid_freq: f64,
@@ -5386,43 +5422,43 @@ impl PyThreeBandEqConfig {
 
     /// Low shelf corner frequency in Hz.
     #[getter]
-    fn low_freq(&self) -> f64 {
+    const fn low_freq(&self) -> f64 {
         self.inner.low_freq
     }
 
     /// Low shelf gain in dB.
     #[getter]
-    fn low_gain(&self) -> f64 {
+    const fn low_gain(&self) -> f64 {
         self.inner.low_gain
     }
 
     /// Mid peak centre frequency in Hz.
     #[getter]
-    fn mid_freq(&self) -> f64 {
+    const fn mid_freq(&self) -> f64 {
         self.inner.mid_freq
     }
 
     /// Mid peak gain in dB.
     #[getter]
-    fn mid_gain(&self) -> f64 {
+    const fn mid_gain(&self) -> f64 {
         self.inner.mid_gain
     }
 
     /// Mid peak Q factor.
     #[getter]
-    fn mid_q(&self) -> f64 {
+    const fn mid_q(&self) -> f64 {
         self.inner.mid_q
     }
 
     /// High shelf corner frequency in Hz.
     #[getter]
-    fn high_freq(&self) -> f64 {
+    const fn high_freq(&self) -> f64 {
         self.inner.high_freq
     }
 
     /// High shelf gain in dB.
     #[getter]
-    fn high_gain(&self) -> f64 {
+    const fn high_gain(&self) -> f64 {
         self.inner.high_gain
     }
 
@@ -5431,7 +5467,7 @@ impl PyThreeBandEqConfig {
     /// Low shelf at 200 Hz, mid peak at 1 kHz (Q = 1.0), high shelf at 4 kHz, all
     /// gains at 0 dB. A neutral starting point for further adjustment.
     #[classattr]
-    fn flat() -> Self {
+    const fn flat() -> Self {
         Self {
             inner: ThreeBandEqConfig::flat(),
         }
@@ -5441,12 +5477,12 @@ impl PyThreeBandEqConfig {
     ///
     /// Returns
     /// -------
-    /// ThreeBandEqConfig
+    /// ``ThreeBandEqConfig``
     ///     The validated configuration.
     ///
     /// Raises
     /// ------
-    /// ValueError
+    /// ``ValueError``
     ///     If any configuration parameter is invalid (non-positive frequency,
     ///     mis-ordered frequencies, or non-positive mid Q).
     #[pyo3(signature = ())]
@@ -5555,84 +5591,84 @@ pub struct PyPitchClass {
 impl PyPitchClass {
     /// Pitch class C (index 0).
     #[classattr]
-    fn c() -> Self {
+    const fn c() -> Self {
         Self {
             inner: PitchClass::C,
         }
     }
     /// Pitch class C# / Db (index 1).
     #[classattr]
-    fn c_sharp() -> Self {
+    const fn c_sharp() -> Self {
         Self {
             inner: PitchClass::CSharp,
         }
     }
     /// Pitch class D (index 2).
     #[classattr]
-    fn d() -> Self {
+    const fn d() -> Self {
         Self {
             inner: PitchClass::D,
         }
     }
     /// Pitch class D# / Eb (index 3).
     #[classattr]
-    fn d_sharp() -> Self {
+    const fn d_sharp() -> Self {
         Self {
             inner: PitchClass::DSharp,
         }
     }
     /// Pitch class E (index 4).
     #[classattr]
-    fn e() -> Self {
+    const fn e() -> Self {
         Self {
             inner: PitchClass::E,
         }
     }
     /// Pitch class F (index 5).
     #[classattr]
-    fn f() -> Self {
+    const fn f() -> Self {
         Self {
             inner: PitchClass::F,
         }
     }
     /// Pitch class F# / Gb (index 6).
     #[classattr]
-    fn f_sharp() -> Self {
+    const fn f_sharp() -> Self {
         Self {
             inner: PitchClass::FSharp,
         }
     }
     /// Pitch class G (index 7).
     #[classattr]
-    fn g() -> Self {
+    const fn g() -> Self {
         Self {
             inner: PitchClass::G,
         }
     }
     /// Pitch class G# / Ab (index 8).
     #[classattr]
-    fn g_sharp() -> Self {
+    const fn g_sharp() -> Self {
         Self {
             inner: PitchClass::GSharp,
         }
     }
     /// Pitch class A (index 9).
     #[classattr]
-    fn a() -> Self {
+    const fn a() -> Self {
         Self {
             inner: PitchClass::A,
         }
     }
     /// Pitch class A# / Bb (index 10).
     #[classattr]
-    fn a_sharp() -> Self {
+    const fn a_sharp() -> Self {
         Self {
             inner: PitchClass::ASharp,
         }
     }
     /// Pitch class B (index 11).
     #[classattr]
-    fn b() -> Self {
+    const fn b() -> Self {
         Self {
             inner: PitchClass::B,
         }
@@ -5647,12 +5683,12 @@ impl PyPitchClass {
     ///
     /// Returns
     /// -------
-    /// PitchClass
+    /// ``PitchClass``
     ///     The pitch class for the given index.
     ///
     /// Raises
     /// ------
-    /// ValueError
+    /// ``ValueError``
     ///     If ``index`` is greater than 11.
     #[staticmethod]
     #[pyo3(signature = (index: "int"))]
@@ -5708,13 +5744,13 @@ pub struct PyMode {
 impl PyMode {
     /// Major mode.
     #[classattr]
-    fn major() -> Self {
+    const fn major() -> Self {
         Self { inner: Mode::Major }
     }
 
     /// Minor mode.
     #[classattr]
-    fn minor() -> Self {
+    const fn minor() -> Self {
         Self { inner: Mode::Minor }
     }
 
@@ -5754,7 +5790,7 @@ impl PyKey {
     ///
     /// Parameters
     /// ----------
-    /// tonic : PitchClass
+    /// tonic : ``PitchClass``
     ///     The tonic pitch class of the key.
     /// mode : Mode
     ///     The mode (major or minor) of the key.
@@ -5768,7 +5804,7 @@ impl PyKey {
     ///     A new key estimate.
     #[new]
     #[pyo3(signature = (tonic: "PitchClass", mode: "Mode", confidence: "float"))]
-    fn new(tonic: PyPitchClass, mode: PyMode, confidence: f64) -> Self {
+    const fn new(tonic: PyPitchClass, mode: PyMode, confidence: f64) -> Self {
         Self {
             inner: Key {
                 tonic: tonic.inner,
@@ -5780,7 +5816,7 @@ impl PyKey {
 
     /// The tonic pitch class of the key.
     #[getter]
-    fn tonic(&self) -> PyPitchClass {
+    const fn tonic(&self) -> PyPitchClass {
         PyPitchClass {
             inner: self.inner.tonic,
         }
@@ -5788,7 +5824,7 @@ impl PyKey {
 
     /// The mode (major or minor) of the key.
     #[getter]
-    fn mode(&self) -> PyMode {
+    const fn mode(&self) -> PyMode {
         PyMode {
             inner: self.inner.mode,
         }
@@ -5796,7 +5832,7 @@ impl PyKey {
 
     /// Match confidence in [0.0, 1.0].
     #[getter]
-    fn confidence(&self) -> f64 {
+    const fn confidence(&self) -> f64 {
         self.inner.confidence
     }
 
@@ -5852,11 +5888,11 @@ impl PyPitchFrame {
     ///
     /// Returns
     /// -------
-    /// PitchFrame
+    /// ``PitchFrame``
     ///     A new pitch frame.
     #[new]
     #[pyo3(signature = (time: "float", frequency = None))]
-    fn new(time: f64, frequency: Option<f64>) -> Self {
+    const fn new(time: f64, frequency: Option<f64>) -> Self {
         Self {
             inner: PitchFrame { time, frequency },
         }
@@ -5864,19 +5900,19 @@ impl PyPitchFrame {
 
     /// Frame onset time, in seconds from the start of the signal.
     #[getter]
-    fn time(&self) -> f64 {
+    const fn time(&self) -> f64 {
         self.inner.time
     }
 
     /// Detected fundamental frequency in Hz, or ``None`` if the frame is unvoiced.
     #[getter]
-    fn frequency(&self) -> Option<f64> {
+    const fn frequency(&self) -> Option<f64> {
         self.inner.frequency
     }
 
     /// Whether this frame is voiced (a pitch was detected).
     #[getter]
-    fn voiced(&self) -> bool {
+    const fn voiced(&self) -> bool {
         self.inner.frequency.is_some()
     }
 
@@ -5915,7 +5951,7 @@ impl PyPitchContour {
     ///
     /// Returns
     /// -------
-    /// list[PitchFrame]
+    /// list[``PitchFrame``]
     ///     The complete list of pitch frames.
     #[pyo3(signature = ())]
     fn frames(&self) -> Vec<PyPitchFrame> {

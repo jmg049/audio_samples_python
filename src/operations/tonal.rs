@@ -23,6 +23,7 @@ impl PyAudioSamples {
     /// filterbank, tuning estimation and normalisation.
     ///
     /// Args:
+    ///
     ///     norm (Optional[float]): Per-frame normalisation (``numpy.inf`` default,
     ///         any p-norm, or None for raw energy).
     ///     n_fft (int): FFT length. Default 2048.
@@ -36,10 +37,12 @@ impl PyAudioSamples {
     ///     base_c (bool): Row 0 is C (True) or A. Default True.
     ///
     /// Returns:
+    ///
     ///     numpy.ndarray[float32 | float64]: shape ``(channels, n_chroma, n_frames)`` (librosa
     ///     returns ``(n_chroma, n_frames)`` for 1-D input; index ``[0]``).
     ///
     /// Raises:
+    ///
     ///     ValueError: For invalid parameters.
     #[pyo3(
         signature = (*, norm = Some(f64::INFINITY), n_fft = Int(2048), hop_length = Int(512), win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", tuning = Some(0.0), n_chroma = Int(12), ctroct = 5.0, octwidth = Some(2.0), base_c = true),
@@ -85,6 +88,7 @@ impl PyAudioSamples {
     /// ``librosa.piptrack(y=..., sr=self.sample_rate, ...)``.
     ///
     /// Args:
+    ///
     ///     n_fft (int): FFT length. Default 2048.
     ///     hop_length (Optional[int]): None = ``win_length // 4``.
     ///     fmin (float): Lowest reported frequency (Hz). Default 150.
@@ -95,10 +99,12 @@ impl PyAudioSamples {
     ///         (default) = per-frame maximum, a number = absolute threshold.
     ///
     /// Returns:
+    ///
     ///     tuple: ``(pitches, magnitudes)``, each numpy.ndarray[float32 | float64] of shape
     ///     ``(channels, 1 + n_fft // 2, n_frames)``; zero except at detected peaks.
     ///
     /// Raises:
+    ///
     ///     ValueError: For invalid parameters.
     #[pyo3(
         signature = (*, n_fft = Int(2048), hop_length = None, fmin = 150.0, fmax = 4000.0, threshold = 0.1, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", r#ref = None),
@@ -133,15 +139,18 @@ impl PyAudioSamples {
     /// All channels are pooled (as librosa does for multichannel input).
     ///
     /// Args:
+    ///
     ///     n_fft (int): FFT length. Default 2048.
     ///     resolution (float): Resolution in fractions of a bin. Default 0.01.
     ///     bins_per_octave (int): Bins per octave of the grid. Default 12.
     ///     hop_length, win_length, window, center, pad_mode, fmin, fmax, threshold, ref: ``piptrack`` parameters (librosa's ``**kwargs``).
     ///
     /// Returns:
+    ///
     ///     float: tuning in ``[-0.5, 0.5)`` fractions of a bin.
     ///
     /// Raises:
+    ///
     ///     ValueError: For invalid parameters.
     #[pyo3(
         signature = (*, n_fft = Int(2048), resolution = 0.01, bins_per_octave = Int(12), hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", fmin = 150.0, fmax = 4000.0, threshold = 0.1, r#ref = None),

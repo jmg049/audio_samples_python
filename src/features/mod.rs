@@ -7,7 +7,7 @@
 //! Array shapes follow librosa: a 2-D spectrogram `(F, T)` gives 2-D output, a
 //! 3-D `(channels, F, T)` spectrogram gives 3-D output.
 
-pub(crate) mod args;
+pub mod args;
 pub mod constant_q;
 pub mod pitch;
 pub mod spectral;

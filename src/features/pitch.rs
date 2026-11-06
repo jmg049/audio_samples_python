@@ -20,7 +20,7 @@ use crate::audio_err_to_py;
 
 /// Builds a [`YinConfig`] from librosa's `yin` keyword arguments.
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn yin_config(
+pub fn yin_config(
     fmin: f64,
     fmax: f64,
     frame_length: Int,
@@ -42,7 +42,7 @@ pub(crate) fn yin_config(
 
 /// Builds a [`PyinConfig`] from librosa's `pyin` keyword arguments.
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn pyin_config(
+pub fn pyin_config(
     fmin: f64,
     fmax: f64,
     frame_length: Int,
@@ -78,17 +78,14 @@ pub(crate) fn pyin_config(
     })
 }
 
-fn rows_out<'py, T: numpy::Element>(
-    py: Python<'py>,
-    a: Array2<T>,
-    ndim_in: usize,
-) -> Bound<'py, PyAny> {
+fn rows_out<T: numpy::Element>(py: Python<'_>, a: Array2<T>, ndim_in: usize) -> Bound<'_, PyAny> {
     squeeze_out(py, a.into_dyn(), ndim_in == 1)
 }
 
 /// Frame-wise YIN fundamental frequency of an array, equivalent to ``librosa.yin``.
 ///
 /// Args:
+///
 ///     y (array_like): Signal, ``(n,)`` or ``(channels, n)``.
 ///     fmin (float): Lowest frequency searched (Hz). Required.
 ///     fmax (float): Highest frequency searched (Hz). Required.
@@ -100,9 +97,11 @@ fn rows_out<'py, T: numpy::Element>(
 ///     pad_mode (str): Padding for ``center``. Default ``"constant"``.
 ///
 /// Returns:
+///
 ///     numpy.ndarray[float32 | float64]: f0 in Hz, shape ``(n_frames,)`` or ``(channels, n_frames)``.
 ///
 /// Raises:
+///
 ///     ValueError: For invalid parameters or a too-short signal.
 #[pyfunction]
 #[pyo3(
@@ -144,6 +143,7 @@ pub fn yin<'py>(
 /// Probabilistic YIN of an array, equivalent to ``librosa.pyin``.
 ///
 /// Args:
+///
 ///     y (array_like): Signal, ``(n,)`` or ``(channels, n)``.
 ///     fmin, fmax (float): Search range in Hz. Required.
 ///     sr (float): Sample rate. Required (librosa defaults to 22050).
@@ -164,10 +164,12 @@ pub fn yin<'py>(
 ///         (None or 0 = exact). Default 1e-4.
 ///
 /// Returns:
+///
 ///     tuple: ``(f0, voiced_flag, voiced_prob)``, each ``(n_frames,)`` or
 ///     ``(channels, n_frames)``; ``voiced_flag`` is ``bool``, the others in ``y``'s precision.
 ///
 /// Raises:
+///
 ///     ValueError: For invalid parameters or a too-short signal.
 #[pyfunction]
 #[pyo3(
@@ -403,6 +405,7 @@ fn f0_harmonics_any<'py, F: crate::args::PyFloat>(
 /// Harmonic salience of a spectrogram, equivalent to ``librosa.salience``.
 ///
 /// Args:
+///
 ///     S (array_like): Non-negative magnitudes, ``(F, T)`` or ``(channels, F, T)``.
 ///     freqs (array_like): Bin frequencies: 1-D ``(F,)`` or shaped like ``S``
 ///         (time-varying).
@@ -416,9 +419,11 @@ fn f0_harmonics_any<'py, F: crate::args::PyFloat>(
 ///     axis (int): Must be -2.
 ///
 /// Returns:
+///
 ///     numpy.ndarray[float32 | float64]: same shape as ``S``.
 ///
 /// Raises:
+///
 ///     ValueError: For shape mismatches or unsupported options.
 #[pyfunction]
 #[pyo3(
@@ -466,6 +471,7 @@ pub fn salience<'py>(
 /// Interpolated harmonics of a spectrogram, equivalent to ``librosa.interp_harmonics``.
 ///
 /// Args:
+///
 ///     x (array_like): Energy, ``(F, T)`` or ``(channels, F, T)``.
 ///     freqs (array_like): 1-D bin frequencies or an array shaped like ``x``.
 ///     harmonics (array_like): Harmonic multipliers.
@@ -474,10 +480,12 @@ pub fn salience<'py>(
 ///     axis (int): The frequency axis. Default -2.
 ///
 /// Returns:
+///
 ///     numpy.ndarray[float32 | float64]: shape ``(len(harmonics), F, T)`` or
 ///     ``(channels, len(harmonics), F, T)``.
 ///
 /// Raises:
+///
 ///     ValueError: For shape mismatches or unsupported options.
 #[pyfunction]
 #[pyo3(
@@ -514,6 +522,7 @@ pub fn interp_harmonics<'py>(
 /// Energy at the harmonics of a time-varying f0, equivalent to ``librosa.f0_harmonics``.
 ///
 /// Args:
+///
 ///     x (array_like): Energy, ``(F, T)`` or ``(channels, F, T)``.
 ///     f0 (array_like): Fundamental per frame, ``(T,)`` or ``(channels, T)``;
 ///         NaN frames get ``fill_value``.
@@ -524,10 +533,12 @@ pub fn interp_harmonics<'py>(
 ///     axis (int): The frequency axis. Default -2.
 ///
 /// Returns:
+///
 ///     numpy.ndarray[float32 | float64]: shape ``(len(harmonics), T)`` or
 ///     ``(channels, len(harmonics), T)``.
 ///
 /// Raises:
+///
 ///     ValueError: For shape mismatches or unsupported options.
 #[pyfunction]
 #[pyo3(
@@ -574,7 +585,7 @@ pub fn f0_harmonics<'py>(
 }
 
 /// Registers the pitch-tracking functions.
-pub(crate) fn add(m: &Bound<'_, PyModule>) -> PyResult<()> {
+pub fn add(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(yin, m)?)?;
     m.add_function(wrap_pyfunction!(pyin, m)?)?;
     m.add_function(wrap_pyfunction!(salience, m)?)?;

@@ -245,6 +245,7 @@ pub fn generation(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
 /// ======================  ==================================================================
 ///
 /// Args:
+///
 ///     name: The clip, one of the names above (see ``example_clip_names``)
 ///     duration_secs: Duration in seconds (default: 8.0); the pattern repeats for as long as
 ///         requested
@@ -253,9 +254,11 @@ pub fn generation(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
 ///         or string (``"float64"``). Default: float32
 ///
 /// Returns:
+///
 ///     AudioSamples: Mono audio of the given sample type at the given sample rate
 ///
 /// Raises:
+///
 ///     ValueError: Unknown name, or a duration that gives no samples
 #[pyfunction]
 #[pyo3(signature = (name, duration_secs=8.0, sample_rate=44100, dtype=None))]
@@ -288,6 +291,7 @@ fn example_clip(
 /// The names ``example_clip`` accepts.
 ///
 /// Returns:
+///
 ///     list[str]: The clip names
 #[pyfunction]
 fn example_clip_names() -> Vec<&'static str> {
@@ -297,12 +301,14 @@ fn example_clip_names() -> Vec<&'static str> {
 /// The F0 of the ``"speech"`` and ``"noisy_recording"`` clips at the given times.
 ///
 /// Args:
+///
 ///     times: Times in seconds from the start of the clip
 ///
 /// Returns:
+///
 ///     numpy.ndarray: F0 in Hz as 1-D float64, NaN during pauses
 #[pyfunction]
-fn example_speech_f0<'py>(py: Python<'py>, times: Vec<f64>) -> Bound<'py, PyArray1<f64>> {
+fn example_speech_f0(py: Python<'_>, times: Vec<f64>) -> Bound<'_, PyArray1<f64>> {
     let f0: Vec<f64> = times
         .into_iter()
         .map(|t| audio_samples::utils::generation::example_speech_f0(t).unwrap_or(f64::NAN))
@@ -313,6 +319,7 @@ fn example_speech_f0<'py>(py: Python<'py>, times: Vec<f64>) -> Bound<'py, PyArra
 /// Generate a sine wave audio signal.
 ///
 /// Args:
+///
 ///     frequency: Frequency of the sine wave in Hz
 ///     duration_secs: Duration of the signal in seconds
 ///     sample_rate: Sample rate in samples per second (default: 44100)
@@ -321,6 +328,7 @@ fn example_speech_f0<'py>(py: Python<'py>, times: Vec<f64>) -> Bound<'py, PyArra
 ///         or string (``"float64"``). Default: float32
 ///
 /// Returns:
+///
 ///     AudioSamples: Generated sine wave audio data
 #[pyfunction]
 #[pyo3(signature = (frequency, duration_secs, sample_rate=44100, amplitude=1.0, dtype=None))]
@@ -345,6 +353,7 @@ pub fn sine_wave(
 /// Generate a cosine wave audio signal.
 ///
 /// Args:
+///
 ///     frequency: Frequency of the cosine wave in Hz
 ///     duration_secs: Duration of the signal in seconds
 ///     sample_rate: Sample rate in samples per second (default: 44100)
@@ -353,6 +362,7 @@ pub fn sine_wave(
 ///         or string (``"float64"``). Default: float32
 ///
 /// Returns:
+///
 ///     AudioSamples: Generated cosine wave audio data
 #[pyfunction]
 #[pyo3(signature = (frequency, duration_secs, sample_rate=44100, amplitude=1.0, dtype=None))]
@@ -377,6 +387,7 @@ fn cosine_wave(
 /// Generate a sawtooth wave audio signal.
 ///
 /// Args:
+///
 ///     frequency: Frequency of the sawtooth wave in Hz
 ///     duration_secs: Duration of the signal in seconds
 ///     sample_rate: Sample rate in samples per second (default: 44100)
@@ -385,6 +396,7 @@ fn cosine_wave(
 ///         or string (``"float64"``). Default: float32
 ///
 /// Returns:
+///
 ///     AudioSamples: Generated sawtooth wave audio data
 #[pyfunction]
 #[pyo3(signature = (frequency, duration_secs, sample_rate=44100, amplitude=1.0, dtype=None))]
@@ -409,6 +421,7 @@ fn sawtooth_wave(
 /// Generate a square wave audio signal.
 ///
 /// Args:
+///
 ///     frequency: Frequency of the square wave in Hz
 ///     duration_secs: Duration of the signal in seconds
 ///     sample_rate: Sample rate in samples per second (default: 44100)
@@ -417,6 +430,7 @@ fn sawtooth_wave(
 ///         or string (``"float64"``). Default: float32
 ///
 /// Returns:
+///
 ///     AudioSamples: Generated square wave audio data
 #[pyfunction]
 #[pyo3(signature = (frequency, duration_secs, sample_rate=44100, amplitude=1.0, dtype=None))]
@@ -441,6 +455,7 @@ fn square_wave(
 /// Generate a triangle wave audio signal.
 ///
 /// Args:
+///
 ///     frequency: Frequency of the triangle wave in Hz
 ///     duration_secs: Duration of the signal in seconds
 ///     sample_rate: Sample rate in samples per second (default: 44100)
@@ -449,6 +464,7 @@ fn square_wave(
 ///         or string (``"float64"``). Default: float32
 ///
 /// Returns:
+///
 ///     AudioSamples: Generated triangle wave audio data
 #[pyfunction]
 #[pyo3(signature = (frequency, duration_secs, sample_rate=44100, amplitude=1.0, dtype=None))]
@@ -473,6 +489,7 @@ fn triangle_wave(
 /// Generate a frequency chirp (sweep) audio signal.
 ///
 /// Args:
+///
 ///     f0: Starting frequency in Hz
 ///     f1: Ending frequency in Hz
 ///     duration_secs: Duration of the signal in seconds
@@ -482,6 +499,7 @@ fn triangle_wave(
 ///         or string (``"float64"``). Default: float32
 ///
 /// Returns:
+///
 ///     AudioSamples: Generated chirp audio data
 #[pyfunction]
 #[pyo3(signature = (f0, f1, duration_secs, sample_rate=44100, amplitude=1.0, dtype=None))]
@@ -507,6 +525,7 @@ fn chirp(
 /// Generate white noise audio signal.
 ///
 /// Args:
+///
 ///     duration_secs: Duration of the signal in seconds
 ///     sample_rate: Sample rate in samples per second (default: 44100)
 ///     amplitude: Peak amplitude of the noise (default: 1.0)
@@ -515,6 +534,7 @@ fn chirp(
 ///     seed: Optional seed for reproducible noise generation
 ///
 /// Returns:
+///
 ///     AudioSamples: Generated white noise audio data
 #[pyfunction]
 #[pyo3(signature = (duration_secs, sample_rate=44100, amplitude=1.0, dtype=None, seed=None))]
@@ -539,6 +559,7 @@ fn white_noise(
 /// Generate pink noise audio signal.
 ///
 /// Args:
+///
 ///     duration_secs: Duration of the signal in seconds
 ///     sample_rate: Sample rate in samples per second (default: 44100)
 ///     amplitude: Peak amplitude of the noise (default: 1.0)
@@ -546,6 +567,7 @@ fn white_noise(
 ///         or string (``"float64"``). Default: float32
 ///
 /// Returns:
+///
 ///     AudioSamples: Generated pink noise audio data
 #[pyfunction]
 #[pyo3(signature = (duration_secs, sample_rate=44100, amplitude=1.0, dtype=None,seed=None))]
@@ -570,6 +592,7 @@ fn pink_noise(
 /// Generate brown noise (Brownian/red noise) audio signal.
 ///
 /// Args:
+///
 ///     duration_secs: Duration of the signal in seconds
 ///     sample_rate: Sample rate in samples per second (default: 44100)
 ///     step: Step size for the random walk (default: 0.01)
@@ -578,6 +601,7 @@ fn pink_noise(
 ///         or string (``"float64"``). Default: float32
 ///
 /// Returns:
+///
 ///     AudioSamples: Generated brown noise audio data
 #[pyfunction]
 #[pyo3(signature = (duration_secs, sample_rate=44100, step=0.01, amplitude=1.0, dtype=None, seed=None))]
@@ -603,6 +627,7 @@ fn brown_noise(
 /// Generate an impulse (delta function) audio signal.
 ///
 /// Args:
+///
 ///     duration_secs: Duration of the signal in seconds
 ///     sample_rate: Sample rate in samples per second (default: 44100)
 ///     amplitude: Peak amplitude of the impulse (default: 1.0)
@@ -611,6 +636,7 @@ fn brown_noise(
 ///         or string (``"float64"``). Default: float32
 ///
 /// Returns:
+///
 ///     AudioSamples: Generated impulse audio data
 #[pyfunction]
 #[pyo3(signature = (duration_secs, sample_rate=44100, amplitude=1.0, position=0.5, dtype=None))]
@@ -635,12 +661,14 @@ fn impulse(
 /// Generate silence (zero amplitude) audio signal.
 ///
 /// Args:
+///
 ///     duration_secs: Duration of the signal in seconds
 ///     sample_rate: Sample rate in samples per second (default: 44100)
 ///     dtype: Output sample type as a NumPy dtype, scalar type (``np.float64``)
 ///         or string (``"float64"``). Default: float32
 ///
 /// Returns:
+///
 ///     AudioSamples: Generated silence audio data
 #[pyfunction]
 #[pyo3(signature = (duration_secs, sample_rate=44100, dtype=None))]
@@ -663,6 +691,7 @@ fn silence(
 /// Generate a stereo sine wave audio signal (same frequency on both channels).
 ///
 /// Args:
+///
 ///     frequency: Frequency of the sine wave in Hz
 ///     duration_secs: Duration of the signal in seconds
 ///     sample_rate: Sample rate in samples per second (default: 44100)
@@ -671,6 +700,7 @@ fn silence(
 ///         or string (``"float64"``). Default: float32
 ///
 /// Returns:
+///
 ///     AudioSamples: Generated stereo sine wave audio data
 #[pyfunction]
 #[pyo3(signature = (frequency, duration_secs, sample_rate=44100, amplitude=1.0, dtype=None))]
@@ -698,6 +728,7 @@ pub fn stereo_sine_wave(
 /// Generate a stereo chirp signal (frequency sweep on both channels).
 ///
 /// Args:
+///
 ///     start_freq: Starting frequency in Hz
 ///     end_freq: Ending frequency in Hz
 ///     duration_secs: Duration of the signal in seconds
@@ -707,6 +738,7 @@ pub fn stereo_sine_wave(
 ///         or string (``"float64"``). Default: float32
 ///
 /// Returns:
+///
 ///     AudioSamples: Generated stereo chirp audio data
 #[pyfunction]
 #[pyo3(signature = (start_freq, end_freq, duration_secs, sample_rate=44100, amplitude=1.0, dtype=None))]
@@ -740,12 +772,14 @@ pub fn stereo_chirp(
 /// Generate stereo silence.
 ///
 /// Args:
+///
 ///     duration_secs: Duration of the signal in seconds
 ///     sample_rate: Sample rate in samples per second (default: 44100)
 ///     dtype: Output sample type as a NumPy dtype, scalar type (``np.float64``)
 ///         or string (``"float64"``). Default: float32
 ///
 /// Returns:
+///
 ///     AudioSamples: Stereo silence audio data
 #[pyfunction]
 #[pyo3(signature = (duration_secs, sample_rate=44100, dtype=None))]
@@ -774,6 +808,7 @@ pub fn stereo_silence(
 /// with no aliasing.
 ///
 /// Args:
+///
 ///     frequency: Fundamental frequency of the square wave in Hz
 ///     duration_secs: Duration of the signal in seconds
 ///     sample_rate: Sample rate in samples per second (default: 44100)
@@ -782,6 +817,7 @@ pub fn stereo_silence(
 ///         or string (``"float64"``). Default: float32
 ///
 /// Returns:
+///
 ///     AudioSamples: Generated band-limited square wave audio data
 #[pyfunction]
 #[pyo3(signature = (frequency, duration_secs, sample_rate=44100, amplitude=1.0, dtype=None))]
@@ -809,6 +845,7 @@ fn square_wave_bandlimited(
 /// an exactly band-limited signal with no aliasing.
 ///
 /// Args:
+///
 ///     frequency: Fundamental frequency of the sawtooth wave in Hz
 ///     duration_secs: Duration of the signal in seconds
 ///     sample_rate: Sample rate in samples per second (default: 44100)
@@ -817,6 +854,7 @@ fn square_wave_bandlimited(
 ///         or string (``"float64"``). Default: float32
 ///
 /// Returns:
+///
 ///     AudioSamples: Generated band-limited sawtooth wave audio data
 #[pyfunction]
 #[pyo3(signature = (frequency, duration_secs, sample_rate=44100, amplitude=1.0, dtype=None))]
@@ -844,6 +882,7 @@ fn sawtooth_wave_bandlimited(
 /// producing an exactly band-limited signal with no aliasing.
 ///
 /// Args:
+///
 ///     frequency: Fundamental frequency of the triangle wave in Hz
 ///     duration_secs: Duration of the signal in seconds
 ///     sample_rate: Sample rate in samples per second (default: 44100)
@@ -852,6 +891,7 @@ fn sawtooth_wave_bandlimited(
 ///         or string (``"float64"``). Default: float32
 ///
 /// Returns:
+///
 ///     AudioSamples: Generated band-limited triangle wave audio data
 #[pyfunction]
 #[pyo3(signature = (frequency, duration_secs, sample_rate=44100, amplitude=1.0, dtype=None))]
@@ -879,6 +919,7 @@ fn triangle_wave_bandlimited(
 /// Both frequencies must be strictly positive.
 ///
 /// Args:
+///
 ///     start_freq: Starting frequency in Hz (must be > 0)
 ///     end_freq: Ending frequency in Hz (must be > 0)
 ///     duration_secs: Duration of the signal in seconds
@@ -888,6 +929,7 @@ fn triangle_wave_bandlimited(
 ///         or string (``"float64"``). Default: float32
 ///
 /// Returns:
+///
 ///     AudioSamples: Generated exponential chirp audio data
 #[pyfunction]
 #[pyo3(signature = (start_freq, end_freq, duration_secs, sample_rate=44100, amplitude=1.0, dtype=None))]
@@ -925,6 +967,7 @@ fn exponential_chirp(
 /// carrier frequency.
 ///
 /// Args:
+///
 ///     carrier_freq: Carrier frequency in Hz
 ///     modulator_freq: Modulator frequency in Hz
 ///     modulation_index: Modulation index (peak phase deviation in radians)
@@ -935,6 +978,7 @@ fn exponential_chirp(
 ///         or string (``"float64"``). Default: float32
 ///
 /// Returns:
+///
 ///     AudioSamples: Generated FM signal audio data
 #[pyfunction]
 #[pyo3(signature = (carrier_freq, modulator_freq, modulation_index, duration_secs, sample_rate=44100, amplitude=1.0, dtype=None))]
@@ -972,6 +1016,7 @@ fn fm_signal(
 /// A carrier signal modulated by a low-frequency envelope.
 ///
 /// Args:
+///
 ///     carrier_freq: Frequency of the carrier signal in Hz
 ///     modulator_freq: Frequency of the modulating envelope in Hz
 ///     modulation_depth: Depth of modulation (0.0 = none, 1.0 = full)
@@ -982,6 +1027,7 @@ fn fm_signal(
 ///         or string (``"float64"``). Default: float32
 ///
 /// Returns:
+///
 ///     AudioSamples: Generated AM signal audio data
 #[pyfunction]
 #[pyo3(signature = (carrier_freq, modulator_freq, modulation_depth, duration_secs, sample_rate=44100, amplitude=1.0, dtype=None))]
@@ -1020,6 +1066,7 @@ fn am_signal(
 /// component is given as a ``(frequency_hz, amplitude)`` tuple.
 ///
 /// Args:
+///
 ///     components: List of ``(frequency_hz, amplitude)`` tuples. Must be non-empty.
 ///     duration_secs: Duration of the signal in seconds
 ///     sample_rate: Sample rate in samples per second (default: 44100)
@@ -1027,9 +1074,11 @@ fn am_signal(
 ///         or string (``"float64"``). Default: float32
 ///
 /// Returns:
+///
 ///     AudioSamples: Generated compound tone audio data
 ///
 /// Raises:
+///
 ///     ValueError: If `components` is empty or `duration_secs` is not positive.
 #[pyfunction]
 #[pyo3(signature = (components, duration_secs, sample_rate=44100, dtype=None))]
@@ -1070,6 +1119,7 @@ fn compound_tone(
 /// Creates percussive-like transients useful for testing onset detection.
 ///
 /// Args:
+///
 ///     burst_rate: Number of bursts per second
 ///     decay_rate: Exponential decay rate (higher = faster decay)
 ///     duration_secs: Duration of the signal in seconds
@@ -1079,6 +1129,7 @@ fn compound_tone(
 ///         or string (``"float64"``). Default: float32
 ///
 /// Returns:
+///
 ///     AudioSamples: Generated burst signal audio data
 #[pyfunction]
 #[pyo3(signature = (burst_rate, decay_rate, duration_secs, sample_rate=44100, amplitude=1.0, dtype=None))]
@@ -1112,12 +1163,15 @@ fn exponential_bursts(
 /// What an example clip contains.
 ///
 /// Args:
+///
 ///     name: The clip, one of ``example_clip_names()``
 ///
 /// Returns:
+///
 ///     str: One sentence on the clip's known contents
 ///
 /// Raises:
+///
 ///     ``ValueError``: Unknown name
 #[pyfunction]
 fn example_clip_info(name: &str) -> PyResult<&'static str> {

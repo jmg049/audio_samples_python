@@ -24,7 +24,7 @@ use crate::args::{
 use crate::audio_err_to_py;
 
 /// Wraps a `(channels, rows, T)` result in librosa's shape: `(rows, T)` for 2-D input.
-fn out<'py, T: numpy::Element>(py: Python<'py>, a: Array3<T>, ndim_in: usize) -> Bound<'py, PyAny> {
+fn out<T: numpy::Element>(py: Python<'_>, a: Array3<T>, ndim_in: usize) -> Bound<'_, PyAny> {
     squeeze_out(py, a.into_dyn(), ndim_in == 2)
 }
 
@@ -32,6 +32,7 @@ fn out<'py, T: numpy::Element>(py: Python<'py>, a: Array3<T>, ndim_in: usize) ->
 /// ``librosa.feature.spectral_centroid(S=S, sr=sr, freq=freq)``.
 ///
 /// Args:
+///
 ///     S (array_like): Non-negative magnitude spectrogram, shape ``(F, T)`` or
 ///         ``(channels, F, T)``.
 ///     sr (float): Sample rate (Hz), used for the default ``freq``. Required (librosa defaults to 22050).
@@ -40,9 +41,11 @@ fn out<'py, T: numpy::Element>(py: Python<'py>, a: Array3<T>, ndim_in: usize) ->
 ///         ``None`` uses ``fft_frequencies(sr, n_fft=2 * (F - 1))``.
 ///
 /// Returns:
+///
 ///     numpy.ndarray[float32 | float64]: shape ``(1, T)`` or ``(channels, 1, T)``, in Hz.
 ///
 /// Raises:
+///
 ///     ValueError: If ``S`` has negative or non-finite values, or ``freq`` has
 ///         the wrong shape.
 #[pyfunction]
@@ -71,6 +74,7 @@ pub fn spectral_centroid_from_spectrogram<'py>(
 /// ``librosa.feature.spectral_bandwidth(S=S, sr=sr, freq=freq, centroid=centroid, norm=norm, p=p)``.
 ///
 /// Args:
+///
 ///     S (array_like): Non-negative spectrogram, ``(F, T)`` or ``(channels, F, T)``.
 ///     sr (float): Sample rate for the default ``freq``. Required (librosa defaults to 22050).
 ///     freq (Optional[array_like]): Bin frequencies, 1-D or time-varying with the shape
@@ -81,9 +85,11 @@ pub fn spectral_centroid_from_spectrogram<'py>(
 ///     p (float): Order of the deviation. Default 2.
 ///
 /// Returns:
+///
 ///     numpy.ndarray[float32 | float64]: shape ``(1, T)`` or ``(channels, 1, T)``, in Hz.
 ///
 /// Raises:
+///
 ///     ValueError: For invalid spectrogram values or shapes, or ``p`` zero / not finite.
 #[pyfunction]
 #[pyo3(
@@ -137,6 +143,7 @@ pub fn spectral_bandwidth_from_spectrogram<'py>(
 /// ``librosa.feature.spectral_rolloff(S=S, sr=sr, freq=freq, roll_percent=roll_percent)``.
 ///
 /// Args:
+///
 ///     S (array_like): Non-negative spectrogram, ``(F, T)`` or ``(channels, F, T)``.
 ///     sr (float): Sample rate for the default ``freq``. Required (librosa defaults to 22050).
 ///     freq (Optional[array_like]): Bin frequencies, 1-D or time-varying with the shape
@@ -144,9 +151,11 @@ pub fn spectral_bandwidth_from_spectrogram<'py>(
 ///     roll_percent (float): Energy fraction in ``(0, 1)``. Default 0.85.
 ///
 /// Returns:
+///
 ///     numpy.ndarray[float32 | float64]: shape ``(1, T)`` or ``(channels, 1, T)``, in Hz.
 ///
 /// Raises:
+///
 ///     ValueError: For invalid spectrogram values or ``roll_percent`` outside ``(0, 1)``.
 #[pyfunction]
 #[pyo3(
@@ -183,15 +192,18 @@ pub fn spectral_rolloff_from_spectrogram<'py>(
 /// ``librosa.feature.spectral_flatness(S=S, amin=amin, power=power)``.
 ///
 /// Args:
+///
 ///     S (array_like): Non-negative magnitude spectrogram, ``(F, T)`` or
 ///         ``(channels, F, T)``.
 ///     amin (float): Floor applied to ``S ** power``. Default 1e-10.
 ///     power (float): Exponent applied to ``S``. Default 2.0.
 ///
 /// Returns:
+///
 ///     numpy.ndarray[float32 | float64]: shape ``(1, T)`` or ``(channels, 1, T)``, in ``[0, 1]``.
 ///
 /// Raises:
+///
 ///     ValueError: For invalid spectrogram values, ``amin <= 0`` or ``power <= 0``.
 #[pyfunction]
 #[pyo3(
@@ -222,6 +234,7 @@ pub fn spectral_flatness_from_spectrogram<'py>(
 /// ``librosa.feature.spectral_contrast(S=S, sr=sr, freq=freq, fmin=..., n_bands=..., quantile=..., linear=...)``.
 ///
 /// Args:
+///
 ///     S (array_like): Non-negative magnitude spectrogram, ``(F, T)`` or
 ///         ``(channels, F, T)``.
 ///     sr (float): Sample rate (Hz). Required (librosa defaults to 22050).
@@ -232,10 +245,12 @@ pub fn spectral_flatness_from_spectrogram<'py>(
 ///     linear (bool): Linear difference instead of a dB ratio. Default False.
 ///
 /// Returns:
+///
 ///     numpy.ndarray[float32 | float64]: shape ``(n_bands + 1, T)`` or
 ///     ``(channels, n_bands + 1, T)``.
 ///
 /// Raises:
+///
 ///     ValueError: For invalid parameters (e.g. the top band above Nyquist).
 #[pyfunction]
 #[pyo3(
@@ -273,16 +288,19 @@ pub fn spectral_contrast_from_spectrogram<'py>(
 /// ``librosa.feature.poly_features(S=S, sr=sr, freq=freq, order=order)``.
 ///
 /// Args:
+///
 ///     S (array_like): Spectrogram, ``(F, T)`` or ``(channels, F, T)``.
 ///     sr (float): Sample rate for the default ``freq``. Required (librosa defaults to 22050).
 ///     freq (Optional[array_like]): 1-D bin frequencies; ``None`` = FFT bin centres.
 ///     order (int): Polynomial order. Default 1.
 ///
 /// Returns:
+///
 ///     numpy.ndarray[float32 | float64]: shape ``(order + 1, T)`` or ``(channels, order + 1, T)``,
 ///     highest power first (as ``numpy.polyfit``).
 ///
 /// Raises:
+///
 ///     ValueError: If ``order`` is negative or not below the number of bins.
 #[pyfunction]
 #[pyo3(
@@ -325,15 +343,18 @@ pub fn poly_features_from_spectrogram<'py>(
 /// ``librosa.feature.rms(S=S, frame_length=frame_length)``.
 ///
 /// Args:
+///
 ///     S (array_like): STFT magnitudes, ``(1 + frame_length // 2, T)`` or
 ///         ``(channels, 1 + frame_length // 2, T)``.
 ///     frame_length (int): The FFT length used to compute ``S``. Default 2048.
 ///
 /// Returns:
+///
 ///     numpy.ndarray[float32 | float64]: shape ``(1, T)`` or ``(channels, 1, T)``.
 ///     (librosa defaults to ``dtype=numpy.float32``.)
 ///
 /// Raises:
+///
 ///     ValueError: If the bin count is not ``1 + frame_length // 2``.
 #[pyfunction]
 #[pyo3(signature = (S, *, frame_length = Int(2048)), text_signature = "(S, *, frame_length=2048)")]
@@ -380,6 +401,7 @@ fn pcen_zi<F: FloatElement>(
 /// ``axis=-1``; ``max_axis`` = the frequency axis).
 ///
 /// Args:
+///
 ///     S (array_like): Non-negative spectrogram, ``(F, T)`` or ``(channels, F, T)``
 ///         (typically a mel power spectrogram scaled to integer range).
 ///     sr (float): Sample rate (Hz). Required (librosa defaults to 22050).
@@ -401,10 +423,12 @@ fn pcen_zi<F: FloatElement>(
 ///     return_zf (bool): Also return the final filter state. Default False.
 ///
 /// Returns:
+///
 ///     numpy.ndarray[float32 | float64] | tuple: the PCEN spectrogram (shape of ``S``), and
 ///     with ``return_zf=True`` also ``zf`` of shape ``(..., F, 1)``.
 ///
 /// Raises:
+///
 ///     ValueError: For invalid parameters, unsupported ``axis`` / ``max_axis`` or
 ///         shape mismatches. Complex ``S`` raises TypeError (librosa takes the
 ///         magnitude with a warning; pass ``numpy.abs(S)``).
@@ -529,10 +553,10 @@ macro_rules! weighting_fn {
         #[doc = concat!(
             "The ", $letter, "-weighting of a set of frequencies in dB, equivalent to ``librosa.",
             $letter, "_weighting(frequencies, min_db=min_db)``.\n\n",
-            "Args:\n",
+            "Args:\n\n",
             "    frequencies (float | array_like): Frequencies in Hz.\n",
             "    min_db (Optional[float]): Lower clip in dB (default -80); None disables it.\n\n",
-            "Returns:\n",
+            "Returns:\n\n",
             "    float | numpy.ndarray[float64]: dB weights, same shape as ``frequencies``\n",
             "    (a float for scalar input)."
         )]
@@ -556,10 +580,12 @@ weighting_fn!(d_weighting, d_weighting, "D");
 /// ``librosa.Z_weighting(frequencies, min_db=min_db)``.
 ///
 /// Args:
+///
 ///     frequencies (float | array_like): Frequencies in Hz.
 ///     min_db (Optional[float]): Lower clip in dB (default -80); None disables it.
 ///
 /// Returns:
+///
 ///     float | numpy.ndarray[float64]: dB weights, same shape as ``frequencies``
 ///     (a float for scalar input).
 #[pyfunction]
@@ -610,15 +636,18 @@ pub fn z_weighting<'py>(
 /// ``librosa.frequency_weighting(frequencies, kind=kind, min_db=min_db)``.
 ///
 /// Args:
+///
 ///     frequencies (float | array_like): Frequencies in Hz.
 ///     kind (str): ``"A"`` (default), ``"B"``, ``"C"``, ``"D"`` or ``"Z"``.
 ///     min_db (Optional[float]): Lower clip in dB. Default None (no clip);
 ///         librosa clips at -80 dB.
 ///
 /// Returns:
+///
 ///     float | numpy.ndarray[float64]: dB weights, same shape as ``frequencies``.
 ///
 /// Raises:
+///
 ///     ValueError: For an unknown ``kind``.
 #[pyfunction]
 #[pyo3(
@@ -654,15 +683,18 @@ fn parse_kinds(kinds: &Bound<'_, PyAny>) -> PyResult<Vec<FrequencyWeighting>> {
 /// ``librosa.multi_frequency_weighting(frequencies, kinds=kinds, min_db=min_db)``.
 ///
 /// Args:
+///
 ///     frequencies (array_like): Frequencies in Hz.
 ///     kinds (str | Sequence[str]): Curve names, e.g. ``"ZAC"`` (default).
 ///     min_db (Optional[float]): Lower clip in dB. Default None (no clip);
 ///         librosa clips at -80 dB.
 ///
 /// Returns:
+///
 ///     numpy.ndarray[float64]: shape ``(len(kinds), *frequencies.shape)``.
 ///
 /// Raises:
+///
 ///     ValueError: For an unknown curve name.
 #[pyfunction]
 #[pyo3(
@@ -708,6 +740,7 @@ pub fn multi_frequency_weighting<'py>(
 /// Computes ``power_to_db(S, ref, amin, top_db) + weighting(frequencies)``.
 ///
 /// Args:
+///
 ///     S (array_like): Power spectrogram, ``(F, T)`` or ``(channels, F, T)``.
 ///     frequencies (array_like): 1-D centre frequency of each bin (Hz).
 ///     kind (str): Weighting curve, ``"A"`` (default) ... ``"Z"``.
@@ -717,9 +750,11 @@ pub fn multi_frequency_weighting<'py>(
 ///         channel). Default None (no floor); librosa's default is 80.
 ///
 /// Returns:
+///
 ///     numpy.ndarray[float32 | float64]: same shape as ``S``, in dB.
 ///
 /// Raises:
+///
 ///     ValueError: For shape mismatches or invalid dB parameters.
 #[pyfunction]
 #[pyo3(
@@ -750,7 +785,7 @@ pub fn perceptual_weighting<'py>(
 }
 
 /// Registers the spectral-descriptor functions.
-pub(crate) fn add(m: &Bound<'_, PyModule>) -> PyResult<()> {
+pub fn add(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(spectral_centroid_from_spectrogram, m)?)?;
     m.add_function(wrap_pyfunction!(spectral_bandwidth_from_spectrogram, m)?)?;
     m.add_function(wrap_pyfunction!(spectral_rolloff_from_spectrogram, m)?)?;

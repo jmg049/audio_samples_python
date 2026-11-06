@@ -41,6 +41,7 @@ where
 /// Short-time Fourier transform, equivalent to ``librosa.stft``.
 ///
 /// Args:
+///
 ///     y (numpy.ndarray): Real signal, shape ``(n,)`` or ``(channels, n)``.
 ///     n_fft (int): FFT length. Default 2048.
 ///     hop_length (Optional[int]): ``None`` means ``win_length // 4``.
@@ -51,10 +52,12 @@ where
 ///     pad_mode (str): ``"constant"`` (default), ``"reflect"``, ``"edge"``, ``"symmetric"``.
 ///
 /// Returns:
+///
 ///     numpy.ndarray[complex64 | complex128]: shape ``(1 + n_fft // 2, n_frames)`` for 1-D
 ///     input, ``(channels, 1 + n_fft // 2, n_frames)`` for 2-D input.
 ///
 /// Raises:
+///
 ///     ValueError: For invalid parameters or input with more than 2 dimensions.
 #[pyfunction]
 #[pyo3(
@@ -104,6 +107,7 @@ pub fn stft<'py>(
 /// Inverse short-time Fourier transform, equivalent to ``librosa.istft``.
 ///
 /// Args:
+///
 ///     stft_matrix (array_like): complex array of shape ``(1 + n_fft // 2, n_frames)``
 ///         or ``(channels, 1 + n_fft // 2, n_frames)``.
 ///     hop_length (Optional[int]): ``None`` means ``win_length // 4``.
@@ -114,9 +118,11 @@ pub fn stft<'py>(
 ///     length (Optional[int]): Exact output length.
 ///
 /// Returns:
+///
 ///     numpy.ndarray[float32 | float64]: shape ``(n,)`` for 2-D input, ``(channels, n)`` for 3-D.
 ///
 /// Raises:
+///
 ///     ValueError: For invalid parameters or a bin count that does not match ``n_fft``.
 #[pyfunction]
 #[pyo3(
@@ -166,7 +172,7 @@ pub fn istft<'py>(
     })
 }
 
-fn db_config(r: DbRefArg, amin: f64, top_db: Option<f64>, axes: DbAxesArg) -> DbConfig {
+const fn db_config(r: DbRefArg, amin: f64, top_db: Option<f64>, axes: DbAxesArg) -> DbConfig {
     DbConfig {
         reference: r.0,
         amin,
@@ -181,6 +187,7 @@ fn db_config(r: DbRefArg, amin: f64, top_db: Option<f64>, axes: DbAxesArg) -> Db
 /// at ``max - top_db``.
 ///
 /// Args:
+///
 ///     S (array_like): Power values, any shape (or a scalar).
 ///     ref (float | "max" | numpy.max): 0 dB reference. Default 1.0.
 ///     amin (float): Lower clamp before the log. Default 1e-10.
@@ -191,9 +198,11 @@ fn db_config(r: DbRefArg, amin: f64, top_db: Option<f64>, axes: DbAxesArg) -> Db
 ///         ``(channels, F, T)`` input; ``None`` uses the whole array.
 ///
 /// Returns:
+///
 ///     float | numpy.ndarray[float32 | float64]: Same shape as ``S``.
 ///
 /// Raises:
+///
 ///     ValueError: If ``amin <= 0`` or ``top_db < 0``.
 ///     TypeError: For complex input (pass power, e.g. ``numpy.abs(D) ** 2``).
 #[pyfunction]
@@ -229,6 +238,7 @@ pub fn power_to_db<'py>(
 /// Complex input is replaced by its magnitude (librosa warns and does the same).
 ///
 /// Args:
+///
 ///     S (array_like): Amplitudes (real or complex), any shape.
 ///     ref (float | "max" | numpy.max): 0 dB reference. Default 1.0.
 ///     amin (float): Lower clamp. Default 1e-5.
@@ -237,9 +247,11 @@ pub fn power_to_db<'py>(
 ///     axes ("auto" | None): As ``power_to_db``.
 ///
 /// Returns:
+///
 ///     float | numpy.ndarray[float32 | float64]: Same shape as ``S``.
 ///
 /// Raises:
+///
 ///     ValueError: If ``amin <= 0`` or ``top_db < 0``.
 #[pyfunction]
 #[pyo3(
@@ -282,10 +294,12 @@ pub fn amplitude_to_db<'py>(
 /// ``ref * 10 ** (S_db / 10)``.
 ///
 /// Args:
+///
 ///     S_db (array_like): dB values, any shape (or a scalar).
 ///     ref (float): Reference power. Default 1.0.
 ///
 /// Returns:
+///
 ///     float | numpy.ndarray[float32 | float64]: Same shape as ``S_db``.
 #[pyfunction]
 #[pyo3(signature = (S_db, *, r#ref = 1.0), text_signature = "(S_db, *, ref=1.0)")]
@@ -306,10 +320,12 @@ pub fn db_to_power<'py>(
 /// ``sqrt(ref ** 2 * 10 ** (S_db / 10))``.
 ///
 /// Args:
+///
 ///     S_db (array_like): dB values, any shape (or a scalar).
 ///     ref (float): Reference amplitude. Default 1.0.
 ///
 /// Returns:
+///
 ///     float | numpy.ndarray[float32 | float64]: Same shape as ``S_db``.
 #[pyfunction]
 #[pyo3(signature = (S_db, *, r#ref = 1.0), text_signature = "(S_db, *, ref=1.0)")]
@@ -329,6 +345,7 @@ pub fn db_to_amplitude<'py>(
 /// Mel filterbank matrix, equivalent to ``librosa.filters.mel(..., dtype=numpy.float64)``.
 ///
 /// Args:
+///
 ///     sr (float): Sample rate (Hz).
 ///     n_fft (int): FFT length.
 ///     n_mels (int): Number of bands. Default 128.
@@ -339,17 +356,19 @@ pub fn db_to_amplitude<'py>(
 ///         normalisation), None, or a p-norm (``numpy.inf`` allowed).
 ///
 /// Returns:
+///
 ///     numpy.ndarray[float64]: shape ``(n_mels, 1 + n_fft // 2)``.
 ///
 /// Raises:
+///
 ///     ValueError: For invalid parameters (e.g. ``fmax <= fmin``).
 #[pyfunction]
 #[pyo3(
     signature = (*, sr, n_fft, n_mels = Int(128), fmin = 0.0, fmax = None, htk = false, norm = MelNormArg(audio_samples::MelFilterNorm::Slaney)),
     text_signature = "(*, sr, n_fft, n_mels=128, fmin=0.0, fmax=None, htk=False, norm='slaney')"
 )]
-pub fn mel_filterbank<'py>(
-    py: Python<'py>,
+pub fn mel_filterbank(
+    py: Python<'_>,
     sr: f64,
     n_fft: Int,
     n_mels: Int,
@@ -357,7 +376,7 @@ pub fn mel_filterbank<'py>(
     fmax: Option<f64>,
     htk: bool,
     norm: MelNormArg,
-) -> PyResult<Bound<'py, PyArray2<f64>>> {
+) -> PyResult<Bound<'_, PyArray2<f64>>> {
     let cfg = mel_config(n_mels, fmin, fmax, htk, norm)?;
     let m = filterbanks::mel_filterbank(sr, positive("n_fft", n_fft)?, &cfg)
         .map_err(audio_err_to_py)?;
@@ -368,6 +387,7 @@ pub fn mel_filterbank<'py>(
 /// ``scipy.signal.get_window``.
 ///
 /// Args:
+///
 ///     window: ``"hann"``, ``"hamming"``, ``"blackman"``, ``"blackmanharris"``,
 ///         ``"boxcar"`` (``"rectangular"``), ``"bartlett"``, ``"triang"``,
 ///         ``("kaiser", beta)``, ``("gaussian", std)``, a number (Kaiser beta),
@@ -376,19 +396,21 @@ pub fn mel_filterbank<'py>(
 ///     fftbins (bool): Periodic window (True, default) or symmetric (False).
 ///
 /// Returns:
+///
 ///     numpy.ndarray[float64]: shape ``(Nx,)``.
 ///
 /// Raises:
+///
 ///     ValueError: Unknown window, invalid parameter, or an array of the wrong length.
 #[pyfunction]
 #[pyo3(signature = (window, Nx, *, fftbins = true), text_signature = "(window, Nx, *, fftbins=True)")]
 #[allow(non_snake_case)]
-pub fn get_window<'py>(
-    py: Python<'py>,
+pub fn get_window(
+    py: Python<'_>,
     window: WindowArg,
     Nx: Int,
     fftbins: bool,
-) -> PyResult<Bound<'py, PyArray1<f64>>> {
+) -> PyResult<Bound<'_, PyArray1<f64>>> {
     let w = filterbanks::get_window(&window.0, non_negative("Nx", Nx)?, fftbins)
         .map_err(audio_err_to_py)?;
     Ok(w.into_pyarray(py))
@@ -398,6 +420,7 @@ pub fn get_window<'py>(
 /// ``librosa.filters.window_sumsquare(..., dtype=numpy.float64)``.
 ///
 /// Args:
+///
 ///     window: Window specification (see ``get_window``).
 ///     n_frames (int): Number of frames.
 ///     hop_length (int): Default 512.
@@ -411,9 +434,11 @@ pub fn get_window<'py>(
 ///         (default) means ``float64``; librosa's default is ``float32``.
 ///
 /// Returns:
+///
 ///     numpy.ndarray[float64 | float32]: shape ``(n_fft + hop_length * (n_frames - 1),)``.
 ///
 /// Raises:
+///
 ///     ValueError: For invalid parameters.
 #[pyfunction]
 #[pyo3(
@@ -487,10 +512,12 @@ pub fn window_sumsquare<'py>(
 /// with the table to about 1e-4 at the default ``n=1000``.
 ///
 /// Args:
+///
 ///     window: Window specification (see ``get_window``).
 ///     n (int): Window length. Default 1000.
 ///
 /// Returns:
+///
 ///     float: Bandwidth in bins (1.0 for boxcar, 1.5 for Hann).
 #[pyfunction]
 #[pyo3(signature = (window, n = Int(1000)), text_signature = "(window, n=1000)")]
@@ -534,6 +561,7 @@ pub fn window_bandwidth<'py>(
 /// Savitzky-Golay delta features, equivalent to ``librosa.feature.delta``.
 ///
 /// Args:
+///
 ///     data (array_like): Feature array, any shape (e.g. ``(n_mfcc, T)`` or
 ///         ``(channels, n_mfcc, T)``).
 ///     width (int): Odd window width >= 3. Default 9.
@@ -543,9 +571,11 @@ pub fn window_bandwidth<'py>(
 ///         ``"constant"`` or ``"wrap"``.
 ///
 /// Returns:
+///
 ///     numpy.ndarray[float32 | float64]: Same shape as ``data``.
 ///
 /// Raises:
+///
 ///     ValueError: Invalid width/order/axis, or ``mode="interp"`` with
 ///         ``width`` larger than the axis.
 #[pyfunction]
@@ -593,15 +623,18 @@ pub fn delta<'py>(
 /// ``librosa.feature.stack_memory`` (zero padding).
 ///
 /// Args:
+///
 ///     data (array_like): shape ``(..., d, t)``; 1-D input is treated as ``(1, t)``.
 ///     n_steps (int): Number of copies. Default 2.
 ///     delay (int): Frame delay between copies (non-zero; negative looks
 ///         ahead). Default 1.
 ///
 /// Returns:
+///
 ///     numpy.ndarray[float32 | float64]: shape ``(..., d * n_steps, t)``.
 ///
 /// Raises:
+///
 ///     ValueError: If ``n_steps < 1`` or ``delay == 0``.
 #[pyfunction]
 #[pyo3(signature = (data, *, n_steps = Int(2), delay = Int(1)), text_signature = "(data, *, n_steps=2, delay=1)")]
@@ -637,6 +670,7 @@ pub fn stack_memory<'py>(
 /// array.
 ///
 /// Args:
+///
 ///     x (array_like): 1-D signal.
 ///     frame_length (int): Samples per frame.
 ///     hop_length (int): Samples between frame starts.
@@ -644,10 +678,12 @@ pub fn stack_memory<'py>(
 ///         read-only view into ``x``.
 ///
 /// Returns:
+///
 ///     numpy.ndarray[float32 | float64]: shape
 ///     ``(frame_length, 1 + (len(x) - frame_length) // hop_length)``.
 ///
 /// Raises:
+///
 ///     ValueError: If ``x`` is not 1-D or is shorter than ``frame_length``,
 ///         or (copy only) the frame matrix would exceed 2^31 elements.
 #[pyfunction]
@@ -730,6 +766,7 @@ fn readonly_frames<'py, F: numpy::Element>(
 /// ``librosa.feature.melspectrogram(S=S, sr=sr, n_fft=n_fft, ...)``.
 ///
 /// Args:
+///
 ///     S (array_like): Non-negative spectrogram, shape ``(1 + n_fft // 2, T)`` or
 ///         ``(channels, 1 + n_fft // 2, T)`` (power or magnitude, as you choose).
 ///     sr (float): Sample rate (Hz).
@@ -737,6 +774,7 @@ fn readonly_frames<'py, F: numpy::Element>(
 ///     n_mels, fmin, fmax, htk, norm: As ``mel_filterbank``.
 ///
 /// Returns:
+///
 ///     numpy.ndarray[float32 | float64]: shape ``(n_mels, T)`` or ``(channels, n_mels, T)``.
 #[pyfunction]
 #[pyo3(
@@ -788,6 +826,7 @@ pub fn melspectrogram_from_spectrogram<'py>(
 /// ``librosa.feature.mfcc(S=S, n_mfcc=..., dct_type=..., norm=..., lifter=...)``.
 ///
 /// Args:
+///
 ///     S (array_like): dB mel spectrogram, shape ``(..., n_mels, T)`` (at least 2-D).
 ///     n_mfcc (int): Default 20 (must not exceed ``n_mels``).
 ///     dct_type (int): 1, 2 (default) or 3.
@@ -795,6 +834,7 @@ pub fn melspectrogram_from_spectrogram<'py>(
 ///     lifter (float): Liftering coefficient; 0 (default) disables.
 ///
 /// Returns:
+///
 ///     numpy.ndarray[float32 | float64]: shape ``(..., n_mfcc, T)``.
 #[pyfunction]
 #[pyo3(

@@ -8,12 +8,15 @@ impl PyAudioSamples {
     /// Compute a per-frame voice activity mask.
     ///
     /// Args:
+    ///
     ///     config (VadConfig): Parameters controlling the voice activity detector.
     ///
     /// Returns:
+    ///
     ///     list[bool]: Boolean mask where True marks frames with speech activity.
     ///
     /// Raises:
+    ///
     ///     AudioError: If mask computation fails.
     #[pyo3(signature = (config: "VadConfig"))]
     fn voice_activity_mask(&self, py: Python<'_>, config: PyVadConfig) -> PyResult<Vec<bool>> {
@@ -25,15 +28,18 @@ impl PyAudioSamples {
         })
     }
 
-    /// Compute contiguous speech regions as (start_sample, end_sample) pairs.
+    /// Compute contiguous speech regions as (``start_sample``, ``end_sample``) pairs.
     ///
     /// Args:
+    ///
     ///     config (VadConfig): Parameters controlling the voice activity detector.
     ///
     /// Returns:
+    ///
     ///     list[tuple[int, int]]: Regions marked as speech with sample-based start and exclusive end.
     ///
     /// Raises:
+    ///
     ///     AudioError: If region extraction fails.
     #[pyo3(signature = (config: "VadConfig"))]
     fn speech_regions(&self, py: Python<'_>, config: PyVadConfig) -> PyResult<Vec<(usize, usize)>> {

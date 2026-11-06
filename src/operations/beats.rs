@@ -18,12 +18,15 @@ impl PyAudioSamples {
     /// ``beat_track``.
     ///
     /// Args:
+    ///
     ///     config (BeatTrackingConfig): Parameters controlling tempo targets and onset detection.
     ///
     /// Returns:
+    ///
     ///     BeatTrackingData: Result object containing estimated tempo, beat times, and metadata.
     ///
     /// Raises:
+    ///
     ///     AudioError: If beat tracking fails.
     #[pyo3(signature = (config: "BeatTrackingConfig"))]
     fn detect_beats(
@@ -43,13 +46,16 @@ impl PyAudioSamples {
     /// returns only the estimated tempo, skipping the per-beat tracking step.
     ///
     /// Args:
+    ///
     ///     config (BeatTrackingConfig): Parameters controlling tempo targets and
     ///         onset detection.
     ///
     /// Returns:
+    ///
     ///     float: Estimated tempo in beats per minute.
     ///
     /// Raises:
+    ///
     ///     AudioError: If tempo estimation fails.
     #[pyo3(signature = (config: "BeatTrackingConfig"))]
     fn estimate_tempo(&self, py: Python<'_>, config: PyBeatTrackingConfig) -> PyResult<f64> {

@@ -14,6 +14,7 @@ impl PyAudioSamples {
     /// Compute the peak sample value across all channels.
     ///
     /// Returns:
+    ///
     ///     int | float: Maximum absolute amplitude present in the buffer.
     fn peak<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         Ok({
@@ -30,6 +31,7 @@ impl PyAudioSamples {
     /// Compute the minimum sample value across all channels.
     ///
     /// Returns:
+    ///
     ///     int | float: Lowest signed amplitude value found in the buffer.
     fn min_sample<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         Ok({
@@ -46,6 +48,7 @@ impl PyAudioSamples {
     /// Compute the maximum sample value across all channels.
     ///
     /// Returns:
+    ///
     ///     int | float: Highest signed amplitude value found in the buffer.
     fn max_sample<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         Ok({
@@ -62,6 +65,7 @@ impl PyAudioSamples {
     /// Calculate the arithmetic mean of the sample values.
     ///
     /// Returns:
+    ///
     ///     float: Mean amplitude across all samples and channels.
     fn mean(&self, py: Python<'_>) -> PyResult<f64> {
         Ok({ dispatch_with_view!(self, py, |audio| audio.mean()) })
@@ -71,6 +75,7 @@ impl PyAudioSamples {
     /// Calculate the median sample value.
     ///
     /// Returns:
+    ///
     ///     Optional[float]: Median amplitude if the view is non-empty, None otherwise.
     fn median(&self, py: Python<'_>) -> PyResult<Option<f64>> {
         Ok({ dispatch_with_view!(self, py, |audio| audio.midpoint_sample()) })
@@ -80,6 +85,7 @@ impl PyAudioSamples {
     /// Compute the root mean square (RMS) energy of the samples.
     ///
     /// Returns:
+    ///
     ///     float: RMS amplitude across all samples and channels.
     fn rms(&self, py: Python<'_>) -> PyResult<f64> {
         Ok({ dispatch_with_view!(self, py, |audio| audio.rms()) })
@@ -89,6 +95,7 @@ impl PyAudioSamples {
     /// Compute the variance of the sample values.
     ///
     /// Returns:
+    ///
     ///     float: Variance of amplitudes across all samples and channels.
     fn variance(&self, py: Python<'_>) -> PyResult<f64> {
         Ok({ dispatch_with_view!(self, py, |audio| audio.variance()) })
@@ -98,6 +105,7 @@ impl PyAudioSamples {
     /// Compute the standard deviation of the sample values.
     ///
     /// Returns:
+    ///
     ///     float: Standard deviation derived from the variance.
     fn std_dev(&self, py: Python<'_>) -> PyResult<f64> {
         Ok(self.variance(py)?.sqrt())
@@ -111,6 +119,7 @@ impl PyAudioSamples {
     /// non-positive). For multi-channel audio the per-channel counts are summed.
     ///
     /// Returns:
+    ///
     ///     int: Number of crossings (summed over channels).
     fn zero_crossings(&self, py: Python<'_>) -> PyResult<usize> {
         Ok({ dispatch_with_view!(self, py, |audio| audio.zero_crossings()) })
@@ -129,6 +138,7 @@ impl PyAudioSamples {
     /// crossings per second. Divide by ``sample_rate`` for crossings per sample.
     ///
     /// Returns:
+    ///
     ///     float: Zero crossings **per second** (crossings / duration),
     ///         averaged over channels. ``librosa.feature.zero_crossing_rate`` is
     ///         instead a per-frame fraction of samples.
@@ -148,13 +158,16 @@ impl PyAudioSamples {
     /// ``librosa.autocorrelate(x, max_size=max_lag + 1)[k]``.
     ///
     /// Args:
+    ///
     ///     max_lag (int): Maximum lag to include; must be greater than zero.
     ///
     /// Returns:
+    ///
     ///     Optional[list[float]]: ``max_lag + 1`` values (fewer for short
     ///         signals), or None if the FFT fails.
     ///
     /// Raises:
+    ///
     ///     ValueError: If max_lag is zero.
     fn autocorrelation(&self, py: Python<'_>, max_lag: usize) -> PyResult<Option<Vec<f64>>> {
         let max_lag = nzu_or_err(max_lag)?;
@@ -171,13 +184,16 @@ impl PyAudioSamples {
     /// ``k = 0 .. max_lag``.
     ///
     /// Args:
+    ///
     ///     other (AudioSamples): Audio buffer to correlate against.
     ///     max_lag (int): Maximum lag to include; must be greater than zero.
     ///
     /// Returns:
+    ///
     ///     list[float]: Cross-correlation coefficients up to the requested lag.
     ///
     /// Raises:
+    ///
     ///     ValueError: If max_lag is zero.
     ///     AudioParameterError: If the sample rates or channel counts differ
     ///         (the message names both values).
@@ -185,7 +201,7 @@ impl PyAudioSamples {
     fn cross_correlation(
         &self,
         py: Python<'_>,
-        other: &PyAudioSamples,
+        other: &Self,
         max_lag: usize,
     ) -> PyResult<Vec<f64>> {
         let max_lag = nzu_or_err(max_lag)?;
@@ -221,7 +237,7 @@ channels, got {self_ch} and {other_ch}; use to_mono() or extract_channel() first
 
             // Create both AudioSamples in the same scope by manually implementing
             // the with_view logic without closures
-            use PyAudioBacking::*;
+            use PyAudioBacking::{NumpyMono, NumpyMulti, OwnedMono, OwnedMulti};
             let result = match (&a.backing, &b.backing) {
                 (OwnedMono(arr_a), OwnedMono(arr_b)) => {
                     let view_a = arr_a.view();
@@ -327,14 +343,17 @@ channels, got {self_ch} and {other_ch}; use to_mono() or extract_channel() first
     /// Compute the spectral centroid using the current FFT backend.
     ///
     /// Args:
+    ///
     ///     reduction (ChannelReduction): Channel-reduction policy applied to
     ///         multi-channel input. Defaults to ``ChannelReduction.average``.
     ///
     /// Returns:
+    ///
     ///     float: Centroid in Hz of the **power** spectrum ``|X|**2`` of the whole
     ///         signal (a single FFT, not frame-wise). Returns 0.0 for silence.
     ///
     /// Raises:
+    ///
     ///     AudioError: If the FFT computation fails or the reduction is invalid
     ///         for the channel layout.
     fn spectral_centroid(&self, py: Python<'_>, reduction: PyChannelReduction) -> PyResult<f64> {
@@ -348,14 +367,17 @@ channels, got {self_ch} and {other_ch}; use to_mono() or extract_channel() first
     /// Compute the spectral rolloff point for the provided energy fraction.
     ///
     /// Args:
+    ///
     ///     rolloff_percent (float): Target cumulative spectral energy fraction between 0 and 1.
     ///     reduction (ChannelReduction): Channel-reduction policy applied to
     ///         multi-channel input. Defaults to ``ChannelReduction.average``.
     ///
     /// Returns:
+    ///
     ///     float: Frequency where the cumulative spectrum reaches the rolloff threshold.
     ///
     /// Raises:
+    ///
     ///     AudioError: If the FFT computation fails or rolloff_percent is invalid.
     fn spectral_rolloff(
         &self,
@@ -377,13 +399,16 @@ channels, got {self_ch} and {other_ch}; use to_mono() or extract_channel() first
     /// frequency range; a pure tone yields a value near zero.
     ///
     /// Args:
+    ///
     ///     reduction (ChannelReduction): Channel-reduction policy applied to
     ///         multi-channel input. Defaults to ``ChannelReduction.average``.
     ///
     /// Returns:
+    ///
     ///     float: Spectral bandwidth in Hz. Returns 0.0 for silence.
     ///
     /// Raises:
+    ///
     ///     AudioError: If the FFT computation fails or the reduction is invalid
     ///         for the channel layout.
     fn spectral_bandwidth(&self, py: Python<'_>, reduction: PyChannelReduction) -> PyResult<f64> {
@@ -401,13 +426,16 @@ channels, got {self_ch} and {other_ch}; use to_mono() or extract_channel() first
     /// near 0 indicate tonal spectra dominated by a few peaks.
     ///
     /// Args:
+    ///
     ///     reduction (ChannelReduction): Channel-reduction policy applied to
     ///         multi-channel input. Defaults to ``ChannelReduction.average``.
     ///
     /// Returns:
+    ///
     ///     float: Spectral flatness in [0, 1]. Returns 0.0 for silence.
     ///
     /// Raises:
+    ///
     ///     AudioError: If the FFT computation fails or the reduction is invalid
     ///         for the channel layout.
     fn spectral_flatness(&self, py: Python<'_>, reduction: PyChannelReduction) -> PyResult<f64> {
@@ -425,14 +453,17 @@ channels, got {self_ch} and {other_ch}; use to_mono() or extract_channel() first
     /// approaches 1.
     ///
     /// Args:
+    ///
     ///     reduction (ChannelReduction): Channel-reduction policy applied to
     ///         multi-channel input. Defaults to ``ChannelReduction.average``.
     ///
     /// Returns:
+    ///
     ///     float: Spectral crest factor (>= 1 for non-silent signals). Returns
     ///         0.0 for silence.
     ///
     /// Raises:
+    ///
     ///     AudioError: If the FFT computation fails or the reduction is invalid
     ///         for the channel layout.
     fn spectral_crest(&self, py: Python<'_>, reduction: PyChannelReduction) -> PyResult<f64> {
@@ -450,14 +481,17 @@ channels, got {self_ch} and {other_ch}; use to_mono() or extract_channel() first
     /// slope indicates energy concentrated at low frequencies.
     ///
     /// Args:
+    ///
     ///     reduction (ChannelReduction): Channel-reduction policy applied to
     ///         multi-channel input. Defaults to ``ChannelReduction.average``.
     ///
     /// Returns:
+    ///
     ///     float: Least-squares slope (magnitude per Hz). Returns 0.0 for
     ///         silence or a degenerate single-bin spectrum.
     ///
     /// Raises:
+    ///
     ///     AudioError: If the FFT computation fails or the reduction is invalid
     ///         for the channel layout.
     fn spectral_slope(&self, py: Python<'_>, reduction: PyChannelReduction) -> PyResult<f64> {
@@ -476,14 +510,17 @@ channels, got {self_ch} and {other_ch}; use to_mono() or extract_channel() first
     /// contrast indicates clear tonal/harmonic structure.
     ///
     /// Args:
+    ///
     ///     n_bands (int): Number of octave-spaced sub-bands; must be greater than zero.
     ///     reduction (ChannelReduction): Channel-reduction policy applied to
     ///         multi-channel input. Defaults to ``ChannelReduction.average``.
     ///
     /// Returns:
+    ///
     ///     list[float]: ``n_bands`` contrast values in dB, low band to high band.
     ///
     /// Raises:
+    ///
     ///     ValueError: If n_bands is zero.
     ///     AudioError: If the FFT computation fails or the reduction is invalid
     ///         for the channel layout.
@@ -509,6 +546,7 @@ channels, got {self_ch} and {other_ch}; use to_mono() or extract_channel() first
     /// Samples are selected by index position; the buffer is not sorted.
     ///
     /// Returns:
+    ///
     ///     Optional[float]: Midpoint value for mono audio, or None if the signal
     ///         is multi-channel.
     fn midpoint_sample(&self, py: Python<'_>) -> PyResult<Option<f64>> {
@@ -522,6 +560,7 @@ channels, got {self_ch} and {other_ch}; use to_mono() or extract_channel() first
     /// sample buffer only once.
     ///
     /// Returns:
+    ///
     ///     tuple[float, int | float]: A ``(rms, peak)`` pair where ``rms`` is the
     ///         root-mean-square as a float and ``peak`` is the maximum absolute
     ///         sample value in the native sample type.
@@ -545,6 +584,7 @@ channels, got {self_ch} and {other_ch}; use to_mono() or extract_channel() first
     /// used in some audio contexts.
     ///
     /// Returns:
+    ///
     ///     int | float: Maximum absolute amplitude present in the buffer.
     fn amplitude<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         Ok({

@@ -18,6 +18,7 @@ impl PyAudioSamples {
     /// Reverse the samples and return a new buffer.
     ///
     /// Returns:
+    ///
     ///     AudioSamples: Buffer containing the reversed samples.
     fn reverse(&self, py: Python<'_>) -> PyResult<Self> {
         dispatch_with_view!(self, py, |audio| {
@@ -29,14 +30,16 @@ impl PyAudioSamples {
     #[pyo3(signature = ())]
     /// Reverse the samples in place.
     ///
-    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// Modifies the signal in place and returns ``None``. If the ``AudioSamples``
     /// was created from a NumPy array (``new_mono``/``new_multi``), that array
     /// is modified too; pass ``arr.copy()`` to keep the original.
     ///
     /// Returns:
+    ///
     ///     None: Operation mutates the current buffer.
     ///
     /// Raises:
+    ///
     ///     AudioError: If reversal fails.
     fn reverse_in_place(&mut self, py: Python<'_>) -> PyResult<()> {
         dispatch_with_view_mut!(self, py, |mut audio| audio
@@ -48,13 +51,16 @@ impl PyAudioSamples {
     /// Trim the buffer to the given time range.
     ///
     /// Args:
+    ///
     ///     start_seconds (float): Inclusive start offset in seconds.
     ///     end_seconds (float): Exclusive end offset in seconds.
     ///
     /// Returns:
+    ///
     ///     AudioSamples: Buffer containing only the requested region.
     ///
     /// Raises:
+    ///
     ///     AudioError: If the range is invalid or trimming fails.
     fn trim(&self, py: Python<'_>, start_seconds: f64, end_seconds: f64) -> PyResult<Self> {
         dispatch_with_view!(self, py, |audio| {
@@ -69,14 +75,17 @@ impl PyAudioSamples {
     /// Pad the buffer with constant values on both sides.
     ///
     /// Args:
+    ///
     ///     pad_start_seconds (float): Duration to pad before the signal.
     ///     pad_end_seconds (float): Duration to pad after the signal.
     ///     pad_value (float): Value used for padding.
     ///
     /// Returns:
+    ///
     ///     AudioSamples: New buffer with the added padding.
     ///
     /// Raises:
+    ///
     ///     AudioError: If padding fails or durations are invalid.
     fn pad(
         &self,
@@ -97,15 +106,18 @@ impl PyAudioSamples {
     /// Right-pad the buffer to a fixed sample count.
     ///
     /// Args:
+    ///
     ///     target_num_samples (int): Desired total number of samples.
     ///     pad_value (float): Value used for padding.
     ///
     /// Returns:
+    ///
     ///     AudioSamples: New buffer of ``target_num_samples`` samples. If the
     ///         buffer is already at least that long it is returned unchanged
     ///         (not truncated, no error).
     ///
     /// Raises:
+    ///
     ///     AudioError: If padding fails.
     fn pad_samples_right(
         &self,
@@ -125,14 +137,17 @@ impl PyAudioSamples {
     /// Pad the buffer to reach a target duration.
     ///
     /// Args:
+    ///
     ///     target_duration_seconds (float): Desired total duration.
     ///     pad_value (float): Value used for padding.
     ///     pad_side (PadSide): Side to apply the padding.
     ///
     /// Returns:
+    ///
     ///     AudioSamples: New buffer matching the requested duration.
     ///
     /// Raises:
+    ///
     ///     AudioError: If padding fails or the target duration is invalid.
     fn pad_to_duration(
         &self,
@@ -157,12 +172,15 @@ impl PyAudioSamples {
     /// Split the buffer into equal-length segments.
     ///
     /// Args:
+    ///
     ///     segment_duration_seconds (float): Duration of each segment.
     ///
     /// Returns:
+    ///
     ///     list[AudioSamples]: List of segments that cover the original buffer.
     ///
     /// Raises:
+    ///
     ///     AudioError: If segmentation fails or the duration is invalid.
     fn split(&self, py: Python<'_>, segment_duration_seconds: f64) -> PyResult<Vec<Self>> {
         dispatch_with_view!(self, py, |audio| {
@@ -181,12 +199,15 @@ impl PyAudioSamples {
     /// Concatenate multiple buffers end to end.
     ///
     /// Args:
+    ///
     ///     segments (list[AudioSamples]): Non-empty list of buffers to join.
     ///
     /// Returns:
+    ///
     ///     AudioSamples: Combined buffer spanning all segments.
     ///
     /// Raises:
+    ///
     ///     ValueError: If the segment list is empty.
     ///     TypeError: If segments differ in dtype or are not AudioSamples.
     ///     AudioError: If concatenation fails.
@@ -202,11 +223,11 @@ impl PyAudioSamples {
         }
 
         // Extract PyAudioSamples from the list
-        let segments_vec: Vec<PyRef<PyAudioSamples>> = segments
+        let segments_vec: Vec<PyRef<Self>> = segments
             .iter()
             .map(|item| {
-                item.extract::<PyRef<PyAudioSamples>>()
-                    .map_err(|e| PyTypeError::new_err(format!("Expected AudioSamples, got: {}", e)))
+                item.extract::<PyRef<Self>>()
+                    .map_err(|e| PyTypeError::new_err(format!("Expected AudioSamples, got: {e}")))
             })
             .collect::<PyResult<Vec<_>>>()?;
         // safety: We just checked that segments_vec is not empty, so this is safe
@@ -353,12 +374,15 @@ impl PyAudioSamples {
     /// rate, and channel count.
     ///
     /// Args:
+    ///
     ///     segments (list[AudioSamples]): Non-empty list of buffers to join.
     ///
     /// Returns:
+    ///
     ///     AudioSamples: Combined buffer spanning all segments.
     ///
     /// Raises:
+    ///
     ///     ValueError: If the segment list is empty.
     ///     TypeError: If segments differ in dtype or are not AudioSamples.
     ///     AudioError: If concatenation fails.
@@ -375,13 +399,16 @@ impl PyAudioSamples {
     /// Mix multiple buffers together with optional weights.
     ///
     /// Args:
+    ///
     ///     sources (list[AudioSamples]): Non-empty list of buffers to mix.
     ///     weights (Optional[list[float]]): Optional mixing weights, matching the number of sources.
     ///
     /// Returns:
+    ///
     ///     AudioSamples: Mixed buffer containing the weighted sum.
     ///
     /// Raises:
+    ///
     ///     ValueError: If the source list is empty.
     ///     TypeError: If sources differ in dtype or are not AudioSamples.
     ///     AudioError: If mixing fails.
@@ -404,11 +431,11 @@ impl PyAudioSamples {
             None
         };
         // Extract PyAudioSamples from the list
-        let sources_vec: Vec<PyRef<PyAudioSamples>> = sources
+        let sources_vec: Vec<PyRef<Self>> = sources
             .iter()
             .map(|item| {
-                item.extract::<PyRef<PyAudioSamples>>()
-                    .map_err(|e| PyTypeError::new_err(format!("Expected AudioSamples, got: {}", e)))
+                item.extract::<PyRef<Self>>()
+                    .map_err(|e| PyTypeError::new_err(format!("Expected AudioSamples, got: {e}")))
             })
             .collect::<PyResult<Vec<_>>>()?;
 
@@ -577,18 +604,21 @@ impl PyAudioSamples {
     #[pyo3(signature = (duration_seconds: "float", curve: "FadeCurve"))]
     /// Apply an in-place fade-in envelope.
     ///
-    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// Modifies the signal in place and returns ``None``. If the ``AudioSamples``
     /// was created from a NumPy array (``new_mono``/``new_multi``), that array
     /// is modified too; pass ``arr.copy()`` to keep the original.
     ///
     /// Args:
+    ///
     ///     duration_seconds (float): Fade duration.
     ///     curve (FadeCurve): Curve controlling the fade shape.
     ///
     /// Returns:
+    ///
     ///     None: Operation mutates the current buffer.
     ///
     /// Raises:
+    ///
     ///     AudioError: If the fade fails or parameters are invalid.
     fn fade_in(
         &mut self,
@@ -606,18 +636,21 @@ impl PyAudioSamples {
     #[pyo3(signature = (duration_seconds: "float", curve: "FadeCurve"))]
     /// Apply an in-place fade-out envelope.
     ///
-    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// Modifies the signal in place and returns ``None``. If the ``AudioSamples``
     /// was created from a NumPy array (``new_mono``/``new_multi``), that array
     /// is modified too; pass ``arr.copy()`` to keep the original.
     ///
     /// Args:
+    ///
     ///     duration_seconds (float): Fade duration.
     ///     curve (FadeCurve): Curve controlling the fade shape.
     ///
     /// Returns:
+    ///
     ///     None: Operation mutates the current buffer.
     ///
     /// Raises:
+    ///
     ///     AudioError: If the fade fails or parameters are invalid.
     fn fade_out(
         &mut self,
@@ -636,12 +669,15 @@ impl PyAudioSamples {
     /// Repeat the buffer a fixed number of times.
     ///
     /// Args:
+    ///
     ///     count (int): Number of repetitions; must be greater than zero.
     ///
     /// Returns:
+    ///
     ///     AudioSamples: Concatenated buffer containing the repeated audio.
     ///
     /// Raises:
+    ///
     ///     AudioError: If repetition fails.
     fn repeat(&self, py: Python<'_>, count: usize) -> PyResult<Self> {
         dispatch_with_view!(self, py, |audio| {
@@ -654,12 +690,15 @@ impl PyAudioSamples {
     /// Trim leading and trailing silence below a threshold.
     ///
     /// Args:
+    ///
     ///     threshold_db (float): Silence threshold in decibels.
     ///
     /// Returns:
+    ///
     ///     AudioSamples: Buffer with silence removed.
     ///
     /// Raises:
+    ///
     ///     AudioError: If trimming fails.
     fn trim_silence(&self, py: Python<'_>, threshold_db: f64) -> PyResult<Self> {
         dispatch_with_view!(self, py, |audio| {
@@ -677,14 +716,17 @@ impl PyAudioSamples {
     /// ``min_silence_duration_seconds``.
     ///
     /// Args:
+    ///
     ///     threshold_db (float): Silence threshold in decibels.
     ///     min_silence_duration_seconds (float): Minimum duration, in seconds, a
     ///         silent run must reach before it is removed.
     ///
     /// Returns:
+    ///
     ///     AudioSamples: Buffer with qualifying silence removed.
     ///
     /// Raises:
+    ///
     ///     AudioError: If trimming fails.
     fn trim_all_silence(
         &self,
@@ -704,12 +746,15 @@ impl PyAudioSamples {
     /// Apply stochastic perturbations and return a new buffer.
     ///
     /// Args:
+    ///
     ///     config (PerturbationConfig): Configuration describing perturbations to apply.
     ///
     /// Returns:
+    ///
     ///     AudioSamples: Perturbed buffer.
     ///
     /// Raises:
+    ///
     ///     AudioError: If perturbation fails.
     fn perturb(&self, py: Python<'_>, config: &PyPerturbationConfig) -> PyResult<Self> {
         dispatch_with_view!(self, py, |audio| {
@@ -721,17 +766,20 @@ impl PyAudioSamples {
     #[pyo3(signature = (config: "PerturbationConfig"))]
     /// Apply stochastic perturbations in place.
     ///
-    /// Modifies the signal in place and returns ``None``. If the AudioSamples
+    /// Modifies the signal in place and returns ``None``. If the ``AudioSamples``
     /// was created from a NumPy array (``new_mono``/``new_multi``), that array
     /// is modified too; pass ``arr.copy()`` to keep the original.
     ///
     /// Args:
+    ///
     ///     config (PerturbationConfig): Configuration describing perturbations to apply.
     ///
     /// Returns:
+    ///
     ///     None: Operation mutates the current buffer.
     ///
     /// Raises:
+    ///
     ///     AudioError: If perturbation fails.
     fn perturb_in_place(&mut self, py: Python<'_>, config: &PyPerturbationConfig) -> PyResult<()> {
         dispatch_with_view_mut!(self, py, |mut audio| {
@@ -746,17 +794,20 @@ impl PyAudioSamples {
     /// Stack multiple buffers along the channel axis.
     ///
     /// Args:
+    ///
     ///     sources (list[AudioSamples]): Buffers to stack; must share dtype and sample rate.
     ///
     /// Returns:
+    ///
     ///     AudioSamples: Combined buffer with channels from each source.
     ///
     /// Raises:
+    ///
     ///     AudioError: If stacking fails or sources are incompatible.
     fn py_stack(
         _cls: &Bound<'_, PyType>,
         py: Python<'_>,
-        sources: Vec<Bound<'_, PyAudioSamples>>,
+        sources: Vec<Bound<'_, Self>>,
     ) -> PyResult<Self> {
         Self::stack(py, sources)
     }

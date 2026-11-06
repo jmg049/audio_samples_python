@@ -26,19 +26,23 @@ impl PyAudioSamples {
     /// window is zero-padded (the crate's default ``PaddingMode.Zero``).
     ///
     /// Note:
+    ///
     ///     The crate's zero-copy ``windows_ref`` iterator yields views that
     ///     borrow into the buffer and cannot be exposed to Python safely. This
     ///     method therefore copies each window into a new NumPy array.
     ///
     /// Args:
+    ///
     ///     window_size (int): Samples per channel in each window; must be > 0.
     ///     hop_size (int): Samples between successive window starts; must be > 0.
     ///
     /// Returns:
+    ///
     ///     list[numpy.ndarray]: One array per window, each shaped ``(samples,)``
     ///         for mono audio or ``(channels, samples)`` for multi-channel audio.
     ///
     /// Raises:
+    ///
     ///     ValueError: If window_size or hop_size is zero.
     fn windows<'py>(
         &self,
@@ -51,7 +55,7 @@ impl PyAudioSamples {
         let arrays: Vec<Bound<'py, PyAny>> = dispatch_with_view!(self, py, |audio| {
             audio
                 .windows(window_size, hop_size)
-                .map(|w| PyAudioSamples::from_audio_samples(w).to_numpy(py))
+                .map(|w| Self::from_audio_samples(w).to_numpy(py))
                 .collect::<PyResult<Vec<_>>>()
         })?;
         PyList::new(py, arrays)
@@ -64,10 +68,12 @@ impl PyAudioSamples {
     /// the number of frames equals the number of samples per channel.
     ///
     /// Note:
+    ///
     ///     The crate yields each frame as a borrowed view; this method copies
     ///     each frame into a new owned NumPy array.
     ///
     /// Returns:
+    ///
     ///     list[numpy.ndarray]: One array per time index, each shaped
     ///         ``(1,)`` for mono audio or ``(channels, 1)`` for multi-channel
     ///         audio.
@@ -75,7 +81,7 @@ impl PyAudioSamples {
         let arrays: Vec<Bound<'py, PyAny>> = dispatch_with_view!(self, py, |audio| {
             audio
                 .frames()
-                .map(|f| PyAudioSamples::from_audio_samples(f.into_owned()).to_numpy(py))
+                .map(|f| Self::from_audio_samples(f.into_owned()).to_numpy(py))
                 .collect::<PyResult<Vec<_>>>()
         })?;
         PyList::new(py, arrays)
@@ -89,16 +95,18 @@ impl PyAudioSamples {
     /// with :meth:`channels`, which returns the channel count.
     ///
     /// Note:
+    ///
     ///     Channel iteration copies each channel into a new owned NumPy array.
     ///
     /// Returns:
+    ///
     ///     list[numpy.ndarray]: One mono array per channel, each shaped
     ///         ``(samples,)``.
     fn iter_channels<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyList>> {
         let arrays: Vec<Bound<'py, PyAny>> = dispatch_with_view!(self, py, |audio| {
             audio
                 .channels()
-                .map(|c| PyAudioSamples::from_audio_samples(c).to_numpy(py))
+                .map(|c| Self::from_audio_samples(c).to_numpy(py))
                 .collect::<PyResult<Vec<_>>>()
         })?;
         PyList::new(py, arrays)

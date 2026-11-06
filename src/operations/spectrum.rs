@@ -30,7 +30,7 @@ use crate::{
 };
 
 /// Parses `dct_type` (1, 2 or 3).
-pub(crate) fn parse_dct_type(dct_type: i64) -> PyResult<DctType> {
+pub fn parse_dct_type(dct_type: i64) -> PyResult<DctType> {
     match dct_type {
         1 => Ok(DctType::One),
         2 => Ok(DctType::Two),
@@ -43,7 +43,7 @@ pub(crate) fn parse_dct_type(dct_type: i64) -> PyResult<DctType> {
 }
 
 /// Parses the DCT `norm` (`"ortho"`, or `None`/`"backward"` for no normalisation).
-pub(crate) fn parse_dct_norm(norm: Option<&str>) -> PyResult<DctNorm> {
+pub fn parse_dct_norm(norm: Option<&str>) -> PyResult<DctNorm> {
     match norm {
         Some("ortho") => Ok(DctNorm::Ortho),
         None | Some("backward") => Ok(DctNorm::Unnormalized),
@@ -56,7 +56,7 @@ pub(crate) fn parse_dct_norm(norm: Option<&str>) -> PyResult<DctNorm> {
 
 /// Builds an [`MfccConfig`] from librosa `mfcc` keyword arguments (shared with
 /// `audio_samples.spectral.mfcc_from_mel_db`).
-pub(crate) fn mfcc_cepstrum_config(
+pub fn mfcc_cepstrum_config(
     n_mfcc: Int,
     dct_type: Int,
     norm: Option<&str>,
@@ -75,6 +75,7 @@ impl PyAudioSamples {
     /// ``librosa.stft``.
     ///
     /// Args:
+    ///
     ///     n_fft (int): FFT length in samples. Default 2048.
     ///     hop_length (Optional[int]): Samples between frames. ``None`` means
     ///         ``win_length // 4`` (librosa's default).
@@ -92,6 +93,7 @@ impl PyAudioSamples {
     ///         ``"edge"`` or ``"symmetric"``.
     ///
     /// Returns:
+    ///
     ///     numpy.ndarray[complex64 | complex128]: shape ``(channels, 1 + n_fft // 2, n_frames)``;
     ///     complex64 for uint8, int16, int24 and float32 audio, complex128 for
     ///     int32 and float64 audio.
@@ -99,6 +101,7 @@ impl PyAudioSamples {
     ///     ``(1 + n_fft // 2, n_frames)`` for 1-D input; index ``[0]`` to get it).
     ///
     /// Raises:
+    ///
     ///     ValueError: For invalid parameters, or ``center=False`` with a signal
     ///         shorter than ``n_fft``.
     #[pyo3(
@@ -123,6 +126,7 @@ impl PyAudioSamples {
     /// matrix.
     ///
     /// Args:
+    ///
     ///     out (numpy.ndarray): Of ``complex64`` for float32 audio and ``complex128`` for
     ///         float64 audio, shape ``(1 + n_fft // 2, frames)`` for mono audio or
     ///         ``(channels, 1 + n_fft // 2, frames)``, with at least as many frames as the
@@ -130,6 +134,7 @@ impl PyAudioSamples {
     ///     ``n_fft``, ``hop_length``, ``win_length``, window, center, ``pad_mode``: As ``stft_matrix``.
     ///
     /// Returns:
+    ///
     ///     int: The number of frames written.
     #[pyo3(
         signature = (out, *, n_fft = Int(2048), hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant"),
@@ -197,6 +202,7 @@ impl PyAudioSamples {
     /// This is a static method: ``AudioSamples.istft_matrix(D, sample_rate=sr)``.
     ///
     /// Args:
+    ///
     ///     stft_matrix (array_like): complex array of shape ``(channels, 1 + n_fft // 2, n_frames)``
     ///         or ``(1 + n_fft // 2, n_frames)`` (treated as one channel).
     ///     sample_rate (int): Sample rate of the returned audio (keyword-only).
@@ -214,9 +220,11 @@ impl PyAudioSamples {
     ///         float64 for I32 and F64); integer output is rounded and saturated.
     ///
     /// Returns:
+    ///
     ///     AudioSamples: audio of sample type ``dtype``, mono for a single channel.
     ///
     /// Raises:
+    ///
     ///     ValueError: If the matrix is not 2-D/3-D, the bin count does not match
     ///         ``n_fft``, or parameters are invalid.
     #[staticmethod]
@@ -263,15 +271,18 @@ impl PyAudioSamples {
     /// Equivalent to ``numpy.abs(librosa.stft(y, ...)) ** power``.
     ///
     /// Args:
+    ///
     ///     n_fft, hop_length, win_length, window, center, pad_mode: As ``stft_matrix``.
     ///     power (float): Exponent; 1.0 (default) gives magnitude, 2.0 power.
     ///
     /// Returns:
+    ///
     ///     numpy.ndarray[float32 | float64]: shape ``(channels, 1 + n_fft // 2, n_frames)``;
     ///     float32 for uint8, int16, int24 and float32 audio, float64 for int32
     ///     and float64 audio.
     ///
     /// Raises:
+    ///
     ///     ValueError: For invalid parameters or a non-positive power.
     #[pyo3(
         signature = (*, n_fft = Int(2048), hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", power = 1.0),
@@ -297,6 +308,7 @@ impl PyAudioSamples {
     /// ``librosa.feature.melspectrogram(y=..., sr=self.sample_rate, ...)``.
     ///
     /// Args:
+    ///
     ///     n_fft (int): Default 2048.
     ///     hop_length (int): Default 512 (librosa's melspectrogram default).
     ///     win_length, window, center, pad_mode: As ``stft_matrix``.
@@ -309,11 +321,13 @@ impl PyAudioSamples {
     ///     norm (None | "slaney" | float): Filter normalisation. Default "slaney".
     ///
     /// Returns:
+    ///
     ///     numpy.ndarray[float32 | float64]: shape ``(channels, n_mels, n_frames)``;
     ///     float32 for uint8, int16, int24 and float32 audio, float64 for int32
     ///     and float64 audio.
     ///
     /// Raises:
+    ///
     ///     ValueError: For invalid parameters.
     #[pyo3(
         signature = (*, n_fft = Int(2048), hop_length = Int(512), win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", power = 2.0, n_mels = Int(128), fmin = 0.0, fmax = None, htk = false, norm = MelNormArg(audio_samples::MelFilterNorm::Slaney)),
@@ -358,6 +372,7 @@ impl PyAudioSamples {
     /// DCT along the mel axis -> first ``n_mfcc`` rows -> optional liftering.
     ///
     /// Args:
+    ///
     ///     n_mfcc (int): Number of coefficients. Default 20.
     ///     dct_type (int): 1, 2 (default) or 3.
     ///     norm (Optional[str]): DCT normalisation, ``"ortho"`` (default) or None.
@@ -373,11 +388,13 @@ impl PyAudioSamples {
     ///         (per channel). Default None (no floor); librosa's default is 80.
     ///
     /// Returns:
+    ///
     ///     numpy.ndarray[float32 | float64]: shape ``(channels, n_mfcc, n_frames)``;
     ///     float32 for uint8, int16, int24 and float32 audio, float64 for int32
     ///     and float64 audio.
     ///
     /// Raises:
+    ///
     ///     ValueError: For invalid parameters (including ``n_mfcc > n_mels``,
     ///         which librosa silently truncates).
     #[pyo3(

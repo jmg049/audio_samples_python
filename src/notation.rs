@@ -42,11 +42,13 @@ fn factors_out(py: Python<'_>, factors: Vec<Vec<(u32, i32)>>) -> PyResult<Bound<
 /// One octave of the Pythagorean tuning.
 ///
 /// Args:
+///
 ///     ``bins_per_octave`` (int): Number of intervals. Default 12.
 ///     sort (bool): In increasing order; otherwise by power of 3. Default true.
 ///     ``return_factors`` (bool): Return prime factorisations, as dicts, instead of ratios.
 ///
 /// Returns:
+///
 ///     numpy.ndarray[float64] | list[dict[int, int]]: Ratios in ``[1, 2)``, or factors.
 #[pyfunction]
 #[pyo3(
@@ -70,12 +72,14 @@ pub fn pythagorean_intervals(
 /// One octave of a just-intonation system over the given primes.
 ///
 /// Args:
+///
 ///     primes (``array_like[int]``): The primes, such as ``[3, 5]``.
 ///     ``bins_per_octave`` (int): Number of intervals. Default 12.
 ///     sort (bool): In increasing order; otherwise in the order chosen. Default true.
 ///     ``return_factors`` (bool): Return prime factorisations, as dicts, instead of ratios.
 ///
 /// Returns:
+///
 ///     numpy.ndarray[float64] | list[dict[int, int]]: Ratios in ``[1, 2)``, or factors.
 #[pyfunction]
 #[pyo3(
@@ -104,7 +108,7 @@ pub fn plimit_intervals<'py>(
     Ok(PyArray1::from_vec(py, v).into_any())
 }
 
-pub(crate) fn parse_tuning(intervals: &Bound<'_, PyAny>) -> PyResult<TuningSystem> {
+pub fn parse_tuning(intervals: &Bound<'_, PyAny>) -> PyResult<TuningSystem> {
     if let Ok(name) = intervals.cast::<PyString>() {
         let name = name.to_cow()?;
         return TuningSystem::from_name(&name).ok_or_else(|| {
@@ -141,6 +145,7 @@ fn map_each<'py, R: pyo3::IntoPyObject<'py>>(
 /// The name of a MIDI number.
 ///
 /// Args:
+///
 ///     midi (float | ``array_like``): MIDI numbers. A value that is not finite gives ``""``.
 ///     octave (bool): Include the octave. Default True.
 ///     cents (bool): Include the deviation in cents, such as ``"A4+25"``. Needs ``octave``.
@@ -148,6 +153,7 @@ fn map_each<'py, R: pyo3::IntoPyObject<'py>>(
 ///     unicode (bool): Unicode accidentals; otherwise ASCII ``#`` and ``b``. Default False.
 ///
 /// Returns:
+///
 ///     str | numpy.ndarray: The names.
 #[pyfunction]
 #[pyo3(
@@ -170,10 +176,12 @@ pub fn midi_to_note<'py>(
 /// The name of a frequency.
 ///
 /// Args:
+///
 ///     hz (float | ``array_like``): Frequencies in Hz.
 ///     octave, cents, key, unicode: As ``midi_to_note``.
 ///
 /// Returns:
+///
 ///     str | numpy.ndarray: The names.
 #[pyfunction]
 #[pyo3(
@@ -216,11 +224,13 @@ fn note_number(note: &str, round_midi: bool) -> PyResult<f64> {
 /// The MIDI number of a note name.
 ///
 /// Args:
+///
 ///     note (str | Iterable[str]): Names such as ``"C#4"`` or ``"A4+25"``. An empty name
 ///         gives NaN.
 ///     ``round_midi`` (bool): Round to a whole number. Default True.
 ///
 /// Returns:
+///
 ///     float | numpy.ndarray: The numbers.
 #[pyfunction]
 #[pyo3(signature = (note, *, round_midi = true), text_signature = "(note, *, round_midi=True)")]
@@ -237,10 +247,12 @@ pub fn note_to_midi<'py>(
 /// The frequency of a note name.
 ///
 /// Args:
+///
 ///     note (str | Iterable[str]): Names such as ``"C#4"`` or ``"A4+25"``.
 ///     ``round_midi`` (bool): Round to a whole note first. Default False.
 ///
 /// Returns:
+///
 ///     float | numpy.ndarray: The frequencies in Hz.
 #[pyfunction]
 #[pyo3(signature = (note, *, round_midi = false), text_signature = "(note, *, round_midi=False)")]
@@ -255,6 +267,7 @@ pub fn note_to_hz<'py>(note: &Bound<'py, PyAny>, round_midi: bool) -> PyResult<B
 /// Frequencies of a tuning system over several octaves.
 ///
 /// Args:
+///
 ///     ``n_bins`` (int): Number of frequencies.
 ///     fmin (float): The lowest frequency, in Hz.
 ///     intervals (str | ``array_like``): ``"equal"``, ``"pythagorean"``, ``"ji3"``, ``"ji5"``,
@@ -264,6 +277,7 @@ pub fn note_to_hz<'py>(note: &Bound<'py, PyAny>, round_midi: bool) -> PyResult<B
 ///     sort (bool): In increasing order. Default true.
 ///
 /// Returns:
+///
 ///     numpy.ndarray[float64]: The frequencies.
 #[pyfunction]
 #[pyo3(
@@ -296,11 +310,13 @@ pub fn interval_frequencies<'py>(
 /// The note a number of perfect fifths from a unison.
 ///
 /// Args:
+///
 ///     unison (str): The starting note.
 ///     fifths (int): Signed number of fifths.
 ///     unicode (bool): Unicode accidentals; otherwise ASCII. Default true.
 ///
 /// Returns:
+///
 ///     str: The note's name, without an octave.
 #[pyfunction]
 #[pyo3(signature = (*, unison, fifths, unicode = true), text_signature = "(*, unison, fifths, unicode=True)")]
@@ -409,12 +425,14 @@ fn strings_out<'py>(
 /// Ratios built from the primes up to 23 are recognised, to six decimal places.
 ///
 /// Args:
+///
 ///     interval (float | ``array_like``): The ratio or ratios, positive.
 ///     unison (str): The note of ratio 1. Default ``"C"``.
 ///     tolerance (float): How close in ratio a stack of fifths must come. Default 65/63.
 ///     unicode (bool): Unicode accidentals and scripts; otherwise ``^n`` and ``_n``.
 ///
 /// Returns:
+///
 ///     str | numpy.ndarray[str]: The spelling, the shape of the input.
 #[pyfunction]
 #[pyo3(
@@ -436,12 +454,14 @@ pub fn interval_to_fjs<'py>(
 /// The Functional Just System spelling of frequencies relative to a reference.
 ///
 /// Args:
+///
 ///     frequencies (float | ``array_like``): In Hz.
 ///     fmin (Optional[float]): The frequency of ratio 1. Default: the smallest input.
 ///     unison (Optional[str]): The note of ratio 1. Default: nearest note to ``fmin``.
 ///     unicode (bool): As for :func:`interval_to_fjs`. Default false.
 ///
 /// Returns:
+///
 ///     str | numpy.ndarray[str]: The spelling, the shape of the input.
 #[pyfunction]
 #[pyo3(
@@ -469,6 +489,7 @@ pub fn hz_to_fjs<'py>(
 /// The ten thaats, by name.
 ///
 /// Returns:
+///
 ///     list[str]: The names.
 #[pyfunction]
 #[inline]
@@ -483,9 +504,11 @@ pub fn list_thaat(py: Python<'_>) -> PyResult<Bound<'_, PyList>> {
 /// The scale degrees of a thaat, in semitones above Sa.
 ///
 /// Args:
+///
 ///     thaat (str): Its name, in any letter case.
 ///
 /// Returns:
+///
 ///     numpy.ndarray[int64]: Seven degrees.
 #[pyfunction]
 #[inline]
@@ -497,6 +520,7 @@ pub fn thaat_to_degrees<'py>(py: Python<'py>, thaat: &str) -> PyResult<Bound<'py
 /// The 72 melakarta ragas and their numbers.
 ///
 /// Returns:
+///
 ///     dict[str, int]: Name to number, from 1 to 72.
 #[pyfunction]
 #[inline]
@@ -534,9 +558,11 @@ fn mela_arg(mela: &Bound<'_, PyAny>) -> PyResult<u8> {
 /// The scale degrees of a melakarta raga, in semitones above Sa.
 ///
 /// Args:
+///
 ///     mela (int | str): The raga's number, from 1 to 72, or its name.
 ///
 /// Returns:
+///
 ///     numpy.ndarray[int64]: Seven degrees.
 #[pyfunction]
 #[inline]
@@ -548,11 +574,13 @@ pub fn mela_to_degrees<'py>(mela: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyA
 /// The names of the twelve svaras of a melakarta raga, from Sa.
 ///
 /// Args:
+///
 ///     mela (int | str): The raga's number or name.
 ///     abbr (bool): Short forms such as ``R1``. Default true.
 ///     unicode (bool): Subscript digits; otherwise plain digits. Default true.
 ///
 /// Returns:
+///
 ///     list[str]: Twelve names.
 #[pyfunction]
 #[pyo3(signature = (mela, *, abbr = true, unicode = true), text_signature = "(mela, *, abbr=True, unicode=True)")]
@@ -569,6 +597,7 @@ pub fn mela_to_svara<'py>(
 /// The Hindustani svara of MIDI numbers.
 ///
 /// Args:
+///
 ///     midi (float | ``array_like``): MIDI numbers; a non-finite value gives ``""``.
 ///     Sa (float): The MIDI number of Sa.
 ///     abbr (bool): Short forms such as ``S``. Default true.
@@ -576,6 +605,7 @@ pub fn mela_to_svara<'py>(
 ///     unicode (bool): Dots; otherwise ``'`` and ``,``. Default true.
 ///
 /// Returns:
+///
 ///     str | numpy.ndarray[str]: The svara, the shape of the input.
 #[pyfunction]
 #[pyo3(
@@ -599,12 +629,14 @@ pub fn midi_to_svara_h<'py>(
 /// The Carnatic svara of MIDI numbers within a melakarta raga.
 ///
 /// Args:
+///
 ///     midi (float | ``array_like``): MIDI numbers; a non-finite value gives ``""``.
 ///     Sa (float): The MIDI number of Sa.
 ///     mela (int | str): The raga's number or name.
 ///     abbr, octave, unicode: As for :func:`midi_to_svara_h`.
 ///
 /// Returns:
+///
 ///     str | numpy.ndarray[str]: The svara, the shape of the input.
 #[pyfunction]
 #[pyo3(
@@ -630,11 +662,13 @@ pub fn midi_to_svara_c<'py>(
 /// The Hindustani svara of frequencies.
 ///
 /// Args:
+///
 ///     frequencies (float | ``array_like``): In Hz.
 ///     Sa (float): The frequency of Sa, in Hz.
 ///     abbr, octave, unicode: As for :func:`midi_to_svara_h`.
 ///
 /// Returns:
+///
 ///     str | numpy.ndarray[str]: The svara, the shape of the input.
 #[pyfunction]
 #[pyo3(
@@ -658,12 +692,14 @@ pub fn hz_to_svara_h<'py>(
 /// The Carnatic svara of frequencies within a melakarta raga.
 ///
 /// Args:
+///
 ///     frequencies (float | ``array_like``): In Hz.
 ///     Sa (float): The frequency of Sa, in Hz.
 ///     mela (int | str): The raga's number or name.
 ///     abbr, octave, unicode: As for :func:`midi_to_svara_h`.
 ///
 /// Returns:
+///
 ///     str | numpy.ndarray[str]: The svara, the shape of the input.
 #[pyfunction]
 #[pyo3(
@@ -710,11 +746,13 @@ fn map_notes<'py>(
 /// The Hindustani svara of note names.
 ///
 /// Args:
+///
 ///     notes (str | sequence of str): The notes.
 ///     Sa (str): The note of Sa.
 ///     abbr, octave, unicode: As for :func:`midi_to_svara_h`.
 ///
 /// Returns:
+///
 ///     str | numpy.ndarray[str]: The svara.
 #[pyfunction]
 #[pyo3(
@@ -738,12 +776,14 @@ pub fn note_to_svara_h<'py>(
 /// The Carnatic svara of note names within a melakarta raga.
 ///
 /// Args:
+///
 ///     notes (str | sequence of str): The notes.
 ///     Sa (str): The note of Sa.
 ///     mela (int | str): The raga's number or name.
 ///     abbr, octave, unicode: As for :func:`midi_to_svara_h`.
 ///
 /// Returns:
+///
 ///     str | numpy.ndarray[str]: The svara.
 #[pyfunction]
 #[pyo3(

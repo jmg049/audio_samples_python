@@ -23,6 +23,7 @@ impl PyAudioSamples {
     /// framing (centred frames), CMND, parabolic refinement and fallback.
     ///
     /// Args:
+    ///
     ///     fmin (float): Lowest frequency searched (Hz). Required, as in librosa
     ///         (librosa recommends ``librosa.note_to_hz("C2")`` = 65.41).
     ///     fmax (float): Highest frequency searched (Hz). Required (e.g. C7 = 2093.0).
@@ -33,9 +34,11 @@ impl PyAudioSamples {
     ///     pad_mode (str): Padding for ``center``. Default ``"constant"``.
     ///
     /// Returns:
+    ///
     ///     numpy.ndarray[float32 | float64]: f0 in Hz, shape ``(channels, n_frames)``.
     ///
     /// Raises:
+    ///
     ///     ValueError: For invalid parameters (e.g. ``fmax > sr / 2``) or a
     ///         too-short uncentred signal.
     #[pyo3(
@@ -70,6 +73,7 @@ impl PyAudioSamples {
     /// ``librosa.pyin(y, fmin=fmin, fmax=fmax, sr=self.sample_rate, ...)``.
     ///
     /// Args:
+    ///
     ///     fmin, fmax (float): Search range in Hz. Required.
     ///     frame_length (int): Default 2048.
     ///     hop_length (Optional[int]): None = ``frame_length // 4``.
@@ -88,12 +92,14 @@ impl PyAudioSamples {
     ///         (None or 0 = exact decoding). Default 1e-4.
     ///
     /// Returns:
+    ///
     ///     tuple: ``(f0, voiced_flag, voiced_prob)``, each of shape
     ///     ``(channels, n_frames)``: Hz, ``bool``, values in ``[0, 1]``; the float
     ///     arrays are float32 for uint8, int16, int24 and float32 audio and
     ///     float64 otherwise.
     ///
     /// Raises:
+    ///
     ///     ValueError: For invalid parameters or a too-short uncentred signal.
     #[pyo3(
         signature = (*, fmin, fmax, frame_length = Int(2048), hop_length = None, n_thresholds = Int(100), beta_parameters = (2.0, 18.0), boltzmann_parameter = 2.0, resolution = 0.1, max_transition_rate = 35.92, switch_prob = 0.01, no_trough_prob = 0.01, fill_na = FillNaArg(UnvoicedFill::Nan), center = true, pad_mode = "constant", transition_min_prob = Some(1e-4)),

@@ -125,6 +125,7 @@ impl PyAudioSamples {
     /// librosa's filters, scaling and framing.
     ///
     /// Args:
+    ///
     ///     hop_length (int): Samples between frames. Default 512.
     ///     fmin (Optional[float]): Lowest bin frequency (Hz); None = C1 (32.70 Hz).
     ///     n_bins (Optional[int]): Number of bins (default 84); None = as many as
@@ -145,10 +146,12 @@ impl PyAudioSamples {
     ///         is not used).
     ///
     /// Returns:
+    ///
     ///     numpy.ndarray[complex64 | complex128]: shape ``(channels, n_bins, n_frames)``
     ///     (librosa returns ``(n_bins, n_frames)`` for 1-D input; index ``[0]``).
     ///
     /// Raises:
+    ///
     ///     ValueError: For invalid parameters (e.g. bins above Nyquist).
     #[pyo3(
         signature = (*, hop_length = Int(512), fmin = None, n_bins = Some(Int(84)), bins_per_octave = Int(12), tuning = Some(0.0), filter_scale = 1.0, norm = Some(1.0), sparsity = 0.01, window = WindowArg(Window::Hann), scale = true, pad_mode = "constant", res_type = "soxr_hq"),
@@ -192,15 +195,18 @@ impl PyAudioSamples {
     /// ``librosa.vqt(y, sr=self.sample_rate, ...)``.
     ///
     /// Args:
+    ///
     ///     hop_length, fmin, n_bins, bins_per_octave, tuning, filter_scale, norm, sparsity, window, scale, pad_mode, res_type: As ``cqt``.
     ///     intervals (str): Only ``"equal"`` (equal temperament) is supported.
     ///     gamma (Optional[float]): Bandwidth offset (Hz); None (default) =
     ///         ERB-derived, 0 = constant-Q.
     ///
     /// Returns:
+    ///
     ///     numpy.ndarray[complex64 | complex128]: shape ``(channels, n_bins, n_frames)``.
     ///
     /// Raises:
+    ///
     ///     ValueError: For invalid parameters or ``intervals`` other than ``"equal"``.
     #[pyo3(
         signature = (*, hop_length = Int(512), fmin = None, n_bins = Some(Int(84)), intervals = None, gamma = None, bins_per_octave = Int(12), tuning = Some(0.0), filter_scale = 1.0, norm = Some(1.0), sparsity = 0.01, window = WindowArg(Window::Hann), scale = true, pad_mode = "constant", res_type = "soxr_hq"),
@@ -258,12 +264,15 @@ impl PyAudioSamples {
     /// to ``librosa.pseudo_cqt(y, sr=self.sample_rate, ...)``.
     ///
     /// Args:
+    ///
     ///     hop_length, fmin, n_bins, bins_per_octave, tuning, filter_scale, norm, sparsity, window, scale, pad_mode: As ``cqt``.
     ///
     /// Returns:
+    ///
     ///     numpy.ndarray[float32 | float64]: magnitudes, shape ``(channels, n_bins, n_frames)``.
     ///
     /// Raises:
+    ///
     ///     ValueError: For invalid parameters.
     #[pyo3(
         signature = (*, hop_length = Int(512), fmin = None, n_bins = Some(Int(84)), bins_per_octave = Int(12), tuning = Some(0.0), filter_scale = 1.0, norm = Some(1.0), sparsity = 0.01, window = WindowArg(Window::Hann), scale = true, pad_mode = "constant"),
@@ -306,12 +315,15 @@ impl PyAudioSamples {
     /// low bins), equivalent to ``librosa.hybrid_cqt(y, sr=self.sample_rate, ...)``.
     ///
     /// Args:
+    ///
     ///     As ``cqt``.
     ///
     /// Returns:
+    ///
     ///     numpy.ndarray[float32 | float64]: magnitudes, shape ``(channels, n_bins, n_frames)``.
     ///
     /// Raises:
+    ///
     ///     ValueError: For invalid parameters.
     #[pyo3(
         signature = (*, hop_length = Int(512), fmin = None, n_bins = Some(Int(84)), bins_per_octave = Int(12), tuning = Some(0.0), filter_scale = 1.0, norm = Some(1.0), sparsity = 0.01, window = WindowArg(Window::Hann), scale = true, pad_mode = "constant", res_type = "soxr_hq"),
@@ -356,6 +368,7 @@ impl PyAudioSamples {
     /// This is a static method: ``AudioSamples.icqt(C, sample_rate=sr)``.
     ///
     /// Args:
+    ///
     ///     C (array_like): complex CQT of shape ``(n_bins, T)`` or ``(channels, n_bins, T)``.
     ///     sample_rate (int): Sample rate of the analysed signal (keyword-only).
     ///     hop_length, fmin, bins_per_octave, filter_scale, norm, sparsity, window, scale, res_type: The forward parameters (see ``cqt``).
@@ -368,9 +381,11 @@ impl PyAudioSamples {
     ///         for I32 and F64); integer output is rounded and saturated.
     ///
     /// Returns:
+    ///
     ///     AudioSamples: audio of sample type ``dtype`` (mono for a single channel).
     ///
     /// Raises:
+    ///
     ///     ValueError: For invalid parameters or an empty ``C``.
     #[staticmethod]
     #[pyo3(
@@ -426,6 +441,7 @@ impl PyAudioSamples {
     /// (librosa's ``init=None``); librosa's default is ``init="random"``.
     ///
     /// Args:
+    ///
     ///     C (array_like): Non-negative CQT magnitude, ``(n_bins, T)`` or
     ///         ``(channels, n_bins, T)``.
     ///     sample_rate (int): Sample rate (keyword-only).
@@ -447,9 +463,11 @@ impl PyAudioSamples {
     ///         for I32 and F64); integer output is rounded and saturated.
     ///
     /// Returns:
+    ///
     ///     AudioSamples: audio of sample type ``dtype``.
     ///
     /// Raises:
+    ///
     ///     ValueError: For invalid parameters or ``init`` other than None or
     ///         ``"random"``.
     #[staticmethod]
@@ -520,6 +538,7 @@ impl PyAudioSamples {
     /// ``librosa.feature.chroma_cqt(y=..., sr=self.sample_rate, ...)``.
     ///
     /// Args:
+    ///
     ///     hop_length (int): Default 512.
     ///     fmin (Optional[float]): Lowest CQT frequency; None = C1.
     ///     norm (Optional[float]): Per-frame normalisation. Default ``numpy.inf``.
@@ -534,9 +553,11 @@ impl PyAudioSamples {
     ///     cqt_mode (str): ``"full"`` (default) or ``"hybrid"``.
     ///
     /// Returns:
+    ///
     ///     numpy.ndarray[float32 | float64]: shape ``(channels, n_chroma, n_frames)``.
     ///
     /// Raises:
+    ///
     ///     ValueError: For invalid parameters.
     #[pyo3(
         signature = (*, hop_length = Int(512), fmin = None, norm = Some(f64::INFINITY), threshold = Some(0.0), tuning = Some(0.0), n_chroma = Int(12), n_octaves = Int(7), window = None, bins_per_octave = Some(Int(36)), cqt_mode = "full"),
@@ -576,6 +597,7 @@ impl PyAudioSamples {
     /// ``librosa.feature.chroma_cens(y=..., sr=self.sample_rate, ...)``.
     ///
     /// Args:
+    ///
     ///     hop_length, fmin, tuning, n_chroma, n_octaves, bins_per_octave, cqt_mode, window: As ``chroma_cqt``.
     ///     norm (Optional[float]): Final per-frame normalisation. Default 2.
     ///     win_len_smooth (Optional[int]): Smoothing length in frames (None
@@ -583,9 +605,11 @@ impl PyAudioSamples {
     ///     smoothing_window: Smoothing window shape. Default ``"hann"``.
     ///
     /// Returns:
+    ///
     ///     numpy.ndarray[float32 | float64]: shape ``(channels, n_chroma, n_frames)``.
     ///
     /// Raises:
+    ///
     ///     ValueError: For invalid parameters.
     #[pyo3(
         signature = (*, hop_length = Int(512), fmin = None, tuning = Some(0.0), n_chroma = Int(12), n_octaves = Int(7), bins_per_octave = Int(36), cqt_mode = "full", window = None, norm = Some(2.0), win_len_smooth = Some(Int(41)), smoothing_window = WindowArg(Window::Hann)),
@@ -631,6 +655,7 @@ impl PyAudioSamples {
     /// ``librosa.feature.chroma_vqt(y=..., sr=self.sample_rate, intervals="equal", ...)``.
     ///
     /// Args:
+    ///
     ///     hop_length (int): Default 512.
     ///     fmin (Optional[float]): Lowest VQT frequency; None = C1.
     ///     intervals (str): Only ``"equal"`` (the default here; required in librosa).
@@ -642,9 +667,11 @@ impl PyAudioSamples {
     ///         ERB-derived.
     ///
     /// Returns:
+    ///
     ///     numpy.ndarray[float32 | float64]: shape ``(channels, bins_per_octave, n_frames)``.
     ///
     /// Raises:
+    ///
     ///     ValueError: For invalid parameters or ``intervals`` other than ``"equal"``.
     #[pyo3(
         signature = (*, hop_length = Int(512), fmin = None, intervals = None, norm = Some(f64::INFINITY), threshold = Some(0.0), n_octaves = Int(7), bins_per_octave = Int(12), gamma = Some(0.0)),
@@ -682,13 +709,16 @@ impl PyAudioSamples {
     /// to ``librosa.feature.tonnetz(y=..., sr=self.sample_rate, ...)``.
     ///
     /// Args:
+    ///
     ///     hop_length, fmin, norm, threshold, tuning, n_chroma, n_octaves, bins_per_octave, cqt_mode: ``chroma_cqt`` parameters (librosa's
     ///     ``**kwargs``).
     ///
     /// Returns:
+    ///
     ///     numpy.ndarray[float32 | float64]: shape ``(channels, 6, n_frames)``.
     ///
     /// Raises:
+    ///
     ///     ValueError: For invalid parameters.
     #[pyo3(
         signature = (*, hop_length = Int(512), fmin = None, norm = Some(f64::INFINITY), threshold = Some(0.0), tuning = Some(0.0), n_chroma = Int(12), n_octaves = Int(7), bins_per_octave = Some(Int(36)), cqt_mode = "full"),
