@@ -474,6 +474,7 @@ def test_import_loads_nothing():
         "import audio_samples.io as io; io.read",
         "from audio_samples.spectrograms import StftParams",
         "from audio_samples.utils.generation import sine_wave",
+        "from audio_samples.utils import snr",
         "import audio_samples.exceptions as e; e.AudioError",
         "import audio_samples.notation as n; n.list_thaat",
         "from audio_samples.segment import agglomerative",

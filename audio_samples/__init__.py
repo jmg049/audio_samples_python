@@ -222,7 +222,9 @@ class _NativeSubmoduleFinder:
         return None
 
 
-_sys.meta_path.append(_NativeSubmoduleFinder)
+# Ahead of the path finder: audio_samples/utils holds only type stubs, which that finder would
+# take for a namespace package.
+_sys.meta_path.insert(0, _NativeSubmoduleFinder)
 
 
 def __getattr__(name):
