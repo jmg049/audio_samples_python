@@ -293,7 +293,7 @@ where
 ///     mag (Optional[``complex`` | ``array_like``]): Multiplier, broadcast to ``angles``.
 ///
 /// Returns:
-///     complex | numpy.ndarray: ``complex64`` for ``float32`` angles, otherwise
+///     ``complex`` | numpy.ndarray: ``complex64`` for ``float32`` angles, otherwise
 ///     ``complex128``.
 #[pyfunction]
 #[pyo3(signature = (angles, *, mag = None))]

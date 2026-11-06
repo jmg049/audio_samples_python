@@ -54,7 +54,7 @@ Submodule                            Contents
 ``audio_samples.linalg``             NNLS, pseudo-inverse, eigendecomposition, SVD
 ``audio_samples.inverse``            mel and MFCC inversion
 ``audio_samples.factorization``      NMF and ``decompose``
-``audio_samples.pitch_filterbank`  ` semitone filterbank, IIR time-frequency representation
+``audio_samples.pitch_filterbank``   semitone filterbank, IIR time-frequency representation
 ``audio_samples.segment``            path enhancement, time-lag filtering, clustering
 ``audio_samples.notation``           tuning, note, FJS, svara, mela and thaat names
 ===================================  =============================================================
