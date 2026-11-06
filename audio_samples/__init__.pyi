@@ -2560,7 +2560,8 @@ class AudioSamples(Generic[_S_co]):
         pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
         power: float = 1.0,
     ) -> NDArray[np.float64]:
-        """STFT magnitude raised to ``power``, ``abs(stft_matrix(...)) ** power``, for every channel.
+        """STFT magnitude raised to ``power`` for every channel:
+        ``abs(stft_matrix(...)) ** power``.
 
         Returns:
             numpy.ndarray[float32 | float64], shape ``(channels, 1 + n_fft // 2, n_frames)``.
@@ -2870,7 +2871,8 @@ class AudioSamples(Generic[_S_co]):
         pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
         roll_percent: float = 0.85,
     ) -> NDArray[np.float64]:
-        """Roll-off frequency per frame: the frequency below which ``roll_percent`` of the energy lies.
+        """Roll-off frequency per frame: the frequency below which
+        ``roll_percent`` of the energy lies.
 
         Returns:
             numpy.ndarray[float32 | float64], shape ``(channels, 1, n_frames)`` in Hz.
@@ -4447,7 +4449,8 @@ class AudioSamples(Generic[_S_co]):
         fill_value: float = 0,
         norm: Optional[float] = np.inf,
     ) -> NDArray[np.float64]:
-        """Tempogram ratio: the tempogram sampled at fixed multiples of the per-frame tempo estimate.
+        """Tempogram ratio: the tempogram sampled at fixed multiples of the
+        per-frame tempo estimate.
 
         Returns:
             numpy.ndarray[float32 | float64], shape ``(channels, n_factors, n_frames)``
@@ -4482,7 +4485,8 @@ class AudioSamples(Generic[_S_co]):
         center: bool = True,
         window: _WindowSpec = 'hann',
     ) -> NDArray[np.float64]:
-        """Hybrid tempogram: the Fourier and autocorrelation tempograms combined on the Fourier tempo grid.
+        """Hybrid tempogram: the Fourier and autocorrelation tempograms combined
+        on the Fourier tempo grid.
 
         Returns:
             numpy.ndarray[float32 | float64], shape ``(channels, win_length // 2 + 1, n_frames)``.
@@ -4568,7 +4572,8 @@ class AudioSamples(Generic[_S_co]):
         ...
 
     def preemphasis(self, *, coef: float = 0.97) -> Self:
-        """Pre-emphasis filter ``y[n] = x[n] - coef * x[n - 1]`` on every channel (default initial state)."""
+        """Pre-emphasis filter ``y[n] = x[n] - coef * x[n - 1]`` on every channel
+        (default initial state)."""
         ...
 
     def preemphasis_in_place(self, *, coef: float = 0.97) -> None:
@@ -4741,7 +4746,8 @@ class AudioSamples(Generic[_S_co]):
     ) -> NDArray[np.float32]: ...
     @overload
     def lpc(self: AudioSamples[_DoubleSample], *, order: int) -> NDArray[np.float64]:
-        """Linear prediction coefficients by Burg's method per channel: shape ``(channels, order + 1)``."""
+        """Linear prediction coefficients by Burg's method per channel: shape
+        ``(channels, order + 1)``."""
         ...
 
     def iirt(

@@ -1,24 +1,22 @@
-"""librosa-compatible rhythm analysis over NumPy arrays.
+"""Rhythm analysis over NumPy arrays.
 
-Free functions mirroring ``librosa.onset`` (``onset_strength(S=...)``,
-``onset_strength_multi(S=...)``, ``onset_detect(onset_envelope=...)``,
-``onset_backtrack``), ``librosa.util.peak_pick``, ``librosa.feature``
+Free functions for onsets (``onset_strength``, ``onset_strength_multi``,
+``onset_detect``, ``onset_backtrack``, ``peak_pick``), tempograms and tempo
 (``tempogram``, ``fourier_tempogram``, ``tempo``, ``tempogram_ratio``,
-``hybrid_tempogram``, ``metrogram``), ``librosa.beat`` (``beat_track``,
-``plp``) and ``librosa.tempo_frequencies`` / ``fourier_tempo_frequencies``.
-``sr`` is required (librosa defaults to 22050) and ``beat_track`` /
-``beat_track_with_bpm`` default to ``trim=False`` (librosa: True); the other
-defaults are librosa 1.0.0's. They take precomputed inputs (librosa's ``S=``,
-``onset_envelope=``, ``tg=``); the ``AudioSamples`` methods of the same names
-compute them from audio.
+``hybrid_tempogram``, ``metrogram``, ``tempo_frequencies``,
+``fourier_tempo_frequencies``) and beats (``beat_track``,
+``beat_track_with_bpm``, ``plp``). ``sr`` is required and ``beat_track`` /
+``beat_track_with_bpm`` default to ``trim=False``. They take precomputed
+inputs (a spectrogram ``S``, an ``onset_envelope`` or a tempogram ``tg``);
+the ``AudioSamples`` methods of the same names compute them from audio.
 
 float32 / complex64 NumPy arrays are processed in float32 and give float32 /
 complex64 output; any other array-like (lists, integer, float16 or float64
 arrays) is converted to float64 and gives float64 / complex128 output. Tempo
 estimates are always float64.
 
-Shapes follow librosa: a 1-D envelope (2-D spectrogram) gives librosa's result,
-a ``(channels, n)`` envelope (3-D spectrogram) adds a leading channel axis.
+A 1-D envelope (2-D spectrogram) gives a result without a channel axis; a
+``(channels, n)`` envelope (3-D spectrogram) adds a leading channel axis.
 Event outputs are 1-D arrays (int64 frames/samples or float64 times).
 
 ``aggregate`` accepts ``numpy.mean`` / ``median`` / ``max`` / ``min`` / ``sum``
@@ -99,21 +97,22 @@ def onset_strength(
     n_fft: int = 2048,
     hop_length: int = 512,
 ) -> NDArray[np.float64]:
-    """Onset strength of a log-power spectrogram, ``librosa.onset.onset_strength(S=S)``.
+    """Onset strength of a log-power spectrogram: positive differences between
+    frames, aggregated across bins.
 
     ``S`` is used as given (compute it with ``spectral.power_to_db`` of a mel
     spectrogram, or use ``AudioSamples.onset_strength``).
 
     Args:
         S: ``(n_bins, n_frames)`` or ``(channels, n_bins, n_frames)``.
-        sr: Unused (librosa only uses it to compute ``S``).
+        sr: Unused (``S`` is already computed).
         lag: Time lag of the difference in frames.
         max_size: Maximum filter across frequency on the reference (1 = off).
         ref: Reference spectrogram of ``S``'s shape; None uses ``S``.
         detrend: High-pass filter the envelope.
         center: Compensate the centred-STFT delay of ``n_fft // (2 * hop_length)`` frames.
         aggregate: Reduction across bins; None = mean. ``False`` returns the
-            first bin's flux (as librosa).
+            first bin's flux.
         n_fft: FFT size behind ``S`` (centring shift).
         hop_length: Hop behind ``S`` (centring shift).
 
@@ -171,7 +170,7 @@ def onset_strength_multi(
     aggregate: Union[_AggregateSpec, Literal[False], None] = None,
     channels: Optional[Union[Sequence[int], Sequence[slice]]] = None,
 ) -> NDArray[np.float64]:
-    """Multi-band onset strength, ``librosa.onset.onset_strength_multi(S=S)``.
+    """Multi-band onset strength: one envelope per group of bins.
 
     Args:
         S: ``(n_bins, n_frames)`` or ``(channels, n_bins, n_frames)`` log-power spectrogram.
@@ -200,7 +199,8 @@ def peak_pick(
     method: Literal["greedy", "dp_count", "dp_value"] = "greedy",
     axis: int = -1,
 ) -> NDArray[np.int64]:
-    """Peak picking, ``librosa.util.peak_pick`` (1-D input, sparse output only).
+    """Peak picking against a local maximum and a local mean threshold (1-D
+    input, sparse output only).
 
     Returns:
         numpy.ndarray[int64]: ascending peak indices.
@@ -211,9 +211,8 @@ def peak_pick(
     ...
 
 def onset_backtrack(events: npt.ArrayLike, energy: npt.ArrayLike) -> NDArray[np.int64]:
-    """Move events back to the preceding local minimum of ``energy``,
-    ``librosa.onset.onset_backtrack``. Empty ``events`` give an empty array
-    (librosa raises).
+    """Move events back to the preceding local minimum of ``energy``.
+    Empty ``events`` give an empty array.
 
     Returns:
         numpy.ndarray[int64]: one frame per event.
@@ -258,9 +257,9 @@ def onset_detect(
     wait: Optional[int] = None,
     method: Literal['greedy', 'dp_count', 'dp_value'] = 'greedy',
 ) -> NDArray[np.int64]:
-    """Onset detection on an envelope, ``librosa.onset.onset_detect(onset_envelope=...)``.
+    """Onset detection by peak picking on an onset strength envelope.
 
-    Peak-picking parameters left as None get librosa's frame-rate defaults
+    Peak-picking parameters left as None are set from the frame rate
     (30 ms ``pre_max``/``wait``, 100 ms averaging, ``delta=0.07``).
 
     Returns:
@@ -272,15 +271,14 @@ def onset_detect(
     ...
 
 def tempo_frequencies(n_bins: int, *, hop_length: int = 512, sr: float) -> NDArray[np.float64]:
-    """BPM of each autocorrelation-tempogram lag bin, ``librosa.tempo_frequencies``
-    (bin 0 is ``inf``). Shape ``(n_bins,)``."""
+    """BPM of each autocorrelation-tempogram lag bin (bin 0 is ``inf``).
+    Shape ``(n_bins,)``."""
     ...
 
 def fourier_tempo_frequencies(
     *, sr: float, win_length: int = 384, hop_length: int = 512
 ) -> NDArray[np.float64]:
-    """BPM of each Fourier-tempogram bin, ``librosa.fourier_tempo_frequencies``.
-    Shape ``(win_length // 2 + 1,)``."""
+    """BPM of each Fourier-tempogram bin. Shape ``(win_length // 2 + 1,)``."""
     ...
 
 @overload
@@ -316,11 +314,11 @@ def tempogram(
     window: _WindowSpec = 'hann',
     norm: Optional[float] = np.inf,
 ) -> NDArray[np.float64]:
-    """Autocorrelation tempogram, ``librosa.feature.tempogram(onset_envelope=...)``.
+    """Autocorrelation tempogram: windowed autocorrelation of an onset strength envelope.
 
     Args:
         onset_envelope: ``(n_frames,)`` or ``(channels, n_frames)``.
-        sr, hop_length: Unused (librosa uses them only to compute the envelope).
+        sr, hop_length: Unused (the envelope is already computed).
         win_length: Window / number of lag bins.
         center: Centre windows (linear-ramp padding).
         window: Window before the autocorrelation.
@@ -362,7 +360,7 @@ def fourier_tempogram(
     center: bool = True,
     window: _WindowSpec = 'hann',
 ) -> NDArray[np.complex128]:
-    """Fourier tempogram, ``librosa.feature.fourier_tempogram(onset_envelope=...)``.
+    """Fourier tempogram: short-time Fourier transform of an onset strength envelope.
 
     Returns:
         numpy.ndarray[complex64 | complex128]: ``(win_length // 2 + 1, n_frames + 1)`` when
@@ -383,7 +381,7 @@ def tempo(
     aggregate: Optional[_AggregateSpec] = "mean",
     prior: _PriorSpec = None,
 ) -> NDArray[np.float64]:
-    """Tempo estimate, ``librosa.feature.tempo(onset_envelope=... | tg=...)``.
+    """Tempo estimate in BPM from an onset envelope or a precomputed tempogram ``tg``.
 
     Args:
         onset_envelope: ``(n_frames,)`` / ``(channels, n_frames)``; exactly one
@@ -427,10 +425,10 @@ def beat_track(
     units: Literal['frames', 'samples'] = 'frames',
     sparse: bool = True,
 ) -> tuple[NDArray[np.float64], NDArray[np.int64]]:
-    """Dynamic-programming beat tracker, ``librosa.beat.beat_track(onset_envelope=...)``.
+    """Dynamic-programming beat tracker on an onset strength envelope.
 
     Returns:
-        tuple: ``(tempo, beats)`` as librosa: ``tempo`` is a float64 array of
+        tuple: ``(tempo, beats)``: ``tempo`` is a float64 array of
         shape ``(1,)`` (``bpm`` unchanged when given; ``0.0`` for an all-zero
         envelope); ``beats`` 1-D int64 frames/samples or float64 times.
 
@@ -448,8 +446,8 @@ def beat_track_with_bpm(
     tightness: float = 100.0,
     trim: bool = False,
 ) -> NDArray[np.int64]:
-    """Beat tracking at a given tempo (one value or one per frame); librosa's
-    internal ``__beat_tracker``. Returns ascending int64 beat frames."""
+    """Dynamic-programming beat tracking at a given tempo (one value or one per
+    frame), without tempo estimation. Returns ascending int64 beat frames."""
     ...
 
 @overload
@@ -485,7 +483,7 @@ def plp(
     tempo_max: Optional[float] = 300,
     prior: _PriorSpec = None,
 ) -> NDArray[np.float64]:
-    """Predominant local pulse, ``librosa.beat.plp(onset_envelope=...)``.
+    """Predominant local pulse from the Fourier tempogram of an onset envelope.
 
     Returns:
         numpy.ndarray[float32 | float64]: same shape as the envelope, values in ``[0, 1]``.
@@ -602,7 +600,8 @@ def tempogram_ratio(
     fill_value: float = 0,
     norm: Optional[float] = np.inf,
 ) -> NDArray[np.float64]:
-    """Tempogram ratio features, ``librosa.feature.tempogram_ratio``.
+    """Tempogram ratio features: the tempogram sampled at fixed multiples of the
+    per-frame tempo estimate.
 
     ``freqs`` must be None and ``kind`` ``"linear"``.
 
@@ -642,7 +641,8 @@ def hybrid_tempogram(
     center: bool = True,
     window: _WindowSpec = 'hann',
 ) -> NDArray[np.float64]:
-    """Hybrid tempogram, ``librosa.feature.hybrid_tempogram(onset_envelope=...)``.
+    """Hybrid tempogram: the Fourier and autocorrelation tempograms combined on
+    the Fourier tempo grid.
 
     Returns:
         numpy.ndarray[float32 | float64]: ``(win_length // 2 + 1, n_frames)`` on the
@@ -680,7 +680,9 @@ def metrogram(
     kind: Literal['linear'] = 'linear',
     fill_value: float = 0,
 ) -> NDArray[np.float64]:
-    """Metrogram, ``librosa.feature.metrogram``.
+    """Metrogram (metrical-subharmonic salience): for each factor ``h``, the
+    tempogram interpolated at ``h * freqs``, multiplied by the tempogram and
+    aggregated over the tempo axis.
 
     Returns:
         numpy.ndarray[float32 | float64]: ``(n_factors, n_frames)``, or

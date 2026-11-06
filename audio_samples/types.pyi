@@ -880,7 +880,8 @@ class IirFilterDesign:
         passband_ripple: float,
         stopband_attenuation: float,
     ) -> IirFilterDesign:
-        """Elliptic low/high-pass with ``passband_ripple`` dB ripple and ``stopband_attenuation`` dB attenuation."""
+        """Elliptic low/high-pass with ``passband_ripple`` dB ripple and
+        ``stopband_attenuation`` dB attenuation."""
         ...
 
     @classmethod
@@ -893,7 +894,8 @@ class IirFilterDesign:
         passband_ripple: float,
         stopband_attenuation: float,
     ) -> IirFilterDesign:
-        """Elliptic band-pass/stop with ``passband_ripple`` dB ripple and ``stopband_attenuation`` dB attenuation."""
+        """Elliptic band-pass/stop with ``passband_ripple`` dB ripple and
+        ``stopband_attenuation`` dB attenuation."""
         ...
 
     @classmethod

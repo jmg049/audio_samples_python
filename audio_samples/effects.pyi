@@ -1,11 +1,12 @@
-"""librosa-compatible effect and decomposition helpers over NumPy arrays.
+"""Effect and decomposition functions over NumPy arrays.
 
-Free functions mirroring ``librosa.phase_vocoder``,
-``librosa.effects.preemphasis`` / ``deemphasis`` (with ``zi`` / ``return_zf``),
-``librosa.util.softmask``, ``librosa.decompose.hpss`` / ``nn_filter``,
-``librosa.griffinlim``, ``librosa.lpc`` and ``librosa.clicks``. Defaults are
-librosa 1.0.0's, except ``griffinlim(rng=0)`` (librosa: unseeded) and
-``clicks``, which requires ``sr`` and, with ``frames``, ``hop_length``.
+Free functions for the phase vocoder (``phase_vocoder``), pre- and
+de-emphasis with filter state (``preemphasis`` / ``deemphasis`` with ``zi`` /
+``return_zf``), soft masks (``softmask``), harmonic/percussive separation and
+nearest-neighbour filtering of spectrograms (``hpss``, ``nn_filter``),
+Griffin-Lim reconstruction (``griffinlim``), linear prediction (``lpc``) and
+click tracks (``clicks``). ``griffinlim`` defaults to ``rng=0`` (repeatable
+output); ``clicks`` requires ``sr`` and, with ``frames``, ``hop_length``.
 float32 / complex64 NumPy arrays are processed in float32 and give float32 /
 complex64 output; any other array-like (lists, integer, float16 or float64
 arrays) is converted to float64 and gives float64 / complex128 output.
@@ -75,14 +76,14 @@ def phase_vocoder(
     hop_length: Optional[int] = None,
     n_fft: Optional[int] = None,
 ) -> NDArray[np.complex128]:
-    """Phase-vocoder time stretch of an STFT, ``librosa.phase_vocoder``.
+    """Phase-vocoder time stretch of an STFT.
 
     Args:
         D: complex ``(n_bins, n_frames)`` or ``(channels, n_bins, n_frames)``.
         rate: Speed-up factor (exactly one of ``rate`` / ``t_out``).
         t_out: Fractional output frame positions in ``[0, n_frames)``.
-        hop_length: Deprecated in librosa 1.0 and unused; accepted with a
-            ``FutureWarning`` when given, as librosa does.
+        hop_length: Deprecated and unused; accepted with a ``FutureWarning``
+            when given.
         n_fft: Deprecated and unused, as ``hop_length``.
         kind: Must be ``"linear"``.
 
@@ -140,7 +141,7 @@ def preemphasis(
     zi: Optional[npt.ArrayLike] = None,
     return_zf: Literal[True],
 ) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
-    """Pre-emphasis ``y[n] = x[n] - coef * x[n-1]``, ``librosa.effects.preemphasis``.
+    """Pre-emphasis ``y[n] = x[n] - coef * x[n-1]``.
 
     Args:
         y: ``(n,)`` or ``(channels, n)``.
@@ -202,7 +203,7 @@ def deemphasis(
     zi: Optional[npt.ArrayLike] = None,
     return_zf: Literal[True],
 ) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
-    """De-emphasis ``y[n] = x[n] + coef * y[n-1]``, ``librosa.effects.deemphasis``.
+    """De-emphasis ``y[n] = x[n] + coef * y[n-1]``.
 
     Returns:
         As ``preemphasis``. With ``zi=None`` it exactly inverts ``preemphasis``'s
@@ -234,7 +235,7 @@ def softmask(
     power: float = 1,
     split_zeros: bool = False,
 ) -> NDArray[np.float64]:
-    """Soft mask ``X**p / (X**p + X_ref**p)``, ``librosa.util.softmask``.
+    """Soft mask ``X**p / (X**p + X_ref**p)``.
 
     Returns:
         numpy.ndarray: values in ``[0, 1]`` in ``X``'s precision; bool (``X > X_ref``)
@@ -305,7 +306,7 @@ def hpss(
     mask: bool = False,
     margin: Union[float, tuple[float, float]] = 1.0,
 ) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
-    """Median-filtering harmonic/percussive separation, ``librosa.decompose.hpss``.
+    """Median-filtering harmonic/percussive separation of a spectrogram.
 
     Args:
         S: Non-negative magnitude/power spectrogram or complex STFT,
@@ -350,7 +351,8 @@ def nn_filter(
     axis: int = -1,
     **kwargs: Any,
 ) -> NDArray[np.float64]:
-    """Nearest-neighbour filtering, ``librosa.decompose.nn_filter``.
+    """Nearest-neighbour filtering: each frame replaced by an aggregate of its
+    most similar frames.
 
     Args:
         S: ``(n_features, n_frames)``.
@@ -424,15 +426,15 @@ def griffinlim(
     rng: _RngLike = 0,
     random_state: _RngLike = None,
 ) -> NDArray[np.float64]:
-    """Fast Griffin-Lim phase reconstruction, ``librosa.griffinlim``.
+    """Fast Griffin-Lim phase reconstruction from an STFT magnitude.
 
-    ``init=None`` (zero phase) matches librosa to round-off. Random phases come
-    from this library's RNG, so they differ from librosa's. ``rng`` is an integer
-    seed, None, or a NumPy generator (or anything ``numpy.random.default_rng``
-    takes), from which one seed is drawn. ``rng`` defaults to the seed 0,
-    so repeated calls give the same output; ``rng=None`` draws a new seed on
-    every call (librosa's default). The output is float32 for a float32 ``S``
-    and float64 otherwise; ``dtype`` is ignored.
+    ``init=None`` starts from zero phase; ``init="random"`` (default) draws the
+    initial phases from this library's RNG. ``rng`` is an integer seed, None, or a
+    NumPy generator (or anything ``numpy.random.default_rng`` takes), from
+    which one seed is drawn. ``rng`` defaults to the seed 0, so repeated calls
+    give the same output; ``rng=None`` draws a new seed on every call. The
+    output is float32 for a float32 ``S`` and float64 otherwise; ``dtype`` is
+    ignored.
 
     Returns:
         numpy.ndarray[float32 | float64]: ``(n,)`` for 2-D ``S``, ``(channels, n)`` for 3-D.
@@ -450,7 +452,7 @@ def lpc(  # type: ignore[overload-overlap]
 ) -> NDArray[np.float32]: ...
 @overload
 def lpc(y: npt.ArrayLike, *, order: int, axis: int=-1) -> NDArray[np.float64]:
-    """Burg LPC coefficients ``[1, a_1, ..., a_order]``, ``librosa.lpc``.
+    """Linear prediction coefficients ``[1, a_1, ..., a_order]`` by Burg's method.
 
     Returns:
         numpy.ndarray[float32 | float64]: ``(order + 1,)`` (``(channels, order + 1)`` for 2-D ``y``).
@@ -483,13 +485,13 @@ def clicks(
     length: Optional[int] = None,
     dtype: None | type[np.float64] = None,
 ) -> NDArray[np.float64]:
-    """Click track, ``librosa.clicks`` (float64 output by default; librosa returns float32).
+    """Click track: a click placed at each of ``times`` or ``frames`` (float64
+    output by default).
 
-    ``sr`` must be a positive integer (librosa defaults to 22050).
+    ``sr`` must be a positive integer.
     ``hop_length`` is the hop of the analysis that produced ``frames``; it is
-    required with ``frames`` (librosa defaults to 512) and unused with
-    ``times``. ``dtype`` selects ``numpy.float32`` (librosa's dtype) or
-    ``numpy.float64`` output; None gives float64.
+    required with ``frames`` and unused with ``times``. ``dtype`` selects
+    ``numpy.float32`` or ``numpy.float64`` output; None gives float64.
 
     Returns:
         numpy.ndarray[float64 | float32]: 1-D signal.

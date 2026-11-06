@@ -1,19 +1,17 @@
-"""Sequence alignment and decoding (``librosa.sequence``, ``librosa.segment``,
-``librosa.util.sync``).
+"""Sequence alignment and decoding: dynamic time warping, Viterbi decoding,
+transition matrices, recurrence and similarity matrices, recurrence
+quantification and frame synchronisation (``sync``).
 
-Feature matrices use librosa's layout ``(n_features, n_frames)``; 1-D input is
-one feature. Probability matrices are ``(n_states, n_steps)``. Return values
-follow librosa: tuples only when ``backtrack`` / ``return_steps`` /
-``return_logp`` ask for them. Index outputs are int64 (librosa: uint16 states,
-intp paths). Defaults are librosa 1.0.0's. Float outputs keep the input's
-precision: a float32 array gives float32 costs, scores and matrices (librosa
-accumulates in float64), any other input float64. Transition matrices are
-float64.
+Feature matrices are ``(n_features, n_frames)``; 1-D input is one feature.
+Probability matrices are ``(n_states, n_steps)``. Functions return tuples
+only when ``backtrack`` / ``return_steps`` / ``return_logp`` ask for them.
+Index outputs are int64. Float outputs keep the input's precision: a float32
+array gives float32 costs, scores and matrices, any other input float64.
+Transition matrices are float64.
 
-Differences from librosa: dense output only (``sparse=True`` raises), only
-``axis=-1``; ``sync`` with an empty index list returns one segment; ``rqa``
-follows the move actually taken in the second column (librosa stores a wrong
-back-pointer there).
+Output is dense (``sparse=True`` raises) and only ``axis=-1`` is accepted.
+``sync`` with an empty index list returns one segment. ``rqa`` backtracking
+follows the move actually taken.
 """
 
 from __future__ import annotations
@@ -335,7 +333,7 @@ def dtw(
     band_rad: float = 0.25,
     return_steps: bool = False,
 ) -> NDArray[np.float64]:
-    """Dynamic time warping, equivalent to ``librosa.sequence.dtw``.
+    """Dynamic time warping.
 
     Pass ``X`` ``(n_features, N)`` and ``Y`` ``(n_features, M)``, or a cost matrix
     ``C`` ``(N, M)``.
@@ -358,7 +356,7 @@ def dtw_backtracking(
     subseq: bool = False,
     start: Optional[int] = None,
 ) -> NDArray[np.int64]:
-    """Warping path from a DTW step matrix (``librosa.sequence.dtw_backtracking``).
+    """Warping path from a DTW step matrix.
 
     Returns:
         numpy.ndarray[int64], shape ``(path_length, 2)``, end first.
@@ -383,7 +381,7 @@ def viterbi(
     return_logp: Literal[True],
     transition_min_prob: Optional[float] = None,
 ) -> tuple[NDArray[np.int64], float]:
-    """Viterbi decoding of an HMM (``librosa.sequence.viterbi``).
+    """Viterbi decoding of an HMM.
 
     Args:
         prob: ``(n_states, n_steps)`` observation likelihoods in [0, 1].
@@ -420,8 +418,8 @@ def viterbi_discriminative(
     return_logp: Literal[True],
     transition_min_prob: Optional[float] = None,
 ) -> tuple[NDArray[np.int64], float]:
-    """Viterbi decoding from posterior state probabilities
-    (``librosa.sequence.viterbi_discriminative``); each column of ``prob`` sums to 1.
+    """Viterbi decoding from posterior state probabilities; each column of
+    ``prob`` sums to 1.
 
     Returns:
         numpy.ndarray[int64] ``(n_steps,)``, or ``(states, logp)`` with an
@@ -506,13 +504,13 @@ def viterbi_binary(
     transition_min_prob: Optional[float] = None,
     dtype: Optional[npt.DTypeLike] = None,
 ) -> NDArray[Any] | tuple[NDArray[Any], NDArray[np.float64]]:
-    """Independent off/on Viterbi per state (``librosa.sequence.viterbi_binary``).
+    """Independent off/on Viterbi per state.
 
     Args:
         prob: ``(n_states, n_steps)`` activation probabilities (1-D = one state).
         transition: ``(2, 2)`` shared or ``(n_states, 2, 2)``.
         dtype: dtype of the states: ``bool`` (default None, one byte per
-            entry), ``numpy.uint16`` (librosa's dtype) or ``numpy.int64``.
+            entry), ``numpy.uint16`` or ``numpy.int64``.
 
     Returns:
         numpy.ndarray[bool | uint16 | int64] ``(n_states, n_steps)``
@@ -526,11 +524,11 @@ def transition_uniform(n_states: int) -> NDArray[np.float64]:
     ...
 
 def transition_loop(n_states: int, prob: Union[float, npt.ArrayLike]) -> NDArray[np.float64]:
-    """Self-loop transition matrix (``librosa.sequence.transition_loop``), ``(n_states, n_states)``."""
+    """Self-loop transition matrix, ``(n_states, n_states)``."""
     ...
 
 def transition_cycle(n_states: int, prob: Union[float, npt.ArrayLike]) -> NDArray[np.float64]:
-    """Cyclic transition matrix (``librosa.sequence.transition_cycle``), ``(n_states, n_states)``."""
+    """Cyclic transition matrix, ``(n_states, n_states)``."""
     ...
 
 def transition_local(
@@ -540,8 +538,7 @@ def transition_local(
     window: Literal["triangle", "triang", "hann", "hamming", "blackman", "boxcar"] = "triangle",
     wrap: bool = False,
 ) -> NDArray[np.float64]:
-    """Localised transition matrix (``librosa.sequence.transition_local``),
-    ``(n_states, n_states)``, row-stochastic."""
+    """Localised transition matrix, ``(n_states, n_states)``, row-stochastic."""
     ...
 
 @overload
@@ -598,7 +595,7 @@ def rqa(
     knight_moves: bool = True,
     backtrack: Literal[False],
 ) -> NDArray[np.float64]:
-    """Recurrence quantification analysis (``librosa.sequence.rqa``).
+    """Recurrence quantification analysis.
 
     Returns:
         ``score`` (numpy.ndarray[float32 | float64], shape of ``sim``) or ``(score, path)``
@@ -670,10 +667,10 @@ def recurrence_matrix(
     full: bool = False,
     self_links: bool = False,
 ) -> NDArray[np.float64]:
-    """Recurrence matrix (``librosa.segment.recurrence_matrix``, dense).
+    """Recurrence matrix (dense).
 
-    ``self`` is librosa's keyword (whether the diagonal links each frame to
-    itself); ``self_links`` is an equivalent spelling that avoids the Python
+    ``self`` sets whether the diagonal links each frame to itself;
+    ``self_links`` is an equivalent spelling that avoids the Python
     keyword-like name. Either one set to ``True`` sets the diagonal.
 
     Returns:
@@ -730,7 +727,7 @@ def cross_similarity(
     bandwidth: _BandwidthSpec = None,
     full: bool = False,
 ) -> NDArray[np.float64]:
-    """Cross-similarity matrix (``librosa.segment.cross_similarity``, dense).
+    """Cross-similarity matrix (dense).
 
     Returns:
         ``(n_ref, n)``: bool for connectivity, float64 otherwise.
@@ -760,8 +757,8 @@ def recurrence_to_lag(  # type: ignore[overload-overlap]
 ) -> NDArray[np.float32]: ...
 @overload
 def recurrence_to_lag(rec: npt.ArrayLike, *, pad: bool=True, axis: int=-1) -> NDArray[np.float64]:
-    """Recurrence to time-lag matrix (``librosa.segment.recurrence_to_lag``):
-    ``(2t, t)`` with ``pad`` else ``(t, t)``; bool in, bool out.
+    """Recurrence to time-lag matrix: ``(2t, t)`` with ``pad`` else
+    ``(t, t)``; bool in, bool out.
 
     ``axis`` is the time axis: ``-1``/``1`` (columns, default) or ``0``/``-2``
     (rows; padded output ``(t, 2t)``). Sparse input is not supported.
@@ -784,7 +781,7 @@ def lag_to_recurrence(  # type: ignore[overload-overlap]
 ) -> NDArray[np.float32]: ...
 @overload
 def lag_to_recurrence(lag: npt.ArrayLike, *, axis: int=-1) -> NDArray[np.float64]:
-    """Time-lag to recurrence matrix (``librosa.segment.lag_to_recurrence``), ``(t, t)``.
+    """Time-lag to recurrence matrix, ``(t, t)``.
 
     ``axis`` is the time axis: ``-1``/``1`` (columns, default) or ``0``/``-2`` (rows).
     """
@@ -817,7 +814,7 @@ def sync(
     pad: bool = True,
     axis: int = -1,
 ) -> NDArray[np.float64]:
-    """Aggregate frames between boundaries (``librosa.util.sync``, last axis).
+    """Aggregate frames between boundaries (last axis).
 
     Args:
         idx: Boundary frame indices, or one slice of the frames per output entry
