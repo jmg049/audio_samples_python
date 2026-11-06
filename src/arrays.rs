@@ -1140,6 +1140,17 @@ pub fn dense_to_rows<'py>(dense: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAn
     .into_any())
 }
 
+/// `values` as `i32`, checking once that `bound`, which no value exceeds, fits.
+fn indices_i32(values: Vec<usize>, bound: usize) -> PyResult<Vec<i32>> {
+    i32::try_from(bound).map_err(|e| value_err("x", e))?;
+    #[allow(
+        clippy::cast_possible_truncation,
+        clippy::cast_possible_wrap,
+        reason = "every value is at most `bound`, which fits in i32"
+    )]
+    Ok(values.into_iter().map(|i| i as i32).collect())
+}
+
 /// Removes the smallest values of each row, keeping a sparse matrix.
 ///
 /// In each row the sorted magnitudes are divided by the row's total and summed
@@ -1188,25 +1199,12 @@ pub fn sparsify_rows<'py>(
                 .map_err(|e| value_err("x", e))?;
             let m = detached(py, v.len(), || ops::sparsify_rows(v, quantile))
                 .map_err(audio_err_to_py)?;
+            let nnz = m.data.len();
             (
                 m.shape,
                 PyArray1::from_vec(py, m.data).into_any(),
-                PyArray1::from_vec(
-                    py,
-                    m.indices
-                        .into_iter()
-                        .map(i32::try_from)
-                        .collect::<Result<Vec<i32>, _>>()
-                        .map_err(|e| value_err("x", e))?,
-                ),
-                PyArray1::from_vec(
-                    py,
-                    m.indptr
-                        .into_iter()
-                        .map(i32::try_from)
-                        .collect::<Result<Vec<i32>, _>>()
-                        .map_err(|e| value_err("x", e))?,
-                ),
+                PyArray1::from_vec(py, indices_i32(m.indices, m.shape.1)?),
+                PyArray1::from_vec(py, indices_i32(m.indptr, nnz)?),
             )
         }};
     }

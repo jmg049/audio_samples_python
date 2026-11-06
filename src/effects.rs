@@ -547,13 +547,16 @@ fn nn_extreme<F: FloatElement + AudioFloat>(
     pick: impl Fn(F, F) -> bool,
 ) {
     for (o, column) in frame.iter_mut().zip(neighbours.columns()) {
-        let extreme = column
-            .iter()
-            .copied()
-            .reduce(|best, v| if pick(v, best) || v.is_nan() { v } else { best });
-        if let Some(best) = extreme {
-            *o = best;
+        let mut values = column.iter().copied();
+        let Some(mut best) = values.next() else {
+            continue;
+        };
+        for v in values {
+            if pick(v, best) || v.is_nan() {
+                best = v;
+            }
         }
+        *o = best;
     }
 }
 
