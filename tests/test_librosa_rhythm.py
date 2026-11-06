@@ -146,9 +146,9 @@ def _click_envelope():
 
 
 def test_nested_callable_aggregate_does_not_clobber_outer():
-    # Regression: the callback slots were single thread-locals; an inner call
-    # made from inside a callback cleared the outer callback, and the outer
-    # trampoline then returned NaN silently (a wrong tempo, no error).
+    # An inner call made from inside a callback must not clear the outer
+    # callback's slot; otherwise the outer trampoline returns NaN silently
+    # (a wrong tempo, no error).
     env, sr = _click_envelope()
     ref = R.tempo(onset_envelope=env, sr=sr, aggregate=np.mean)
     calls = [0]

@@ -3,9 +3,8 @@ Resampling correctness tests.
 
 Strategy
 --------
-Comparing sample-for-sample against librosa is not meaningful because each
-library uses a different filter design.  Instead we test properties that any
-correct resampler must satisfy:
+Resamplers with different filter designs do not agree sample for sample, so
+these tests check properties that any correct resampler must satisfy:
 
 1. Metadata: sample_rate and channel count are updated; sample count is right.
 2. Integer-ratio Fast path: stride-N downsample matches numpy exactly; 2x
@@ -125,10 +124,9 @@ class TestFastIntegerRatio:
     def test_downsample_2x_matches_stride(self):
         """Fast 2x downsample of an in-band tone equals src[::2] away from the edges.
 
-        Fast downsampling is no longer plain decimation: since the delay-free
-        resampler fix in audio_samples it applies a short anti-aliasing
-        (windowed-sinc, 70 dB) filter, so it is no longer bit-identical to
-        ``src[::2]``. For a 440 Hz tone (far inside the passband) the interior
+        Fast downsampling is not plain decimation: it applies a short
+        anti-aliasing (windowed-sinc, 70 dB) filter, so it is not bit-identical
+        to ``src[::2]``. For a 440 Hz tone (far inside the passband) the interior
         agrees to ~3e-6 (measured); the first/last few samples differ because
         the filter sees zeros outside the signal.
         """

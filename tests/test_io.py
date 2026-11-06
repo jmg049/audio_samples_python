@@ -485,8 +485,8 @@ class TestI24ArrayExport:
     """24-bit audio exposed to numpy through __array_interface__."""
 
     def test_np_asarray_of_i24_audio_is_stable(self, temp_wav_file):
-        """Regression: the I24 array interface pointed into a freed temporary,
-        so np.asarray(audio) could return corrupted data."""
+        """np.asarray of 24-bit audio reads stable data that outlives any
+        temporary buffer behind the array interface."""
         rng = np.random.default_rng(7)
         data = rng.integers(-(2**23), 2**23, size=(2, 20000), dtype=np.int32)
         # soundfile treats int32 as full-scale 32-bit: left-justify the 24-bit values.

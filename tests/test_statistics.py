@@ -1,5 +1,5 @@
 """
-Tests for statistics operations - comparing audio_python against numpy/librosa.
+Tests for statistics operations - comparing audio_python against numpy.
 
 These tests verify that:
 1. Basic statistics (min, max, mean, std_dev, variance) match numpy exactly

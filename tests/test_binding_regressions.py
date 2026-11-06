@@ -1,5 +1,5 @@
-"""Regression tests for analysis results seen through the bindings, and for
-argument handling, type stubs and exported names of the librosa-compatible API.
+"""Analysis results seen through the bindings, compared with librosa golden
+fixtures, and argument handling, type stubs and exported names of the API.
 
 Golden fixture: ``analysis_fixes.json`` (librosa 1.0.0).
 """
@@ -23,14 +23,14 @@ def fx():
 
 
 # ---------------------------------------------------------------------------
-# Rust fixes (golden fixtures)
+# Analysis results (golden fixtures)
 # ---------------------------------------------------------------------------
 
 
 def test_autocorrelation_scale(fx):
-    """The autocorrelation is no longer divided by N twice: r[k] * (n - k)
-    equals librosa.autocorrelate (exact FFT correlations of the same data with
-    different FFT sizes; 7e-16 of the lag-0 value measured in Rust; bound 1e-12)."""
+    """The unbiased autocorrelation times (n - k) equals librosa.autocorrelate
+    (exact FFT correlations of the same data with different FFT sizes; 7e-16 of
+    the lag-0 value measured; bound 1e-12)."""
     case = fx["autocorrelate"]
     x = fixture_signal(case["signal"])
     n = len(x)
@@ -44,9 +44,9 @@ def test_autocorrelation_scale(fx):
 
 def test_yin_confident_frames(fx):
     """track_pitch(YIN) agrees with librosa.yin within 1 cent on frames whose whole
-    window lies in one note (measured 0.20 cents in Rust: the difference functions
-    differ slightly, see tests/librosa_reference/analysis_fixes.rs). Our frames are
-    not centred: frame i covers librosa frame i + frame_length / 2 / hop."""
+    window lies in one note (measured 0.20 cents: the difference functions differ
+    slightly). Our frames are not centred: frame i covers librosa frame
+    i + frame_length / 2 / hop."""
     case = fx["yin"]
     audio = aus.AudioSamples.new_mono(fixture_signal(case["signal"]), fixture_sr())
     contour = audio.track_pitch(
@@ -73,7 +73,7 @@ def test_note_to_midi_grammar(fx):
 
 
 # ---------------------------------------------------------------------------
-# Binding / stub fixes
+# Bindings and stubs
 # ---------------------------------------------------------------------------
 
 

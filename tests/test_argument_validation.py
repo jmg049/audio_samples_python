@@ -1,9 +1,9 @@
-"""Argument validation of the librosa-compatible bindings.
+"""Argument validation of the analysis bindings.
 
 Huge or out-of-range integers raise ``ValueError`` naming the parameter (never
 pyo3's ``OverflowError``, a ``PanicException`` or a process abort on a failed
-allocation); the ``hpss(stft_params=)`` alias; stub and
-submodule fixes; librosa keywords that used to raise ``TypeError``.
+allocation); the ``hpss(stft_params=)`` alias; stub and submodule contents;
+keyword arguments accepted in librosa's spelling.
 """
 
 from __future__ import annotations
@@ -53,8 +53,8 @@ def test_huge_ints_raise_value_error(case, value):
 
 
 def test_huge_delay_is_handled():
-    # librosa pads by the delay; the Rust implementation shifts with zero fill,
-    # so a huge delay (either sign) gives zeros instead of an allocation.
+    # stack_memory shifts with zero fill instead of padding by the delay, so a
+    # huge delay (either sign) gives zeros instead of an allocation.
     for v in (2**40, 2**70, -(2**70)):
         out = spectral.stack_memory(FEAT, n_steps=2, delay=v)
         assert out.shape == (10, 30)
@@ -90,7 +90,7 @@ def test_sample_rate_keyword_out_of_range():
 
 def test_transition_matrices_at_the_cap_are_value_errors_not_panics():
     # 2**31 passes the binding's size cap; the Rust side rejects the
-    # 2**62-element matrix (transition_uniform used to panic, the others abort).
+    # 2**62-element matrix with a ValueError instead of a panic or an abort.
     for f in (sequence.transition_uniform, lambda n: sequence.transition_loop(n, 0.5)):
         with pytest.raises(ValueError, match="n_states"):
             f(2**31)
@@ -156,7 +156,7 @@ def test_recurrence_matrix_signature_lists_self_and_self_links():
 
 
 # ---------------------------------------------------------------------------
-# librosa keywords that used to raise TypeError
+# Keyword arguments accepted in librosa's spelling, compared with librosa
 # ---------------------------------------------------------------------------
 
 
