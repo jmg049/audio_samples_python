@@ -819,7 +819,7 @@ fn audio_samples_python(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()>
     }
     m.add_submodule(&spectrograms_mod)?;
 
-    // librosa-compatible array helpers
+    // Array-level analysis functions
     spectral::register(py, m)?;
     sequence::register(py, m)?;
     features::register(py, m)?;
@@ -892,7 +892,7 @@ fn audio_samples_python(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()>
 /// metadata including sample rate, channel layout, and type information.
 /// Supports both mono and multi-channel audio with unified interface.
 ///
-/// The librosa-compatible analysis methods (``stft_matrix``, ``melspectrogram``,
+/// The frame-wise analysis methods (``stft_matrix``, ``melspectrogram``,
 /// ``chroma_stft``, ``cqt``, ``onset_strength``, ``yin``, ...) return float32 /
 /// complex64 arrays for uint8, int16, int24 and float32 audio, and float64 /
 /// complex128 arrays for int32 and float64 audio: the smallest float type that
@@ -3947,6 +3947,10 @@ pub(crate) struct ArrayBorrow;
 /// free-threaded build, so that a concurrent writer and reader of the same memory
 /// find each other and one raises.
 #[cfg(Py_GIL_DISABLED)]
+#[allow(
+    dead_code,
+    reason = "each borrow is held, not read, until the guard drops"
+)]
 pub(crate) enum ArrayBorrow<'py, T: Element> {
     None,
     ReadMono(numpy::PyReadonlyArray1<'py, T>),
@@ -3959,7 +3963,7 @@ impl<T: StandardSample + Element> TypedAudioSamples<T> {
     /// A read borrow of the backing array for the duration of a read.
     #[cfg(Py_GIL_DISABLED)]
     pub(crate) fn read_guard<'py>(&self, py: Python<'py>) -> PyResult<ArrayBorrow<'py, T>> {
-        use PyAudioBacking::*;
+        use PyAudioBacking::{NumpyInterleaved, NumpyMono, NumpyMulti, OwnedMono, OwnedMulti};
         Ok(match &self.backing {
             OwnedMono(_) | OwnedMulti(_) => ArrayBorrow::None,
             NumpyMono(h) => ArrayBorrow::ReadMono(h.bind(py).try_readonly()?),
@@ -3973,7 +3977,7 @@ impl<T: StandardSample + Element> TypedAudioSamples<T> {
     /// after replacing a read-only array with a private copy.
     #[cfg(Py_GIL_DISABLED)]
     pub(crate) fn write_guard<'py>(&mut self, py: Python<'py>) -> PyResult<ArrayBorrow<'py, T>> {
-        use PyAudioBacking::*;
+        use PyAudioBacking::{NumpyInterleaved, NumpyMono, NumpyMulti, OwnedMono, OwnedMulti};
         self.backing.ensure_writeable(py);
         Ok(match &self.backing {
             OwnedMono(_) | OwnedMulti(_) => ArrayBorrow::None,

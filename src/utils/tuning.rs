@@ -1,7 +1,7 @@
 //! Tuning, octave and key helpers of `audio_samples.utils`, binding the
-//! librosa-compatible functions of `audio_samples::utils::audio_math`
-//! (`librosa.hz_to_octs`, `octs_to_hz`, `A4_to_tuning`, `tuning_to_A4`,
-//! `cqt_frequencies`, `key_to_notes`, `key_to_degrees`).
+//! functions of `audio_samples::utils::audio_math` (`hz_to_octs`,
+//! `octs_to_hz`, `A4_to_tuning`, `tuning_to_A4`, `cqt_frequencies`,
+//! `key_to_notes`, `key_to_degrees`).
 
 use crate::args::Int;
 use audio_samples::utils::audio_math;
@@ -11,9 +11,8 @@ use pyo3::prelude::*;
 use crate::args::{map_f64, non_negative, positive};
 use crate::audio_err_to_py;
 
-/// Converts frequencies (Hz) to fractional octave numbers, equivalent to
-/// ``librosa.hz_to_octs``. Octave 0 is A0 (27.5 Hz for A440 tuning), so A4
-/// is octave 4.0.
+/// Converts frequencies (Hz) to fractional octave numbers. Octave 0 is A0
+/// (27.5 Hz for A440 tuning), so A4 is octave 4.0.
 ///
 /// Args:
 ///
@@ -43,8 +42,8 @@ pub fn hz_to_octs<'py>(
     )
 }
 
-/// Converts fractional octave numbers to frequencies (Hz), equivalent to
-/// ``librosa.octs_to_hz`` (the inverse of ``hz_to_octs``).
+/// Converts fractional octave numbers to frequencies (Hz), the inverse of
+/// ``hz_to_octs``.
 ///
 /// Args:
 ///
@@ -70,7 +69,7 @@ pub fn octs_to_hz<'py>(
 }
 
 /// Converts an A4 reference frequency to a tuning deviation in fractions of a
-/// bin, equivalent to ``librosa.A4_to_tuning``.
+/// bin.
 ///
 /// Args:
 ///
@@ -97,7 +96,7 @@ pub fn a4_to_tuning<'py>(
 }
 
 /// Converts a tuning deviation (fractions of a bin) to the A4 reference
-/// frequency, equivalent to ``librosa.tuning_to_A4``.
+/// frequency.
 ///
 /// Args:
 ///
@@ -117,8 +116,7 @@ pub fn tuning_to_a4<'py>(
     map_f64(tuning, "tuning", |t| audio_math::tuning_to_a4(t, b))
 }
 
-/// Centre frequencies of a constant-Q filterbank, equivalent to
-/// ``librosa.cqt_frequencies(n_bins, fmin=fmin, ...)``.
+/// Centre frequencies of a constant-Q filterbank.
 ///
 /// Args:
 ///
@@ -155,7 +153,7 @@ pub fn cqt_frequencies(
     Ok(out)
 }
 
-/// Spells the 12 pitch classes for a key, equivalent to ``librosa.key_to_notes``.
+/// Spells the 12 pitch classes for a key.
 ///
 /// Args:
 ///
@@ -208,8 +206,7 @@ pub fn key_to_notes<'py>(
     Ok(list)
 }
 
-/// Pitch classes (0 = C) of the 7 scale degrees of a key, equivalent to
-/// ``librosa.key_to_degrees``.
+/// Pitch classes (0 = C) of the 7 scale degrees of a key.
 ///
 /// Args:
 ///

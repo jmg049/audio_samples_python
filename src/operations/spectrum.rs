@@ -1,13 +1,12 @@
-//! librosa-compatible spectral analysis methods on `AudioSamples`
+//! Spectral analysis methods on `AudioSamples`
 //! (`stft_matrix`, `istft_matrix`, `spectrogram_matrix`, `melspectrogram`,
 //! `mfcc_frames`), binding the Rust `AudioSpectrum` trait.
 //!
 //! Every method returns arrays shaped `(channels, n_features, n_frames)` (mono
-//! audio gives a leading axis of length 1) and takes librosa's keyword
-//! arguments. Output arrays are `float32` / `complex64` for `uint8`, `int16`,
-//! `int24` and `float32` audio, and `float64` / `complex128` for `int32` and
-//! `float64` audio. The defaults equal librosa 1.0's except `mfcc_frames`'
-//! `top_db`, which defaults to `None` (librosa: 80).
+//! audio gives a leading axis of length 1). Output arrays are `float32` /
+//! `complex64` for `uint8`, `int16`, `int24` and `float32` audio, and
+//! `float64` / `complex128` for `int32` and `float64` audio. `mfcc_frames`'
+//! `top_db` defaults to `None` (no dB floor).
 
 use crate::args::Int;
 use audio_samples::operations::filterbanks::Window;
@@ -54,7 +53,7 @@ pub fn parse_dct_norm(norm: Option<&str>) -> PyResult<DctNorm> {
     }
 }
 
-/// Builds an [`MfccConfig`] from librosa `mfcc` keyword arguments (shared with
+/// Builds an [`MfccConfig`] from the `mfcc` keyword arguments (shared with
 /// `audio_samples.spectral.mfcc_from_mel_db`).
 pub fn mfcc_cepstrum_config(
     n_mfcc: Int,
@@ -71,14 +70,13 @@ pub fn mfcc_cepstrum_config(
 
 #[pymethods]
 impl PyAudioSamples {
-    /// Complex short-time Fourier transform of every channel, equivalent to
-    /// ``librosa.stft``.
+    /// Complex short-time Fourier transform of every channel.
     ///
     /// Args:
     ///
     ///     n_fft (int): FFT length in samples. Default 2048.
     ///     hop_length (Optional[int]): Samples between frames. ``None`` means
-    ///         ``win_length // 4`` (librosa's default).
+    ///         ``win_length // 4``.
     ///     win_length (Optional[int]): Window length (<= n_fft); ``None`` means
     ///         ``n_fft``. Shorter windows are zero-padded to ``n_fft``.
     ///     window (str | tuple | numpy.ndarray): Window specification, as
@@ -86,7 +84,7 @@ impl PyAudioSamples {
     ///         ``"blackman"``, ``"blackmanharris"``, ``"boxcar"``/``"rectangular"``,
     ///         ``"bartlett"``, ``"triang"``, ``("kaiser", beta)``,
     ///         ``("gaussian", std)``, or an array of ``win_length`` coefficients.
-    ///         Named windows are periodic (``fftbins=True``), as in librosa.
+    ///         Named windows are periodic (``fftbins=True``).
     ///     center (bool): Pad by ``n_fft // 2`` on both sides so frame ``t`` is
     ///         centred on sample ``t * hop_length``. Default True.
     ///     pad_mode (str): ``"constant"`` (zeros, default), ``"reflect"``,
@@ -97,8 +95,8 @@ impl PyAudioSamples {
     ///     numpy.ndarray[complex64 | complex128]: shape ``(channels, 1 + n_fft // 2, n_frames)``;
     ///     complex64 for uint8, int16, int24 and float32 audio, complex128 for
     ///     int32 and float64 audio.
-    ///     Mono audio gives a leading axis of length 1 (librosa returns
-    ///     ``(1 + n_fft // 2, n_frames)`` for 1-D input; index ``[0]`` to get it).
+    ///     Mono audio gives a leading axis of length 1 (index ``[0]`` for
+    ///     ``(1 + n_fft // 2, n_frames)``).
     ///
     /// Raises:
     ///
@@ -144,7 +142,10 @@ impl PyAudioSamples {
         signature = (out, *, n_fft = Int(2048), hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant"),
         text_signature = "($self, out, *, n_fft=2048, hop_length=None, win_length=None, window='hann', center=True, pad_mode='constant')"
     )]
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the Python signature has 7 parameters"
+    )]
     fn _stft_matrix_into<'py>(
         &self,
         py: Python<'py>,
@@ -205,7 +206,7 @@ impl PyAudioSamples {
         }
     }
 
-    /// Reconstruct audio from an STFT matrix, equivalent to ``librosa.istft``.
+    /// Reconstruct audio from an STFT matrix by weighted overlap-add.
     ///
     /// This is a static method: ``AudioSamples.istft_matrix(D, sample_rate=sr)``.
     ///
@@ -216,7 +217,7 @@ impl PyAudioSamples {
     ///     sample_rate (int): Sample rate of the returned audio (keyword-only).
     ///     hop_length (Optional[int]): ``None`` means ``win_length // 4``.
     ///     win_length (Optional[int]): ``None`` means ``n_fft``.
-    ///     n_fft (Optional[int]): ``None`` infers ``2 * (n_bins - 1)``, as librosa.
+    ///     n_fft (Optional[int]): ``None`` infers ``2 * (n_bins - 1)``.
     ///     window: Window used for analysis (see ``stft_matrix``).
     ///     center (bool): Whether the analysis frames were centred.
     ///     length (Optional[int]): Exact output length per channel; pass the
@@ -240,7 +241,10 @@ impl PyAudioSamples {
         signature = (stft_matrix, *, sample_rate, hop_length = None, win_length = None, n_fft = None, window = WindowArg(Window::Hann), center = true, length = None, dtype = None),
         text_signature = "(stft_matrix, *, sample_rate, hop_length=None, win_length=None, n_fft=None, window='hann', center=True, length=None, dtype=None)"
     )]
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the Python signature has 9 parameters"
+    )]
     fn istft_matrix(
         py: Python<'_>,
         stft_matrix: &Bound<'_, PyAny>,
@@ -273,7 +277,7 @@ impl PyAudioSamples {
 
     /// Magnitude spectrogram ``|STFT| ** power`` of every channel.
     ///
-    /// Equivalent to ``numpy.abs(librosa.stft(y, ...)) ** power``.
+    /// Equivalent to ``numpy.abs(self.stft_matrix(...)) ** power``.
     ///
     /// Args:
     ///
@@ -293,7 +297,10 @@ impl PyAudioSamples {
         signature = (*, n_fft = Int(2048), hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", power = 1.0),
         text_signature = "($self, *, n_fft=2048, hop_length=None, win_length=None, window='hann', center=True, pad_mode='constant', power=1.0)"
     )]
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the Python signature has 7 parameters"
+    )]
     fn spectrogram_matrix<'py>(
         &self,
         py: Python<'py>,
@@ -309,13 +316,13 @@ impl PyAudioSamples {
         dispatch_array_detached!(self, py, |audio| audio.spectrogram_matrix(&cfg, power))
     }
 
-    /// Mel spectrogram of every channel, equivalent to
-    /// ``librosa.feature.melspectrogram(y=..., sr=self.sample_rate, ...)``.
+    /// Mel spectrogram of every channel: the mel filterbank applied to the STFT
+    /// magnitude raised to ``power``.
     ///
     /// Args:
     ///
     ///     n_fft (int): Default 2048.
-    ///     hop_length (int): Default 512 (librosa's melspectrogram default).
+    ///     hop_length (int): Default 512.
     ///     win_length, window, center, pad_mode: As ``stft_matrix``.
     ///     power (float): Exponent of the STFT magnitude; 2.0 (default) for power,
     ///         1.0 for magnitude.
@@ -338,7 +345,10 @@ impl PyAudioSamples {
         signature = (*, n_fft = Int(2048), hop_length = Int(512), win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", power = 2.0, n_mels = Int(128), fmin = 0.0, fmax = None, htk = false, norm = MelNormArg(audio_samples::MelFilterNorm::Slaney)),
         text_signature = "($self, *, n_fft=2048, hop_length=512, win_length=None, window='hann', center=True, pad_mode='constant', power=2.0, n_mels=128, fmin=0.0, fmax=None, htk=False, norm='slaney')"
     )]
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the Python signature has 12 parameters"
+    )]
     fn melspectrogram<'py>(
         &self,
         py: Python<'py>,
@@ -370,8 +380,7 @@ impl PyAudioSamples {
         dispatch_array_detached!(self, py, |audio| audio.melspectrogram(&cfg))
     }
 
-    /// Mel-frequency cepstral coefficients of every channel, equivalent to
-    /// ``librosa.feature.mfcc(y=..., sr=self.sample_rate, ...)``.
+    /// Mel-frequency cepstral coefficients of every channel.
     ///
     /// The pipeline is ``melspectrogram`` -> ``power_to_db(ref, amin, top_db)`` ->
     /// DCT along the mel axis -> first ``n_mfcc`` rows -> optional liftering.
@@ -382,15 +391,15 @@ impl PyAudioSamples {
     ///     dct_type (int): 1, 2 (default) or 3.
     ///     norm (Optional[str]): DCT normalisation, ``"ortho"`` (default) or None.
     ///     lifter (float): Liftering coefficient (0 disables). Default 0.
-    ///     mel_norm (None | "slaney" | float): Mel filter normalisation (librosa's
-    ///         ``mel_norm``). Default "slaney".
+    ///     mel_norm (None | "slaney" | float): Mel filter normalisation (``norm``
+    ///         of ``melspectrogram``). Default "slaney".
     ///     n_fft, hop_length (default 512), win_length, window, center, pad_mode,
     ///     power, n_mels, fmin, fmax, htk: Passed to the mel spectrogram, as in
     ///         ``melspectrogram``.
     ///     ref (float | "max" | numpy.max): dB reference. Default 1.0.
     ///     amin (float): dB floor before the log. Default 1e-10.
     ///     top_db (Optional[float]): Dynamic range floor in dB below the peak
-    ///         (per channel). Default None (no floor); librosa's default is 80.
+    ///         (per channel). Default None (no floor).
     ///
     /// Returns:
     ///
@@ -400,13 +409,15 @@ impl PyAudioSamples {
     ///
     /// Raises:
     ///
-    ///     ValueError: For invalid parameters (including ``n_mfcc > n_mels``,
-    ///         which librosa silently truncates).
+    ///     ValueError: For invalid parameters, including ``n_mfcc > n_mels``.
     #[pyo3(
         signature = (*, n_mfcc = Int(20), dct_type = Int(2), norm = Some("ortho"), lifter = 0.0, mel_norm = MelNormArg(audio_samples::MelFilterNorm::Slaney), n_fft = Int(2048), hop_length = Int(512), win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", power = 2.0, n_mels = Int(128), fmin = 0.0, fmax = None, htk = false, r#ref = DbRefArg(audio_samples::DbReference::Value(1.0)), amin = 1e-10, top_db = None),
         text_signature = "($self, *, n_mfcc=20, dct_type=2, norm='ortho', lifter=0.0, mel_norm='slaney', n_fft=2048, hop_length=512, win_length=None, window='hann', center=True, pad_mode='constant', power=2.0, n_mels=128, fmin=0.0, fmax=None, htk=False, ref=1.0, amin=1e-10, top_db=None)"
     )]
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the Python signature has 19 parameters"
+    )]
     fn mfcc_frames<'py>(
         &self,
         py: Python<'py>,

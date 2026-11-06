@@ -1,4 +1,4 @@
-//! librosa-compatible audio effects on `AudioSamples` (`time_stretch`,
+//! Audio effects on `AudioSamples` (`time_stretch`,
 //! `pitch_shift`, `preemphasis`, `deemphasis`, `trim_db`, `split_db`, `remix`,
 //! `harmonic`, `percussive`, `harmonic_percussive`, `lpc`, `griffinlim_audio`),
 //! binding the Rust `AudioEffects` trait.
@@ -36,8 +36,8 @@ use crate::{
     dispatch_with_view_detached, nzu32_or_err,
 };
 
-/// Parses `res_type`: a `ResamplingQuality` or a name. librosa's soxr names map
-/// to the closest tier of this library's resampler.
+/// Parses `res_type`: a `ResamplingQuality` or a name. The names `"soxr_hq"`,
+/// `"soxr_mq"` and `"soxr_lq"` map to a tier of this library's resampler.
 fn parse_res_type(obj: &Bound<'_, PyAny>) -> PyResult<ResamplingQuality> {
     if let Ok(s) = obj.cast::<PyString>() {
         return match &*s.to_cow()? {
@@ -59,7 +59,8 @@ fn parse_res_type(obj: &Bound<'_, PyAny>) -> PyResult<ResamplingQuality> {
         .map_err(|_| PyTypeError::new_err("res_type must be a string or a ResamplingQuality"))
 }
 
-/// librosa's `ref` of `trim` / `split`: what the dB conversions take, or any callable.
+/// The `ref` argument of `trim_db` / `split_db`: what the dB conversions take, or any
+/// callable.
 pub enum SilenceRef {
     Builtin(DbReference),
     Callable(Py<PyAny>),
@@ -80,7 +81,7 @@ impl<'a, 'py> FromPyObject<'a, 'py> for SilenceRef {
     }
 }
 
-/// librosa's `ref` / `aggregate` of `trim` / `split`: the configuration, and the
+/// The `ref` / `aggregate` arguments of `trim_db` / `split_db`: the configuration, and the
 /// callables that stand in for its fields.
 struct SilenceArgs {
     config: SilenceConfig,
@@ -145,8 +146,7 @@ fn callback_failed(slot: &RefCell<Option<PyErr>>, e: PyErr) -> AudioSampleError 
 }
 
 /// The reference level with a callable `ref(rms, axis=..., keepdims=True)`, or the
-/// value of a built-in reference. Mono is passed without a channel axis, as librosa
-/// does for 1-D `y`.
+/// value of a built-in reference. Mono is passed without a channel axis.
 fn silence_reference<F: FloatElement + AudioFloat>(
     py: Python<'_>,
     args: &SilenceArgs,
@@ -180,8 +180,7 @@ fn silence_reference<F: FloatElement + AudioFloat>(
 }
 
 /// The level of each frame with a callable `aggregate(db, 0)`, as
-/// `numpy.apply_over_axes` calls it, or a built-in combination. Mono is not combined,
-/// as librosa does not for 1-D `y`.
+/// `numpy.apply_over_axes` calls it, or a built-in combination. Mono is not combined.
 fn silence_levels<F: FloatElement + AudioFloat>(
     py: Python<'_>,
     args: &SilenceArgs,
@@ -240,27 +239,40 @@ fn parse_intervals(obj: &Bound<'_, PyAny>) -> PyResult<Vec<(usize, usize)>> {
         .collect()
 }
 
-/// [`HarmonicPercussiveConfig`] from librosa's `effects.hpss` keywords.
-#[allow(clippy::too_many_arguments)]
-fn hp_config(
-    py: Python<'_>,
-    kernel_size: Option<&Bound<'_, PyAny>>,
+/// The harmonic/percussive separation keyword arguments, before validation.
+struct HpArgs<'a, 'py> {
+    kernel_size: Option<&'a Bound<'py, PyAny>>,
     power: f64,
     mask: bool,
-    margin: Option<&Bound<'_, PyAny>>,
+    margin: Option<&'a Bound<'py, PyAny>>,
     n_fft: Int,
     hop_length: Option<Int>,
     win_length: Option<Int>,
     window: WindowArg,
     center: bool,
-    pad_mode: &str,
-) -> PyResult<HarmonicPercussiveConfig> {
+    pad_mode: &'a str,
+}
+
+/// Validates [`HpArgs`] into a [`HarmonicPercussiveConfig`].
+fn hp_config(py: Python<'_>, args: HpArgs<'_, '_>) -> PyResult<HarmonicPercussiveConfig> {
     use pyo3::IntoPyObjectExt;
+    let HpArgs {
+        kernel_size,
+        power,
+        mask,
+        margin,
+        n_fft,
+        hop_length,
+        win_length,
+        window,
+        center,
+        pad_mode,
+    } = args;
     if mask {
         return Err(value_err(
             "mask",
-            "mask=True has no audio output (librosa inverts the mask as if it were a \
-             spectrogram); for the masks use audio_samples.effects.hpss(S, mask=True)",
+            "mask=True has no audio output; for the masks use \
+             audio_samples.effects.hpss(S, mask=True)",
         ));
     }
     let ks = match kernel_size.filter(|k| !k.is_none()) {
@@ -284,8 +296,7 @@ fn bounds_array(py: Python<'_>, b: (usize, usize)) -> Bound<'_, PyArray1<i64>> {
 
 #[pymethods]
 impl PyAudioSamples {
-    /// Changes the speed without changing the pitch, equivalent to
-    /// ``librosa.effects.time_stretch(y, rate=rate)``.
+    /// Changes the speed without changing the pitch.
     ///
     /// STFT, ``phase_vocoder`` by ``rate``, inverse STFT to exactly
     /// ``round(n / rate)`` samples.
@@ -294,7 +305,7 @@ impl PyAudioSamples {
     ///
     ///     rate (float): Speed-up factor (2.0 = twice as fast, half the length).
     ///     n_fft, hop_length, win_length, window, center, pad_mode: STFT
-    ///         parameters (librosa's ``**kwargs``), as ``stft_matrix``.
+    ///         parameters, as ``stft_matrix``.
     ///
     /// Returns:
     ///
@@ -350,8 +361,7 @@ impl PyAudioSamples {
         Ok(())
     }
 
-    /// Shifts the pitch by ``n_steps`` without changing the duration, equivalent
-    /// to ``librosa.effects.pitch_shift(y, sr=self.sample_rate, n_steps=...)``.
+    /// Shifts the pitch by ``n_steps`` without changing the duration.
     ///
     /// Time-stretch by ``rate = 2 ** (-n_steps / bins_per_octave)``, resample by
     /// ``rate``, then cut/pad to the original length.
@@ -361,12 +371,10 @@ impl PyAudioSamples {
     ///     n_steps (float): Shift in steps (semitones by default); fractional
     ///         and negative values allowed.
     ///     bins_per_octave (int): Steps per octave. Default 12.
-    ///     res_type (str | ResamplingQuality): Resampler. librosa uses soxr; this
-    ///         library's windowed-sinc resampler is used instead, with
-    ///         ``"soxr_hq"`` (default) mapped to ``ResamplingQuality.high``,
-    ///         ``"soxr_mq"`` to ``medium`` and ``"soxr_lq"`` to ``fast``. The
-    ///         result agrees with librosa to about 68 dB SNR on band-limited
-    ///         audio (the time-stretch stage is exact).
+    ///     res_type (str | ResamplingQuality): Quality of this library's
+    ///         windowed-sinc resampler: ``"soxr_hq"`` (default) maps to
+    ///         ``ResamplingQuality.high``, ``"soxr_mq"`` to ``medium`` and
+    ///         ``"soxr_lq"`` to ``fast``.
     ///     scale (bool): Must be False.
     ///     n_fft, hop_length, win_length, window, center, pad_mode: STFT
     ///         parameters of the time stretch.
@@ -453,10 +461,9 @@ impl PyAudioSamples {
         Ok(())
     }
 
-    /// Pre-emphasis ``y[n] = x[n] - coef * x[n - 1]`` of every channel,
-    /// equivalent to ``librosa.effects.preemphasis(y, coef=coef)`` (initial
-    /// state ``2 x[0] - x[1]``). Use ``audio_samples.effects.preemphasis`` for
-    /// ``zi`` / ``return_zf``.
+    /// Pre-emphasis ``y[n] = x[n] - coef * x[n - 1]`` of every channel, with
+    /// initial state ``2 x[0] - x[1]``. Use ``audio_samples.effects.preemphasis``
+    /// for ``zi`` / ``return_zf``.
     ///
     /// Args:
     ///
@@ -485,7 +492,7 @@ impl PyAudioSamples {
     }
 
     /// De-emphasis ``y[n] = x[n] + coef * y[n - 1]`` of every channel (inverse
-    /// of ``preemphasis``), equivalent to ``librosa.effects.deemphasis(y, coef=coef)``.
+    /// of ``preemphasis``).
     ///
     /// Args:
     ///
@@ -514,8 +521,7 @@ impl PyAudioSamples {
         Ok(())
     }
 
-    /// Trims leading and trailing silence, equivalent to
-    /// ``librosa.effects.trim(y, ...)``.
+    /// Trims leading and trailing silence.
     ///
     /// A frame is non-silent when its RMS level (centred frames, dB relative to
     /// ``ref``) is above ``-top_db``; the kept region runs from the first
@@ -524,8 +530,7 @@ impl PyAudioSamples {
     ///
     /// Args:
     ///
-    ///     top_db (float): Threshold below the reference in dB. Required
-    ///         (librosa defaults to 60).
+    ///     top_db (float): Threshold below the reference in dB. Required.
     ///     ref (float | "max" | numpy.max): Reference RMS amplitude; the default
     ///         ``numpy.max`` uses the loudest frame.
     ///     frame_length (int): RMS frame length. Default 2048.
@@ -542,9 +547,8 @@ impl PyAudioSamples {
     ///
     /// Raises:
     ///
-    ///     ValueError: For invalid parameters, or if everything is silent
-    ///         (librosa returns an empty array and ``[0, 0]``; an
-    ///         ``AudioSamples`` cannot be empty, use ``split_db`` to test).
+    ///     ValueError: For invalid parameters, or if everything is silent (an
+    ///         ``AudioSamples`` cannot be empty; use ``split_db`` to test).
     #[pyo3(
         signature = (*, top_db, r#ref = SilenceRef::Builtin(DbReference::Max), frame_length = Int(2048), hop_length = Int(512), aggregate = None),
         text_signature = "($self, *, top_db, ref='max', frame_length=2048, hop_length=512, aggregate=None)"
@@ -614,7 +618,7 @@ impl PyAudioSamples {
         Ok(bounds)
     }
 
-    /// Non-silent intervals, equivalent to ``librosa.effects.split(y, ...)``.
+    /// Non-silent intervals: frames within ``top_db`` of the reference.
     ///
     /// Args:
     ///
@@ -670,15 +674,14 @@ impl PyAudioSamples {
             .into_pyarray(py))
     }
 
-    /// Concatenates sample intervals, equivalent to
-    /// ``librosa.effects.remix(y, intervals, align_zeros=...)``.
+    /// Concatenates sample intervals in the given order.
     ///
     /// Args:
     ///
     ///     intervals (array_like): ``(n, 2)`` ``[start, end)`` sample ranges, in
     ///         output order; clipped to the signal, empty ranges skipped.
     ///     align_zeros (bool): Snap boundaries to the nearest zero crossing of
-    ///         the (mono downmix of the) signal. Default False (librosa: True).
+    ///         the (mono downmix of the) signal. Default False.
     ///
     /// Returns:
     ///
@@ -725,23 +728,21 @@ impl PyAudioSamples {
         Ok(())
     }
 
-    /// Harmonic component, equivalent to ``librosa.effects.harmonic(y, ...)``.
+    /// Harmonic component from median-filtering harmonic/percussive separation.
     ///
     /// STFT, ``audio_samples.effects.hpss`` (median filtering + soft masks),
-    /// inverse STFT to the input length. Unlike the older ``hpss`` method this
-    /// follows librosa exactly.
+    /// inverse STFT to the input length. The ``hpss`` method is separate and
+    /// blends the masks its own way.
     ///
     /// Args:
     ///
     ///     kernel_size (int | tuple[int, int]): Median filter lengths. Default 31.
     ///     power (float): Mask exponent. Default 2.
-    ///     mask (bool): Must be False. librosa documents that True returns the masks,
-    ///         but it inverts the mask as if it were a spectrogram; the masks themselves
-    ///         are ``effects.hpss(S, mask=True)``.
+    ///     mask (bool): Must be False; the masks themselves are
+    ///         ``effects.hpss(S, mask=True)``.
     ///     margin (float | tuple[float, float]): Margins (>= 1). Default 1.
     ///     n_fft, hop_length, win_length, window, center, pad_mode: STFT
-    ///         parameters. librosa ignores ``window`` here (always Hann); this
-    ///         method uses it.
+    ///         parameters; ``window`` sets the STFT window.
     ///
     /// Returns:
     ///
@@ -767,16 +768,18 @@ impl PyAudioSamples {
     ) -> PyResult<Self> {
         let cfg = hp_config(
             py,
-            kernel_size,
-            power,
-            mask,
-            margin,
-            n_fft,
-            hop_length,
-            win_length,
-            window,
-            center,
-            pad_mode,
+            HpArgs {
+                kernel_size,
+                power,
+                mask,
+                margin,
+                n_fft,
+                hop_length,
+                win_length,
+                window,
+                center,
+                pad_mode,
+            },
         )?;
         dispatch_with_view_detached!(self, py, |audio| audio
             .harmonic(&cfg)
@@ -820,7 +823,7 @@ impl PyAudioSamples {
         Ok(())
     }
 
-    /// Percussive component, equivalent to ``librosa.effects.percussive(y, ...)``.
+    /// Percussive component from median-filtering harmonic/percussive separation.
     ///
     /// Args:
     ///
@@ -850,16 +853,18 @@ impl PyAudioSamples {
     ) -> PyResult<Self> {
         let cfg = hp_config(
             py,
-            kernel_size,
-            power,
-            mask,
-            margin,
-            n_fft,
-            hop_length,
-            win_length,
-            window,
-            center,
-            pad_mode,
+            HpArgs {
+                kernel_size,
+                power,
+                mask,
+                margin,
+                n_fft,
+                hop_length,
+                win_length,
+                window,
+                center,
+                pad_mode,
+            },
         )?;
         dispatch_with_view_detached!(self, py, |audio| audio
             .percussive(&cfg)
@@ -903,9 +908,8 @@ impl PyAudioSamples {
         Ok(())
     }
 
-    /// Harmonic and percussive components, equivalent to
-    /// ``librosa.effects.hpss(y, ...)`` (named ``harmonic_percussive`` because
-    /// ``hpss`` is the older, non-librosa method).
+    /// Harmonic and percussive components from median-filtering separation
+    /// (``hpss`` is a separate method with its own mask blend).
     ///
     /// Args:
     ///
@@ -936,16 +940,18 @@ impl PyAudioSamples {
     ) -> PyResult<(Self, Self)> {
         let cfg = hp_config(
             py,
-            kernel_size,
-            power,
-            mask,
-            margin,
-            n_fft,
-            hop_length,
-            win_length,
-            window,
-            center,
-            pad_mode,
+            HpArgs {
+                kernel_size,
+                power,
+                mask,
+                margin,
+                n_fft,
+                hop_length,
+                win_length,
+                window,
+                center,
+                pad_mode,
+            },
         )?;
         dispatch_with_view_detached!(self, py, |audio| audio
             .harmonic_percussive(&cfg)
@@ -953,8 +959,7 @@ impl PyAudioSamples {
         .map_err(effects_err)
     }
 
-    /// LPC coefficients of every channel (Burg's method), equivalent to
-    /// ``librosa.lpc(y, order=order)``.
+    /// LPC coefficients of every channel (Burg's method).
     ///
     /// Args:
     ///
@@ -964,8 +969,8 @@ impl PyAudioSamples {
     /// Returns:
     ///
     ///     numpy.ndarray[float32 | float64]: shape ``(channels, order + 1)``, rows
-    ///     ``[1, a_1, ..., a_order]``. librosa returns ``(order + 1,)`` for 1-D
-    ///     input; index ``[0]``.
+    ///     ``[1, a_1, ..., a_order]``; mono audio gives one row (index ``[0]``
+    ///     for a 1-D result).
     ///
     /// Raises:
     ///
@@ -979,7 +984,7 @@ impl PyAudioSamples {
     }
 
     /// Reconstructs audio from a magnitude spectrogram with fast Griffin-Lim,
-    /// equivalent to ``librosa.griffinlim(S, ...)`` returning ``AudioSamples``.
+    /// returning ``AudioSamples``.
     ///
     /// This is a static method: ``AudioSamples.griffinlim_audio(S, sample_rate=sr)``.
     /// See ``audio_samples.effects.griffinlim`` for the arguments.

@@ -1,4 +1,4 @@
-//! librosa-compatible frame-wise features on `AudioSamples`
+//! Frame-wise features on `AudioSamples`
 //! (`spectral_centroid_frames`, `spectral_bandwidth_frames`,
 //! `spectral_rolloff_frames`, `spectral_flatness_frames`,
 //! `spectral_contrast_frames`, `poly_features`, `rms_frames`,
@@ -8,9 +8,7 @@
 //! Every method returns arrays shaped `(channels, n_features, n_frames)` (mono
 //! audio gives a leading axis of length 1): float32 for `uint8`, `int16`,
 //! `int24` and `float32` audio, float64 for `int32` and `float64` audio. The
-//! methods take librosa's keyword arguments with librosa 1.0's defaults (note
-//! `hop_length=512` for the spectral descriptors, as librosa, regardless of
-//! `n_fft`).
+//! spectral descriptors default to `hop_length=512` whatever the `n_fft`.
 
 use crate::args::Int;
 use audio_samples::operations::features::{
@@ -29,8 +27,7 @@ use crate::{PyAudioSamples, audio_err_to_py, dispatch_array_detached, dispatch_t
 
 #[pymethods]
 impl PyAudioSamples {
-    /// Spectral centroid of every frame, equivalent to
-    /// ``librosa.feature.spectral_centroid(y=..., sr=self.sample_rate, ...)``.
+    /// Spectral centroid of every frame: the magnitude-weighted mean frequency.
     ///
     /// Computed from the magnitude STFT. For several descriptors of one
     /// spectrogram use ``features.spectral_centroid_from_spectrogram``.
@@ -46,8 +43,8 @@ impl PyAudioSamples {
     ///
     /// Returns:
     ///
-    ///     numpy.ndarray[float32 | float64]: shape ``(channels, 1, n_frames)`` in Hz (librosa
-    ///     returns ``(1, n_frames)`` for 1-D input; index ``[0]``).
+    ///     numpy.ndarray[float32 | float64]: shape ``(channels, 1, n_frames)`` in Hz, also
+    ///     for mono audio (index ``[0]`` for ``(1, n_frames)``).
     ///
     /// Raises:
     ///
@@ -83,8 +80,7 @@ impl PyAudioSamples {
         dispatch_array_detached!(self, py, |audio| audio.spectral_centroid_frames(&cfg))
     }
 
-    /// Order-``p`` spectral bandwidth of every frame, equivalent to
-    /// ``librosa.feature.spectral_bandwidth(y=..., sr=self.sample_rate, ...)``.
+    /// Order-``p`` spectral bandwidth of every frame around the spectral centroid.
     ///
     /// Args:
     ///
@@ -104,7 +100,10 @@ impl PyAudioSamples {
         signature = (*, n_fft = Int(2048), hop_length = Int(512), win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", norm = true, p = 2.0),
         text_signature = "($self, *, n_fft=2048, hop_length=512, win_length=None, window='hann', center=True, pad_mode='constant', norm=True, p=2.0)"
     )]
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the Python signature has 8 parameters"
+    )]
     fn spectral_bandwidth_frames<'py>(
         &self,
         py: Python<'py>,
@@ -132,8 +131,8 @@ impl PyAudioSamples {
         dispatch_array_detached!(self, py, |audio| audio.spectral_bandwidth_frames(&cfg))
     }
 
-    /// Roll-off frequency of every frame, equivalent to
-    /// ``librosa.feature.spectral_rolloff(y=..., sr=self.sample_rate, ...)``.
+    /// Roll-off frequency of every frame: the frequency below which
+    /// ``roll_percent`` of the energy lies.
     ///
     /// Args:
     ///
@@ -152,7 +151,10 @@ impl PyAudioSamples {
         signature = (*, n_fft = Int(2048), hop_length = Int(512), win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", roll_percent = 0.85),
         text_signature = "($self, *, n_fft=2048, hop_length=512, win_length=None, window='hann', center=True, pad_mode='constant', roll_percent=0.85)"
     )]
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the Python signature has 7 parameters"
+    )]
     fn spectral_rolloff_frames<'py>(
         &self,
         py: Python<'py>,
@@ -178,8 +180,8 @@ impl PyAudioSamples {
         dispatch_array_detached!(self, py, |audio| audio.spectral_rolloff_frames(&cfg))
     }
 
-    /// Spectral flatness of every frame, equivalent to
-    /// ``librosa.feature.spectral_flatness(y=..., ...)``.
+    /// Spectral flatness of every frame: the geometric over the arithmetic mean
+    /// of the power spectrum.
     ///
     /// Args:
     ///
@@ -199,7 +201,10 @@ impl PyAudioSamples {
         signature = (*, n_fft = Int(2048), hop_length = Int(512), win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", amin = 1e-10, power = 2.0),
         text_signature = "($self, *, n_fft=2048, hop_length=512, win_length=None, window='hann', center=True, pad_mode='constant', amin=1e-10, power=2.0)"
     )]
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the Python signature has 8 parameters"
+    )]
     fn spectral_flatness_frames<'py>(
         &self,
         py: Python<'py>,
@@ -227,8 +232,8 @@ impl PyAudioSamples {
         dispatch_array_detached!(self, py, |audio| audio.spectral_flatness_frames(&cfg))
     }
 
-    /// Octave-band spectral contrast of every frame, equivalent to
-    /// ``librosa.feature.spectral_contrast(y=..., sr=self.sample_rate, ...)``.
+    /// Octave-band spectral contrast of every frame: the peak-to-valley
+    /// difference in each band, in dB.
     ///
     /// Args:
     ///
@@ -250,7 +255,10 @@ impl PyAudioSamples {
         signature = (*, n_fft = Int(2048), hop_length = Int(512), win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", fmin = 200.0, n_bands = Int(6), quantile = 0.02, linear = false),
         text_signature = "($self, *, n_fft=2048, hop_length=512, win_length=None, window='hann', center=True, pad_mode='constant', fmin=200.0, n_bands=6, quantile=0.02, linear=False)"
     )]
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the Python signature has 10 parameters"
+    )]
     fn spectral_contrast_frames<'py>(
         &self,
         py: Python<'py>,
@@ -282,8 +290,8 @@ impl PyAudioSamples {
         dispatch_array_detached!(self, py, |audio| audio.spectral_contrast_frames(&cfg))
     }
 
-    /// Coefficients of a polynomial fit to every magnitude-spectrum frame,
-    /// equivalent to ``librosa.feature.poly_features(y=..., sr=self.sample_rate, ...)``.
+    /// Coefficients of a least-squares polynomial fit to every
+    /// magnitude-spectrum frame against the bin frequencies.
     ///
     /// Args:
     ///
@@ -303,7 +311,10 @@ impl PyAudioSamples {
         signature = (*, n_fft = Int(2048), hop_length = Int(512), win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", order = Int(1)),
         text_signature = "($self, *, n_fft=2048, hop_length=512, win_length=None, window='hann', center=True, pad_mode='constant', order=1)"
     )]
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the Python signature has 7 parameters"
+    )]
     fn poly_features<'py>(
         &self,
         py: Python<'py>,
@@ -329,8 +340,7 @@ impl PyAudioSamples {
         dispatch_array_detached!(self, py, |audio| audio.poly_features(&cfg))
     }
 
-    /// Frame-wise root-mean-square energy, equivalent to
-    /// ``librosa.feature.rms(y=...)``.
+    /// Frame-wise root-mean-square energy.
     ///
     /// Unlike the scalar ``rms()``, this returns one value per frame.
     ///
@@ -343,8 +353,7 @@ impl PyAudioSamples {
     ///
     /// Returns:
     ///
-    ///     numpy.ndarray[float32 | float64]: shape ``(channels, 1, n_frames)`` (librosa's
-    ///     default dtype is float32).
+    ///     numpy.ndarray[float32 | float64]: shape ``(channels, 1, n_frames)``.
     ///
     /// Raises:
     ///
@@ -370,11 +379,10 @@ impl PyAudioSamples {
         dispatch_array_detached!(self, py, |audio| audio.rms_frames(&cfg))
     }
 
-    /// Frame-wise zero-crossing rate (fraction of sign changes per frame),
-    /// equivalent to ``librosa.feature.zero_crossing_rate(y, ...)``.
+    /// Frame-wise zero-crossing rate (fraction of sign changes per frame).
     ///
     /// Unlike the scalar ``zero_crossing_rate()`` (crossings per second), this
-    /// returns one fraction per frame. Centring always uses edge padding, as librosa.
+    /// returns one fraction per frame. Centring always uses edge padding.
     ///
     /// Args:
     ///
@@ -397,7 +405,10 @@ impl PyAudioSamples {
         signature = (*, frame_length = Int(2048), hop_length = Int(512), center = true, threshold = 1e-10, ref_magnitude = None, pad = false, zero_pos = true),
         text_signature = "($self, *, frame_length=2048, hop_length=512, center=True, threshold=1e-10, ref_magnitude=None, pad=False, zero_pos=True)"
     )]
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the Python signature has 7 parameters"
+    )]
     fn zero_crossing_rate_frames<'py>(
         &self,
         py: Python<'py>,
@@ -425,8 +436,8 @@ impl PyAudioSamples {
         dispatch_array_detached!(self, py, |audio| audio.zero_crossing_rate_frames(&cfg))
     }
 
-    /// Time-frequency reassigned spectrogram, equivalent to
-    /// ``librosa.reassigned_spectrogram(y=..., sr=self.sample_rate, ...)``.
+    /// Time-frequency reassigned spectrogram: the instantaneous frequency and
+    /// group-delay time of every bin.
     ///
     /// Args:
     ///
@@ -455,7 +466,10 @@ impl PyAudioSamples {
         signature = (*, n_fft = Int(2048), hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, reassign_frequencies = true, reassign_times = true, ref_power = ReassignRefArg(audio_samples::operations::features::ReassignRefPower::Value(1e-6)), fill_nan = false, clip = true, pad_mode = "constant"),
         text_signature = "($self, *, n_fft=2048, hop_length=None, win_length=None, window='hann', center=True, reassign_frequencies=True, reassign_times=True, ref_power=1e-06, fill_nan=False, clip=True, pad_mode='constant')"
     )]
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the Python signature has 11 parameters"
+    )]
     #[allow(
         clippy::fn_params_excessive_bools,
         reason = "the Python signature has these boolean keywords"

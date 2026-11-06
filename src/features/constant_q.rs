@@ -1,7 +1,7 @@
 //! Constant-Q free functions of `audio_samples.features` (binding
-//! `audio_samples::operations::constant_q`): `librosa.filters.cq_to_chroma`,
-//! `filters.wavelet` / `wavelet_lengths`, and the chroma-input forms of
-//! `feature.chroma_cens` / `feature.tonnetz`.
+//! `audio_samples::operations::constant_q`): `cq_to_chroma`, `wavelet` /
+//! `wavelet_lengths`, and the chroma-input forms of CENS and tonnetz
+//! (`chroma_cens_from_chroma`, `tonnetz_from_chroma`).
 
 use crate::args::Int;
 use audio_samples::operations::constant_q::{self as cq, WaveletConfig};
@@ -14,8 +14,7 @@ use super::args::{spec3, squeeze_out};
 use crate::args::{WindowArg, non_negative, opt_positive, positive, precision_of, with_precision};
 use crate::audio_err_to_py;
 
-/// The CQT-to-chroma folding matrix, equivalent to
-/// ``librosa.filters.cq_to_chroma(n_input, ..., dtype=numpy.float64)``.
+/// The CQT-to-chroma folding matrix (float64).
 ///
 /// Args:
 ///
@@ -89,13 +88,12 @@ fn wavelet_config(
     }
 }
 
-/// Fractional lengths of constant-Q / variable-Q wavelet filters, equivalent to
-/// ``librosa.filters.wavelet_lengths(freqs=freqs, sr=sr, ...)``.
+/// Fractional lengths of constant-Q / variable-Q wavelet filters.
 ///
 /// Args:
 ///
 ///     freqs (array_like): Centre frequencies in Hz (at least two, ascending).
-///     sr (float): Sample rate. Required (librosa defaults to 22050).
+///     sr (float): Sample rate. Required.
 ///     window: Window (named; see ``spectral.get_window``). Default ``"hann"``.
 ///     filter_scale (float): Filter-length scale. Default 1.
 ///     gamma (Optional[float]): Bandwidth offset (Hz); 0 (default) = constant Q,
@@ -175,13 +173,12 @@ pub fn wavelet_lengths<'py>(
     })
 }
 
-/// Constant-Q / variable-Q wavelet filters, equivalent to
-/// ``librosa.filters.wavelet(freqs=freqs, sr=sr, ..., dtype=numpy.complex128)``.
+/// Constant-Q / variable-Q wavelet filters.
 ///
 /// Args:
 ///
 ///     freqs (array_like): Centre frequencies in Hz (at least two, ascending).
-///     sr (float): Sample rate. Required (librosa defaults to 22050).
+///     sr (float): Sample rate. Required.
 ///     window: Named window. Default ``"hann"``.
 ///     filter_scale (float): Filter-length scale. Default 1.
 ///     pad_fft (bool): Centre the filters in a power-of-two buffer. Default True.
@@ -192,8 +189,8 @@ pub fn wavelet_lengths<'py>(
 /// Returns:
 ///
 ///     tuple[numpy.ndarray[complex128], numpy.ndarray[float64]]: ``(filters,
-///     lengths)``, ``filters`` of shape ``(len(freqs), width)`` (librosa's default
-///     dtype is complex64; this is complex128).
+///     lengths)``, complex128 ``filters`` of shape ``(len(freqs), width)`` and
+///     float64 ``lengths``.
 ///
 /// Raises:
 ///
@@ -203,7 +200,11 @@ pub fn wavelet_lengths<'py>(
     signature = (*, freqs, sr, window = WindowArg(Window::Hann), filter_scale = 1.0, pad_fft = true, norm = Some(1.0), gamma = Some(0.0), alpha = None),
     text_signature = "(*, freqs, sr, window='hann', filter_scale=1.0, pad_fft=True, norm=1.0, gamma=0.0, alpha=None)"
 )]
-#[allow(clippy::too_many_arguments, clippy::type_complexity)]
+#[allow(
+    clippy::too_many_arguments,
+    clippy::type_complexity,
+    reason = "the Python signature has 8 parameters"
+)]
 pub fn wavelet<'py>(
     py: Python<'py>,
     freqs: &Bound<'py, PyAny>,
@@ -231,8 +232,8 @@ pub fn wavelet<'py>(
     Ok((filters.into_pyarray(py), lengths.into_pyarray(py)))
 }
 
-/// Chroma Energy Normalized Statistics (CENS) from a chromagram, equivalent to
-/// the post-processing of ``librosa.feature.chroma_cens``.
+/// Chroma Energy Normalized Statistics (CENS) from a chromagram: the
+/// quantisation, smoothing and normalisation steps of ``AudioSamples.chroma_cens``.
 ///
 /// Args:
 ///
@@ -278,8 +279,7 @@ pub fn chroma_cens_from_chroma<'py>(
     })
 }
 
-/// Tonal centroid features from a chromagram, equivalent to
-/// ``librosa.feature.tonnetz(chroma=chroma)``.
+/// Tonal centroid features (tonnetz) from a chromagram.
 ///
 /// Args:
 ///

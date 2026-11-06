@@ -25,17 +25,16 @@ fn opt_non_negative(name: &str, v: Option<Int>) -> PyResult<Option<usize>> {
     v.map(|v| non_negative(name, v)).transpose()
 }
 
-/// Converts frequencies in Hertz to mels (scalar or array, librosa-style).
+/// Converts frequencies in Hertz to mels (scalar or array).
 ///
 /// **Default scale is HTK** (``2595 * log10(1 + f / 700)``), unchanged from
-/// earlier releases. librosa's ``hz_to_mel`` defaults to the *Slaney* scale
-/// (``htk=False``); pass ``htk=False`` to match it.
+/// earlier releases. Pass ``htk=False`` for the Slaney scale (linear below
+/// 1 kHz, logarithmic above), as used by ``spectral.mel_filterbank``.
 ///
 /// Args:
 ///
 ///     freq_hz (float | array_like): Frequency or frequencies in Hertz.
-///     htk (bool): Use the HTK scale (default True) or the Slaney scale (False,
-///         librosa's default).
+///     htk (bool): Use the HTK scale (default True) or the Slaney scale (False).
 ///
 /// Returns:
 ///
@@ -45,7 +44,7 @@ fn opt_non_negative(name: &str, v: Option<Int>) -> PyResult<Option<usize>> {
 ///
 ///     >>> from audio_samples.utils import hz_to_mel
 ///     >>> hz_to_mel(1000.0)              # HTK: ~999.99
-///     >>> hz_to_mel(1000.0, htk=False)   # Slaney (librosa default): 15.0
+///     >>> hz_to_mel(1000.0, htk=False)   # Slaney: 15.0
 #[pyfunction]
 #[pyo3(signature = (freq_hz, *, htk = true), text_signature = "(freq_hz, *, htk=True)")]
 pub fn hz_to_mel<'py>(freq_hz: &Bound<'py, PyAny>, htk: bool) -> PyResult<Bound<'py, PyAny>> {
@@ -55,15 +54,15 @@ pub fn hz_to_mel<'py>(freq_hz: &Bound<'py, PyAny>, htk: bool) -> PyResult<Bound<
     })
 }
 
-/// Converts mels to frequencies in Hertz (scalar or array, librosa-style).
+/// Converts mels to frequencies in Hertz (scalar or array).
 ///
-/// **Default scale is HTK**, unchanged from earlier releases; librosa's
-/// ``mel_to_hz`` defaults to Slaney (``htk=False``).
+/// **Default scale is HTK**, unchanged from earlier releases; ``htk=False``
+/// gives the Slaney scale.
 ///
 /// Args:
 ///
 ///     mel (float | array_like): Mel value(s).
-///     htk (bool): HTK scale (default True) or Slaney (False, librosa's default).
+///     htk (bool): HTK scale (default True) or Slaney (False).
 ///
 /// Returns:
 ///
@@ -104,8 +103,8 @@ pub fn mel_scale(py: Python<'_>, n_mels: usize, fmin: f64, fmax: f64) -> Bound<'
     result.into_pyarray(py)
 }
 
-/// Converts frequencies in Hertz to (fractional) MIDI note numbers, like
-/// ``librosa.hz_to_midi``: ``12 * log2(f / 440) + 69``.
+/// Converts frequencies in Hertz to (fractional) MIDI note numbers:
+/// ``12 * log2(f / 440) + 69``.
 ///
 /// Args:
 ///
@@ -130,8 +129,8 @@ pub fn hz_to_midi<'py>(freq_hz: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny
     )
 }
 
-/// Converts MIDI note numbers (fractional allowed) to Hertz, like
-/// ``librosa.midi_to_hz``: ``440 * 2 ** ((m - 69) / 12)``.
+/// Converts MIDI note numbers (fractional allowed) to Hertz:
+/// ``440 * 2 ** ((m - 69) / 12)``.
 ///
 /// Args:
 ///
@@ -247,7 +246,7 @@ pub fn db_to_power(db: f64) -> f64 {
 // TIME/FRAME CONVERSIONS
 // =============================================================================
 
-/// Converts frame indices to time in seconds, like ``librosa.frames_to_time``.
+/// Converts frame indices to time in seconds.
 ///
 /// ``frames * hop_size / sample_rate``, plus ``(n_fft // 2) / sample_rate`` when
 /// ``n_fft`` is given (the frame centre of an uncentred STFT). Negative frames
@@ -257,7 +256,7 @@ pub fn db_to_power(db: f64) -> f64 {
 ///
 ///     frames (int | array_like[int]): Frame index or indices.
 ///     sample_rate (float): Sampling rate in Hertz.
-///     hop_size (int): Samples between frames (librosa's ``hop_length``).
+///     hop_size (int): Samples between frames.
 ///     n_fft (Optional[int]): Optional frame-length offset. Default None.
 ///
 /// Returns:
@@ -287,9 +286,9 @@ pub fn frames_to_time<'py>(
 /// Converts times in seconds to the **nearest** frame index (rounding).
 ///
 /// Kept for backward compatibility: ``round(t * sample_rate / hop_size)``, with
-/// negative results clamped to 0. librosa's ``time_to_frames`` instead returns the
+/// negative results clamped to 0. ``time_to_frames_floor`` instead returns the
 /// frame *containing* the time (floor division, negatives kept, optional
-/// ``n_fft`` offset); use ``time_to_frames_floor`` for that.
+/// ``n_fft`` offset).
 ///
 /// Args:
 ///
@@ -406,9 +405,8 @@ fn map_strings<T>(
 #[pyo3(signature = (time_seconds, sample_rate))]
 /// Converts a time offset expressed in seconds into the nearest sample index.
 ///
-/// Rounds to the nearest sample and clamps negatives to 0. librosa's
-/// ``time_to_samples`` truncates instead and keeps negative values; use
-/// ``time_to_samples`` for that.
+/// Rounds to the nearest sample and clamps negatives to 0.
+/// ``time_to_samples`` truncates toward zero instead and keeps negative values.
 ///
 /// Args:
 ///
@@ -458,7 +456,7 @@ pub fn ms_to_samples(ms: f64, sample_rate: f64) -> usize {
 #[pyo3(signature = (note_name))]
 /// Parses scientific pitch notation and converts it into MIDI note numbers.
 ///
-/// Follows librosa's grammar: upper- or lowercase note letters, any run of the accidentals
+/// Accepts upper- or lowercase note letters, any run of the accidentals
 /// `#` `♯` `b` `!` `♭` `𝄪` `𝄫` `♮`, a signed octave (`C-1` = 0) and an optional cents suffix
 /// (`A4+50`, rounded half to even). The octave is required.
 ///
@@ -630,8 +628,8 @@ pub fn frequency_to_note<'py>(freq_hz: &Bound<'py, PyAny>) -> PyResult<Bound<'py
 }
 
 /// One Python `str` per distinct static name: repeated note names in a
-/// result list share a single object, as NumPy/librosa string results share
-/// their few distinct values.
+/// result list share a single object, so a long result holds only its few
+/// distinct values.
 #[derive(Default)]
 struct StrCache<'py> {
     by_ptr: std::collections::HashMap<usize, Bound<'py, pyo3::types::PyString>>,
@@ -719,17 +717,17 @@ pub fn fft_frequencies(py: Python<'_>, n_fft: usize, sample_rate: f64) -> Bound<
     result.into_pyarray(py)
 }
 
-/// Frequencies uniformly spaced on the mel scale, like ``librosa.mel_frequencies``.
+/// Frequencies uniformly spaced on the mel scale.
 ///
-/// **Default scale is HTK** (unchanged from earlier releases); librosa defaults
-/// to Slaney (``htk=False``).
+/// **Default scale is HTK** (unchanged from earlier releases); pass
+/// ``htk=False`` for the Slaney scale.
 ///
 /// Args:
 ///
 ///     n_mels (int): Number of frequencies.
 ///     fmin (float): Lowest frequency in Hertz.
 ///     fmax (float): Highest frequency in Hertz.
-///     htk (bool): HTK scale (default True) or Slaney (False, librosa's default).
+///     htk (bool): HTK scale (default True) or Slaney (False).
 ///
 /// Returns:
 ///
@@ -738,7 +736,7 @@ pub fn fft_frequencies(py: Python<'_>, n_fft: usize, sample_rate: f64) -> Bound<
 /// Example:
 ///
 ///     >>> from audio_samples.utils import mel_frequencies
-///     >>> mel_frequencies(128, 0.0, 11025.0, htk=False)  # == librosa.mel_frequencies()
+///     >>> mel_frequencies(128, 0.0, 11025.0, htk=False)  # 128 Slaney-spaced frequencies
 #[pyfunction]
 #[pyo3(signature = (n_mels, fmin, fmax, *, htk = true), text_signature = "(n_mels, fmin, fmax, *, htk=True)")]
 pub fn mel_frequencies(
@@ -778,10 +776,10 @@ pub fn linspace(py: Python<'_>, start: f64, end: f64, num: usize) -> Bound<'_, P
 }
 
 // =============================================================================
-// LIBROSA-COMPATIBLE FRAME / SAMPLE / TIME CONVERSIONS (vectorised)
+// FRAME / SAMPLE / TIME CONVERSIONS (vectorised)
 // =============================================================================
 
-/// Converts times in seconds to sample indices, like ``librosa.time_to_samples``.
+/// Converts times in seconds to sample indices.
 ///
 /// ``int(t * sample_rate)`` truncated toward zero (negative times stay negative).
 /// Differs from ``seconds_to_samples``, which rounds.
@@ -790,8 +788,8 @@ pub fn linspace(py: Python<'_>, start: f64, end: f64, num: usize) -> Bound<'_, P
 ///
 ///     times (float | array_like): Time(s) in seconds.
 ///     sample_rate (Optional[float]): Sampling rate in Hertz. Give this or
-///         ``sr`` (librosa defaults to 22050).
-///     sr (Optional[float]): librosa's name for ``sample_rate`` (give at most one).
+///         ``sr`` (exactly one).
+///     sr (Optional[float]): Short name for ``sample_rate``.
 ///
 /// Returns:
 ///
@@ -817,7 +815,7 @@ pub fn time_to_samples<'py>(
     )
 }
 
-/// Converts sample indices to frame indices, like ``librosa.samples_to_frames``.
+/// Converts sample indices to frame indices.
 ///
 /// ``floor((samples - n_fft // 2) / hop_length)`` (the offset only when ``n_fft``
 /// is given).
@@ -825,8 +823,7 @@ pub fn time_to_samples<'py>(
 /// Args:
 ///
 ///     samples (int | array_like[int]): Sample index or indices (may be negative).
-///     hop_length (int): Samples between frames. Required (librosa defaults
-///         to 512).
+///     hop_length (int): Samples between frames. Required.
 ///     n_fft (Optional[int]): Optional frame-length offset.
 ///
 /// Returns:
@@ -849,15 +846,14 @@ pub fn samples_to_frames<'py>(
     )
 }
 
-/// Converts frame indices to sample indices, like ``librosa.frames_to_samples``.
+/// Converts frame indices to sample indices.
 ///
 /// ``frames * hop_length + n_fft // 2`` (the offset only when ``n_fft`` is given).
 ///
 /// Args:
 ///
 ///     frames (int | array_like[int]): Frame index or indices.
-///     hop_length (int): Samples between frames. Required (librosa defaults
-///         to 512).
+///     hop_length (int): Samples between frames. Required.
 ///     n_fft (Optional[int]): Optional frame-length offset.
 ///
 /// Returns:
@@ -999,8 +995,7 @@ pub fn blocks_to_time<'py>(
     })
 }
 
-/// Converts times in seconds to the frame **containing** each time, exactly as
-/// ``librosa.time_to_frames``.
+/// Converts times in seconds to the frame **containing** each time.
 ///
 /// ``samples_to_frames(time_to_samples(t, sample_rate), hop_length, n_fft)``:
 /// truncation to samples, then floor division (negatives kept). Compare
@@ -1010,10 +1005,9 @@ pub fn blocks_to_time<'py>(
 ///
 ///     times (float | array_like): Time(s) in seconds.
 ///     sample_rate (Optional[float]): Sampling rate in Hertz. Give this or
-///         ``sr`` (librosa defaults to 22050).
-///     sr (Optional[float]): librosa's name for ``sample_rate`` (give at most one).
-///     hop_length (int): Samples between frames. Required (librosa defaults
-///         to 512).
+///         ``sr`` (exactly one).
+///     sr (Optional[float]): Short name for ``sample_rate``.
+///     hop_length (int): Samples between frames. Required.
 ///     n_fft (Optional[int]): Optional frame-length offset.
 ///
 /// Returns:
@@ -1044,7 +1038,7 @@ pub fn time_to_frames_floor<'py>(
     )
 }
 
-/// `sample_rate` or its librosa spelling `sr`; exactly one is required.
+/// `sample_rate` or its short name `sr`; exactly one is required.
 fn sample_rate_or_sr(sample_rate: Option<f64>, sr: Option<f64>) -> PyResult<f64> {
     match (sample_rate, sr) {
         (Some(_), Some(_)) => Err(pyo3::exceptions::PyTypeError::new_err(
@@ -1057,8 +1051,8 @@ fn sample_rate_or_sr(sample_rate: Option<f64>, sr: Option<f64>) -> PyResult<f64>
     }
 }
 
-/// Number of frames from an int, or from axis `axis` of an array (librosa's
-/// ``X.shape[axis]``).
+/// Number of frames from an int, or the length of axis `axis` of an array
+/// (``X.shape[axis]``).
 fn frame_count(x: &Bound<'_, PyAny>, axis: Int) -> PyResult<usize> {
     if is_scalar(x)? {
         let n: Int = x
@@ -1091,16 +1085,15 @@ fn frame_count(x: &Bound<'_, PyAny>, axis: Int) -> PyResult<usize> {
         })
 }
 
-/// Time (seconds) of each frame of a feature matrix, like ``librosa.times_like``.
+/// Time (seconds) of each frame of a feature matrix.
 ///
 /// Args:
 ///
 ///     X (int | array_like): Number of frames, or an array whose ``axis`` is time.
 ///     sample_rate (Optional[float]): Sampling rate in Hertz. Give this or
-///         ``sr`` (librosa defaults to 22050).
-///     sr (Optional[float]): librosa's name for ``sample_rate`` (give at most one).
-///     hop_length (int): Samples between frames. Required (librosa defaults
-///         to 512).
+///         ``sr`` (exactly one).
+///     sr (Optional[float]): Short name for ``sample_rate``.
+///     hop_length (int): Samples between frames. Required.
 ///     n_fft (Optional[int]): Optional frame-length offset.
 ///     axis (int): The time axis of ``X``. Default -1.
 ///
@@ -1125,13 +1118,12 @@ pub fn times_like<'py>(
     Ok(audio_math::times_like(frame_count(X, axis)?, sample_rate, hop, n_fft).into_pyarray(py))
 }
 
-/// Sample index of each frame of a feature matrix, like ``librosa.samples_like``.
+/// Sample index of each frame of a feature matrix.
 ///
 /// Args:
 ///
 ///     X (int | array_like): Number of frames, or an array whose ``axis`` is time.
-///     hop_length (int): Samples between frames. Required (librosa defaults
-///         to 512).
+///     hop_length (int): Samples between frames. Required.
 ///     n_fft (Optional[int]): Optional frame-length offset.
 ///     axis (int): The time axis of ``X``. Default -1.
 ///
@@ -1157,8 +1149,7 @@ pub fn samples_like<'py>(
 // MU-LAW CODES
 // =============================================================================
 
-/// Quantise samples to integer μ-law codes, like
-/// ``librosa.mu_compress(x, mu=mu, quantize=True)``.
+/// Quantise samples to integer μ-law codes.
 ///
 /// Companding ``sign(x) * log1p(mu * |x|) / log1p(mu)`` followed by binning
 /// into ``floor(1 + mu)`` levels; for ``mu=255`` the codes are the integers
@@ -1243,8 +1234,7 @@ fn mu_encode_blocks<F: audio_samples::AudioFloat>(
 /// Block length of the μ-law conversions that widen or gather their input.
 const MU_BLOCK: usize = 4096;
 
-/// Map integer μ-law codes back to amplitudes, like
-/// ``librosa.mu_expand(codes, mu=mu, quantize=True)``.
+/// Map integer μ-law codes back to amplitudes.
 ///
 /// Not an exact inverse of ``mu_law_encode`` (quantisation error up to ~0.043
 /// for ``mu=255``).

@@ -133,15 +133,14 @@ impl PyAudioSamples {
     /// multi-channel audio it is the mean of the per-channel rates. A pure sine
     /// of frequency ``f`` gives about ``2 * f``.
     ///
-    /// Note: unlike ``librosa.feature.zero_crossing_rate``, which returns a
-    /// per-frame fraction of crossings per sample, this is one global value in
-    /// crossings per second. Divide by ``sample_rate`` for crossings per sample.
+    /// This is one global value in crossings per second; divide by
+    /// ``sample_rate`` for crossings per sample. For the per-frame fraction of
+    /// sign changes use ``zero_crossing_rate_frames``.
     ///
     /// Returns:
     ///
     ///     float: Zero crossings **per second** (crossings / duration),
-    ///         averaged over channels. ``librosa.feature.zero_crossing_rate`` is
-    ///         instead a per-frame fraction of samples.
+    ///         averaged over channels.
     fn zero_crossing_rate(&self, py: Python<'_>) -> PyResult<f64> {
         Ok(dispatch_with_view!(self, py, |audio| audio.zero_crossing_rate()))
     }
@@ -154,8 +153,8 @@ impl PyAudioSamples {
     /// lags ``0..=min(max_lag, N - 1)``, first channel only. It is not
     /// normalised: ``r[0]`` is the mean square, not 1. Divide by ``r[0]`` for a
     /// normalised sequence; multiply ``r[k]`` by ``(N - k) / N`` for the biased
-    /// estimate. ``r[k] * (N - k)`` equals
-    /// ``librosa.autocorrelate(x, max_size=max_lag + 1)[k]``.
+    /// estimate. ``r[k] * (N - k)`` is the raw sum
+    /// ``sum_{n=0}^{N-1-k} x[n] * x[n + k]``.
     ///
     /// Args:
     ///

@@ -433,7 +433,8 @@ Core: spectral representations
      - ``features.pcen``
      - equivalent
      - ``zi`` / ``return_zf`` streaming state; ``sr`` and ``hop_length`` are
-       required (librosa: 22050 and 512)
+       required (librosa: 22050 and 512); complex ``S`` raises ``TypeError``
+       (librosa takes the magnitude with a warning): pass ``numpy.abs(S)``
    * - ``amplitude_to_db``
      - ``spectral.amplitude_to_db``
      - equivalent
@@ -1492,8 +1493,9 @@ Shapes and types
   ``2**(bits-1) - 1``); librosa's ``buf_to_float`` divides both by
   ``2**(bits-1)``: up to one LSB apart.
 - **Sequence and recurrence functions** take 2-D ``(n_features, n_frames)``
-  input with the default ``axis=-1`` layout and return dense arrays
-  (``sparse=True`` raises).
+  input with the default ``axis=-1`` layout and return dense arrays;
+  ``sparse=True`` gives ``arrays.SparseRows`` (``recurrence_matrix``,
+  ``cross_similarity``).
 
 Defaults that differ from librosa
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

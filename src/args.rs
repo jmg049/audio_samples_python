@@ -1,8 +1,8 @@
-//! Shared argument parsing for the librosa-compatible bindings.
+//! Shared argument parsing for the array-level analysis bindings.
 //!
-//! The `audio_samples.spectral`, `audio_samples.sequence` and the
-//! librosa-style `AudioSamples` methods (`stft_matrix`, `melspectrogram`, ...)
-//! take librosa's keyword arguments: windows as SciPy-style strings, tuples or
+//! The `audio_samples.spectral`, `audio_samples.sequence` and the frame-wise
+//! analysis `AudioSamples` methods (`stft_matrix`, `melspectrogram`, ...)
+//! take the same keyword arguments: windows as SciPy-style strings, tuples or
 //! arrays, `ref=numpy.max`, `norm="slaney"`, array-likes of any dtype, and so on.
 //! Every binding parses them with the helpers in this module so that the
 //! accepted spellings and the error messages are identical everywhere.
@@ -597,7 +597,7 @@ pub fn is_scalar(obj: &Bound<'_, PyAny>) -> PyResult<bool> {
         == 0)
 }
 
-/// Applies `f` element-wise, librosa style: a scalar input gives a Python
+/// Applies `f` element-wise: a scalar input gives a Python
 /// `float`, an array-like gives a `float64` array of the same shape.
 pub fn map_f64<'py>(
     obj: &Bound<'py, PyAny>,
@@ -773,13 +773,12 @@ fn window_from_name(name: &str) -> PyResult<Window> {
     }
 }
 
-/// Parses a librosa/SciPy window specification.
+/// Parses a window specification.
 ///
 /// Accepts a name (`"hann"`, `"hamming"`, `"blackman"`, `"blackmanharris"`,
 /// `"boxcar"`/`"rectangular"`, `"bartlett"`, `"triang"`), a tuple
 /// `("kaiser", beta)` / `("gaussian", std)` (or `(name,)`), a bare number
-/// (a Kaiser `beta`, as `scipy.signal.get_window` does), or an array of
-/// coefficients (used as given, like librosa).
+/// (a Kaiser `beta`), or an array of coefficients (used as given).
 pub fn parse_window(obj: &Bound<'_, PyAny>) -> PyResult<Window> {
     if let Ok(s) = obj.cast::<PyString>() {
         return window_from_name(&s.to_cow()?);
@@ -836,7 +835,7 @@ pub fn parse_window(obj: &Bound<'_, PyAny>) -> PyResult<Window> {
     Ok(Window::Custom(arr.as_array().iter().copied().collect()))
 }
 
-/// Parses librosa's `pad_mode` (the subset supported by the Rust STFT).
+/// Parses `pad_mode` (the subset supported by the Rust STFT).
 pub fn parse_pad_mode(mode: &str) -> PyResult<StftPadMode> {
     match mode {
         "constant" => Ok(StftPadMode::Constant),
@@ -852,7 +851,7 @@ pub fn parse_pad_mode(mode: &str) -> PyResult<StftPadMode> {
     }
 }
 
-/// Builds an [`StftConfig`] from librosa's STFT keyword arguments.
+/// Builds an [`StftConfig`] from the STFT keyword arguments.
 pub fn stft_config(
     n_fft: Int,
     hop_length: Option<Int>,
@@ -892,7 +891,7 @@ pub fn parse_mel_norm(obj: &Bound<'_, PyAny>) -> PyResult<MelFilterNorm> {
     Ok(MelFilterNorm::Lp(p))
 }
 
-/// Builds a [`MelFilterbankConfig`] from librosa's mel keyword arguments.
+/// Builds a [`MelFilterbankConfig`] from the mel keyword arguments.
 pub fn mel_config(
     n_mels: Int,
     fmin: f64,
@@ -915,7 +914,7 @@ pub const fn mel_scale(htk: bool) -> MelScale {
 }
 
 /// Parses a dB reference: a number, the string `"max"`, or `numpy.max` /
-/// `numpy.amax` (librosa's `ref=np.max`).
+/// `numpy.amax`.
 pub fn parse_db_ref(obj: &Bound<'_, PyAny>) -> PyResult<DbReference> {
     let py = obj.py();
     if let Ok(s) = obj.cast::<PyString>() {
@@ -962,7 +961,7 @@ pub fn slice_on_axis(
     Ok(ndarray::Slice::new(last, Some(i.start + 1), i.step))
 }
 
-/// Parses librosa's `axes` argument of the dB conversions: `"auto"` or `None`.
+/// Parses the `axes` argument of the dB conversions: `"auto"` or `None`.
 pub fn parse_db_axes(obj: &Bound<'_, PyAny>) -> PyResult<DbAxes> {
     if obj.is_none() {
         return Ok(DbAxes::All);

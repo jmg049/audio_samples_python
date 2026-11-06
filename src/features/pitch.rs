@@ -1,6 +1,6 @@
 //! Pitch-tracking free functions of `audio_samples.features` (binding
-//! `audio_samples::operations::pitch_tracking`): `librosa.yin` / `pyin` on
-//! arrays and the harmonic helpers `salience`, `interp_harmonics`,
+//! `audio_samples::operations::pitch_tracking`): `yin` / `pyin` on arrays
+//! and the harmonic helpers `salience`, `interp_harmonics`,
 //! `f0_harmonics`.
 
 use crate::args::Int;
@@ -18,8 +18,7 @@ use crate::args::{
 };
 use crate::audio_err_to_py;
 
-/// Builds a [`YinConfig`] from librosa's `yin` keyword arguments.
-#[allow(clippy::too_many_arguments)]
+/// Builds a [`YinConfig`] from the `yin` keyword arguments.
 pub fn yin_config(
     fmin: f64,
     fmax: f64,
@@ -40,56 +39,60 @@ pub fn yin_config(
     })
 }
 
-/// Builds a [`PyinConfig`] from librosa's `pyin` keyword arguments.
-#[allow(clippy::too_many_arguments)]
-pub fn pyin_config(
-    fmin: f64,
-    fmax: f64,
-    frame_length: Int,
-    hop_length: Option<Int>,
-    n_thresholds: Int,
-    beta_parameters: (f64, f64),
-    boltzmann_parameter: f64,
-    resolution: f64,
-    max_transition_rate: f64,
-    switch_prob: f64,
-    no_trough_prob: f64,
-    fill_na: FillNaArg,
-    center: bool,
-    pad_mode: &str,
-    transition_min_prob: Option<f64>,
-) -> PyResult<PyinConfig> {
-    Ok(PyinConfig {
-        fmin,
-        fmax,
-        frame_length: positive("frame_length", frame_length)?,
-        hop_length: opt_positive("hop_length", hop_length)?,
-        n_thresholds: positive("n_thresholds", n_thresholds)?,
-        beta_parameters,
-        boltzmann_parameter,
-        resolution,
-        max_transition_rate,
-        switch_prob,
-        no_trough_prob,
-        fill: fill_na.0,
-        center,
-        pad_mode: parse_pad_mode(pad_mode)?,
-        transition_min_prob,
-    })
+/// The `pyin` keyword arguments, before validation.
+pub struct PyinArgs<'a> {
+    pub fmin: f64,
+    pub fmax: f64,
+    pub frame_length: Int,
+    pub hop_length: Option<Int>,
+    pub n_thresholds: Int,
+    pub beta_parameters: (f64, f64),
+    pub boltzmann_parameter: f64,
+    pub resolution: f64,
+    pub max_transition_rate: f64,
+    pub switch_prob: f64,
+    pub no_trough_prob: f64,
+    pub fill_na: FillNaArg,
+    pub center: bool,
+    pub pad_mode: &'a str,
+    pub transition_min_prob: Option<f64>,
+}
+
+impl PyinArgs<'_> {
+    /// Validates the arguments into a [`PyinConfig`].
+    pub fn config(self) -> PyResult<PyinConfig> {
+        Ok(PyinConfig {
+            fmin: self.fmin,
+            fmax: self.fmax,
+            frame_length: positive("frame_length", self.frame_length)?,
+            hop_length: opt_positive("hop_length", self.hop_length)?,
+            n_thresholds: positive("n_thresholds", self.n_thresholds)?,
+            beta_parameters: self.beta_parameters,
+            boltzmann_parameter: self.boltzmann_parameter,
+            resolution: self.resolution,
+            max_transition_rate: self.max_transition_rate,
+            switch_prob: self.switch_prob,
+            no_trough_prob: self.no_trough_prob,
+            fill: self.fill_na.0,
+            center: self.center,
+            pad_mode: parse_pad_mode(self.pad_mode)?,
+            transition_min_prob: self.transition_min_prob,
+        })
+    }
 }
 
 fn rows_out<T: numpy::Element>(py: Python<'_>, a: Array2<T>, ndim_in: usize) -> Bound<'_, PyAny> {
     squeeze_out(py, a.into_dyn(), ndim_in == 1)
 }
 
-/// Frame-wise YIN fundamental frequency of an array, equivalent to ``librosa.yin``.
+/// Frame-wise YIN fundamental frequency of an array.
 ///
 /// Args:
 ///
 ///     y (array_like): Signal, ``(n,)`` or ``(channels, n)``.
 ///     fmin (float): Lowest frequency searched (Hz). Required.
 ///     fmax (float): Highest frequency searched (Hz). Required.
-///     sr (float): Sample rate. Required (librosa defaults to 22050).
+///     sr (float): Sample rate. Required.
 ///     frame_length (int): Samples per frame. Default 2048.
 ///     hop_length (Optional[int]): None = ``frame_length // 4``.
 ///     trough_threshold (float): Absolute CMND threshold. Default 0.1.
@@ -108,7 +111,10 @@ fn rows_out<T: numpy::Element>(py: Python<'_>, a: Array2<T>, ndim_in: usize) -> 
     signature = (y, *, fmin, fmax, sr, frame_length = Int(2048), hop_length = None, trough_threshold = 0.1, center = true, pad_mode = "constant"),
     text_signature = "(y, *, fmin, fmax, sr, frame_length=2048, hop_length=None, trough_threshold=0.1, center=True, pad_mode='constant')"
 )]
-#[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the Python signature has 9 parameters"
+)]
 pub fn yin<'py>(
     py: Python<'py>,
     y: &Bound<'py, PyAny>,
@@ -140,13 +146,13 @@ pub fn yin<'py>(
     })
 }
 
-/// Probabilistic YIN of an array, equivalent to ``librosa.pyin``.
+/// Probabilistic YIN of an array: f0 tracking with voicing decisions.
 ///
 /// Args:
 ///
 ///     y (array_like): Signal, ``(n,)`` or ``(channels, n)``.
 ///     fmin, fmax (float): Search range in Hz. Required.
-///     sr (float): Sample rate. Required (librosa defaults to 22050).
+///     sr (float): Sample rate. Required.
 ///     frame_length (int): Default 2048.
 ///     hop_length (Optional[int]): None = ``frame_length // 4``.
 ///     n_thresholds (int): Default 100.
@@ -176,7 +182,10 @@ pub fn yin<'py>(
     signature = (y, *, fmin, fmax, sr, frame_length = Int(2048), hop_length = None, n_thresholds = Int(100), beta_parameters = (2.0, 18.0), boltzmann_parameter = 2.0, resolution = 0.1, max_transition_rate = 35.92, switch_prob = 0.01, no_trough_prob = 0.01, fill_na = FillNaArg(audio_samples::operations::pitch_tracking::UnvoicedFill::Nan), center = true, pad_mode = "constant", transition_min_prob = Some(1e-4)),
     text_signature = "(y, *, fmin, fmax, sr, frame_length=2048, hop_length=None, n_thresholds=100, beta_parameters=(2, 18), boltzmann_parameter=2, resolution=0.1, max_transition_rate=35.92, switch_prob=0.01, no_trough_prob=0.01, fill_na=math.nan, center=True, pad_mode='constant', transition_min_prob=0.0001)"
 )]
-#[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the Python signature has 17 parameters"
+)]
 pub fn pyin<'py>(
     py: Python<'py>,
     y: &Bound<'py, PyAny>,
@@ -197,7 +206,7 @@ pub fn pyin<'py>(
     pad_mode: &str,
     transition_min_prob: Option<f64>,
 ) -> PyResult<Bound<'py, PyAny>> {
-    let cfg = pyin_config(
+    let cfg = PyinArgs {
         fmin,
         fmax,
         frame_length,
@@ -213,7 +222,8 @@ pub fn pyin<'py>(
         center,
         pad_mode,
         transition_min_prob,
-    )?;
+    }
+    .config()?;
     with_precision!(precision_of(y), |F| {
         let (x, nd) = signal2::<F>(y, "y")?;
         let x = x.view();
@@ -402,7 +412,8 @@ fn f0_harmonics_any<'py, F: crate::args::PyFloat>(
     })
 }
 
-/// Harmonic salience of a spectrogram, equivalent to ``librosa.salience``.
+/// Harmonic salience of a spectrogram: the weighted sum of the energy at the
+/// harmonics of every bin.
 ///
 /// Args:
 ///
@@ -430,7 +441,11 @@ fn f0_harmonics_any<'py, F: crate::args::PyFloat>(
     signature = (S, *, freqs, harmonics, weights = None, aggregate = None, filter_peaks = true, fill_value = f64::NAN, kind = "linear", axis = Int(-2)),
     text_signature = "(S, *, freqs, harmonics, weights=None, aggregate=None, filter_peaks=True, fill_value=math.nan, kind='linear', axis=-2)"
 )]
-#[allow(non_snake_case, clippy::too_many_arguments)]
+#[allow(
+    non_snake_case,
+    clippy::too_many_arguments,
+    reason = "the Python signature has 9 parameters"
+)]
 pub fn salience<'py>(
     py: Python<'py>,
     S: &Bound<'py, PyAny>,
@@ -453,7 +468,7 @@ pub fn salience<'py>(
         _ => None,
     };
     let cfg = SalienceConfig {
-        // numpy.mean ignores weights (librosa passes them only to numpy.average).
+        // Only the weighted average uses the weights; numpy.mean ignores them.
         weights: if is_mean { None } else { weights },
         aggregate: agg,
         filter_peaks,
@@ -468,7 +483,7 @@ pub fn salience<'py>(
     })
 }
 
-/// Interpolated harmonics of a spectrogram, equivalent to ``librosa.interp_harmonics``.
+/// Energy of a spectrogram interpolated at the harmonics of every bin.
 ///
 /// Args:
 ///
@@ -519,7 +534,7 @@ pub fn interp_harmonics<'py>(
     })
 }
 
-/// Energy at the harmonics of a time-varying f0, equivalent to ``librosa.f0_harmonics``.
+/// Energy at the harmonics of a time-varying f0.
 ///
 /// Args:
 ///
@@ -545,7 +560,10 @@ pub fn interp_harmonics<'py>(
     signature = (x, *, f0, freqs, harmonics, kind = "linear", fill_value = 0.0, axis = Int(-2)),
     text_signature = "(x, *, f0, freqs, harmonics, kind='linear', fill_value=0, axis=-2)"
 )]
-#[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the Python signature has 7 parameters"
+)]
 pub fn f0_harmonics<'py>(
     py: Python<'py>,
     x: &Bound<'py, PyAny>,

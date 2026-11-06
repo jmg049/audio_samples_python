@@ -911,7 +911,7 @@ impl_py_repr!(PyVadConfig);
 /// - ``ResamplingQuality.medium``: windowed sinc, passband 0.90 x Nyquist,
 ///   100 dB stopband.
 /// - ``ResamplingQuality.high``: windowed sinc, passband 0.913 x Nyquist,
-///   125 dB stopband; close to ``librosa.resample``'s default ``soxr_hq``.
+///   125 dB stopband.
 ///
 /// Instances are immutable enum-like values accessed via the class
 /// attributes; resampling methods also accept the names ``"fast"``,
@@ -970,7 +970,7 @@ impl PyResamplingQuality {
     }
 
     /// High quality resampling: windowed sinc, passband 0.913 x Nyquist,
-    /// 125 dB stopband (close to librosa's default ``soxr_hq``).
+    /// 125 dB stopband.
     #[classattr]
     const fn high() -> Self {
         Self {
@@ -1574,7 +1574,8 @@ impl PyIirFilterDesign {
     ///     Stopband attenuation in dB (Chebyshev II, elliptic).
     /// ``bessel_norm`` : str, optional
     ///     Bessel normalisation: ``"mag"`` (default, -3 dB at the cutoff),
-    ///     ``"phase"`` (SciPy's default) or ``"delay"``.
+    ///     ``"phase"`` (phase response at its midpoint at the cutoff) or
+    ///     ``"delay"`` (passband group delay set by the cutoff).
     ///
     /// Returns
     /// -------
@@ -1755,9 +1756,8 @@ impl PyIirFilterDesign {
         self.inner.bessel_norm.to_string()
     }
 
-    /// Create a Butterworth band-stop filter design.
-    ///
-    /// Equivalent to ``scipy.signal.butter(order, [low, high], 'bandstop')``.
+    /// Create a Butterworth band-stop filter design between ``low_frequency``
+    /// and ``high_frequency`` Hz.
     #[classmethod]
     #[pyo3(signature = (order: "int", low_frequency: "float", high_frequency: "float"))]
     fn butterworth_bandstop(
@@ -1777,7 +1777,6 @@ impl PyIirFilterDesign {
 
     /// Create a Chebyshev Type I low-pass / high-pass design.
     ///
-    /// Equivalent to ``scipy.signal.cheby1(order, passband_ripple, cutoff, response)``.
     /// The passband ripples between 0 and ``-passband_ripple`` dB.
     #[classmethod]
     #[pyo3(signature = (response: "FilterResponse | str", order: "int", cutoff_frequency: "float", passband_ripple: "float"))]
@@ -1800,7 +1799,7 @@ impl PyIirFilterDesign {
 
     /// Create a Chebyshev Type I band-pass / band-stop design.
     ///
-    /// Equivalent to ``scipy.signal.cheby1(order, passband_ripple, [low, high], response)``.
+    /// The passband ripples between 0 and ``-passband_ripple`` dB.
     #[classmethod]
     #[pyo3(signature = (response: "FilterResponse | str", order: "int", low_frequency: "float", high_frequency: "float", passband_ripple: "float"))]
     fn chebyshev_i_band(
@@ -1824,7 +1823,7 @@ impl PyIirFilterDesign {
 
     /// Create a Chebyshev Type II low-pass / high-pass design.
     ///
-    /// Equivalent to ``scipy.signal.cheby2(order, stopband_attenuation, cutoff, response)``;
+    /// The stopband is at least ``stopband_attenuation`` dB down;
     /// ``cutoff_frequency`` is the stopband edge.
     #[classmethod]
     #[pyo3(signature = (response: "FilterResponse | str", order: "int", cutoff_frequency: "float", stopband_attenuation: "float"))]
@@ -1847,7 +1846,8 @@ impl PyIirFilterDesign {
 
     /// Create a Chebyshev Type II band-pass / band-stop design.
     ///
-    /// Equivalent to ``scipy.signal.cheby2(order, stopband_attenuation, [low, high], response)``.
+    /// The stopband is at least ``stopband_attenuation`` dB down; the band
+    /// edges are the stopband edges.
     #[classmethod]
     #[pyo3(signature = (response: "FilterResponse | str", order: "int", low_frequency: "float", high_frequency: "float", stopband_attenuation: "float"))]
     fn chebyshev_ii_band(
@@ -1871,7 +1871,8 @@ impl PyIirFilterDesign {
 
     /// Create an elliptic (Cauer) low-pass / high-pass design.
     ///
-    /// Equivalent to ``scipy.signal.ellip(order, passband_ripple, stopband_attenuation, cutoff, response)``.
+    /// ``passband_ripple`` dB of passband ripple and at least
+    /// ``stopband_attenuation`` dB of stopband attenuation.
     #[classmethod]
     #[pyo3(signature = (response: "FilterResponse | str", order: "int", cutoff_frequency: "float", passband_ripple: "float", stopband_attenuation: "float"))]
     fn elliptic(
@@ -1895,7 +1896,8 @@ impl PyIirFilterDesign {
 
     /// Create an elliptic (Cauer) band-pass / band-stop design.
     ///
-    /// Equivalent to ``scipy.signal.ellip(order, passband_ripple, stopband_attenuation, [low, high], response)``.
+    /// ``passband_ripple`` dB of passband ripple and at least
+    /// ``stopband_attenuation`` dB of stopband attenuation.
     #[classmethod]
     #[pyo3(signature = (response: "FilterResponse | str", order: "int", low_frequency: "float", high_frequency: "float", passband_ripple: "float", stopband_attenuation: "float"))]
     fn elliptic_band(
@@ -1921,9 +1923,8 @@ impl PyIirFilterDesign {
 
     /// Create a Bessel low-pass / high-pass design.
     ///
-    /// Equivalent to ``scipy.signal.bessel(order, cutoff, response, norm=norm)``.
-    /// ``norm`` defaults to ``"mag"`` (-3 dB at the cutoff); pass ``"phase"`` to
-    /// match SciPy's default.
+    /// ``norm`` (``"mag"``, ``"phase"`` or ``"delay"``) defaults to ``"mag"``:
+    /// -3 dB at the cutoff.
     #[classmethod]
     #[pyo3(signature = (response: "FilterResponse | str", order: "int", cutoff_frequency: "float", norm: "str" = "mag"))]
     fn bessel(
@@ -1943,9 +1944,7 @@ impl PyIirFilterDesign {
         })
     }
 
-    /// Create a Bessel band-pass / band-stop design.
-    ///
-    /// Equivalent to ``scipy.signal.bessel(order, [low, high], response, norm=norm)``.
+    /// Create a Bessel band-pass / band-stop design; ``norm`` as for ``bessel``.
     #[classmethod]
     #[pyo3(signature = (response: "FilterResponse | str", order: "int", low_frequency: "float", high_frequency: "float", norm: "str" = "mag"))]
     fn bessel_band(
@@ -1970,9 +1969,8 @@ impl PyIirFilterDesign {
     /// Design the filter and return its second-order sections.
     ///
     /// Returns a ``(n_sections, 6)`` float64 array with rows
-    /// ``[b0, b1, b2, a0, a1, a2]`` — the same layout (and, to within a few
-    /// ULPs, the same values) as ``scipy.signal.iirfilter(..., output='sos',
-    /// fs=sample_rate)``, so it can be passed straight to ``scipy.signal.sosfilt``.
+    /// ``[b0, b1, b2, a0, a1, a2]`` and ``a0 == 1``, usable directly with
+    /// ``scipy.signal.sosfilt``.
     ///
     /// Args:
     ///
@@ -2003,8 +2001,8 @@ impl PyIirFilterDesign {
     /// Returns:
     ///
     ///     tuple[np.typing.NDArray[np.float64], np.typing.NDArray[np.float64]]:
-    ///     Linear magnitude and phase (radians, wrapped to (-pi, pi]) — the
-    ///     equivalent of ``scipy.signal.sosfreqz(sos, worN=frequencies, fs=sample_rate)``.
+    ///     Linear magnitude and phase (radians, wrapped to (-pi, pi]) of the
+    ///     cascaded sections at ``frequencies``.
     ///
     /// Raises:
     ///

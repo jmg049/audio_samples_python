@@ -1008,9 +1008,9 @@ impl PySosFilter {
 
     /// Zero-phase forward-backward filtering of a whole signal.
     ///
-    /// Equivalent to ``scipy.signal.sosfiltfilt(sos, x)`` (odd padding,
-    /// steady-state initial conditions). The streaming state is neither used
-    /// nor modified. Returns a new array.
+    /// The signal is extended at both ends by odd reflection and each pass
+    /// starts from the steady-state initial conditions for its first sample.
+    /// The streaming state is neither used nor modified. Returns a new array.
     ///
     /// Args:
     ///

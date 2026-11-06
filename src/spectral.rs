@@ -1,11 +1,11 @@
-//! `audio_samples.spectral`: librosa-compatible spectral helpers over NumPy arrays.
+//! `audio_samples.spectral`: spectral functions over NumPy arrays.
 //!
-//! Free functions mirroring `librosa.stft`, `librosa.istft`, the dB conversions,
-//! `librosa.filters.mel` / `get_window` / `window_sumsquare` /
-//! `window_bandwidth`, `librosa.feature.delta` / `stack_memory` and
-//! `librosa.util.frame`, binding `audio_samples::operations::{spectrum,
-//! filterbanks}`. Array shapes follow librosa: a 1-D signal gives a 2-D STFT,
-//! a `(channels, n)` signal gives `(channels, F, T)`.
+//! Free functions for the STFT and its inverse (`stft`, `istft`), dB
+//! conversions, windows and filterbanks (`mel_filterbank`, `get_window`,
+//! `window_sumsquare`, `window_bandwidth`), `delta`, `stack_memory`, mel
+//! projection and MFCCs of a spectrogram and signal framing (`frame`), binding
+//! `audio_samples::operations::{spectrum, filterbanks}`. A 1-D signal gives a
+//! 2-D STFT, a `(channels, n)` signal gives `(channels, F, T)`.
 
 use crate::args::Int;
 use audio_samples::operations::filterbanks::{self, Window};
@@ -38,7 +38,7 @@ where
     Ok(a.into_pyarray(py).into_any())
 }
 
-/// Short-time Fourier transform, equivalent to ``librosa.stft``.
+/// Short-time Fourier transform.
 ///
 /// Args:
 ///
@@ -64,7 +64,7 @@ where
     signature = (y, *, n_fft = Int(2048), hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant"),
     text_signature = "(y, *, n_fft=2048, hop_length=None, win_length=None, window='hann', center=True, pad_mode='constant')"
 )]
-#[allow(clippy::too_many_arguments)] // PyO3 signature mirrors librosa's keyword arguments
+#[allow(clippy::too_many_arguments)] // PyO3 signature mirrors the Python keyword arguments
 pub fn stft<'py>(
     py: Python<'py>,
     y: &Bound<'py, PyAny>,
@@ -105,7 +105,7 @@ pub fn stft<'py>(
     })
 }
 
-/// Inverse short-time Fourier transform, equivalent to ``librosa.istft``.
+/// Inverse short-time Fourier transform by weighted overlap-add.
 ///
 /// Args:
 ///
@@ -130,7 +130,7 @@ pub fn stft<'py>(
     signature = (stft_matrix, *, hop_length = None, win_length = None, n_fft = None, window = WindowArg(Window::Hann), center = true, length = None),
     text_signature = "(stft_matrix, *, hop_length=None, win_length=None, n_fft=None, window='hann', center=True, length=None)"
 )]
-#[allow(clippy::too_many_arguments)] // PyO3 signature mirrors librosa's keyword arguments
+#[allow(clippy::too_many_arguments)] // PyO3 signature mirrors the Python keyword arguments
 pub fn istft<'py>(
     py: Python<'py>,
     stft_matrix: &Bound<'py, PyAny>,
@@ -198,7 +198,7 @@ const fn db_config(
     }
 }
 
-/// Convert a power spectrogram to decibels, equivalent to ``librosa.power_to_db``.
+/// Convert a power spectrogram to decibels.
 ///
 /// Computes ``10 * log10(max(amin, S)) - 10 * log10(max(amin, |ref|))``, floored
 /// at ``max - top_db``.
@@ -209,7 +209,7 @@ const fn db_config(
 ///     ref (float | "max" | numpy.max): 0 dB reference. Default 1.0.
 ///     amin (float): Lower clamp before the log. Default 1e-10.
 ///     top_db (Optional[float]): Dynamic range below the maximum. Default None
-///         (no floor); librosa's default is 80.
+///         (no floor).
 ///     axes ("auto" | None): Reduction axes for ``ref=numpy.max`` and ``top_db``.
 ///         ``"auto"`` (default) uses the last two axes, i.e. per channel for
 ///         ``(channels, F, T)`` input; ``None`` uses the whole array.
@@ -248,11 +248,10 @@ pub fn power_to_db<'py>(
     })
 }
 
-/// Convert an amplitude spectrogram to decibels, equivalent to
-/// ``librosa.amplitude_to_db``.
+/// Convert an amplitude spectrogram to decibels.
 ///
 /// ``20 * log10(max(amin, |S|) / max(amin, |ref|))``, floored at ``max - top_db``.
-/// Complex input is replaced by its magnitude (librosa warns and does the same).
+/// Complex input is replaced by its magnitude.
 ///
 /// Args:
 ///
@@ -260,7 +259,7 @@ pub fn power_to_db<'py>(
 ///     ref (float | "max" | numpy.max): 0 dB reference. Default 1.0.
 ///     amin (float): Lower clamp. Default 1e-5.
 ///     top_db (Optional[float]): Dynamic range below the maximum. Default None
-///         (no floor); librosa's default is 80.
+///         (no floor).
 ///     axes ("auto" | None): As ``power_to_db``.
 ///
 /// Returns:
@@ -307,7 +306,7 @@ pub fn amplitude_to_db<'py>(
     })
 }
 
-/// Convert decibels to power, equivalent to ``librosa.db_to_power``:
+/// Convert decibels to power:
 /// ``ref * 10 ** (S_db / 10)``.
 ///
 /// Args:
@@ -333,7 +332,7 @@ pub fn db_to_power<'py>(
     })
 }
 
-/// Convert decibels to amplitude, equivalent to ``librosa.db_to_amplitude``:
+/// Convert decibels to amplitude:
 /// ``sqrt(ref ** 2 * 10 ** (S_db / 10))``.
 ///
 /// Args:
@@ -359,7 +358,7 @@ pub fn db_to_amplitude<'py>(
     })
 }
 
-/// Mel filterbank matrix, equivalent to ``librosa.filters.mel(..., dtype=numpy.float64)``.
+/// Mel filterbank matrix mapping STFT bins to mel bands (float64).
 ///
 /// Args:
 ///
@@ -384,7 +383,7 @@ pub fn db_to_amplitude<'py>(
     signature = (*, sr, n_fft, n_mels = Int(128), fmin = 0.0, fmax = None, htk = false, norm = MelNormArg(audio_samples::MelFilterNorm::Slaney)),
     text_signature = "(*, sr, n_fft, n_mels=128, fmin=0.0, fmax=None, htk=False, norm='slaney')"
 )]
-#[allow(clippy::too_many_arguments)] // PyO3 signature mirrors librosa's keyword arguments
+#[allow(clippy::too_many_arguments)] // PyO3 signature mirrors the Python keyword arguments
 pub fn mel_filterbank(
     py: Python<'_>,
     sr: f64,
@@ -401,8 +400,7 @@ pub fn mel_filterbank(
     Ok(m.into_pyarray(py))
 }
 
-/// Window coefficients, equivalent to ``librosa.filters.get_window`` /
-/// ``scipy.signal.get_window``.
+/// Window coefficients for a window specification.
 ///
 /// Args:
 ///
@@ -434,8 +432,7 @@ pub fn get_window(
     Ok(w.into_pyarray(py))
 }
 
-/// Sum-squared window envelope, equivalent to
-/// ``librosa.filters.window_sumsquare(..., dtype=numpy.float64)``.
+/// Sum-squared window envelope of an overlap-add of ``n_frames`` windows.
 ///
 /// Args:
 ///
@@ -445,11 +442,11 @@ pub fn get_window(
 ///     win_length (Optional[int]): ``None`` means ``n_fft``.
 ///     n_fft (int): Default 2048.
 ///     norm (Optional[float]): Normalise the window before squaring, as
-///         ``librosa.util.normalize(w, norm=norm)``: ``None`` (default), a
+///         ``features.normalize(w, norm=norm)``: ``None`` (default), a
 ///         positive number (L-p norm), ``math.inf`` / ``-math.inf`` (max / min
 ///         absolute value) or ``0`` (count of non-zeros).
 ///     dtype (Optional[numpy.dtype]): ``float32`` or ``float64``. ``None``
-///         (default) means ``float64``; librosa's default is ``float32``.
+///         (default) means ``float64``.
 ///
 /// Returns:
 ///
@@ -489,8 +486,8 @@ pub fn window_sumsquare<'py>(
     };
     let n_fft = positive("n_fft", n_fft)?;
     let win_length = opt_positive("win_length", win_length)?;
-    // librosa normalises the (periodic) window before squaring; do the same and
-    // hand the result over as a custom window of length win_length.
+    // Normalise the (periodic) window before squaring and hand the result over
+    // as a custom window of length win_length.
     let window = match norm {
         None => window.0,
         Some(p) => {
@@ -524,10 +521,7 @@ pub fn window_sumsquare<'py>(
 
 /// Equivalent noise bandwidth of a window in FFT bins:
 /// ``n * sum(w ** 2) / sum(w) ** 2`` for the periodic window of length ``n``.
-///
-/// librosa's ``window_bandwidth`` returns a pre-computed table value for named
-/// windows (independent of ``n``); this computes the definition, which agrees
-/// with the table to about 1e-4 at the default ``n=1000``.
+/// The definition is evaluated for every window, named or not.
 ///
 /// Args:
 ///
@@ -548,7 +542,7 @@ pub fn window_bandwidth<'py>(
     // The last result for a window given as a string, keyed by the string
     // object (immutable, so the same object gives the same value): a repeated
     // call with the same name returns the same float without parsing the
-    // name or allocating, as librosa returns its table entry.
+    // name or allocating.
     /// The window object, its length and its bandwidth.
     type LastWindow = Option<(Py<PyAny>, i64, Py<PyFloat>)>;
     thread_local! {
@@ -578,7 +572,7 @@ pub fn window_bandwidth<'py>(
     Ok(v)
 }
 
-/// Savitzky-Golay delta features, equivalent to ``librosa.feature.delta``.
+/// Savitzky-Golay delta features along the last axis.
 ///
 /// Args:
 ///
@@ -639,8 +633,7 @@ pub fn delta<'py>(
     })
 }
 
-/// Stack time-delayed copies of a feature array, equivalent to
-/// ``librosa.feature.stack_memory`` (zero padding).
+/// Stack time-delayed copies of a feature array (zero padding).
 ///
 /// Args:
 ///
@@ -679,15 +672,13 @@ pub fn stack_memory<'py>(
     })
 }
 
-/// Slice a 1-D signal into overlapping frames, equivalent to
-/// ``librosa.util.frame(x, frame_length=..., hop_length=...)``.
+/// Slice a 1-D signal into overlapping frames along the last axis.
 ///
 /// By default the frames are a new, writable array (a copy). With
-/// ``copy=False`` the result is instead a read-only strided view into ``x``,
-/// as librosa returns: no data is copied, the view keeps ``x`` alive and
-/// reflects later changes to it. Input that is not a contiguous float32 /
-/// float64 array is converted first, and the view is into the converted
-/// array.
+/// ``copy=False`` the result is instead a read-only strided view into ``x``:
+/// no data is copied, the view keeps ``x`` alive and reflects later changes to
+/// it. Input that is not a contiguous float32 / float64 array is converted
+/// first, and the view is into the converted array.
 ///
 /// Args:
 ///
@@ -774,7 +765,7 @@ fn readonly_frames<'py, F: numpy::Element>(
     // the result, so the data outlives it; numpy arrays are never
     // reallocated.
     let out = unsafe { PyArray2::borrow_from_array(view, base) };
-    // Overlapping frames: read-only, as librosa's view.
+    // Overlapping frames share memory: the view is read-only.
     // SAFETY: `out` is a valid array object created above.
     unsafe {
         (*out.as_array_ptr()).flags &= !numpy::npyffi::NPY_ARRAY_WRITEABLE;
@@ -782,8 +773,7 @@ fn readonly_frames<'py, F: numpy::Element>(
     out.into_any()
 }
 
-/// Project a spectrogram onto mel bands, equivalent to
-/// ``librosa.feature.melspectrogram(S=S, sr=sr, n_fft=n_fft, ...)``.
+/// Project a spectrogram onto mel bands: the mel filterbank applied to ``S``.
 ///
 /// Args:
 ///
@@ -845,8 +835,8 @@ pub fn melspectrogram_from_spectrogram<'py>(
     })
 }
 
-/// MFCCs from a log-power (dB) mel spectrogram, equivalent to
-/// ``librosa.feature.mfcc(S=S, n_mfcc=..., dct_type=..., norm=..., lifter=...)``.
+/// MFCCs from a log-power (dB) mel spectrogram: DCT along the mel axis, first
+/// ``n_mfcc`` rows, liftering.
 ///
 /// Args:
 ///
@@ -886,7 +876,7 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     let m = PyModule::new(py, "spectral")?;
     m.add(
         "__doc__",
-        "librosa-compatible spectral helpers over NumPy arrays (STFT/ISTFT, dB \
+        "Spectral functions over NumPy arrays (STFT/ISTFT, dB \
          conversions, mel filterbank, windows, delta, stack_memory, frame). \
          float32 / complex64 arrays are processed in float32 and give float32 \
          output; any other input is converted to float64.",

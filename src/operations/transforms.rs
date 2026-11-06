@@ -179,9 +179,9 @@ impl PyAudioSamples {
     ///     numpy.ndarray: Mel spectrogram shaped (mel_bins, frames). Without
     ///         ``log_params`` the values are ``sqrt(M @ |X|**2)`` (the square root
     ///         of the mel power spectrogram, following the ``spectrograms`` crate),
-    ///         which is neither librosa's default (``power=2``, ``M @ |X|**2``) nor
-    ///         ``power=1`` (``M @ |X|``). For librosa-compatible output use
-    ///         ``melspectrogram()``.
+    ///         which is neither the mel power ``M @ |X|**2`` nor the mel magnitude
+    ///         ``M @ |X|``. For either of those use ``melspectrogram()`` with
+    ///         ``power=2`` or ``power=1``.
     ///
     /// Raises:
     ///
@@ -196,14 +196,12 @@ impl PyAudioSamples {
     ///     - with ``log_params`` it is ``max(10*log10(M @ |X|**2), floor_db)``.
     ///       ``floor_db`` is an **absolute** floor in dB re 1 (e.g. ``-80``
     ///       clips values below -80 dB), not a range below the maximum like
-    ///       librosa's ``top_db``.
+    ///       the ``top_db`` of ``power_to_db``.
     ///
-    ///     The mel scale is Slaney's (linear below 1 kHz, logarithmic above;
-    ///     librosa ``htk=False``). The filters are **not** normalised by default
+    ///     The mel scale is Slaney's (linear below 1 kHz, logarithmic above).
+    ///     The filters are **not** normalised by default
     ///     (``MelParams(norm=None)``, triangles of peak 1); pass
-    ///     ``norm="slaney"`` for librosa's default area normalisation. So
-    ///     ``librosa.filters.mel(sr=..., n_fft=..., n_mels=..., norm=None)``
-    ///     reproduces ``M``.
+    ///     ``norm="slaney"`` for area normalisation.
     #[pyo3(signature = (spec_params: "SpectrogramParams", mel_params: "MelParams", log_params: "Optional[LogParams]"=None))]
     fn mel_spectrogram<'py>(
         &self,
@@ -255,7 +253,7 @@ impl PyAudioSamples {
     /// Notes:
     ///
     ///     ``log_params.floor_db`` is an absolute floor in dB re 1, not a
-    ///     range below the maximum (librosa's ``top_db``).
+    ///     range below the maximum (as ``top_db`` is).
     #[pyo3(signature = (spec_params: "SpectrogramParams", erb_params: "ErbParams", log_params: "Optional[LogParams]"=None))]
     fn gammatone_spectrogram<'py>(
         &self,
@@ -297,8 +295,8 @@ impl PyAudioSamples {
     /// Returns:
     ///
     ///     numpy.ndarray: MFCC matrix shaped (coefficients, frames). This follows
-    ///         the ``spectrograms`` crate's MFCC (not librosa's); for
-    ///         ``librosa.feature.mfcc``-compatible output use ``mfcc_frames()``.
+    ///         the ``spectrograms`` crate's MFCC; ``mfcc_frames()`` is the
+    ///         configurable pipeline (orthonormal DCT, optional lifter and dB floor).
     ///
     /// Raises:
     ///
@@ -314,9 +312,9 @@ impl PyAudioSamples {
     ///     ``n_mfcc`` coefficients, then the HTK sinusoidal lifter
     ///     ``1 + (22/2)*sin(pi*q/22)`` (lifter 22).
     ///
-    ///     Compared with ``librosa.feature.mfcc`` (orthonormal DCT, no lifter,
-    ///     ``top_db=80``): ``ours = librosa * s_q * lifter_q`` with
-    ///     ``s_0 = sqrt(n_mels)`` and ``s_q = sqrt(n_mels / 2)`` for ``q >= 1``.
+    ///     The result equals ``mfcc_frames`` (orthonormal DCT, no lifter, no dB
+    ///     floor) times ``s_q * lifter_q``, with ``s_0 = sqrt(n_mels)`` and
+    ///     ``s_q = sqrt(n_mels / 2)`` for ``q >= 1``.
     #[pyo3(signature = (stft_params: "StftParams", n_mels: "int", mfcc_params: "MfccParams"))]
     fn mfcc<'py>(
         &self,

@@ -1,12 +1,11 @@
 //! `audio_samples.sequence`: DTW, Viterbi decoding, transition matrices,
 //! recurrence/similarity matrices and `sync`, binding
-//! `audio_samples::operations::sequence` (librosa's `sequence`, `segment` and
-//! `util.sync`).
+//! `audio_samples::operations::sequence`.
 //!
-//! Feature matrices use librosa's layout `(n_features, n_frames)`; 1-D input is
-//! treated as one feature (`(1, n_frames)`), as librosa's `numpy.atleast_2d`.
-//! Return values follow librosa: tuples only when the corresponding flag asks
-//! for them (`backtrack`, `return_steps`, `return_logp`).
+//! Feature matrices are `(n_features, n_frames)`; 1-D input is treated as one
+//! feature (`(1, n_frames)`). Functions return tuples only when the
+//! corresponding flag asks for them (`backtrack`, `return_steps`,
+//! `return_logp`).
 
 use crate::args::Int;
 use audio_samples::AudioFloat;
@@ -109,7 +108,7 @@ fn path_array(py: Python<'_>, path: Vec<[usize; 2]>) -> Bound<'_, PyArray2<i64>>
     Array2::from(path).into_pyarray(py)
 }
 
-/// Dynamic time warping, equivalent to ``librosa.sequence.dtw``.
+/// Dynamic time warping.
 ///
 /// Pass either the feature sequences ``X`` and ``Y`` (``(n_features, N)`` and
 /// ``(n_features, M)``; 1-D input is one feature), or a precomputed cost
@@ -122,7 +121,7 @@ fn path_array(py: Python<'_>, path: Vec<[usize; 2]>) -> Bound<'_, PyArray2<i64>>
 ///     metric (str): ``"euclidean"`` (default), ``"sqeuclidean"``, ``"cosine"``,
 ///         ``"cityblock"`` or ``"chebyshev"`` (used with X/Y only).
 ///     step_sizes_sigma (Optional[array_like]): Extra steps, shape ``(n, 2)``;
-///         appended to librosa's defaults ``[[1, 1], [0, 1], [1, 0]]``.
+///         appended to the default steps ``[[1, 1], [0, 1], [1, 0]]``.
 ///     weights_add, weights_mul (Optional[array_like]): Per-step weights.
 ///     subseq (bool): Subsequence alignment. Default False.
 ///     backtrack (bool): Compute the warping path. Default True.
@@ -136,7 +135,7 @@ fn path_array(py: Python<'_>, path: Vec<[usize; 2]>) -> Bound<'_, PyArray2<i64>>
 ///     the tuple ``(D, wp)`` where ``wp`` is an int64 array of shape
 ///     ``(path_length, 2)`` ordered from the end of the alignment to its start;
 ///     with ``return_steps=True`` the step matrix (int64, same shape as ``D``)
-///     is appended. Exactly librosa's return convention.
+///     is appended.
 ///
 /// Raises:
 ///
@@ -150,7 +149,7 @@ fn path_array(py: Python<'_>, path: Vec<[usize; 2]>) -> Bound<'_, PyArray2<i64>>
     non_snake_case,
     clippy::too_many_arguments,
     clippy::fn_params_excessive_bools
-)] // PyO3 signature mirrors librosa's keyword arguments
+)] // PyO3 signature mirrors the Python keyword arguments
 pub fn dtw<'py>(
     py: Python<'py>,
     X: Option<&Bound<'py, PyAny>>,
@@ -224,8 +223,7 @@ pub fn dtw<'py>(
     }
 }
 
-/// Backtrack a warping path from a DTW step matrix, equivalent to
-/// ``librosa.sequence.dtw_backtracking``.
+/// Backtrack a warping path from a DTW step matrix.
 ///
 /// Args:
 ///
@@ -254,7 +252,7 @@ pub fn dtw_backtracking<'py>(
         .map(|s| usize::try_from(s.0).map_err(|_| value_err("start", "must be >= 0")))
         .transpose()?;
     let not_2d = || value_err("steps", "expected a 2-D step matrix");
-    // librosa's int32 (or an int64) step matrix is read in place: backtracking
+    // An int32 or int64 step matrix is read in place: backtracking
     // only visits the cells on the path.
     let path = if let Ok(a) = steps.cast::<numpy::PyArray2<i32>>() {
         let r = a.try_readonly()?;
@@ -287,7 +285,7 @@ fn states_out<'py, T: numpy::Element, D: ndarray::Dimension>(
     }
 }
 
-/// Viterbi decoding of a generative HMM, equivalent to ``librosa.sequence.viterbi``.
+/// Viterbi decoding of a generative HMM.
 ///
 /// Args:
 ///
@@ -300,7 +298,7 @@ fn states_out<'py, T: numpy::Element, D: ndarray::Dimension>(
 ///
 /// Returns:
 ///
-///     numpy.ndarray[int64] of shape ``(n_steps,)`` (librosa returns uint16), or
+///     numpy.ndarray[int64] of shape ``(n_steps,)``, or
 ///     ``(states, logp)`` with ``logp`` a float when ``return_logp=True``.
 ///
 /// Raises:
@@ -335,8 +333,8 @@ pub fn viterbi<'py>(
     })
 }
 
-/// Viterbi decoding from discriminative (posterior) state probabilities,
-/// equivalent to ``librosa.sequence.viterbi_discriminative``.
+/// Viterbi decoding from discriminative (posterior) state probabilities; each
+/// column of ``prob`` sums to 1.
 ///
 /// Args:
 ///
@@ -382,8 +380,7 @@ pub fn viterbi_discriminative<'py>(
     })
 }
 
-/// Independent binary (off/on) Viterbi decoding per state, equivalent to
-/// ``librosa.sequence.viterbi_binary``.
+/// Independent binary (off/on) Viterbi decoding per state.
 ///
 /// Args:
 ///
@@ -395,14 +392,13 @@ pub fn viterbi_discriminative<'py>(
 ///     return_logp (bool): Also return per-state log-likelihoods.
 ///     transition_min_prob (Optional[float]): As ``viterbi``.
 ///     dtype (Optional[numpy.dtype]): dtype of the states: ``bool`` (default
-///         None, one byte per entry), ``numpy.uint16`` (librosa's dtype) or
-///         ``numpy.int64``.
+///         None, one byte per entry), ``numpy.uint16`` or ``numpy.int64``.
 ///
 /// Returns:
 ///
 ///     numpy.ndarray[bool | uint16 | int64] ``(n_states, n_steps)``, true or 1
 ///     where the state is on, or ``(states, logp)`` with ``logp`` of shape
-///     ``(n_states,)``. librosa returns uint16.
+///     ``(n_states,)``.
 #[pyfunction]
 #[pyo3(
     signature = (prob, transition, *, p_state = None, p_init = None, return_logp = false, transition_min_prob = None, dtype = None),
@@ -494,7 +490,7 @@ fn viterbi_binary_typed<'py, F: PyFloat>(
             ));
         }
     };
-    // librosa broadcasts a scalar p_state / p_init to every state.
+    // A scalar p_state / p_init applies to every state.
     let broadcast = |v: Option<Array1<F>>| -> Option<Array1<F>> {
         v.map(|a| {
             let scalar = a.first().copied().filter(|_| a.len() == 1 && n_states > 1);
@@ -543,7 +539,7 @@ fn is_one_d(obj: &Bound<'_, PyAny>, name: &str) -> PyResult<bool> {
     }
 }
 
-/// Uniform transition matrix, equivalent to ``librosa.sequence.transition_uniform``.
+/// Uniform transition matrix: every entry ``1 / n_states``.
 ///
 /// Returns:
 ///
@@ -577,7 +573,7 @@ fn with_float_slice<R>(
     })
 }
 
-/// Self-loop transition matrix, equivalent to ``librosa.sequence.transition_loop``.
+/// Self-loop transition matrix.
 ///
 /// Args:
 ///
@@ -601,7 +597,7 @@ pub fn transition_loop<'py>(
     Ok(t.into_pyarray(py))
 }
 
-/// Cyclic transition matrix, equivalent to ``librosa.sequence.transition_cycle``.
+/// Cyclic transition matrix.
 ///
 /// Args:
 ///
@@ -625,7 +621,7 @@ pub fn transition_cycle<'py>(
     Ok(t.into_pyarray(py))
 }
 
-/// Localised transition matrix, equivalent to ``librosa.sequence.transition_local``.
+/// Localised transition matrix (row-stochastic).
 ///
 /// Args:
 ///
@@ -674,7 +670,7 @@ pub fn transition_local<'py>(
     Ok(t.into_pyarray(py))
 }
 
-/// Recurrence quantification analysis, equivalent to ``librosa.sequence.rqa``.
+/// Recurrence quantification analysis.
 ///
 /// Args:
 ///
@@ -769,7 +765,7 @@ pub fn parse_bandwidth(obj: Option<&Bound<'_, PyAny>>) -> PyResult<Bandwidth> {
     }
 }
 
-/// Connectivity output as a bool array (as librosa), other modes as floats.
+/// Connectivity output as a bool array, other modes as floats.
 fn similarity_out<F: PyFloat>(
     py: Python<'_>,
     m: Array2<F>,
@@ -782,8 +778,7 @@ fn similarity_out<F: PyFloat>(
     }
 }
 
-/// Recurrence (self-similarity) matrix, equivalent to
-/// ``librosa.segment.recurrence_matrix(data, ..., sparse=False)``.
+/// Recurrence (self-similarity) matrix of a feature sequence.
 ///
 /// Args:
 ///
@@ -792,13 +787,13 @@ fn similarity_out<F: PyFloat>(
 ///     width (int): Minimum time separation of linked frames. Default 1.
 ///     metric (str): Distance metric (see ``dtw``). Default "euclidean".
 ///     sym (bool): Keep only mutual links. Default False.
-///     sparse (bool): Must be False (dense output only).
+///     sparse (bool): Return ``arrays.SparseRows`` rather than a dense array. Default False.
 ///     mode (str): ``"connectivity"`` (default, bool output), ``"distance"`` or ``"affinity"``.
 ///     bandwidth: Affinity bandwidth: None (``"med_k_scalar"``), a heuristic
 ///         name, a positive number, or a ``(t, t)`` array.
-///     self_links (bool): librosa's ``self`` (link each frame to itself).
-///         ``self=...`` is also accepted as a keyword.
-///     axis (int): Must be -1 (librosa's default layout).
+///     self_links (bool): Link each frame to itself. ``self=...`` is an
+///         equivalent keyword.
+///     axis (int): Must be -1 (frames on the last axis).
 ///     full (bool): Link every pair in distance/affinity mode. Default False.
 ///
 /// Returns:
@@ -810,7 +805,7 @@ fn similarity_out<F: PyFloat>(
     signature = (data, *, k = None, width = Int(1), metric = "euclidean", sym = false, sparse = false, mode = "connectivity", bandwidth = None, self_links = false, axis = Int(-1), full = false, **kwargs),
     text_signature = "(data, *, k=None, width=1, metric='euclidean', sym=False, sparse=False, mode='connectivity', bandwidth=None, self=False, axis=-1, full=False, self_links=False)"
 )]
-#[allow(clippy::too_many_arguments, clippy::fn_params_excessive_bools)] // PyO3 signature mirrors librosa's keyword arguments
+#[allow(clippy::too_many_arguments, clippy::fn_params_excessive_bools)] // PyO3 signature mirrors the Python keyword arguments
 pub fn recurrence_matrix<'py>(
     py: Python<'py>,
     data: &Bound<'py, PyAny>,
@@ -890,8 +885,7 @@ pub fn recurrence_matrix<'py>(
     })
 }
 
-/// Cross-similarity matrix, equivalent to
-/// ``librosa.segment.cross_similarity(data, data_ref, ..., sparse=False)``.
+/// Cross-similarity matrix between a query and a reference feature sequence.
 ///
 /// Args:
 ///
@@ -953,8 +947,7 @@ pub fn cross_similarity<'py>(
     })
 }
 
-/// Convert a recurrence matrix to a time-lag matrix, equivalent to
-/// ``librosa.segment.recurrence_to_lag(rec, pad=pad, axis=axis)`` (dense input).
+/// Convert a (dense) recurrence matrix to a time-lag matrix.
 ///
 /// Args:
 ///
@@ -1006,8 +999,7 @@ pub fn recurrence_to_lag<'py>(
     })
 }
 
-/// Convert a time-lag matrix back to a recurrence matrix, equivalent to
-/// ``librosa.segment.lag_to_recurrence(lag, axis=axis)`` (dense input).
+/// Convert a (dense) time-lag matrix back to a recurrence matrix.
 ///
 /// Args:
 ///
@@ -1051,8 +1043,6 @@ pub fn lag_to_recurrence<'py>(
     })
 }
 
-/// librosa's `axis` for the (2-D) lag transforms: `-1`/`1` (columns are time,
-/// the default) or `0`/`-2` (rows are time). Returns whether rows are time.
 /// Runs a lag/recurrence shear on `m` along the time axis: rows when
 /// `rows_are_time` (the transform of the transpose, transposed back), columns
 /// otherwise.
@@ -1077,6 +1067,8 @@ fn c_order<T: Clone>(m: Array2<T>) -> Array2<T> {
     }
 }
 
+/// The `axis` of the (2-D) lag transforms: `-1`/`1` (columns are time,
+/// the default) or `0`/`-2` (rows are time). Returns whether rows are time.
 fn lag_axis_is_rows(axis: Int) -> PyResult<bool> {
     match axis.0 {
         -1 | 1 => Ok(false),
@@ -1112,8 +1104,7 @@ fn bool_or_float<F: PyFloat>(py: Python<'_>, m: Array2<F>, is_bool: bool) -> Bou
     }
 }
 
-/// Aggregate frames between boundaries (e.g. beats), equivalent to
-/// ``librosa.util.sync(data, idx, aggregate=..., pad=...)`` (axis=-1).
+/// Aggregate frames between boundaries (e.g. beats) along the last axis.
 ///
 /// Args:
 ///
@@ -1327,9 +1318,8 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     let m = PyModule::new(py, "sequence")?;
     m.add(
         "__doc__",
-        "Sequence alignment and decoding (librosa.sequence / librosa.segment / \
-         librosa.util.sync): DTW, Viterbi, transition matrices, RQA, recurrence \
-         and cross-similarity matrices, lag conversions and sync. \
+        "Sequence alignment and decoding: DTW, Viterbi, transition matrices, RQA, \
+         recurrence and cross-similarity matrices, lag conversions and sync. \
          float32 / complex64 arrays are processed in float32 and give float32 \
          output; any other input is converted to float64.",
     )?;

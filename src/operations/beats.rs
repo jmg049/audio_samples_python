@@ -14,8 +14,8 @@ impl PyAudioSamples {
     /// from the global onset peak in steps of one inter-beat interval at
     /// ``config.tempo_bpm`` (snapping to nearby onsets within the configured
     /// tolerance). The tempo is *not* estimated: the returned ``tempo_bpm`` echoes
-    /// the configuration. This is not librosa's dynamic-programming
-    /// ``beat_track``.
+    /// the configuration. For tempo estimation and dynamic-programming beat
+    /// tracking use ``beat_track``.
     ///
     /// Args:
     ///

@@ -1,12 +1,11 @@
-//! librosa-compatible constant-Q analysis on `AudioSamples` (`cqt`, `vqt`,
+//! Constant-Q analysis on `AudioSamples` (`cqt`, `vqt`,
 //! `pseudo_cqt`, `hybrid_cqt`, the static `icqt` / `griffinlim_cqt`,
 //! `chroma_cqt`, `chroma_cens`, `chroma_vqt`, `tonnetz`), binding the Rust
 //! `AudioConstantQ` trait.
 //!
-//! Frame `t` is centred on sample `t * hop_length`. librosa decimates between
-//! octaves with soxr; the Rust crate uses its own windowed-sinc resampler
-//! (`res_type` selects its quality), so octaves below the top one differ from
-//! librosa by about 1e-4 of the peak.
+//! Frame `t` is centred on sample `t * hop_length`. The octaves below the top
+//! one are computed on a signal decimated by the crate's windowed-sinc
+//! resampler; `res_type` selects its quality.
 
 use crate::args::Int;
 use audio_samples::operations::constant_q::griffinlim_cqt_random;
@@ -28,8 +27,6 @@ use crate::features::args::{check_intervals, parse_cqt_mode, parse_res_type};
 use crate::types::PySampleType;
 use crate::{PyAudioSamples, audio_err_to_py, dispatch_array_detached, nzu32_or_err};
 
-/// Builds a [`CqtConfig`] from librosa's `cqt` keyword arguments.
-#[allow(clippy::too_many_arguments)]
 /// The ratios of one octave for a tuning system; None for equal temperament.
 fn interval_ratios(
     intervals: &Bound<'_, PyAny>,
@@ -50,7 +47,7 @@ fn interval_ratios(
     .map_err(crate::audio_err_to_py)
 }
 
-/// librosa's constant-Q keyword arguments, before validation.
+/// The constant-Q keyword arguments, before validation.
 struct CqtArgs<'a> {
     hop_length: Int,
     fmin: Option<f64>,
@@ -96,9 +93,8 @@ fn check_window_none(window: Option<&Bound<'_, PyAny>>) -> PyResult<()> {
     Ok(())
 }
 
-/// Builds a [`ChromaCqtConfig`] from librosa's `chroma_cqt` keyword arguments.
-#[allow(clippy::too_many_arguments)]
-fn chroma_cqt_config(
+/// The constant-Q chroma keyword arguments, before validation.
+struct ChromaCqtArgs<'a> {
     hop_length: Int,
     fmin: Option<f64>,
     norm: Option<f64>,
@@ -107,28 +103,32 @@ fn chroma_cqt_config(
     n_chroma: Int,
     n_octaves: Int,
     bins_per_octave: Option<Int>,
-    cqt_mode: &str,
-) -> PyResult<ChromaCqtConfig> {
-    Ok(ChromaCqtConfig {
-        hop_length: positive("hop_length", hop_length)?,
-        fmin,
-        norm,
-        threshold,
-        tuning,
-        n_chroma: positive("n_chroma", n_chroma)?,
-        n_octaves: positive("n_octaves", n_octaves)?,
-        bins_per_octave: opt_positive("bins_per_octave", bins_per_octave)?,
-        cqt_mode: parse_cqt_mode(cqt_mode)?,
-    })
+    cqt_mode: &'a str,
+}
+
+impl ChromaCqtArgs<'_> {
+    /// Validates the arguments into a [`ChromaCqtConfig`].
+    fn config(self) -> PyResult<ChromaCqtConfig> {
+        Ok(ChromaCqtConfig {
+            hop_length: positive("hop_length", self.hop_length)?,
+            fmin: self.fmin,
+            norm: self.norm,
+            threshold: self.threshold,
+            tuning: self.tuning,
+            n_chroma: positive("n_chroma", self.n_chroma)?,
+            n_octaves: positive("n_octaves", self.n_octaves)?,
+            bins_per_octave: opt_positive("bins_per_octave", self.bins_per_octave)?,
+            cqt_mode: parse_cqt_mode(self.cqt_mode)?,
+        })
+    }
 }
 
 #[pymethods]
 impl PyAudioSamples {
-    /// Constant-Q transform of every channel, equivalent to
-    /// ``librosa.cqt(y, sr=self.sample_rate, ...)``.
+    /// Constant-Q transform of every channel.
     ///
-    /// Unlike ``constant_q_transform()`` (spectrograms crate), this reproduces
-    /// librosa's filters, scaling and framing.
+    /// ``constant_q_transform()`` (spectrograms crate) is a separate
+    /// implementation with its own filters, scaling and framing.
     ///
     /// Args:
     ///
@@ -146,15 +146,14 @@ impl PyAudioSamples {
     ///     window: Named window of the filters. Default ``"hann"``.
     ///     scale (bool): Divide by ``sqrt(filter length)``. Default True.
     ///     pad_mode (str): Padding at the signal ends. Default ``"constant"``.
-    ///     res_type (str): Resampler for the octave decimation. ``"soxr_hq"``
-    ///         (default) and ``"soxr_vhq"`` use the crate's high-quality
-    ///         resampler, ``"soxr_mq"`` medium, ``"soxr_lq"`` fast (soxr itself
-    ///         is not used).
+    ///     res_type (str): Quality of the crate's resampler for the octave
+    ///         decimation: ``"soxr_hq"`` (default) and ``"soxr_vhq"`` high,
+    ///         ``"soxr_mq"`` medium, ``"soxr_lq"`` fast.
     ///
     /// Returns:
     ///
-    ///     numpy.ndarray[complex64 | complex128]: shape ``(channels, n_bins, n_frames)``
-    ///     (librosa returns ``(n_bins, n_frames)`` for 1-D input; index ``[0]``).
+    ///     numpy.ndarray[complex64 | complex128]: shape ``(channels, n_bins, n_frames)``,
+    ///     also for mono audio (index ``[0]`` for ``(n_bins, n_frames)``).
     ///
     /// Raises:
     ///
@@ -163,7 +162,10 @@ impl PyAudioSamples {
         signature = (*, hop_length = Int(512), fmin = None, n_bins = Some(Int(84)), bins_per_octave = Int(12), tuning = Some(0.0), filter_scale = 1.0, norm = Some(1.0), sparsity = 0.01, window = WindowArg(Window::Hann), scale = true, pad_mode = "constant", res_type = "soxr_hq"),
         text_signature = "($self, *, hop_length=512, fmin=None, n_bins=84, bins_per_octave=12, tuning=0.0, filter_scale=1, norm=1, sparsity=0.01, window='hann', scale=True, pad_mode='constant', res_type='soxr_hq')"
     )]
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the Python signature has 12 parameters"
+    )]
     fn cqt<'py>(
         &self,
         py: Python<'py>,
@@ -198,8 +200,7 @@ impl PyAudioSamples {
         dispatch_array_detached!(self, py, |audio| audio.cqt(&cfg))
     }
 
-    /// Variable-Q transform of every channel, equivalent to
-    /// ``librosa.vqt(y, sr=self.sample_rate, ...)``.
+    /// Variable-Q transform of every channel.
     ///
     /// Args:
     ///
@@ -219,7 +220,10 @@ impl PyAudioSamples {
         signature = (*, hop_length = Int(512), fmin = None, n_bins = Some(Int(84)), intervals = None, gamma = None, bins_per_octave = Int(12), tuning = Some(0.0), filter_scale = 1.0, norm = Some(1.0), sparsity = 0.01, window = WindowArg(Window::Hann), scale = true, pad_mode = "constant", res_type = "soxr_hq"),
         text_signature = "($self, *, hop_length=512, fmin=None, n_bins=84, intervals='equal', gamma=None, bins_per_octave=12, tuning=0.0, filter_scale=1, norm=1, sparsity=0.01, window='hann', scale=True, pad_mode='constant', res_type='soxr_hq')"
     )]
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the Python signature has 14 parameters"
+    )]
     fn vqt<'py>(
         &self,
         py: Python<'py>,
@@ -268,8 +272,7 @@ impl PyAudioSamples {
         dispatch_array_detached!(self, py, |audio| audio.vqt(&cfg))
     }
 
-    /// Pseudo constant-Q magnitude (a single STFT with CQT filters), equivalent
-    /// to ``librosa.pseudo_cqt(y, sr=self.sample_rate, ...)``.
+    /// Pseudo constant-Q magnitude: constant-Q filters applied to a single STFT.
     ///
     /// Args:
     ///
@@ -286,7 +289,10 @@ impl PyAudioSamples {
         signature = (*, hop_length = Int(512), fmin = None, n_bins = Some(Int(84)), bins_per_octave = Int(12), tuning = Some(0.0), filter_scale = 1.0, norm = Some(1.0), sparsity = 0.01, window = WindowArg(Window::Hann), scale = true, pad_mode = "constant"),
         text_signature = "($self, *, hop_length=512, fmin=None, n_bins=84, bins_per_octave=12, tuning=0.0, filter_scale=1, norm=1, sparsity=0.01, window='hann', scale=True, pad_mode='constant')"
     )]
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the Python signature has 11 parameters"
+    )]
     fn pseudo_cqt<'py>(
         &self,
         py: Python<'py>,
@@ -320,8 +326,8 @@ impl PyAudioSamples {
         dispatch_array_detached!(self, py, |audio| audio.pseudo_cqt(&cfg))
     }
 
-    /// Hybrid constant-Q magnitude (pseudo-CQT for the high, full CQT for the
-    /// low bins), equivalent to ``librosa.hybrid_cqt(y, sr=self.sample_rate, ...)``.
+    /// Hybrid constant-Q magnitude: pseudo-CQT for the high bins, full CQT for
+    /// the low bins.
     ///
     /// Args:
     ///
@@ -338,7 +344,10 @@ impl PyAudioSamples {
         signature = (*, hop_length = Int(512), fmin = None, n_bins = Some(Int(84)), bins_per_octave = Int(12), tuning = Some(0.0), filter_scale = 1.0, norm = Some(1.0), sparsity = 0.01, window = WindowArg(Window::Hann), scale = true, pad_mode = "constant", res_type = "soxr_hq"),
         text_signature = "($self, *, hop_length=512, fmin=None, n_bins=84, bins_per_octave=12, tuning=0.0, filter_scale=1, norm=1, sparsity=0.01, window='hann', scale=True, pad_mode='constant', res_type='soxr_hq')"
     )]
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the Python signature has 12 parameters"
+    )]
     fn hybrid_cqt<'py>(
         &self,
         py: Python<'py>,
@@ -373,7 +382,7 @@ impl PyAudioSamples {
         dispatch_array_detached!(self, py, |audio| audio.hybrid_cqt(&cfg))
     }
 
-    /// Inverse constant-Q transform, equivalent to ``librosa.icqt``.
+    /// Inverse constant-Q transform.
     ///
     /// This is a static method: ``AudioSamples.icqt(C, sample_rate=sr)``.
     ///
@@ -402,7 +411,11 @@ impl PyAudioSamples {
         signature = (C, *, sample_rate, hop_length = Int(512), fmin = None, bins_per_octave = Int(12), tuning = 0.0, filter_scale = 1.0, norm = Some(1.0), sparsity = 0.01, window = WindowArg(Window::Hann), scale = true, length = None, res_type = "soxr_hq", dtype = None),
         text_signature = "(C, *, sample_rate, hop_length=512, fmin=None, bins_per_octave=12, tuning=0.0, filter_scale=1, norm=1, sparsity=0.01, window='hann', scale=True, length=None, res_type='soxr_hq', dtype=None)"
     )]
-    #[allow(non_snake_case, clippy::too_many_arguments)]
+    #[allow(
+        non_snake_case,
+        clippy::too_many_arguments,
+        reason = "the Python signature has 14 parameters"
+    )]
     fn icqt(
         C: &Bound<'_, PyAny>,
         sample_rate: Int,
@@ -445,11 +458,10 @@ impl PyAudioSamples {
         })
     }
 
-    /// Reconstructs audio from a constant-Q magnitude by Griffin-Lim, equivalent
-    /// to ``librosa.griffinlim_cqt(C, sr=sample_rate, ...)``.
+    /// Reconstructs audio from a constant-Q magnitude by Griffin-Lim.
     ///
-    /// This is a static method. The default is the deterministic zero-phase start
-    /// (librosa's ``init=None``); librosa's default is ``init="random"``.
+    /// This is a static method. The default is the deterministic zero-phase
+    /// start (``init=None``).
     ///
     /// Args:
     ///
@@ -465,7 +477,7 @@ impl PyAudioSamples {
     ///     rng: Seed for ``init="random"``, as ``griffinlim``: an integer (default 0),
     ///         None for a fresh seed on every call, or a NumPy generator, from which
     ///         one seed is drawn. The random phases come from this library's
-    ///         generator, so they differ from librosa's for the same seed.
+    ///         generator.
     ///     random_state: Deprecated alias of ``rng``.
     ///     dtype (Optional[SampleType]): Sample type of the returned audio.
     ///         ``None`` (default) gives float32 audio for a float32 ``C`` and
@@ -486,7 +498,11 @@ impl PyAudioSamples {
         signature = (C, *, sample_rate, n_iter = Int(32), hop_length = Int(512), fmin = None, bins_per_octave = Int(12), tuning = 0.0, filter_scale = 1.0, norm = Some(1.0), sparsity = 0.01, window = WindowArg(Window::Hann), scale = true, pad_mode = "constant", res_type = "soxr_hq", length = None, momentum = 0.99, init = None, rng = RngArg::SEEDED, random_state = None, dtype = None),
         text_signature = "(C, *, sample_rate, n_iter=32, hop_length=512, fmin=None, bins_per_octave=12, tuning=0.0, filter_scale=1, norm=1, sparsity=0.01, window='hann', scale=True, pad_mode='constant', res_type='soxr_hq', length=None, momentum=0.99, init=None, rng=0, random_state=None, dtype=None)"
     )]
-    #[allow(non_snake_case, clippy::too_many_arguments)]
+    #[allow(
+        non_snake_case,
+        clippy::too_many_arguments,
+        reason = "the Python signature has 20 parameters"
+    )]
     fn griffinlim_cqt(
         C: &Bound<'_, PyAny>,
         sample_rate: Int,
@@ -546,8 +562,7 @@ impl PyAudioSamples {
         })
     }
 
-    /// Constant-Q chromagram, equivalent to
-    /// ``librosa.feature.chroma_cqt(y=..., sr=self.sample_rate, ...)``.
+    /// Constant-Q chromagram.
     ///
     /// Args:
     ///
@@ -556,10 +571,10 @@ impl PyAudioSamples {
     ///     norm (Optional[float]): Per-frame normalisation. Default ``numpy.inf``.
     ///     threshold (Optional[float]): Values below are zeroed. Default 0.0.
     ///     tuning (Optional[float]): Tuning in fractions of a CQT bin. Default
-    ///         0.0; None estimates it from the signal (librosa's default).
+    ///         0.0; None estimates it from the signal.
     ///     n_chroma (int): Default 12.
     ///     n_octaves (int): Default 7.
-    ///     window: Must be None (librosa's chroma smoothing kernel is unsupported).
+    ///     window: Must be None (a chroma smoothing window is not supported).
     ///     bins_per_octave (Optional[int]): CQT resolution (multiple of
     ///         ``n_chroma``). Default 36; None = ``n_chroma``.
     ///     cqt_mode (str): ``"full"`` (default) or ``"hybrid"``.
@@ -575,7 +590,10 @@ impl PyAudioSamples {
         signature = (*, hop_length = Int(512), fmin = None, norm = Some(f64::INFINITY), threshold = Some(0.0), tuning = Some(0.0), n_chroma = Int(12), n_octaves = Int(7), window = None, bins_per_octave = Some(Int(36)), cqt_mode = "full"),
         text_signature = "($self, *, hop_length=512, fmin=None, norm=math.inf, threshold=0.0, tuning=0.0, n_chroma=12, n_octaves=7, window=None, bins_per_octave=36, cqt_mode='full')"
     )]
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the Python signature has 10 parameters"
+    )]
     fn chroma_cqt<'py>(
         &self,
         py: Python<'py>,
@@ -591,7 +609,7 @@ impl PyAudioSamples {
         cqt_mode: &str,
     ) -> PyResult<Bound<'py, PyAny>> {
         check_window_none(window)?;
-        let cfg = chroma_cqt_config(
+        let cfg = ChromaCqtArgs {
             hop_length,
             fmin,
             norm,
@@ -601,12 +619,12 @@ impl PyAudioSamples {
             n_octaves,
             bins_per_octave,
             cqt_mode,
-        )?;
+        }
+        .config()?;
         dispatch_array_detached!(self, py, |audio| audio.chroma_cqt(&cfg))
     }
 
-    /// Chroma Energy Normalized Statistics, equivalent to
-    /// ``librosa.feature.chroma_cens(y=..., sr=self.sample_rate, ...)``.
+    /// Chroma Energy Normalized Statistics (CENS) features.
     ///
     /// Args:
     ///
@@ -627,7 +645,10 @@ impl PyAudioSamples {
         signature = (*, hop_length = Int(512), fmin = None, tuning = Some(0.0), n_chroma = Int(12), n_octaves = Int(7), bins_per_octave = Int(36), cqt_mode = "full", window = None, norm = Some(2.0), win_len_smooth = Some(Int(41)), smoothing_window = WindowArg(Window::Hann)),
         text_signature = "($self, *, hop_length=512, fmin=None, tuning=0.0, n_chroma=12, n_octaves=7, bins_per_octave=36, cqt_mode='full', window=None, norm=2, win_len_smooth=41, smoothing_window='hann')"
     )]
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the Python signature has 11 parameters"
+    )]
     fn chroma_cens<'py>(
         &self,
         py: Python<'py>,
@@ -645,17 +666,18 @@ impl PyAudioSamples {
     ) -> PyResult<Bound<'py, PyAny>> {
         check_window_none(window)?;
         let cfg = ChromaCensConfig {
-            chroma: chroma_cqt_config(
+            chroma: ChromaCqtArgs {
                 hop_length,
                 fmin,
-                None,
-                Some(0.0),
+                norm: None,
+                threshold: Some(0.0),
                 tuning,
                 n_chroma,
                 n_octaves,
-                Some(bins_per_octave),
+                bins_per_octave: Some(bins_per_octave),
                 cqt_mode,
-            )?,
+            }
+            .config()?,
             norm,
             win_len_smooth: opt_positive("win_len_smooth", win_len_smooth)?,
             smoothing_window: smoothing_window.0,
@@ -663,14 +685,13 @@ impl PyAudioSamples {
         dispatch_array_detached!(self, py, |audio| audio.chroma_cens(&cfg))
     }
 
-    /// Variable-Q chromagram, equivalent to
-    /// ``librosa.feature.chroma_vqt(y=..., sr=self.sample_rate, intervals="equal", ...)``.
+    /// Variable-Q chromagram with equal-tempered bin spacing.
     ///
     /// Args:
     ///
     ///     hop_length (int): Default 512.
     ///     fmin (Optional[float]): Lowest VQT frequency; None = C1.
-    ///     intervals (str): Only ``"equal"`` (the default here; required in librosa).
+    ///     intervals (str): Only ``"equal"`` (the default).
     ///     norm (Optional[float]): Per-frame normalisation. Default ``numpy.inf``.
     ///     threshold (Optional[float]): Values below are zeroed. Default 0.0.
     ///     n_octaves (int): Default 7.
@@ -689,7 +710,10 @@ impl PyAudioSamples {
         signature = (*, hop_length = Int(512), fmin = None, intervals = None, norm = Some(f64::INFINITY), threshold = Some(0.0), n_octaves = Int(7), bins_per_octave = Int(12), gamma = Some(0.0)),
         text_signature = "($self, *, hop_length=512, fmin=None, intervals='equal', norm=math.inf, threshold=0.0, n_octaves=7, bins_per_octave=12, gamma=0)"
     )]
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the Python signature has 8 parameters"
+    )]
     fn chroma_vqt<'py>(
         &self,
         py: Python<'py>,
@@ -717,13 +741,12 @@ impl PyAudioSamples {
         dispatch_array_detached!(self, py, |audio| audio.chroma_vqt(&cfg))
     }
 
-    /// Tonal centroid features (tonnetz) from the constant-Q chroma, equivalent
-    /// to ``librosa.feature.tonnetz(y=..., sr=self.sample_rate, ...)``.
+    /// Tonal centroid features (tonnetz) from the constant-Q chroma.
     ///
     /// Args:
     ///
-    ///     hop_length, fmin, norm, threshold, tuning, n_chroma, n_octaves, bins_per_octave, cqt_mode: ``chroma_cqt`` parameters (librosa's
-    ///     ``**kwargs``).
+    ///     hop_length, fmin, norm, threshold, tuning, n_chroma, n_octaves, bins_per_octave, cqt_mode:
+    ///         ``chroma_cqt`` parameters.
     ///
     /// Returns:
     ///
@@ -736,7 +759,10 @@ impl PyAudioSamples {
         signature = (*, hop_length = Int(512), fmin = None, norm = Some(f64::INFINITY), threshold = Some(0.0), tuning = Some(0.0), n_chroma = Int(12), n_octaves = Int(7), bins_per_octave = Some(Int(36)), cqt_mode = "full"),
         text_signature = "($self, *, hop_length=512, fmin=None, norm=math.inf, threshold=0.0, tuning=0.0, n_chroma=12, n_octaves=7, bins_per_octave=36, cqt_mode='full')"
     )]
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the Python signature has 9 parameters"
+    )]
     fn tonnetz<'py>(
         &self,
         py: Python<'py>,
@@ -751,7 +777,7 @@ impl PyAudioSamples {
         cqt_mode: &str,
     ) -> PyResult<Bound<'py, PyAny>> {
         let cfg = TonnetzConfig {
-            chroma: chroma_cqt_config(
+            chroma: ChromaCqtArgs {
                 hop_length,
                 fmin,
                 norm,
@@ -761,7 +787,8 @@ impl PyAudioSamples {
                 n_octaves,
                 bins_per_octave,
                 cqt_mode,
-            )?,
+            }
+            .config()?,
         };
         dispatch_array_detached!(self, py, |audio| audio.tonnetz(&cfg))
     }

@@ -1,5 +1,5 @@
 //! Argument parsers specific to the analysis bindings (features, tonal,
-//! constant-Q, pitch tracking): librosa's callable references (`ref=np.max`,
+//! constant-Q, pitch tracking): callable references (`ref=np.max`,
 //! `aggregate=np.median`), `fill_na`, `res_type`, weighting kinds and the
 //! array-shape helpers shared by `audio_samples.features` and the
 //! corresponding `AudioSamples` methods.
@@ -174,7 +174,7 @@ pub fn parse_aggregate(obj: &Bound<'_, PyAny>) -> PyResult<(SalienceAggregate, b
     })
 }
 
-/// librosa `res_type` -> resampler quality. `"soxr_hq"` (default), `"soxr_vhq"`
+/// `res_type` -> resampler quality. `"soxr_hq"` (default), `"soxr_vhq"`
 /// and `"high"` select [`ResamplingQuality::High`]; `"soxr_mq"`/`"medium"`
 /// [`ResamplingQuality::Medium`]; `"soxr_lq"`/`"soxr_qq"`/`"fast"`
 /// [`ResamplingQuality::Fast`].
@@ -221,7 +221,7 @@ pub fn parse_weighting(name: &str, kind: &str) -> PyResult<FrequencyWeighting> {
     }
 }
 
-/// librosa's `intervals` of the VQT: only `"equal"` (equal temperament) is supported.
+/// The `intervals` of the VQT: only `"equal"` (equal temperament) is supported.
 pub fn check_intervals(obj: &Bound<'_, PyAny>) -> PyResult<()> {
     match string_arg(obj)?.as_deref() {
         Some("equal") => Ok(()),
@@ -339,7 +339,7 @@ pub fn signal2<'py, F: crate::args::FloatElement>(
 }
 
 /// Drops the leading (length-1) channel axis of `a` when `drop_channel` is set,
-/// i.e. when the input had no channel axis (librosa's shape convention).
+/// i.e. when the input had no channel axis, so the output has none either.
 pub fn squeeze_out<T: numpy::Element>(
     py: Python<'_>,
     a: ArrayD<T>,
@@ -370,14 +370,14 @@ pub fn f64_vec1(obj: &Bound<'_, PyAny>, name: &str) -> PyResult<Vec<f64>> {
     Ok(a.as_array().iter().copied().collect())
 }
 
-/// `numpy.fft.rfftfreq(n_fft, 1 / sr)` with numpy's rounding (librosa's
-/// `fft_frequencies`).
+/// The frequency of each rFFT bin, `k * sr / n_fft` for `k` in `0..=n_fft / 2`,
+/// rounded as `numpy.fft.rfftfreq(n_fft, 1 / sr)`.
 pub fn rfft_frequencies(n_fft: usize, sr: f64) -> Vec<f64> {
     let val = 1.0 / (size_f64(n_fft) * (1.0 / sr));
     (0..=n_fft / 2).map(|k| size_f64(k) * val).collect()
 }
 
-/// librosa's `freq` argument of the spectral descriptors: `None` means
+/// The `freq` argument of the spectral descriptors: `None` means
 /// `fft_frequencies(sr, n_fft = 2 * (n_bins - 1))`; otherwise a 1-D array of
 /// one centre frequency per bin.
 pub fn bin_frequencies(

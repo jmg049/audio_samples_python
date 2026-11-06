@@ -1,7 +1,7 @@
 //! Tonal free functions of `audio_samples.features` (binding
-//! `audio_samples::operations::tonal`): `librosa.filters.chroma`,
-//! `librosa.util.normalize`, `librosa.pitch_tuning` and the `S=` / `y=` array
-//! forms of `chroma_stft`, `piptrack` and `estimate_tuning`.
+//! `audio_samples::operations::tonal`): `chroma_filterbank`, `normalize`,
+//! `pitch_tuning` and the array forms of `chroma_stft`, `piptrack` and
+//! `estimate_tuning` (`*_from_spectrogram`, `estimate_tuning_from_signal`).
 
 use crate::args::Int;
 use audio_samples::operations::filterbanks::Window;
@@ -21,7 +21,7 @@ use crate::args::{
 };
 use crate::audio_err_to_py;
 
-/// Infers `n_fft = 2 * (bins - 1)` when not given (librosa's convention).
+/// Infers `n_fft = 2 * (bins - 1)` when not given.
 fn infer_n_fft(n_fft: Option<Int>, n_bins: usize) -> PyResult<std::num::NonZeroUsize> {
     positive(
         "n_fft",
@@ -29,8 +29,7 @@ fn infer_n_fft(n_fft: Option<Int>, n_bins: usize) -> PyResult<std::num::NonZeroU
     )
 }
 
-/// The chroma filterbank, equivalent to
-/// ``librosa.filters.chroma(sr=sr, n_fft=n_fft, ..., dtype=numpy.float64)``.
+/// The chroma filterbank (float64).
 ///
 /// Args:
 ///
@@ -48,8 +47,7 @@ fn infer_n_fft(n_fft: Option<Int>, n_bins: usize) -> PyResult<std::num::NonZeroU
 ///
 /// Returns:
 ///
-///     numpy.ndarray[float64]: shape ``(n_chroma, 1 + n_fft // 2)`` (librosa's
-///     default dtype is float32; this is always float64).
+///     numpy.ndarray[float64]: shape ``(n_chroma, 1 + n_fft // 2)``.
 ///
 /// Raises:
 ///
@@ -59,7 +57,10 @@ fn infer_n_fft(n_fft: Option<Int>, n_bins: usize) -> PyResult<std::num::NonZeroU
     signature = (*, sr, n_fft, n_chroma = Int(12), tuning = 0.0, ctroct = 5.0, octwidth = Some(2.0), norm = Some(2.0), base_c = true),
     text_signature = "(*, sr, n_fft, n_chroma=12, tuning=0.0, ctroct=5.0, octwidth=2.0, norm=2.0, base_c=True)"
 )]
-#[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the Python signature has 8 parameters"
+)]
 pub fn chroma_filterbank(
     py: Python<'_>,
     sr: f64,
@@ -84,8 +85,7 @@ pub fn chroma_filterbank(
     Ok(m.into_pyarray(py))
 }
 
-/// Scales every slice of an array to unit norm, equivalent to
-/// ``librosa.util.normalize``.
+/// Scales every slice of an array to unit norm.
 ///
 /// Args:
 ///
@@ -134,8 +134,7 @@ pub fn normalize<'py>(
     })
 }
 
-/// Tuning offset of a set of frequencies relative to A440, equivalent to
-/// ``librosa.pitch_tuning``.
+/// Tuning offset of a set of frequencies relative to A440.
 ///
 /// Args:
 ///
@@ -170,19 +169,18 @@ pub fn pitch_tuning(
     .map_err(audio_err_to_py)
 }
 
-/// Chromagram of a precomputed spectrogram, equivalent to
-/// ``librosa.feature.chroma_stft(S=S, sr=sr, ...)``.
+/// Chromagram of a precomputed spectrogram.
 ///
 /// Args:
 ///
-///     S (array_like): Power spectrogram (librosa's expectation; a magnitude
-///         spectrogram gives "energy" chroma), shape ``(1 + n_fft // 2, T)`` or
+///     S (array_like): Power spectrogram (a magnitude spectrogram gives
+///         "energy" chroma), shape ``(1 + n_fft // 2, T)`` or
 ///         ``(channels, 1 + n_fft // 2, T)``.
-///     sr (float): Sample rate (Hz). Required (librosa defaults to 22050).
+///     sr (float): Sample rate (Hz). Required.
 ///     norm (Optional[float]): Per-frame normalisation (default ``numpy.inf``).
 ///     n_fft (Optional[int]): FFT length; None infers ``2 * (F - 1)``.
 ///     tuning (Optional[float]): Tuning in fractions of a chroma bin; None
-///         estimates it from ``S`` (as librosa).
+///         estimates it from ``S``.
 ///     n_chroma (int): Number of chroma bins. Default 12.
 ///     ctroct, octwidth, base_c: Filterbank parameters (see ``chroma_filterbank``).
 ///
@@ -198,7 +196,11 @@ pub fn pitch_tuning(
     signature = (S, *, sr, norm = Some(f64::INFINITY), n_fft = None, tuning = Some(0.0), n_chroma = Int(12), ctroct = 5.0, octwidth = Some(2.0), base_c = true),
     text_signature = "(S, *, sr, norm=math.inf, n_fft=None, tuning=0.0, n_chroma=12, ctroct=5.0, octwidth=2.0, base_c=True)"
 )]
-#[allow(non_snake_case, clippy::too_many_arguments)]
+#[allow(
+    non_snake_case,
+    clippy::too_many_arguments,
+    reason = "the Python signature has 9 parameters"
+)]
 pub fn chroma_stft_from_spectrogram<'py>(
     py: Python<'py>,
     S: &Bound<'py, PyAny>,
@@ -247,14 +249,13 @@ fn piptrack_cfg(
     })
 }
 
-/// Spectral peak tracking on a precomputed magnitude spectrogram, equivalent to
-/// ``librosa.piptrack(S=S, sr=sr, ...)``.
+/// Spectral peak tracking on a precomputed magnitude spectrogram.
 ///
 /// Args:
 ///
 ///     S (array_like): Magnitude spectrogram, ``(1 + n_fft // 2, T)`` or
 ///         ``(channels, 1 + n_fft // 2, T)``.
-///     sr (float): Sample rate (Hz). Required (librosa defaults to 22050).
+///     sr (float): Sample rate (Hz). Required.
 ///     n_fft (Optional[int]): FFT length; None infers ``2 * (F - 1)``.
 ///     fmin (float): Lowest reported frequency (Hz). Default 150.
 ///     fmax (float): Peaks must lie below this frequency (Hz). Default 4000.
@@ -275,7 +276,11 @@ fn piptrack_cfg(
     signature = (S, *, sr, n_fft = None, fmin = 150.0, fmax = 4000.0, threshold = 0.1, r#ref = None),
     text_signature = "(S, *, sr, n_fft=None, fmin=150.0, fmax=4000.0, threshold=0.1, ref=None)"
 )]
-#[allow(non_snake_case, clippy::too_many_arguments)]
+#[allow(
+    non_snake_case,
+    clippy::too_many_arguments,
+    reason = "the Python signature has 7 parameters"
+)]
 pub fn piptrack_from_spectrogram<'py>(
     py: Python<'py>,
     S: &Bound<'py, PyAny>,
@@ -300,18 +305,17 @@ pub fn piptrack_from_spectrogram<'py>(
     })
 }
 
-/// Tuning estimate from a precomputed spectrogram, equivalent to
-/// ``librosa.estimate_tuning(S=S, sr=sr, ...)``.
+/// Tuning estimate from a precomputed spectrogram.
 ///
 /// Args:
 ///
 ///     S (array_like): Magnitude or power spectrogram, ``(F, T)`` or
 ///         ``(channels, F, T)`` (all channels are pooled).
-///     sr (float): Sample rate (Hz). Required (librosa defaults to 22050).
+///     sr (float): Sample rate (Hz). Required.
 ///     n_fft (Optional[int]): FFT length; None infers ``2 * (F - 1)``.
 ///     resolution (float): Resolution in fractions of a bin. Default 0.01.
 ///     bins_per_octave (int): Bins per octave of the grid. Default 12.
-///     fmin, fmax, threshold, ref: ``piptrack`` parameters (librosa's ``**kwargs``).
+///     fmin, fmax, threshold, ref: ``piptrack`` parameters.
 ///
 /// Returns:
 ///
@@ -325,7 +329,11 @@ pub fn piptrack_from_spectrogram<'py>(
     signature = (S, *, sr, n_fft = None, resolution = 0.01, bins_per_octave = Int(12), fmin = 150.0, fmax = 4000.0, threshold = 0.1, r#ref = None),
     text_signature = "(S, *, sr, n_fft=None, resolution=0.01, bins_per_octave=12, fmin=150.0, fmax=4000.0, threshold=0.1, ref=None)"
 )]
-#[allow(non_snake_case, clippy::too_many_arguments)]
+#[allow(
+    non_snake_case,
+    clippy::too_many_arguments,
+    reason = "the Python signature has 9 parameters"
+)]
 pub fn estimate_tuning_from_spectrogram(
     S: &Bound<'_, PyAny>,
     sr: f64,
@@ -349,17 +357,17 @@ pub fn estimate_tuning_from_spectrogram(
     })
 }
 
-/// Tuning estimate from a signal, equivalent to ``librosa.estimate_tuning(y=y, sr=sr, ...)``.
+/// Tuning estimate from a signal.
 ///
 /// Args:
 ///
 ///     y (array_like): Signal, ``(n,)`` or ``(channels, n)`` (channels are pooled).
-///     sr (float): Sample rate (Hz). Required (librosa defaults to 22050).
+///     sr (float): Sample rate (Hz). Required.
 ///     n_fft (int): FFT length. Default 2048.
 ///     resolution (float): Resolution in fractions of a bin. Default 0.01.
 ///     bins_per_octave (int): Bins per octave of the grid. Default 12.
-///     hop_length, win_length, window, center, pad_mode: STFT parameters
-///         (librosa's ``**kwargs`` to ``piptrack``).
+///     hop_length, win_length, window, center, pad_mode: STFT parameters of
+///         the spectrogram passed to ``piptrack``.
 ///     fmin, fmax, threshold, ref: ``piptrack`` parameters.
 ///
 /// Returns:
@@ -374,7 +382,10 @@ pub fn estimate_tuning_from_spectrogram(
     signature = (y, *, sr, n_fft = Int(2048), resolution = 0.01, bins_per_octave = Int(12), hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", fmin = 150.0, fmax = 4000.0, threshold = 0.1, r#ref = None),
     text_signature = "(y, *, sr, n_fft=2048, resolution=0.01, bins_per_octave=12, hop_length=None, win_length=None, window='hann', center=True, pad_mode='constant', fmin=150.0, fmax=4000.0, threshold=0.1, ref=None)"
 )]
-#[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the Python signature has 14 parameters"
+)]
 pub fn estimate_tuning_from_signal(
     y: &Bound<'_, PyAny>,
     sr: f64,

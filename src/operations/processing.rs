@@ -195,8 +195,8 @@ impl PyAudioSamples {
 
     /// Apply a first-order Butterworth low-pass filter, returning a new buffer.
     ///
-    /// -3 dB at ``cutoff_hz``, 6 dB/octave; identical to
-    /// ``scipy.signal.sosfilt(scipy.signal.butter(1, cutoff_hz, fs=fs, output='sos'), x)``.
+    /// -3 dB at ``cutoff_hz``, 6 dB/octave: the bilinear-transform design
+    /// prewarped at ``cutoff_hz``, run causally from a zero initial state.
     /// ``self`` is not modified.
     ///
     /// Args:
@@ -222,8 +222,8 @@ impl PyAudioSamples {
 
     /// Apply a first-order Butterworth high-pass filter, returning a new buffer.
     ///
-    /// -3 dB at ``cutoff_hz``, 6 dB/octave; identical to
-    /// ``scipy.signal.sosfilt(scipy.signal.butter(1, cutoff_hz, 'highpass', fs=fs, output='sos'), x)``.
+    /// -3 dB at ``cutoff_hz``, 6 dB/octave: the bilinear-transform design
+    /// prewarped at ``cutoff_hz``, run causally from a zero initial state.
     /// ``self`` is not modified.
     ///
     /// Args:
@@ -249,8 +249,9 @@ impl PyAudioSamples {
 
     /// Apply a band-pass filter (first-order Butterworth prototype), returning a new buffer.
     ///
-    /// Identical to ``scipy.signal.sosfilt(scipy.signal.butter(1, [low, high],
-    /// 'bandpass', fs=fs, output='sos'), x)``. ``self`` is not modified.
+    /// A second-order band-pass from the first-order Butterworth prototype by
+    /// the bilinear transform, prewarped at both edges, run causally from a
+    /// zero initial state. ``self`` is not modified.
     ///
     /// Args:
     ///
@@ -287,7 +288,8 @@ impl PyAudioSamples {
     /// ``ceil(n * target_sample_rate / sample_rate)`` samples per channel. The
     /// cut-off sits just below the Nyquist frequency of the lower rate, so
     /// downsampling is anti-aliased and upsampling anti-imaged. Processing is
-    /// in float64; the result keeps the input's sample type.
+    /// in the sample type's float (float32 for uint8, int16, int24 and float32;
+    /// float64 for int32 and float64); the result keeps the input's sample type.
     ///
     /// Quality tiers (Nyquist of the lower rate):
     ///
@@ -295,10 +297,7 @@ impl PyAudioSamples {
     ///   (passband 0.80 x Nyquist, 70 dB stopband); upsampling by linear
     ///   interpolation (images are not suppressed).
     /// * ``"medium"``: passband 0.90 x Nyquist, 100 dB stopband.
-    /// * ``"high"``: passband 0.913 x Nyquist, 125 dB stopband; close to
-    ///   ``librosa.resample``'s default ``res_type="soxr_hq"`` (agreement
-    ///   above 125 dB SNR on band-limited content, about 50 dB on white noise
-    ///   where the transition bands differ; not bit-identical).
+    /// * ``"high"``: passband 0.913 x Nyquist, 125 dB stopband.
     ///
     /// Args:
     ///
@@ -469,9 +468,8 @@ impl PyAudioSamples {
     /// ``y[i] = sum_{k=0}^{M-1} h[k] * x[i + M - 1 - k]``,  ``i = 0 .. N - M``
     ///
     /// i.e. only the ``N - M + 1`` outputs where every tap overlaps the input.
-    /// The result is identical to ``numpy.convolve(x, h, mode='valid')`` (and to
-    /// ``scipy.signal.lfilter(h, 1, x)[M-1:]``), applied to each channel
-    /// independently. ``self`` is not modified.
+    /// The result is ``numpy.convolve(x, h, mode='valid')`` applied to each
+    /// channel independently. ``self`` is not modified.
     ///
     /// ``convolve`` vs ``apply_filter``: :meth:`convolve` returns the *full*
     /// convolution of length ``N + M - 1`` (``numpy.convolve(..., 'full')``) and

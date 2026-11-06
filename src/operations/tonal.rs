@@ -1,4 +1,4 @@
-//! librosa-compatible tonal analysis on `AudioSamples` (`chroma_stft`,
+//! Tonal analysis on `AudioSamples` (`chroma_stft`,
 //! `piptrack`, `estimate_tuning`), binding the Rust `AudioTonal` trait.
 
 use crate::args::Int;
@@ -16,11 +16,11 @@ use crate::{
 
 #[pymethods]
 impl PyAudioSamples {
-    /// Chromagram from the power STFT, equivalent to
-    /// ``librosa.feature.chroma_stft(y=..., sr=self.sample_rate, ...)``.
+    /// Chromagram from the power STFT.
     ///
-    /// Unlike ``chroma()`` (spectrograms crate), this reproduces librosa's
-    /// filterbank, tuning estimation and normalisation.
+    /// ``chroma()`` (spectrograms crate) is a separate implementation; this one
+    /// uses the ``chroma_filterbank`` with optional tuning estimation and
+    /// per-frame ``norm`` normalisation.
     ///
     /// Args:
     ///
@@ -30,7 +30,7 @@ impl PyAudioSamples {
     ///     hop_length (int): Samples between frames. Default 512.
     ///     win_length, window, center, pad_mode: STFT parameters (see ``stft_matrix``).
     ///     tuning (Optional[float]): Tuning offset in fractions of a chroma bin.
-    ///         Default 0.0; None estimates it from the signal (librosa's default).
+    ///         Default 0.0; None estimates it from the signal.
     ///     n_chroma (int): Number of chroma bins. Default 12.
     ///     ctroct (float): Centre of the octave weighting (octaves above A0). Default 5.
     ///     octwidth (Optional[float]): Octave-weighting half-width; None = flat. Default 2.
@@ -38,8 +38,8 @@ impl PyAudioSamples {
     ///
     /// Returns:
     ///
-    ///     numpy.ndarray[float32 | float64]: shape ``(channels, n_chroma, n_frames)`` (librosa
-    ///     returns ``(n_chroma, n_frames)`` for 1-D input; index ``[0]``).
+    ///     numpy.ndarray[float32 | float64]: shape ``(channels, n_chroma, n_frames)``,
+    ///     also for mono audio (index ``[0]`` for ``(n_chroma, n_frames)``).
     ///
     /// Raises:
     ///
@@ -48,7 +48,10 @@ impl PyAudioSamples {
         signature = (*, norm = Some(f64::INFINITY), n_fft = Int(2048), hop_length = Int(512), win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", tuning = Some(0.0), n_chroma = Int(12), ctroct = 5.0, octwidth = Some(2.0), base_c = true),
         text_signature = "($self, *, norm=math.inf, n_fft=2048, hop_length=512, win_length=None, window='hann', center=True, pad_mode='constant', tuning=0.0, n_chroma=12, ctroct=5.0, octwidth=2.0, base_c=True)"
     )]
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the Python signature has 12 parameters"
+    )]
     fn chroma_stft<'py>(
         &self,
         py: Python<'py>,
@@ -84,8 +87,7 @@ impl PyAudioSamples {
         dispatch_array_detached!(self, py, |audio| audio.chroma_stft(&cfg))
     }
 
-    /// Spectral peak tracking with parabolic interpolation, equivalent to
-    /// ``librosa.piptrack(y=..., sr=self.sample_rate, ...)``.
+    /// Spectral peak tracking with parabolic interpolation.
     ///
     /// Args:
     ///
@@ -110,7 +112,10 @@ impl PyAudioSamples {
         signature = (*, n_fft = Int(2048), hop_length = None, fmin = 150.0, fmax = 4000.0, threshold = 0.1, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", r#ref = None),
         text_signature = "($self, *, n_fft=2048, hop_length=None, fmin=150.0, fmax=4000.0, threshold=0.1, win_length=None, window='hann', center=True, pad_mode='constant', ref=None)"
     )]
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the Python signature has 10 parameters"
+    )]
     fn piptrack<'py>(
         &self,
         py: Python<'py>,
@@ -133,17 +138,18 @@ impl PyAudioSamples {
         })
     }
 
-    /// Tuning offset relative to A440 in fractions of a bin, equivalent to
-    /// ``librosa.estimate_tuning(y=..., sr=self.sample_rate, ...)``.
+    /// Tuning offset relative to A440 in fractions of a bin, estimated from
+    /// spectral peaks.
     ///
-    /// All channels are pooled (as librosa does for multichannel input).
+    /// All channels are pooled.
     ///
     /// Args:
     ///
     ///     n_fft (int): FFT length. Default 2048.
     ///     resolution (float): Resolution in fractions of a bin. Default 0.01.
     ///     bins_per_octave (int): Bins per octave of the grid. Default 12.
-    ///     hop_length, win_length, window, center, pad_mode, fmin, fmax, threshold, ref: ``piptrack`` parameters (librosa's ``**kwargs``).
+    ///     hop_length, win_length, window, center, pad_mode, fmin, fmax, threshold, ref:
+    ///         ``piptrack`` parameters.
     ///
     /// Returns:
     ///
@@ -156,7 +162,10 @@ impl PyAudioSamples {
         signature = (*, n_fft = Int(2048), resolution = 0.01, bins_per_octave = Int(12), hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", fmin = 150.0, fmax = 4000.0, threshold = 0.1, r#ref = None),
         text_signature = "($self, *, n_fft=2048, resolution=0.01, bins_per_octave=12, hop_length=None, win_length=None, window='hann', center=True, pad_mode='constant', fmin=150.0, fmax=4000.0, threshold=0.1, ref=None)"
     )]
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the Python signature has 12 parameters"
+    )]
     fn estimate_tuning(
         &self,
         py: Python<'_>,

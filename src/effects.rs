@@ -1,10 +1,12 @@
-//! `audio_samples.effects`: librosa-compatible effect and decomposition helpers
-//! over NumPy arrays.
+//! `audio_samples.effects`: effect and decomposition functions over NumPy
+//! arrays.
 //!
-//! Free functions mirroring `librosa.phase_vocoder`, `librosa.effects.preemphasis`
-//! / `deemphasis` (with `zi` / `return_zf`), `librosa.util.softmask`,
-//! `librosa.decompose.hpss` / `nn_filter`, `librosa.griffinlim`, `librosa.lpc`
-//! and `librosa.clicks`, binding `audio_samples::operations::effects`. The
+//! Free functions for the phase vocoder (`phase_vocoder`), pre- and de-emphasis
+//! with filter state (`preemphasis` / `deemphasis` with `zi` / `return_zf`),
+//! soft masks (`softmask`), harmonic/percussive separation and
+//! nearest-neighbour filtering (`hpss`, `nn_filter`), Griffin-Lim
+//! reconstruction (`griffinlim`), linear prediction (`lpc`) and click tracks
+//! (`clicks`), binding `audio_samples::operations::effects`. The
 //! audio-to-audio effects (`time_stretch`, `pitch_shift`, `trim`, `split`,
 //! `remix`, `harmonic`, `percussive`, ...) are `AudioSamples` methods.
 
@@ -42,7 +44,7 @@ pub fn effects_err(e: audio_samples::AudioSampleError) -> PyErr {
     }
 }
 
-/// librosa's scalar-or-pair `kernel_size`.
+/// Parses a scalar-or-pair `kernel_size`.
 pub fn parse_kernel_size(obj: &Bound<'_, PyAny>) -> PyResult<(NonZeroUsize, NonZeroUsize)> {
     let v = i64_vec(obj, "kernel_size")?;
     match (is_scalar(obj)?, v.as_slice()) {
@@ -58,7 +60,7 @@ pub fn parse_kernel_size(obj: &Bound<'_, PyAny>) -> PyResult<(NonZeroUsize, NonZ
     }
 }
 
-/// librosa's scalar-or-pair `margin`.
+/// Parses a scalar-or-pair `margin`.
 pub fn parse_margin(obj: &Bound<'_, PyAny>) -> PyResult<(f64, f64)> {
     let a = f64_array(obj, "margin")?;
     let v: Vec<f64> = a.as_array().iter().copied().collect();
@@ -72,7 +74,7 @@ pub fn parse_margin(obj: &Bound<'_, PyAny>) -> PyResult<(f64, f64)> {
     }
 }
 
-/// [`HpssMaskConfig`] from librosa's `kernel_size`, `power`, `margin`.
+/// [`HpssMaskConfig`] from the `kernel_size`, `power` and `margin` arguments.
 pub fn hpss_mask_config(
     kernel_size: &Bound<'_, PyAny>,
     power: f64,
@@ -95,12 +97,12 @@ fn rows_out<T: numpy::Element>(py: Python<'_>, a: Array2<T>, squeeze: bool) -> B
 // Phase vocoder
 // =============================================================================
 
-/// Time-stretches an STFT matrix, equivalent to ``librosa.phase_vocoder``.
+/// Time-stretches an STFT matrix with a phase vocoder.
 ///
 /// Give exactly one of ``rate`` (output frames at ``0, rate, 2 rate, ...``) or
 /// ``t_out`` (explicit fractional frame positions in ``[0, n_frames)``).
 /// Magnitudes are linearly interpolated; the phase accumulates the raw
-/// frame-to-frame phase differences (librosa 1.0's algorithm).
+/// frame-to-frame phase differences.
 ///
 /// Args:
 ///
@@ -109,9 +111,8 @@ fn rows_out<T: numpy::Element>(py: Python<'_>, a: Array2<T>, squeeze: bool) -> B
 ///     rate (Optional[float]): Speed-up factor (> 1 is faster / fewer frames).
 ///     t_out (Optional[array_like]): Output frame positions.
 ///     kind (str): Must be ``"linear"``.
-///     hop_length (Optional[int]): Deprecated in librosa 1.0 and unused (the
-///         phase advance cancels); accepted for compatibility with a
-///         ``FutureWarning`` when given, as librosa does.
+///     hop_length (Optional[int]): Deprecated and unused (the phase advance
+///         cancels); accepted with a ``FutureWarning`` when given.
 ///     n_fft (Optional[int]): Deprecated and unused, as ``hop_length``.
 ///
 /// Returns:
@@ -138,13 +139,13 @@ pub fn phase_vocoder<'py>(
     hop_length: Option<&Bound<'py, PyAny>>,
     n_fft: Option<&Bound<'py, PyAny>>,
 ) -> PyResult<Bound<'py, PyAny>> {
-    // librosa 1.0 deprecated both (they no longer affect the result) and warns
-    // with FutureWarning whenever they are passed.
+    // Both are deprecated (they do not affect the result); passing either warns
+    // with FutureWarning.
     if hop_length.is_some() {
         PyErr::warn(
             py,
             &py.get_type::<pyo3::exceptions::PyFutureWarning>(),
-            c"The `hop_length` parameter is deprecated as of librosa 1.0 and is unused.",
+            c"The `hop_length` parameter is deprecated and unused.",
             1,
         )?;
     }
@@ -152,7 +153,7 @@ pub fn phase_vocoder<'py>(
         PyErr::warn(
             py,
             &py.get_type::<pyo3::exceptions::PyFutureWarning>(),
-            c"The `n_fft` parameter is deprecated as of librosa 1.0 and is unused.",
+            c"The `n_fft` parameter is deprecated and unused.",
             1,
         )?;
     }
@@ -187,7 +188,7 @@ pub fn phase_vocoder<'py>(
 /// A per-row emphasis filter: `(row, coef, initial state)` to `(output, final state)`.
 type EmphasisFilter<F> = fn(&[F], f64, Option<F>) -> audio_samples::AudioSampleResult<(Vec<F>, F)>;
 
-/// Per-row emphasis with librosa's `zi` / `return_zf` handling.
+/// Per-row emphasis with `zi` / `return_zf` handling.
 fn emphasis<'py, F: PyFloat>(
     py: Python<'py>,
     y: &Bound<'py, PyAny>,
@@ -229,7 +230,7 @@ fn emphasis<'py, F: PyFloat>(
     if !return_zf {
         return Ok(y_out);
     }
-    // librosa's zf has shape (..., 1): (1,) for 1-D input, (channels, 1) for 2-D.
+    // zf has shape (..., 1): (1,) for 1-D input, (channels, 1) for 2-D.
     let zf_out = if squeeze {
         zf.into_pyarray(py).into_any()
     } else {
@@ -241,15 +242,14 @@ fn emphasis<'py, F: PyFloat>(
     (y_out, zf_out).into_bound_py_any(py)
 }
 
-/// Pre-emphasis filter ``y[n] = x[n] - coef * x[n - 1]``, equivalent to
-/// ``librosa.effects.preemphasis``.
+/// Pre-emphasis filter ``y[n] = x[n] - coef * x[n - 1]``.
 ///
 /// Args:
 ///
 ///     y (array_like): Signal ``(n,)`` or ``(channels, n)``.
 ///     coef (float): Coefficient. Default 0.97.
 ///     zi (Optional[float | array_like]): Initial filter state (one value, or
-///         one per channel). None uses librosa's ``2 * y[0] - y[1]``.
+///         one per channel). None uses ``2 * y[0] - y[1]``.
 ///     return_zf (bool): Also return the final state. Default False.
 ///
 /// Returns:
@@ -284,15 +284,14 @@ pub fn preemphasis<'py>(
 }
 
 /// De-emphasis filter ``y[n] = x[n] + coef * y[n - 1]`` (inverse of
-/// ``preemphasis``), equivalent to ``librosa.effects.deemphasis``.
+/// ``preemphasis``).
 ///
 /// Args:
 ///
 ///     y (array_like): Signal ``(n,)`` or ``(channels, n)``.
 ///     coef (float): Coefficient. Default 0.97 (3 only with an explicit ``zi``).
-///     zi (Optional[float | array_like]): Initial filter state. None uses
-///         librosa's default, which exactly inverts ``preemphasis`` with its
-///         default state.
+///     zi (Optional[float | array_like]): Initial filter state. None uses the
+///         state that exactly inverts ``preemphasis`` with its default state.
 ///     return_zf (bool): Also return the final state. Default False.
 ///
 /// Returns:
@@ -328,7 +327,7 @@ pub fn deemphasis<'py>(
 // Masks and HPSS
 // =============================================================================
 
-/// Soft mask ``X**p / (X**p + X_ref**p)``, equivalent to ``librosa.util.softmask``.
+/// Soft mask ``X**p / (X**p + X_ref**p)``.
 ///
 /// Args:
 ///
@@ -373,11 +372,10 @@ pub fn softmask<'py>(
     })
 }
 
-/// Median-filtering harmonic/percussive separation of a spectrogram,
-/// equivalent to ``librosa.decompose.hpss``.
+/// Median-filtering harmonic/percussive separation of a spectrogram.
 ///
-/// ``H`` is ``|S|`` median-filtered along time, ``P`` along frequency (SciPy
-/// ``reflect`` boundary); the masks are ``softmask(H, margin_h * P)`` and
+/// ``H`` is ``|S|`` median-filtered along time, ``P`` along frequency (edges
+/// mirrored, edge sample repeated); the masks are ``softmask(H, margin_h * P)`` and
 /// ``softmask(P, margin_p * H)``.
 ///
 /// Args:
@@ -396,7 +394,7 @@ pub fn softmask<'py>(
 ///
 ///     tuple: ``(harmonic, percussive)`` of the input's shape and dtype
 ///     (complex input keeps its phase), or with ``mask=True`` the masks in ``S``'s precision
-///     (bool for ``power=inf``, as librosa).
+///     (bool for ``power=inf``).
 ///
 /// Raises:
 ///
@@ -621,7 +619,7 @@ fn sparse_rec<'py>(rec: &Bound<'py, PyAny>) -> PyResult<Option<SparseRec<'py>>> 
     }))
 }
 
-/// Nearest-neighbour filtering, equivalent to ``librosa.decompose.nn_filter``.
+/// Nearest-neighbour filtering of a feature matrix.
 ///
 /// Each frame is replaced by an aggregate of its neighbours in a recurrence
 /// matrix (``rec[j, i] != 0`` links frame ``j`` to output frame ``i``); frames
@@ -829,7 +827,7 @@ fn recurrence_config(kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<RecurrenceC
             "bandwidth" => bandwidth = Some(value),
             "self" | "self_links" => cfg.self_links = value.extract()?,
             "full" => cfg.full = value.extract()?,
-            // The neighbour lists are sparse either way, as librosa forces sparse=True.
+            // The neighbour lists are sparse whatever `sparse` says.
             "sparse" => {}
             "axis" => {
                 let a: i64 = value.extract()?;
@@ -924,7 +922,7 @@ fn seed_from_numpy(obj: &Bound<'_, PyAny>) -> PyResult<u64> {
     Ok(seed.cast_unsigned())
 }
 
-/// [`GriffinLimConfig`] from librosa's `griffinlim` keyword arguments.
+/// [`GriffinLimConfig`] from the `griffinlim` keyword arguments.
 #[allow(clippy::too_many_arguments)]
 pub fn griffinlim_config(
     n_bins: usize,
@@ -954,8 +952,7 @@ pub fn griffinlim_config(
         .with_length(crate::args::opt_positive("length", length)?.map(NonZeroUsize::get)))
 }
 
-/// Reconstructs a signal from a magnitude spectrogram with fast Griffin-Lim,
-/// equivalent to ``librosa.griffinlim``.
+/// Reconstructs a signal from a magnitude spectrogram with fast Griffin-Lim.
 ///
 /// Args:
 ///
@@ -973,8 +970,7 @@ pub fn griffinlim_config(
 ///     rng: Seed for ``init="random"``: an integer, None for a fresh seed on every
 ///         call, or a NumPy generator or anything else ``numpy.random.default_rng``
 ///         takes, from which one seed is drawn (advancing the generator). The random
-///         phases come from this library's generator, so they differ from librosa's
-///         for the same seed.
+///         phases come from this library's generator.
 ///     random_state: Deprecated alias of ``rng``.
 ///
 /// Returns:
@@ -1032,7 +1028,7 @@ pub fn griffinlim<'py>(
     })
 }
 
-/// Linear-prediction coefficients by Burg's method, equivalent to ``librosa.lpc``.
+/// Linear-prediction coefficients by Burg's method.
 ///
 /// Args:
 ///
@@ -1088,30 +1084,28 @@ pub fn lpc<'py>(
     })
 }
 
-/// Synthesises a click track, equivalent to ``librosa.clicks``.
+/// Synthesises a click track.
 ///
 /// Args:
 ///
 ///     times (Optional[array_like]): Click times in seconds.
 ///     frames (Optional[array_like]): Click frame indices (used when ``times``
 ///         is None).
-///     sr (int): Sampling rate (a positive integer). Required (librosa defaults to 22050).
+///     sr (int): Sampling rate (a positive integer). Required.
 ///     hop_length (Optional[int]): Samples per frame for ``frames``. Required
-///         when ``frames`` is given (librosa defaults to 512); unused with
-///         ``times``.
+///         when ``frames`` is given; unused with ``times``.
 ///     click_freq (float): Frequency of the default click. Default 1000.
 ///     click_duration (float): Duration of the default click (s). Default 0.1.
 ///     click (Optional[array_like]): Custom 1-D click waveform.
 ///     length (Optional[int]): Output length; clicks starting at or after it
 ///         are dropped. None: up to the end of the last click.
-///     dtype (Optional[numpy.dtype]): Output dtype, ``numpy.float32`` (librosa's
-///         dtype) or ``numpy.float64``. Default None: float64.
+///     dtype (Optional[numpy.dtype]): Output dtype, ``numpy.float32`` or
+///         ``numpy.float64``. Default None: float64.
 ///
 /// Returns:
 ///
 ///     numpy.ndarray[float64 | float32]: 1-D click signal (float64 unless
-///     ``dtype`` says otherwise; librosa returns float32, and the values agree
-///     to float32 rounding).
+///     ``dtype`` says otherwise).
 ///
 /// Raises:
 ///
@@ -1177,8 +1171,7 @@ pub fn clicks<'py>(
             let Some(hop) = hop else {
                 return Err(value_err(
                     "hop_length",
-                    "required with frames= (the hop of the analysis that produced the frames; \
-                     librosa defaults to 512)",
+                    "required with frames= (the hop of the analysis that produced the frames)",
                 ));
             };
             let f: Vec<usize> = i64_vec(f, "frames")?
@@ -1226,7 +1219,7 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     let m = PyModule::new(py, "effects")?;
     m.add(
         "__doc__",
-        "librosa-compatible effect and decomposition helpers over NumPy arrays \
+        "Effect and decomposition functions over NumPy arrays \
          (phase vocoder, pre-/de-emphasis with filter state, soft masks, HPSS, \
          nearest-neighbour filtering, Griffin-Lim, LPC, click tracks). \
          float32 / complex64 arrays are processed in float32 and give float32 \

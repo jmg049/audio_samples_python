@@ -1,8 +1,8 @@
-//! librosa-compatible frame-wise pitch tracking on `AudioSamples` (`yin`,
-//! `pyin`), binding the Rust `AudioPitchTracking` trait.
+//! Frame-wise pitch tracking on `AudioSamples` (`yin`, `pyin`), binding the
+//! Rust `AudioPitchTracking` trait.
 //!
-//! Outputs are `(channels, n_frames)` arrays (librosa returns `(n_frames,)` for
-//! 1-D input; index `[0]`).
+//! Outputs are `(channels, n_frames)` arrays, also for mono audio (index `[0]`
+//! for `(n_frames,)`).
 
 use crate::args::Int;
 use audio_samples::operations::pitch_tracking::{AudioPitchTracking, UnvoicedFill};
@@ -11,21 +11,21 @@ use pyo3::IntoPyObjectExt;
 use pyo3::prelude::*;
 
 use crate::features::args::FillNaArg;
-use crate::features::pitch::{pyin_config, yin_config};
+use crate::features::pitch::{PyinArgs, yin_config};
 use crate::{PyAudioSamples, audio_err_to_py, dispatch_array_detached, dispatch_typed_detached};
 
 #[pymethods]
 impl PyAudioSamples {
-    /// Frame-wise YIN fundamental frequency, equivalent to
-    /// ``librosa.yin(y, fmin=fmin, fmax=fmax, sr=self.sample_rate, ...)``.
+    /// Frame-wise YIN fundamental frequency.
     ///
-    /// Unlike ``detect_pitch_yin()`` / ``track_pitch()``, this follows librosa's
-    /// framing (centred frames), CMND, parabolic refinement and fallback.
+    /// Unlike ``detect_pitch_yin()`` / ``track_pitch()``, this uses centred
+    /// frames, the cumulative mean normalised difference (CMND), parabolic
+    /// refinement of the chosen trough and a fallback to the global minimum
+    /// when no trough is below ``trough_threshold``.
     ///
     /// Args:
     ///
-    ///     fmin (float): Lowest frequency searched (Hz). Required, as in librosa
-    ///         (librosa recommends ``librosa.note_to_hz("C2")`` = 65.41).
+    ///     fmin (float): Lowest frequency searched (Hz). Required (e.g. C2 = 65.41).
     ///     fmax (float): Highest frequency searched (Hz). Required (e.g. C7 = 2093.0).
     ///     frame_length (int): Samples per frame. Default 2048.
     ///     hop_length (Optional[int]): None = ``frame_length // 4``.
@@ -45,7 +45,10 @@ impl PyAudioSamples {
         signature = (*, fmin, fmax, frame_length = Int(2048), hop_length = None, trough_threshold = 0.1, center = true, pad_mode = "constant"),
         text_signature = "($self, *, fmin, fmax, frame_length=2048, hop_length=None, trough_threshold=0.1, center=True, pad_mode='constant')"
     )]
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the Python signature has 7 parameters"
+    )]
     fn yin<'py>(
         &self,
         py: Python<'py>,
@@ -69,8 +72,7 @@ impl PyAudioSamples {
         dispatch_array_detached!(self, py, |audio| audio.yin(&cfg))
     }
 
-    /// Probabilistic YIN with HMM decoding, equivalent to
-    /// ``librosa.pyin(y, fmin=fmin, fmax=fmax, sr=self.sample_rate, ...)``.
+    /// Probabilistic YIN with HMM decoding: f0 tracking with voicing decisions.
     ///
     /// Args:
     ///
@@ -105,7 +107,10 @@ impl PyAudioSamples {
         signature = (*, fmin, fmax, frame_length = Int(2048), hop_length = None, n_thresholds = Int(100), beta_parameters = (2.0, 18.0), boltzmann_parameter = 2.0, resolution = 0.1, max_transition_rate = 35.92, switch_prob = 0.01, no_trough_prob = 0.01, fill_na = FillNaArg(UnvoicedFill::Nan), center = true, pad_mode = "constant", transition_min_prob = Some(1e-4)),
         text_signature = "($self, *, fmin, fmax, frame_length=2048, hop_length=None, n_thresholds=100, beta_parameters=(2, 18), boltzmann_parameter=2, resolution=0.1, max_transition_rate=35.92, switch_prob=0.01, no_trough_prob=0.01, fill_na=math.nan, center=True, pad_mode='constant', transition_min_prob=0.0001)"
     )]
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the Python signature has 15 parameters"
+    )]
     fn pyin<'py>(
         &self,
         py: Python<'py>,
@@ -125,7 +130,7 @@ impl PyAudioSamples {
         pad_mode: &str,
         transition_min_prob: Option<f64>,
     ) -> PyResult<Bound<'py, PyAny>> {
-        let cfg = pyin_config(
+        let cfg = PyinArgs {
             fmin,
             fmax,
             frame_length,
@@ -141,7 +146,8 @@ impl PyAudioSamples {
             center,
             pad_mode,
             transition_min_prob,
-        )?;
+        }
+        .config()?;
         dispatch_typed_detached!(self, py, |audio| audio.pyin(&cfg), |r| {
             let r = r.map_err(audio_err_to_py)?;
             (
