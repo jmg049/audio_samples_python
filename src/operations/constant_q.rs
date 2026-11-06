@@ -13,6 +13,8 @@ use audio_samples::operations::constant_q::{
     AudioConstantQ, ChromaCensConfig, ChromaCqtConfig, ChromaVqtConfig, CqtConfig, TonnetzConfig,
     VqtConfig, vqt_with_intervals,
 };
+use audio_samples::operations::constant_q::griffinlim_cqt_random;
+use audio_samples::operations::effects::GriffinLimInit;
 use audio_samples::operations::filterbanks::Window;
 use audio_samples::{AudioSample, AudioSamples};
 use pyo3::prelude::*;
@@ -21,6 +23,7 @@ use crate::args::{
     WindowArg, complex_array_as, float_array_as, non_negative, opt_positive, output_sample_type,
     parse_pad_mode, positive, to_3d, value_err, with_sample_type,
 };
+use crate::effects::{RngArg, griffinlim_init};
 use crate::features::args::{check_intervals, parse_cqt_mode, parse_res_type};
 use crate::types::PySampleType;
 use crate::{PyAudioSamples, audio_err_to_py, dispatch_array_detached, nzu32_or_err};
@@ -417,11 +420,10 @@ impl PyAudioSamples {
     }
 
     /// Reconstructs audio from a constant-Q magnitude by Griffin-Lim, equivalent
-    /// to ``librosa.griffinlim_cqt(C, sr=sample_rate, ..., init=None)``.
+    /// to ``librosa.griffinlim_cqt(C, sr=sample_rate, ...)``.
     ///
-    /// This is a static method. Only the deterministic zero-phase start
-    /// (librosa's ``init=None``) is available; librosa's default
-    /// ``init="random"`` depends on NumPy's random generator and is rejected.
+    /// This is a static method. The default is the deterministic zero-phase start
+    /// (librosa's ``init=None``); librosa's default is ``init="random"``.
     ///
     /// Args:
     ///     C (array_like): Non-negative CQT magnitude, ``(n_bins, T)`` or
@@ -431,7 +433,13 @@ impl PyAudioSamples {
     ///     hop_length, fmin, bins_per_octave, tuning, filter_scale, norm, sparsity, window, scale, pad_mode, res_type: The forward parameters (see ``cqt``).
     ///     length (Optional[int]): Output length per channel.
     ///     momentum (float): Fast Griffin-Lim momentum. Default 0.99.
-    ///     init (None): Must be None.
+    ///     init (Optional[str]): None (default: zero phase, deterministic) or
+    ///         ``"random"``.
+    ///     rng: Seed for ``init="random"``, as ``griffinlim``: an integer (default 0),
+    ///         None for a fresh seed on every call, or a NumPy generator, from which
+    ///         one seed is drawn. The random phases come from this library's
+    ///         generator, so they differ from librosa's for the same seed.
+    ///     random_state: Deprecated alias of ``rng``.
     ///     dtype (Optional[SampleType]): Sample type of the returned audio.
     ///         ``None`` (default) gives float32 audio for a float32 ``C`` and
     ///         float64 audio for any other input. The computation runs in the
@@ -442,11 +450,12 @@ impl PyAudioSamples {
     ///     AudioSamples: audio of sample type ``dtype``.
     ///
     /// Raises:
-    ///     ValueError: For invalid parameters or ``init`` other than None.
+    ///     ValueError: For invalid parameters or ``init`` other than None or
+    ///         ``"random"``.
     #[staticmethod]
     #[pyo3(
-        signature = (C, *, sample_rate, n_iter = Int(32), hop_length = Int(512), fmin = None, bins_per_octave = Int(12), tuning = 0.0, filter_scale = 1.0, norm = Some(1.0), sparsity = 0.01, window = WindowArg(Window::Hann), scale = true, pad_mode = "constant", res_type = "soxr_hq", length = None, momentum = 0.99, init = None, dtype = None),
-        text_signature = "(C, *, sample_rate, n_iter=32, hop_length=512, fmin=None, bins_per_octave=12, tuning=0.0, filter_scale=1, norm=1, sparsity=0.01, window='hann', scale=True, pad_mode='constant', res_type='soxr_hq', length=None, momentum=0.99, init=None, dtype=None)"
+        signature = (C, *, sample_rate, n_iter = Int(32), hop_length = Int(512), fmin = None, bins_per_octave = Int(12), tuning = 0.0, filter_scale = 1.0, norm = Some(1.0), sparsity = 0.01, window = WindowArg(Window::Hann), scale = true, pad_mode = "constant", res_type = "soxr_hq", length = None, momentum = 0.99, init = None, rng = RngArg::SEEDED, random_state = None, dtype = None),
+        text_signature = "(C, *, sample_rate, n_iter=32, hop_length=512, fmin=None, bins_per_octave=12, tuning=0.0, filter_scale=1, norm=1, sparsity=0.01, window='hann', scale=True, pad_mode='constant', res_type='soxr_hq', length=None, momentum=0.99, init=None, rng=0, random_state=None, dtype=None)"
     )]
     #[allow(non_snake_case, clippy::too_many_arguments)]
     fn griffinlim_cqt(
@@ -466,16 +475,12 @@ impl PyAudioSamples {
         res_type: &str,
         length: Option<Int>,
         momentum: f64,
-        init: Option<&Bound<'_, PyAny>>,
+        init: Option<&str>,
+        rng: RngArg,
+        random_state: Option<RngArg>,
         dtype: Option<PySampleType>,
     ) -> PyResult<Self> {
-        if init.is_some_and(|i| !i.is_none()) {
-            return Err(value_err(
-                "init",
-                "only init=None (zero initial phase) is supported; librosa's 'random' \
-                 initialisation cannot be reproduced",
-            ));
-        }
+        let init = griffinlim_init(init, random_state.unwrap_or(rng))?;
         let cfg = cqt_config(
             hop_length,
             fmin,
@@ -496,9 +501,14 @@ impl PyAudioSamples {
         with_sample_type!(output_sample_type(dtype, C), |T| {
             let m = float_array_as::<<T as AudioSample>::Float>(C, "C")?;
             let m3 = to_3d(m.as_array(), "C")?;
-            let y = <AudioSamples<'static, T> as AudioConstantQ>::griffinlim_cqt(
-                &m3, &cfg, sr, n_iter, momentum, length,
-            )
+            let y = match init {
+                GriffinLimInit::ZeroPhase => <AudioSamples<'static, T> as AudioConstantQ>::griffinlim_cqt(
+                    &m3, &cfg, sr, n_iter, momentum, length,
+                ),
+                GriffinLimInit::Random(seed) => griffinlim_cqt_random::<T>(
+                    &m3, &cfg, sr, n_iter, momentum, length, seed,
+                ),
+            }
             .map_err(audio_err_to_py)?;
             Ok(Self::from_audio_samples(y))
         })

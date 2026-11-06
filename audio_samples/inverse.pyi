@@ -6,11 +6,15 @@ in ``float32``; anything else is computed in ``float64``.
 
 from __future__ import annotations
 
+from typing import Sequence
+
 from typing import Any, Literal, Optional, Union, overload
 
 import numpy as np
 import numpy.typing as npt
 from numpy.typing import NDArray
+
+_RngLike = Union[int, None, np.random.Generator, np.random.RandomState, np.random.SeedSequence, np.random.BitGenerator, Sequence[int]]
 
 _SingleArray = NDArray[np.float32]
 _Norm = Union[Literal["slaney"], float, None]
@@ -41,7 +45,7 @@ def mel_to_audio(
     length: Optional[int] = None,
     momentum: float = 0.99,
     init: Optional[Literal["random"]] = "random",
-    rng: Optional[int] = 0,
+    rng: _RngLike = 0,
     fmin: float = 0.0,
     fmax: Optional[float] = None,
     htk: bool = False,
@@ -78,7 +82,7 @@ def mfcc_to_audio(
     length: Optional[int] = None,
     momentum: float = 0.99,
     init: Optional[Literal["random"]] = "random",
-    rng: Optional[int] = 0,
+    rng: _RngLike = 0,
     fmin: float = 0.0,
     fmax: Optional[float] = None,
     htk: bool = False,

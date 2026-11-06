@@ -7,6 +7,8 @@ function.
 """
 
 from __future__ import annotations
+
+from typing import Sequence
 from typing import final
 from pathlib import Path
 from typing import Generic, NoReturn, Optional, Any, Literal, Callable, Union, ClassVar, overload, type_check_only
@@ -184,6 +186,8 @@ _WindowSpec = Union[str, tuple[str, float], float, npt.ArrayLike]
 _MelNormSpec = Union[Literal["slaney"], float, None]
 #: dB reference: a number, ``"max"`` or ``numpy.max``.
 _DbRef = Union[float, Literal["max"], Callable[..., Any]]
+#: A seed: an integer, None, or a NumPy generator (one seed is drawn from it).
+_RngLike = Union[int, None, np.random.Generator, np.random.RandomState, np.random.SeedSequence, np.random.BitGenerator, Sequence[int]]
 
 # Expose generation functions at the top level for convenience
 from .generation import (
@@ -2256,19 +2260,19 @@ class AudioSamples(Generic[_S_co]):
     @overload
     def magphase(
         complex_spect: NDArray[_UnknownDtype],
-        power: Optional[int] = None,
+        power: Optional[float] = None,
     ) -> tuple[NDArray[Any], NDArray[Any]]: ...
     @staticmethod
     @overload
     def magphase(  # type: ignore[overload-overlap]
         complex_spect: NDArray[np.complex64],
-        power: Optional[int] = None,
+        power: Optional[float] = None,
     ) -> tuple[NDArray[np.float32], NDArray[np.complex64]]: ...
     @staticmethod
     @overload
     def magphase(
         complex_spect: NDArray[np.complex128],
-        power: Optional[int] = None,
+        power: Optional[float] = None,
     ) -> tuple[NDArray[np.float64], NDArray[np.complex128]]:
         """Decompose a complex spectrogram into magnitude and phase.
 
@@ -2283,8 +2287,8 @@ class AudioSamples(Generic[_S_co]):
 
         Args:
             complex_spect: Complex 2-D STFT or FFT matrix.
-            power: Exponent applied to the magnitude values. Defaults to 1 (raw
-                magnitude); must be greater than zero if given.
+            power: Exponent applied to the magnitude values, any number. Defaults to 1
+                (raw magnitude).
 
         Returns:
             tuple[numpy.ndarray, numpy.ndarray]: The real-valued magnitude matrix
@@ -3642,7 +3646,9 @@ class AudioSamples(Generic[_S_co]):
         res_type: str = 'soxr_hq',
         length: Optional[int] = None,
         momentum: float = 0.99,
-        init: None = None,
+        init: Optional[Literal['random']] = None,
+        rng: _RngLike = 0,
+        random_state: _RngLike = None,
         dtype: None = None,
     ) -> AudioSamples[Any]: ...
     @staticmethod
@@ -3665,7 +3671,9 @@ class AudioSamples(Generic[_S_co]):
         res_type: str = 'soxr_hq',
         length: Optional[int] = None,
         momentum: float = 0.99,
-        init: None = None,
+        init: Optional[Literal['random']] = None,
+        rng: _RngLike = 0,
+        random_state: _RngLike = None,
         dtype: None = None,
     ) -> AudioSamples[np.float32]: ...
     @staticmethod
@@ -3688,7 +3696,9 @@ class AudioSamples(Generic[_S_co]):
         res_type: str = 'soxr_hq',
         length: Optional[int] = None,
         momentum: float = 0.99,
-        init: None = None,
+        init: Optional[Literal['random']] = None,
+        rng: _RngLike = 0,
+        random_state: _RngLike = None,
         dtype: None = None,
     ) -> AudioSamples[np.float64]: ...
     @staticmethod
@@ -3711,12 +3721,15 @@ class AudioSamples(Generic[_S_co]):
         res_type: str = 'soxr_hq',
         length: Optional[int] = None,
         momentum: float = 0.99,
-        init: None = None,
+        init: Optional[Literal['random']] = None,
+        rng: _RngLike = 0,
+        random_state: _RngLike = None,
         dtype: SampleType,
     ) -> AudioSamples[Any]:
-        """Griffin-Lim phase retrieval from a CQT magnitude, ``librosa.griffinlim_cqt(init=None)``
-        (static). Only ``init=None`` (zero phase) is supported; librosa defaults to a
-        random initial phase.
+        """Griffin-Lim phase retrieval from a CQT magnitude, ``librosa.griffinlim_cqt``
+        (static). ``init=None`` (zero phase) is the default; librosa defaults to
+        ``init="random"``, whose phases come from this library's RNG as in
+        ``effects.griffinlim``.
 
         Args:
         dtype: Sample type of the returned audio. None (default) gives float32
@@ -4137,7 +4150,7 @@ class AudioSamples(Generic[_S_co]):
     def onset_strength_multi(
         self: AudioSamples[_UnknownDtype],
         *,
-        channels: Optional[list[int]] = None,
+        channels: Optional[Union[list[int], list[slice]]] = None,
         lag: int = 1,
         max_size: int = 1,
         detrend: bool = False,
@@ -4159,7 +4172,7 @@ class AudioSamples(Generic[_S_co]):
     def onset_strength_multi(  # type: ignore[overload-overlap]
         self: AudioSamples[_SingleSample],
         *,
-        channels: Optional[list[int]] = None,
+        channels: Optional[Union[list[int], list[slice]]] = None,
         lag: int = 1,
         max_size: int = 1,
         detrend: bool = False,
@@ -4181,7 +4194,7 @@ class AudioSamples(Generic[_S_co]):
     def onset_strength_multi(
         self: AudioSamples[_DoubleSample],
         *,
-        channels: Optional[list[int]] = None,
+        channels: Optional[Union[list[int], list[slice]]] = None,
         lag: int = 1,
         max_size: int = 1,
         detrend: bool = False,
@@ -4582,12 +4595,14 @@ class AudioSamples(Generic[_S_co]):
         ref: _DbRef = "max",
         frame_length: int = 2048,
         hop_length: int = 512,
-        aggregate: Optional[Callable[..., Any]] = None,
+        aggregate: Optional[Union[Callable[..., Any], Literal['max', 'min', 'mean']]] = None,
     ) -> tuple[Self, NDArray[np.int64]]:
         """``librosa.effects.trim``: returns ``(trimmed, [start, end])``.
 
         ``top_db`` (dB below the reference) is required; librosa defaults to 60.
-        ``aggregate`` is ``numpy.max`` (default), ``numpy.min`` or ``numpy.mean``.
+        ``aggregate`` is ``numpy.max`` (default), ``numpy.min``, ``numpy.mean`` or any
+        callable, called as ``aggregate(db, 0)``; ``ref`` may be any callable
+        ``ref(rms, axis=..., keepdims=True)``. Callables run with the GIL held.
 
         Raises:
             ValueError: If everything is silent (librosa returns an empty array).
@@ -4601,7 +4616,7 @@ class AudioSamples(Generic[_S_co]):
         ref: _DbRef = "max",
         frame_length: int = 2048,
         hop_length: int = 512,
-        aggregate: Optional[Callable[..., Any]] = None,
+        aggregate: Optional[Union[Callable[..., Any], Literal['max', 'min', 'mean']]] = None,
     ) -> NDArray[np.int64]:
         """In-place ``trim_db``; returns ``[start, end]``."""
         ...
@@ -4613,7 +4628,7 @@ class AudioSamples(Generic[_S_co]):
         ref: _DbRef = "max",
         frame_length: int = 2048,
         hop_length: int = 512,
-        aggregate: Optional[Callable[..., Any]] = None,
+        aggregate: Optional[Union[Callable[..., Any], Literal['max', 'min', 'mean']]] = None,
     ) -> NDArray[np.int64]:
         """``librosa.effects.split``: int64 intervals of shape ``(n, 2)``.
 
@@ -4760,7 +4775,7 @@ class AudioSamples(Generic[_S_co]):
         pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
         momentum: float = 0.99,
         init: Optional[Literal['random']] = 'random',
-        rng: Optional[int] = 0,
+        rng: _RngLike = 0,
         dtype: None = None,
     ) -> AudioSamples[Any]: ...
     @staticmethod
@@ -4779,7 +4794,7 @@ class AudioSamples(Generic[_S_co]):
         pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
         momentum: float = 0.99,
         init: Optional[Literal['random']] = 'random',
-        rng: Optional[int] = 0,
+        rng: _RngLike = 0,
         dtype: None = None,
     ) -> AudioSamples[np.float32]: ...
     @staticmethod
@@ -4798,7 +4813,7 @@ class AudioSamples(Generic[_S_co]):
         pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
         momentum: float = 0.99,
         init: Optional[Literal['random']] = 'random',
-        rng: Optional[int] = 0,
+        rng: _RngLike = 0,
         dtype: None = None,
     ) -> AudioSamples[np.float64]: ...
     @staticmethod
@@ -4817,7 +4832,7 @@ class AudioSamples(Generic[_S_co]):
         pad_mode: Literal['constant', 'reflect', 'edge', 'symmetric'] = 'constant',
         momentum: float = 0.99,
         init: Optional[Literal['random']] = 'random',
-        rng: Optional[int] = 0,
+        rng: _RngLike = 0,
         dtype: SampleType,
     ) -> AudioSamples[Any]:
         """``librosa.griffinlim`` returning ``AudioSamples`` (see

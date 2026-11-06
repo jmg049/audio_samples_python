@@ -524,4 +524,4 @@ def test_validation(sr):
     with pytest.raises(TypeError):
         R.tempo(onset_envelope=np.ones(100), sr=sr, prior=3)
     with pytest.raises(ValueError, match="channels"):
-        R.onset_strength_multi(S=np.ones((8, 10)), sr=sr, channels=[slice(0, 4)])
+        R.onset_strength_multi(S=np.ones((8, 10)), sr=sr, channels=[slice(0, 4), 6])

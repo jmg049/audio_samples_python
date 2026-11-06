@@ -18,7 +18,7 @@ back-pointer there).
 
 from __future__ import annotations
 
-from typing import Any, Callable, Literal, Optional, Union
+from typing import Any, Callable, Literal, Optional, Sequence, Union
 
 import numpy as np
 import numpy.typing as npt
@@ -793,7 +793,7 @@ def lag_to_recurrence(lag: npt.ArrayLike, *, axis: int=-1) -> NDArray[np.float64
 @overload
 def sync(
     data: NDArray[_UnknownDtype],
-    idx: npt.ArrayLike,
+    idx: Union[npt.ArrayLike, Sequence[slice]],
     *,
     aggregate: Union[None, str, Callable[..., Any]] = None,
     pad: bool = True,
@@ -802,7 +802,7 @@ def sync(
 @overload
 def sync(  # type: ignore[overload-overlap]
     data: _SingleArray,
-    idx: npt.ArrayLike,
+    idx: Union[npt.ArrayLike, Sequence[slice]],
     *,
     aggregate: Union[None, str, Callable[..., Any]] = None,
     pad: bool = True,
@@ -811,7 +811,7 @@ def sync(  # type: ignore[overload-overlap]
 @overload
 def sync(
     data: npt.ArrayLike,
-    idx: npt.ArrayLike,
+    idx: Union[npt.ArrayLike, Sequence[slice]],
     *,
     aggregate: Union[None, str, Callable[..., Any]] = None,
     pad: bool = True,
@@ -820,6 +820,8 @@ def sync(
     """Aggregate frames between boundaries (``librosa.util.sync``, last axis).
 
     Args:
+        idx: Boundary frame indices, or one slice of the frames per output entry
+            (``pad`` is then not used).
         aggregate: None/``numpy.mean`` (default), ``numpy.median``, ``numpy.max``,
             ``numpy.min``, ``numpy.sum``, the names ``"mean"`` etc., or any
             callable ``f(x, axis=-1)`` returning a float for a 1-D segment.

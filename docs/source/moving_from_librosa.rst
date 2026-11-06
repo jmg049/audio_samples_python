@@ -421,7 +421,7 @@ settings; in Python there are no presets, so pass the keyword.
    * - ``trim`` of ``beat_track``
      - ``True``
      - ``False``; pass ``trim=True``
-   * - ``rng`` of ``griffinlim``
+   * - ``rng`` of ``griffinlim``, ``griffinlim_cqt``
      - unseeded
      - ``0``; pass ``rng=None`` for a new seed each call
    * - ``align_zeros`` of ``remix``
@@ -796,8 +796,8 @@ same result:
    as_audio = aus.AudioSamples.griffinlim_audio(magnitude, sample_rate=sr, n_iter=8)
    assert as_audio.sample_rate == sr
 
-``griffinlim_cqt`` only offers the deterministic start, and ``librosa.feature.inverse``
-(``mel_to_audio``, ``mfcc_to_audio`` and friends) has no equivalent.
+``griffinlim_cqt`` starts from zero phase unless ``init="random"`` is passed, and
+``librosa.feature.inverse`` (``mel_to_audio``, ``mfcc_to_audio`` and friends) is ``audio_samples.inverse``.
 
 Plotting
 ~~~~~~~~
@@ -1058,18 +1058,12 @@ has a counterpart: ``audio_samples.inverse``, ``linalg``, ``factorization``, ``p
 - multichannel audio in ``onset_detect`` and ``beat_track``;
 - ``intervals`` other than ``"equal"`` in the method ``chroma_vqt``: compute the transform with
   ``vqt(intervals=...)`` and pass it to ``forms.chroma_vqt``;
-- ``init="random"`` in ``griffinlim_cqt``; a NumPy generator as ``rng`` in ``griffinlim``;
+- ``mask=True`` in ``harmonic``, ``percussive`` and ``harmonic_percussive``: librosa documents
+  the masks but returns the inverse STFT of the mask; the masks are ``effects.hpss(S, mask=True)``;
 - a smoothing ``window`` in the method ``chroma_cqt``: use ``forms.chroma_cqt``;
-- a time-varying 2-D ``freq`` in ``spectral_centroid_from_spectrogram``;
-- slices as ``channels`` in ``onset_strength_multi``, and as indices in ``sync``;
-- ``aggregate=None`` in ``metrogram``;
-- ``mask=True`` in ``harmonic``, ``percussive`` and ``harmonic_percussive`` (it is available in
-  ``effects.hpss``);
 - ``scale=True`` in the method ``pitch_shift``: use ``forms.pitch_shift``;
-- a fractional ``power`` in ``magphase``, a 3-D matrix too (index ``[0]``);
-- a callable other than ``numpy.max``, ``numpy.min`` or ``numpy.mean`` as ``aggregate`` in
-  ``trim_db`` and ``split_db``; other than ``numpy.mean``, ``numpy.median`` or ``numpy.average`` in
-  ``nn_filter``;
+- a 3-D matrix in ``magphase`` (index ``[0]``);
+- formats other than WAV and FLAC in ``io.read`` and ``io.StreamedAudioReader``;
 - fractional sample rates.
 
 **Accepted, not applied.** ``griffinlim(dtype=...)`` is ignored, and ``griffinlim`` accepts a

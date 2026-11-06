@@ -119,7 +119,8 @@ def spectral_centroid_from_spectrogram(
     Args:
         S: Non-negative magnitude spectrogram, ``(F, T)`` or ``(channels, F, T)``.
         sr: Sample rate for the default ``freq``.
-        freq: 1-D bin centre frequencies (Hz); None = ``fft_frequencies(sr, 2 * (F - 1))``.
+        freq: Bin centre frequencies (Hz), 1-D or time-varying with the shape of ``S``;
+            None = ``fft_frequencies(sr, 2 * (F - 1))``.
             Time-varying 2-D ``freq`` (accepted by librosa) is not supported.
 
     Returns:
@@ -165,7 +166,8 @@ def spectral_bandwidth_from_spectrogram(
     Args:
         S: Non-negative spectrogram, ``(F, T)`` or ``(channels, F, T)``.
         sr: Sample rate for the default ``freq``.
-        freq: 1-D bin frequencies; None = FFT bin centres.
+        freq: Bin frequencies, 1-D or time-varying with the shape of ``S``; None = FFT
+            bin centres.
         centroid: Precomputed centroid ``(1, T)`` / ``(channels, 1, T)``; None computes it.
         norm: Normalise each frame to unit sum first.
         p: Order of the deviation (finite, non-zero).

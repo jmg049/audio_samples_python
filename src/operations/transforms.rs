@@ -440,34 +440,37 @@ impl PyAudioSamples {
     ///
     /// Args:
     ///     complex_spect (numpy.ndarray): Complex 2-D STFT or FFT matrix.
-    ///     power (Optional[int]): Exponent applied to the magnitude values.
-    ///         Defaults to 1 (raw magnitude); must be greater than zero if given.
+    ///     power (Optional[float]): Exponent applied to the magnitude values, as
+    ///         ``numpy.abs(D) ** power``; any number, fractional or negative.
+    ///         Defaults to 1 (raw magnitude).
     ///
     /// Returns:
     ///     tuple[numpy.ndarray, numpy.ndarray]: The real-valued magnitude matrix
     ///         and the complex unit-magnitude phase matrix.
-    ///
-    /// Raises:
-    ///     ValueError: If power is provided and is zero.
     #[staticmethod]
-    #[pyo3(signature = (complex_spect: "numpy.ndarray", power: "Optional[int]" = None))]
+    #[pyo3(signature = (complex_spect: "numpy.ndarray", power: "Optional[float]" = None))]
     fn magphase<'py>(
         py: Python<'py>,
         complex_spect: &Bound<'py, PyAny>,
-        power: Option<usize>,
+        power: Option<f64>,
     ) -> PyResult<(Bound<'py, PyAny>, Bound<'py, PyAny>)> {
-        use audio_samples::operations::transforms::magphase;
-        let power = power.map(nzu_or_err).transpose()?;
+        use audio_samples::operations::transforms::{magphase, magphase_powf};
         // On the borrowed numpy data: no copy of the input.
         if let Ok(d) = complex_spect.extract::<PyReadonlyArray2<'py, Complex<f64>>>() {
-            let (mag, phase) = magphase(d.as_array(), power);
+            let (mag, phase) = match power {
+                None => magphase(d.as_array(), None),
+                Some(p) => magphase_powf(d.as_array(), p),
+            };
             return Ok((
                 mag.into_pyarray(py).into_any(),
                 phase.into_pyarray(py).into_any(),
             ));
         }
         if let Ok(d) = complex_spect.extract::<PyReadonlyArray2<'py, Complex<f32>>>() {
-            let (mag, phase) = magphase(d.as_array(), power);
+            let (mag, phase) = match power {
+                None => magphase(d.as_array(), None),
+                Some(p) => magphase_powf(d.as_array(), p as f32),
+            };
             return Ok((
                 mag.into_pyarray(py).into_any(),
                 phase.into_pyarray(py).into_any(),

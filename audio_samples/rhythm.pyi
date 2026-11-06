@@ -139,7 +139,7 @@ def onset_strength_multi(
     detrend: bool = False,
     center: bool = True,
     aggregate: Union[_AggregateSpec, Literal[False], None] = None,
-    channels: Optional[Sequence[int]] = None,
+    channels: Optional[Union[Sequence[int], Sequence[slice]]] = None,
 ) -> NDArray[Any]: ...
 @overload
 def onset_strength_multi(  # type: ignore[overload-overlap]
@@ -154,7 +154,7 @@ def onset_strength_multi(  # type: ignore[overload-overlap]
     detrend: bool = False,
     center: bool = True,
     aggregate: Union[_AggregateSpec, Literal[False], None] = None,
-    channels: Optional[Sequence[int]] = None,
+    channels: Optional[Union[Sequence[int], Sequence[slice]]] = None,
 ) -> NDArray[np.float32]: ...
 @overload
 def onset_strength_multi(
@@ -169,7 +169,7 @@ def onset_strength_multi(
     detrend: bool = False,
     center: bool = True,
     aggregate: Union[_AggregateSpec, Literal[False], None] = None,
-    channels: Optional[Sequence[int]] = None,
+    channels: Optional[Union[Sequence[int], Sequence[slice]]] = None,
 ) -> NDArray[np.float64]:
     """Multi-band onset strength, ``librosa.onset.onset_strength_multi(S=S)``.
 
@@ -178,7 +178,8 @@ def onset_strength_multi(
         sr, n_fft, hop_length, lag, max_size, ref, detrend, center: As ``onset_strength``.
         aggregate: As ``onset_strength``; ``False`` keeps every bin.
         channels: Sub-band boundaries in bins (sorted, de-duplicated, values
-            above ``n_bins`` dropped); None = one band. Slices are not supported.
+            above ``n_bins`` dropped), or one slice of the bins per band; None = one
+            band.
 
     Returns:
         numpy.ndarray[float32 | float64]: shape ``(n_bands, n_frames)`` or
@@ -655,7 +656,7 @@ def metrogram(
     tg: NDArray[_UnknownDtype],
     freqs: npt.ArrayLike,
     factors: Optional[npt.ArrayLike] = None,
-    aggregate: _AggregateSpec = 'sum',
+    aggregate: Optional[_AggregateSpec] = 'sum',
     kind: Literal['linear'] = 'linear',
     fill_value: float = 0,
 ) -> NDArray[Any]: ...
@@ -665,7 +666,7 @@ def metrogram(  # type: ignore[overload-overlap]
     tg: _SingleArray,
     freqs: npt.ArrayLike,
     factors: Optional[npt.ArrayLike] = None,
-    aggregate: _AggregateSpec = 'sum',
+    aggregate: Optional[_AggregateSpec] = 'sum',
     kind: Literal['linear'] = 'linear',
     fill_value: float = 0,
 ) -> NDArray[np.float32]: ...
@@ -675,15 +676,15 @@ def metrogram(
     tg: npt.ArrayLike,
     freqs: npt.ArrayLike,
     factors: Optional[npt.ArrayLike] = None,
-    aggregate: _AggregateSpec = 'sum',
+    aggregate: Optional[_AggregateSpec] = 'sum',
     kind: Literal['linear'] = 'linear',
     fill_value: float = 0,
 ) -> NDArray[np.float64]:
-    """Metrogram, ``librosa.feature.metrogram``. ``aggregate=None`` (librosa's
-    per-bin 4-D output) is not supported.
+    """Metrogram, ``librosa.feature.metrogram``.
 
     Returns:
-        numpy.ndarray[float32 | float64]: ``(n_factors, n_frames)`` (leading channel axis
+        numpy.ndarray[float32 | float64]: ``(n_factors, n_frames)``, or
+        ``(n_factors, n_freqs, n_frames)`` with ``aggregate=None`` (leading channel axis
         for 3-D ``tg``).
     """
     ...

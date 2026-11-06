@@ -14,7 +14,7 @@ use numpy::{IntoPyArray, PyUntypedArrayMethods};
 use pyo3::IntoPyObjectExt;
 use pyo3::prelude::*;
 
-use super::args::{bin_frequencies, parse_weighting, spec3, squeeze_out};
+use super::args::{bin_frequencies, freq3, freq_matrix, parse_weighting, spec3, squeeze_out};
 use crate::args::{
     DbRefArg, FloatElement, f64_array, float_array_as, is_scalar, positive, precision_of,
     value_err, with_precision,
@@ -33,7 +33,8 @@ fn out<'py, T: numpy::Element>(py: Python<'py>, a: Array3<T>, ndim_in: usize) ->
 ///     S (array_like): Non-negative magnitude spectrogram, shape ``(F, T)`` or
 ///         ``(channels, F, T)``.
 ///     sr (float): Sample rate (Hz), used for the default ``freq``. Required (librosa defaults to 22050).
-///     freq (Optional[array_like]): 1-D centre frequency of each bin (Hz).
+///     freq (Optional[array_like]): Centre frequency of each bin (Hz): 1-D, or
+///         time-varying with the shape of ``S`` (``(F, T)`` is shared by all channels).
 ///         ``None`` uses ``fft_frequencies(sr, n_fft=2 * (F - 1))``.
 ///
 /// Returns:
@@ -41,8 +42,7 @@ fn out<'py, T: numpy::Element>(py: Python<'py>, a: Array3<T>, ndim_in: usize) ->
 ///
 /// Raises:
 ///     ValueError: If ``S`` has negative or non-finite values, or ``freq`` has
-///         the wrong length. librosa also accepts time-varying 2-D ``freq``;
-///         only 1-D is supported here.
+///         the wrong shape.
 #[pyfunction]
 #[pyo3(signature = (S, *, sr, freq = None), text_signature = "(S, *, sr, freq=None)")]
 #[allow(non_snake_case)]
@@ -54,6 +54,11 @@ pub fn spectral_centroid_from_spectrogram<'py>(
 ) -> PyResult<Bound<'py, PyAny>> {
     with_precision!(precision_of(S), |F| {
         let (s, nd) = spec3::<F>(S, "S")?;
+        if let Some(m) = freq_matrix::<F>(freq)? {
+            let r = feat::spectral_centroid_from_spectrogram_with_freqs(s.view(), freq3(&m)?)
+                .map_err(audio_err_to_py)?;
+            return Ok(out(py, r, nd));
+        }
         let f = bin_frequencies(freq, sr, s.dim().1)?;
         let r = feat::spectral_centroid_from_spectrogram(s.view(), &f).map_err(audio_err_to_py)?;
         Ok(out(py, r, nd))
@@ -66,7 +71,8 @@ pub fn spectral_centroid_from_spectrogram<'py>(
 /// Args:
 ///     S (array_like): Non-negative spectrogram, ``(F, T)`` or ``(channels, F, T)``.
 ///     sr (float): Sample rate for the default ``freq``. Required (librosa defaults to 22050).
-///     freq (Optional[array_like]): 1-D bin frequencies; ``None`` = FFT bin centres.
+///     freq (Optional[array_like]): Bin frequencies, 1-D or time-varying with the shape
+///         of ``S``; ``None`` = FFT bin centres.
 ///     centroid (Optional[array_like]): Precomputed centroid, shape ``(1, T)`` or
 ///         ``(channels, 1, T)``; ``None`` computes it.
 ///     norm (bool): Normalise each frame to unit sum first. Default True.
@@ -94,7 +100,6 @@ pub fn spectral_bandwidth_from_spectrogram<'py>(
 ) -> PyResult<Bound<'py, PyAny>> {
     with_precision!(precision_of(S), |F| {
         let (s, nd) = spec3::<F>(S, "S")?;
-        let f = bin_frequencies(freq, sr, s.dim().1)?;
         let c = match centroid {
             Some(c) if !c.is_none() => Some(spec3(c, "centroid")?.0),
             _ => None,
@@ -104,6 +109,17 @@ pub fn spectral_bandwidth_from_spectrogram<'py>(
             norm,
             ..SpectralBandwidthConfig::default()
         };
+        if let Some(m) = freq_matrix::<F>(freq)? {
+            let r = feat::spectral_bandwidth_from_spectrogram_with_freqs(
+                s.view(),
+                freq3(&m)?,
+                c.as_ref().map(|a| a.view()),
+                &cfg,
+            )
+            .map_err(audio_err_to_py)?;
+            return Ok(out(py, r, nd));
+        }
+        let f = bin_frequencies(freq, sr, s.dim().1)?;
         let r = feat::spectral_bandwidth_from_spectrogram(
             s.view(),
             &f,
@@ -121,7 +137,8 @@ pub fn spectral_bandwidth_from_spectrogram<'py>(
 /// Args:
 ///     S (array_like): Non-negative spectrogram, ``(F, T)`` or ``(channels, F, T)``.
 ///     sr (float): Sample rate for the default ``freq``. Required (librosa defaults to 22050).
-///     freq (Optional[array_like]): 1-D bin frequencies; ``None`` = FFT bin centres.
+///     freq (Optional[array_like]): Bin frequencies, 1-D or time-varying with the shape
+///         of ``S``; ``None`` = FFT bin centres.
 ///     roll_percent (float): Energy fraction in ``(0, 1)``. Default 0.85.
 ///
 /// Returns:
@@ -144,11 +161,16 @@ pub fn spectral_rolloff_from_spectrogram<'py>(
 ) -> PyResult<Bound<'py, PyAny>> {
     with_precision!(precision_of(S), |F| {
         let (s, nd) = spec3::<F>(S, "S")?;
-        let f = bin_frequencies(freq, sr, s.dim().1)?;
         let cfg = SpectralRolloffConfig {
             roll_percent,
             ..SpectralRolloffConfig::default()
         };
+        if let Some(m) = freq_matrix::<F>(freq)? {
+            let r = feat::spectral_rolloff_from_spectrogram_with_freqs(s.view(), freq3(&m)?, &cfg)
+                .map_err(audio_err_to_py)?;
+            return Ok(out(py, r, nd));
+        }
+        let f = bin_frequencies(freq, sr, s.dim().1)?;
         let r =
             feat::spectral_rolloff_from_spectrogram(s.view(), &f, &cfg).map_err(audio_err_to_py)?;
         Ok(out(py, r, nd))
@@ -275,11 +297,16 @@ pub fn poly_features_from_spectrogram<'py>(
 ) -> PyResult<Bound<'py, PyAny>> {
     with_precision!(precision_of(S), |F| {
         let (s, nd) = spec3::<F>(S, "S")?;
-        let f = bin_frequencies(freq, sr, s.dim().1)?;
         let cfg = PolyFeaturesConfig {
             order: crate::args::non_negative("order", order)?,
             ..PolyFeaturesConfig::default()
         };
+        if let Some(m) = freq_matrix::<F>(freq)? {
+            let r = feat::poly_features_from_spectrogram_with_freqs(s.view(), freq3(&m)?, &cfg)
+                .map_err(audio_err_to_py)?;
+            return Ok(out(py, r, nd));
+        }
+        let f = bin_frequencies(freq, sr, s.dim().1)?;
         let r =
             feat::poly_features_from_spectrogram(s.view(), &f, &cfg).map_err(audio_err_to_py)?;
         Ok(out(py, r, nd))

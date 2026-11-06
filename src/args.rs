@@ -928,6 +928,25 @@ pub(crate) fn parse_db_ref(obj: &Bound<'_, PyAny>) -> PyResult<DbReference> {
     Ok(DbReference::Value(v))
 }
 
+/// A Python slice on an axis of length `n`, in the terms of [`ndarray::Slice`]: a
+/// negative step reverses the range `start..end` there, where Python counts down from
+/// `start`.
+pub(crate) fn slice_on_axis(
+    slice: &Bound<'_, pyo3::types::PySlice>,
+    n: usize,
+) -> PyResult<ndarray::Slice> {
+    use pyo3::types::PySliceMethods;
+    let i = slice.indices(n as isize)?;
+    if i.slicelength == 0 {
+        return Ok(ndarray::Slice::new(0, Some(0), 1));
+    }
+    if i.step > 0 {
+        return Ok(ndarray::Slice::new(i.start, Some(i.stop), i.step));
+    }
+    let last = i.start + (i.slicelength as isize - 1) * i.step;
+    Ok(ndarray::Slice::new(last, Some(i.start + 1), i.step))
+}
+
 /// Parses librosa's `axes` argument of the dB conversions: `"auto"` or `None`.
 pub(crate) fn parse_db_axes(obj: &Bound<'_, PyAny>) -> PyResult<DbAxes> {
     if obj.is_none() {

@@ -19,7 +19,7 @@ use numpy::{IntoPyArray, PyArray2, PyArrayDescrMethods, PyArrayMethods, PyUntype
 use pyo3::IntoPyObjectExt;
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyString, PyTuple};
+use pyo3::types::{PyDict, PySlice, PyString, PyTuple};
 
 use crate::args::{
     FloatElement, Precision, PyFloat, f64_array, float_array_as, i64_vec, positive, precision_of,
@@ -1071,12 +1071,13 @@ fn bool_or_float<'py, F: PyFloat>(
 ///
 /// Args:
 ///     data (array_like): Any shape with frames on the last axis.
-///     idx (array_like[int]): Boundary frame indices (sorted and de-duplicated
-///         internally). Slices are not supported.
+///     idx (array_like[int] | Sequence[slice]): Boundary frame indices (sorted and
+///         de-duplicated internally), or one slice of the frames per output entry.
 ///     aggregate: None / ``numpy.mean`` (default), ``numpy.median``,
 ///         ``numpy.max``, ``numpy.min``, ``numpy.sum``, the same names as strings,
 ///         or any callable ``f(x, axis=-1) -> float`` applied to each 1-D segment.
-///     pad (bool): Add 0 and ``n_frames`` to the boundaries. Default True.
+///     pad (bool): Add 0 and ``n_frames`` to the boundaries. Default True. Not used
+///         with slices.
 ///
 /// Returns:
 ///     numpy.ndarray[float32 | float64]: ``data`` with the last axis replaced by one entry
@@ -1116,7 +1117,15 @@ pub fn sync<'py>(
     with_precision!(precision_of(data), |F| {
         if let Some(agg) = builtin {
             let out = crate::args::with_float_view::<F, _>(data, "data", |x| {
-                seq::sync(x, &idx, agg, pad).map_err(audio_err_to_py)
+                match &idx {
+                    SyncIndex::Frames(idx) => seq::sync(x, idx, agg, pad),
+                    SyncIndex::Slices(slices) => {
+                        let n = x.shape().last().copied().unwrap_or(0);
+                        let slices = slices_on_axis(slices, n)?;
+                        seq::sync_slices(x, &slices, agg)
+                    }
+                }
+                .map_err(audio_err_to_py)
             })?;
             return Ok(out.into_pyarray(py).into_any());
         }
@@ -1125,7 +1134,7 @@ pub fn sync<'py>(
         let kwargs = PyDict::new(py);
         kwargs.set_item("axis", -1)?;
         let mut first_err: Option<PyErr> = None;
-        let out = seq::sync_with(x.as_array(), &idx, pad, |lane| {
+        let lane_aggregate = |lane: ndarray::ArrayView1<'_, F>| {
             if first_err.is_some() {
                 return F::of(f64::NAN);
             }
@@ -1138,7 +1147,15 @@ pub fn sync<'py>(
                 first_err = Some(e);
                 F::of(f64::NAN)
             })
-        })
+        };
+        let out = match &idx {
+            SyncIndex::Frames(idx) => seq::sync_with(x.as_array(), idx, pad, lane_aggregate),
+            SyncIndex::Slices(slices) => {
+                let n = x.shape().last().copied().unwrap_or(0);
+                let slices = slices_on_axis(slices, n)?;
+                seq::sync_slices_with(x.as_array(), &slices, lane_aggregate)
+            }
+        }
         .map_err(audio_err_to_py)?;
         if let Some(e) = first_err {
             return Err(e);
@@ -1147,10 +1164,23 @@ pub fn sync<'py>(
     })
 }
 
-/// The boundary indices of `sync` as `usize`. A list or tuple of Python ints
-/// is read directly; anything else (and a list holding other objects) goes
+/// The `idx` of `sync`.
+enum SyncIndex<'py> {
+    Frames(Vec<usize>),
+    Slices(Vec<Bound<'py, PySlice>>),
+}
+
+fn slices_on_axis(slices: &[Bound<'_, PySlice>], n: usize) -> PyResult<Vec<ndarray::Slice>> {
+    slices
+        .iter()
+        .map(|s| crate::args::slice_on_axis(s, n))
+        .collect()
+}
+
+/// The boundary indices of `sync` as `usize`, or its slices. A list or tuple of Python
+/// ints is read directly; anything else (and a list holding other objects) goes
 /// through the integer-array conversion, with the same errors.
-fn sync_indices(idx: &Bound<'_, PyAny>) -> PyResult<Vec<usize>> {
+fn sync_indices<'py>(idx: &Bound<'py, PyAny>) -> PyResult<SyncIndex<'py>> {
     use pyo3::types::{PyInt, PyList, PyTuple};
     let negative = || value_err("idx", "indices must be >= 0");
     let items = if let Ok(l) = idx.cast::<PyList>() {
@@ -1164,6 +1194,16 @@ fn sync_indices(idx: &Bound<'_, PyAny>) -> PyResult<Vec<usize>> {
         for k in 0..n {
             let item = seq.get_item(k)?;
             if !item.is_exact_instance_of::<PyInt>() {
+                if k == 0 && item.is_exact_instance_of::<PySlice>() {
+                    let slices = (0..n)
+                        .map(|i| {
+                            seq.get_item(i)?.cast_into::<PySlice>().map_err(|_| {
+                                value_err("idx", "expected all slices or all integers, not both")
+                            })
+                        })
+                        .collect::<PyResult<_>>()?;
+                    return Ok(SyncIndex::Slices(slices));
+                }
                 out.clear();
                 break;
             }
@@ -1176,7 +1216,7 @@ fn sync_indices(idx: &Bound<'_, PyAny>) -> PyResult<Vec<usize>> {
             }
         }
         if out.len() == n {
-            return Ok(out);
+            return Ok(SyncIndex::Frames(out));
         }
     }
     crate::args::with_i64_view(idx, "idx", |v| {
@@ -1184,7 +1224,7 @@ fn sync_indices(idx: &Bound<'_, PyAny>) -> PyResult<Vec<usize>> {
         for &i in &v {
             out.push(usize::try_from(i).map_err(|_| negative())?);
         }
-        Ok(out)
+        Ok(SyncIndex::Frames(out))
     })
 }
 

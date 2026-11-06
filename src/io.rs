@@ -11,7 +11,7 @@ use audio_samples_io::types::{BaseAudioInfo, FileType, WriteOptions};
 use audio_samples_io::wav::{CuePoint, InfoMetadata, WavMetadata};
 use numpy::{Element, PyArrayDescr, PyArrayMethods};
 use pyo3::{
-    Bound, PyResult, Python,
+    Bound, PyAny, PyResult, Python,
     exceptions::{PyTypeError, PyValueError},
     pyclass, pyfunction, pymethods, pymodule,
     types::{PyAnyMethods, PyModule, PyModuleMethods},
@@ -99,7 +99,8 @@ where
 /// Read an audio file (WAV or FLAC) and return an ``AudioSamples``.
 ///
 /// Args:
-///     fp (str): Path to the audio file.
+///     fp (str | Path | BinaryIO): Path to the audio file, or a file object opened in
+///         binary mode with ``read``, ``seek`` and ``tell``, read from its current position.
 ///     as_type (SampleType | None): Sample type to convert to, for example
 ///         ``SampleType.F32`` for floats in [-1, 1]. Defaults to the file's
 ///         native sample type (16-bit files give raw ``int16`` values).
@@ -109,14 +110,26 @@ where
 ///
 /// Raises:
 ///     FileNotFoundError: If ``fp`` does not exist (``AudioFileNotFoundError``).
-///     TypeError: If the file cannot be decoded (``AudioDecodeError``).
+///     TypeError: If the file cannot be decoded (``AudioDecodeError``), or ``fp`` is
+///         neither a path nor a file object.
+///     ValueError: If a file object holds anything other than WAV or FLAC.
 #[pyfunction]
-#[pyo3(signature = (fp: "str|Path", as_type:"SampleType"=None))]
+#[pyo3(signature = (fp: "str|Path|BinaryIO", as_type:"SampleType"=None))]
 pub fn read(
     py: Python<'_>,
-    fp: std::path::PathBuf,
+    fp: &Bound<'_, PyAny>,
     as_type: Option<PySampleType>,
 ) -> PyResult<PyAudioSamples> {
+    let fp: std::path::PathBuf = match fp.extract() {
+        Ok(path) => path,
+        Err(not_a_path) => {
+            if !fp.hasattr("read")? {
+                return Err(not_a_path.into());
+            }
+            return crate::io_streaming::PyStreamedAudioReader::open_any(fp)?
+                .read_rest(py, as_type);
+        }
+    };
     let fp = fp.to_string_lossy();
     let fp: &str = &fp;
     crate::ensure_file_exists(fp)?;

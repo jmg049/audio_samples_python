@@ -17,6 +17,8 @@ arrays) is converted to float64 and gives float64 / complex128 output.
 
 from __future__ import annotations
 
+from typing import Sequence
+
 from typing import Any, Callable, Literal, Optional, Union
 
 import numpy as np
@@ -24,6 +26,8 @@ import numpy.typing as npt
 from numpy.typing import NDArray
 from typing import Any, overload, type_check_only
 from typing_extensions import TypeAlias
+
+_RngLike = Union[int, None, np.random.Generator, np.random.RandomState, np.random.SeedSequence, np.random.BitGenerator, Sequence[int]]
 
 #: Matches only an array whose dtype is unknown to the type checker (Any). The overloads use it so that
 #: such an array gives a result of unknown precision instead of the first overload's.
@@ -324,7 +328,7 @@ def nn_filter(
     S: NDArray[_UnknownDtype],
     *,
     rec: Optional[npt.ArrayLike] = None,
-    aggregate: Optional[Union[Callable[..., Any], Literal['mean', 'median', 'average']]] = None,
+    aggregate: Optional[Union[Callable[..., Any], Literal['mean', 'median', 'average', 'max', 'min', 'sum']]] = None,
     axis: int = -1,
     **kwargs: Any,
 ) -> NDArray[Any]: ...
@@ -333,7 +337,7 @@ def nn_filter(
     S: _SingleArray,
     *,
     rec: Optional[npt.ArrayLike] = None,
-    aggregate: Optional[Union[Callable[..., Any], Literal['mean', 'median', 'average']]] = None,
+    aggregate: Optional[Union[Callable[..., Any], Literal['mean', 'median', 'average', 'max', 'min', 'sum']]] = None,
     axis: int = -1,
     **kwargs: Any,
 ) -> NDArray[np.float32]: ...
@@ -342,7 +346,7 @@ def nn_filter(
     S: npt.ArrayLike,
     *,
     rec: Optional[npt.ArrayLike] = None,
-    aggregate: Optional[Union[Callable[..., Any], Literal['mean', 'median', 'average']]] = None,
+    aggregate: Optional[Union[Callable[..., Any], Literal['mean', 'median', 'average', 'max', 'min', 'sum']]] = None,
     axis: int = -1,
     **kwargs: Any,
 ) -> NDArray[np.float64]:
@@ -350,10 +354,13 @@ def nn_filter(
 
     Args:
         S: ``(n_features, n_frames)``.
-        rec: Dense ``(n_frames, n_frames)`` recurrence matrix; None computes
+        rec: ``(n_frames, n_frames)`` recurrence matrix, dense or ``scipy.sparse``
+            (every stored entry is a neighbour); None computes
             ``sequence.recurrence_matrix(S, **kwargs)``.
-        aggregate: None/``numpy.mean``, ``numpy.median`` or ``numpy.average``
-            (weighted by ``rec``).
+        aggregate: None/``numpy.mean``, ``numpy.median``, ``numpy.average``
+            (weighted by ``rec``), ``numpy.max``, ``numpy.min``, ``numpy.sum``, or any
+            callable ``f(neighbours, axis=0)`` of the ``(n_neighbours, n_features)``
+            neighbours, which runs with the GIL held.
         axis: Must be -1.
         **kwargs: ``recurrence_matrix`` arguments (``k``, ``width``, ``metric``,
             ``sym``, ``mode``, ``bandwidth``, ``self``, ``full``).
@@ -378,8 +385,8 @@ def griffinlim(
     pad_mode: _PadMode = 'constant',
     momentum: float = 0.99,
     init: Optional[Literal['random']] = 'random',
-    rng: Optional[int] = 0,
-    random_state: Optional[int] = None,
+    rng: _RngLike = 0,
+    random_state: _RngLike = None,
 ) -> NDArray[Any]: ...
 @overload
 def griffinlim(  # type: ignore[overload-overlap]
@@ -396,8 +403,8 @@ def griffinlim(  # type: ignore[overload-overlap]
     pad_mode: _PadMode = 'constant',
     momentum: float = 0.99,
     init: Optional[Literal['random']] = 'random',
-    rng: Optional[int] = 0,
-    random_state: Optional[int] = None,
+    rng: _RngLike = 0,
+    random_state: _RngLike = None,
 ) -> NDArray[np.float32]: ...
 @overload
 def griffinlim(
@@ -414,14 +421,15 @@ def griffinlim(
     pad_mode: _PadMode = 'constant',
     momentum: float = 0.99,
     init: Optional[Literal['random']] = 'random',
-    rng: Optional[int] = 0,
-    random_state: Optional[int] = None,
+    rng: _RngLike = 0,
+    random_state: _RngLike = None,
 ) -> NDArray[np.float64]:
     """Fast Griffin-Lim phase reconstruction, ``librosa.griffinlim``.
 
     ``init=None`` (zero phase) matches librosa to round-off. Random phases come
-    from this library's RNG (``rng`` is an integer seed; NumPy generators are
-    rejected), so they differ from librosa's. ``rng`` defaults to the seed 0,
+    from this library's RNG, so they differ from librosa's. ``rng`` is an integer
+    seed, None, or a NumPy generator (or anything ``numpy.random.default_rng``
+    takes), from which one seed is drawn. ``rng`` defaults to the seed 0,
     so repeated calls give the same output; ``rng=None`` draws a new seed on
     every call (librosa's default). The output is float32 for a float32 ``S``
     and float64 otherwise; ``dtype`` is ignored.

@@ -308,7 +308,7 @@ Core: audio
      - No automatic resampling to 22050 Hz or mixing to mono: the file's own
        rate, channels and sample type are kept (``to_mono``, ``resample``).
        WAV and FLAC only (librosa: every format of libsndfile, also MP3 and Ogg);
-       a path, not a file object
+       a path or a binary file object
    * - ``loadx``
      - ``generation.example_clip``
      - with differences
@@ -318,7 +318,8 @@ Core: audio
      - with differences
      - Block reader over WAV/FLAC with its own interface:
        ``windows(frame_length + (block_length - 1) * hop_length, block_length * hop_length)``
-       gives librosa's blocks; no ``sr``, ``mono`` or ``fill_value`` arguments
+       gives librosa's blocks; no ``sr``, ``mono`` or ``fill_value`` arguments;
+       a path or a binary file object
    * - ``get_samplerate``
      - ``io.info``
      - with differences
@@ -404,7 +405,7 @@ Core: spectral representations
    * - ``magphase``
      - ``AudioSamples.magphase`` (static)
      - with differences
-     - 2-D complex64 or complex128 input; ``power`` is an integer
+     - 2-D complex64 or complex128 input
    * - ``reassigned_spectrogram``
      - ``AudioSamples.reassigned_spectrogram``
      - equivalent
@@ -503,7 +504,8 @@ Core: constant-Q
    * - ``griffinlim_cqt``
      - ``AudioSamples.griffinlim_cqt`` (static)
      - with differences
-     - Only ``init=None``
+     - ``init=None`` is the default (librosa: ``"random"``); random phases come
+       from this library's RNG
 
 Core: pitch, tuning and harmonics
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -794,7 +796,7 @@ array-like; for an array they return a list of names or an array of values.
      - ``AudioSamples.spectral_centroid_frames``,
        ``features.spectral_centroid_from_spectrogram``
      - equivalent
-     - A time-varying 2-D ``freq`` is not supported
+     -
    * - ``spectral_bandwidth``
      - ``AudioSamples.spectral_bandwidth_frames``,
        ``features.spectral_bandwidth_from_spectrogram``
@@ -875,7 +877,7 @@ array-like; for an array they return a list of names or an array of values.
    * - ``metrogram``
      - ``rhythm.metrogram``
      - with differences
-     - ``aggregate=None`` (the 4-D per-bin output) not supported
+     -
    * - ``inverse.mel_to_stft``
      - ``inverse.mel_to_stft``
      - with differences
@@ -929,7 +931,8 @@ type; each has an ``_in_place`` twin (``time_stretch_in_place``, ...).
      - with differences
      - Returns ``(trimmed, array([start, end]))``; raises when everything is
        silent (librosa returns an empty array); ``top_db`` is required
-       (librosa: 60); frame RMS in the sample type's float (librosa: float32)
+       (librosa: 60); frame RMS in the sample type's float (librosa: float32);
+       a callable ``ref`` or ``aggregate`` runs with the GIL held
    * - ``split``
      - ``AudioSamples.split_db``
      - with differences
@@ -970,7 +973,7 @@ type; each has an ``_in_place`` twin (``time_stretch_in_place``, ...).
    * - ``onset.onset_strength_multi``
      - ``AudioSamples.onset_strength_multi``, ``rhythm.onset_strength_multi``
      - with differences
-     - ``channels`` as boundaries only (no slices)
+     - The method's ``channels`` count mel bands
    * - ``onset.onset_detect``
      - ``AudioSamples.onset_detect``, ``rhythm.onset_detect``
      - with differences
@@ -1013,7 +1016,8 @@ type; each has an ``_in_place`` twin (``time_stretch_in_place``, ...).
    * - ``nn_filter``
      - ``effects.nn_filter``
      - with differences
-     - Dense recurrence matrices; mean, median or weighted-average aggregates
+     - Dense or ``scipy.sparse`` recurrence matrices; any aggregate (a callable
+       runs with the GIL held)
 
 ``librosa.filters``
 ~~~~~~~~~~~~~~~~~~~
@@ -1100,7 +1104,7 @@ type; each has an ``_in_place`` twin (``time_stretch_in_place``, ...).
    * - ``sync``
      - ``sequence.sync``
      - with differences
-     - Frame indices only (no slices); an empty index list gives one segment
+     - An empty index list gives one segment
    * - ``softmask``
      - ``effects.softmask``
      - equivalent
@@ -1515,7 +1519,7 @@ Pass librosa's value explicitly to reproduce a librosa call.
    * - ``trim`` of ``beat_track``, ``beat_track_with_bpm``
      - ``True``
      - ``False``: weak leading and trailing beats are kept
-   * - ``rng`` of ``griffinlim``, ``griffinlim_audio``
+   * - ``rng`` of ``griffinlim``, ``griffinlim_audio``, ``griffinlim_cqt``
      - unseeded
      - ``0``: repeated calls give the same output
    * - ``align_zeros`` of ``remix``
@@ -1612,11 +1616,12 @@ Randomness
   this library's RNG, not NumPy's, so results differ from librosa's for the
   same seed (both are valid reconstructions). ``rng`` defaults to the seed 0,
   so repeated calls give the same output; ``rng=None`` draws a new seed on
-  every call (librosa's default). Only integer seeds (or ``None``) are
-  accepted as ``rng`` / ``random_state``; NumPy generators raise
-  ``TypeError``. ``init=None`` is deterministic and matches librosa to
-  round-off.
-- ``griffinlim_cqt`` offers only ``init=None``.
+  every call (librosa's default). A NumPy generator (or anything else
+  ``numpy.random.default_rng`` takes) as ``rng`` / ``random_state`` gives one
+  seed drawn from it, which advances it; its stream is not reproduced.
+  ``init=None`` is deterministic and matches librosa to round-off.
+- ``griffinlim_cqt`` defaults to ``init=None``; ``init="random"`` draws its
+  phases as ``griffinlim`` does.
 
 Options reached through array forms
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1653,21 +1658,11 @@ Options that are not supported
 
 Each raises ``ValueError`` or ``TypeError`` instead of being ignored:
 
-- ``griffinlim_cqt``: ``init="random"``;
-- ``spectral_centroid_from_spectrogram``: a time-varying 2-D ``freq``;
-- ``onset_strength_multi``: ``channels`` given as slices;
-- ``metrogram``: ``aggregate=None``;
-- ``harmonic`` / ``percussive``: ``mask=True``;
-- ``sync``: slice indices (frame indices only);
-- ``nn_filter``: sparse recurrence matrices and aggregates other than mean,
-  median or a weighted average;
-- callables: ``trim_db`` / ``split_db`` take only ``numpy.max``, ``numpy.min`` and
-  ``numpy.mean``, and ``nn_filter`` only ``numpy.mean``, ``numpy.median`` and
-  ``numpy.average``, where librosa accepts any callable (``onset_strength`` and
-  ``tempo`` take any callable, which then runs with the GIL held);
-- ``magphase``: a fractional ``power``;
-- ``io.read`` and ``io.StreamedAudioReader``: file objects, and formats other than WAV
-  and FLAC.
+- ``harmonic`` / ``percussive``: ``mask=True``. librosa documents that it returns
+  the masks, but it returns the inverse STFT of the mask taken as a spectrogram,
+  which is not a signal of the input. The masks are ``effects.hpss(S, mask=True)``;
+- ``io.read`` and ``io.StreamedAudioReader``: formats other than WAV and FLAC
+  (MP3, Ogg and the others libsndfile reads).
 
 Deliberate behavioural differences
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

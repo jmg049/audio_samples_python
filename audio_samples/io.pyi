@@ -6,7 +6,7 @@ This module provides functions to read and write audio files in various formats.
 from typing import final
 from typing_extensions import Self
 
-from typing import Optional, Any, Union
+from typing import BinaryIO, Optional, Any, Union
 from pathlib import Path
 import numpy as np
 from . import AudioSamples
@@ -64,12 +64,13 @@ def info(fp: str) -> AudioInfo:
     """
     ...
 
-def read(fp: str, as_type: Optional[SampleType] = None) -> AudioSamples:
+def read(fp: Union[str, Path, BinaryIO], as_type: Optional[SampleType] = None) -> AudioSamples:
     """
     Read an audio file and return AudioSamples.
 
     Args:
-        fp: Path to the audio file (a ``str``; convert ``pathlib.Path`` with ``str(p)``).
+        fp: Path to the audio file, or a file object opened in binary mode with
+            ``read``, ``seek`` and ``tell``, read from its current position.
         as_type: Optional ``SampleType`` to convert the audio to, for example
             ``SampleType.F32`` for floats in [-1, 1] (default: the file's native
             sample type, so 16-bit files give raw ``int16`` values).
@@ -518,7 +519,7 @@ class StreamedAudioReader:
     or iterate with ``frames``, ``windows``, or ``samples``.
     """
 
-    def __new__(cls, fp: Union[str, Path]) -> Self:
+    def __new__(cls, fp: Union[str, Path, BinaryIO]) -> Self:
         """
         Open a WAV or FLAC file for streaming reads.
 
@@ -881,6 +882,8 @@ __all__ = [
     "read_wav_info_tags",
     "read_with_info",
     "save",
+    "set_thread_limit",
+    "thread_limit",
     "write_with_metadata",
     "write_with_options",
 ]

@@ -240,8 +240,9 @@ def test_trim_silence_and_aggregate(sr):
     st = stereo(sr)
     for agg in (np.max, np.min, np.mean, "mean"):
         assert st.split_db(top_db=20, aggregate=agg).ndim == 2
+    assert st.split_db(top_db=60.0, aggregate=np.median).ndim == 2
     with pytest.raises(TypeError):
-        st.split_db(top_db=60.0, aggregate=np.median)
+        st.split_db(top_db=60.0, aggregate=3)
 
 
 def test_remix_fixture(fx, sr):
@@ -340,7 +341,8 @@ def test_nn_filter_fixture(fx):
     with pytest.raises(TypeError):
         E.nn_filter(chroma, bogus=1)
     with pytest.raises(TypeError):
-        E.nn_filter(chroma, aggregate=np.max)
+        E.nn_filter(chroma, aggregate=3)
+    assert E.nn_filter(chroma, aggregate=np.max).shape == chroma.shape
 
 
 # ---------------------------------------------------------------------------
@@ -375,7 +377,11 @@ def test_griffinlim_fixture(fx, sr):
         arr(aus.AudioSamples.griffinlim_audio(S, sample_rate=sr, n_iter=2, n_fft=512)),
     )
     with pytest.raises(TypeError):
-        E.griffinlim(S, n_fft=512, rng=np.random.default_rng(0))
+        E.griffinlim(S, n_fft=512, rng="seed")
+    np.testing.assert_array_equal(
+        E.griffinlim(S, n_iter=2, n_fft=512, rng=np.random.default_rng(0)),
+        E.griffinlim(S, n_iter=2, n_fft=512, rng=np.random.default_rng(0)),
+    )
 
 
 def test_lpc_fixture(fx, sr):

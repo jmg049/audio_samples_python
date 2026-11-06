@@ -11,6 +11,18 @@ has the full detail.
 
 ## [Unreleased]
 
+- **More of librosa's option values work.** `AudioSamples.magphase` takes a fractional or negative
+  `power`; `AudioSamples.griffinlim_cqt` takes `init="random"` with `rng`; the `rng` of
+  `griffinlim`, `griffinlim_audio`, `griffinlim_cqt` and `inverse` takes a NumPy generator (one seed
+  is drawn from it, which advances it); the `features.spectral_*_from_spectrogram` and
+  `poly_features_from_spectrogram` take a time-varying 2-D or 3-D `freq`; `onset_strength_multi`
+  takes slices as `channels` and `sequence.sync` slices as `idx`; `rhythm.metrogram` takes
+  `aggregate=None`; `effects.nn_filter` takes `scipy.sparse` recurrence matrices and any aggregate;
+  `trim_db` and `split_db` take any callable as `ref` and `aggregate`; `io.read` and
+  `io.StreamedAudioReader` take a binary file object (WAV or FLAC). Callables run with the GIL held.
+  `harmonic` / `percussive` still raise for `mask=True`: librosa returns the inverse STFT of the
+  mask there, and the masks are `effects.hpss(S, mask=True)`.
+- **The `io` stub lists `set_thread_limit` and `thread_limit`** in `__all__`.
 - **`io.save` and `io.write_with_options` take `flac_md5`.** `flac_md5=False` writes a FLAC file
   without the MD5 signature of its audio, which encodes faster. `as_type=` now converts block by
   block as the file is written, so saving no longer holds a converted copy of the signal.

@@ -127,7 +127,8 @@ fn rows_out<F: PyFloat>(py: Python<'_>, y: ndarray::Array2<F>, squeeze: bool) ->
 ///     length (Optional[int]): Exact output length.
 ///     momentum (float): Fast Griffin-Lim momentum. Default 0.99.
 ///     init (Optional[str]): ``"random"`` (default) or None (zero phase).
-///     rng (Optional[int]): Seed for ``init="random"``. Default 0.
+///     rng: Seed for ``init="random"``: an integer (default 0), None, or a NumPy
+///         generator, from which one seed is drawn.
 ///     fmin, fmax, htk, norm: The filterbank.
 ///
 /// Returns:

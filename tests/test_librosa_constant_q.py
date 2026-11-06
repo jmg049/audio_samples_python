@@ -185,7 +185,9 @@ def test_griffinlim_cqt(sr):
     rec = np.abs(out.cqt())
     assert np.max(np.abs(rec - mag)) / np.max(mag) < 0.5
     with pytest.raises(ValueError, match="init"):
-        aus.AudioSamples.griffinlim_cqt(mag, sample_rate=sr, init="random")
+        aus.AudioSamples.griffinlim_cqt(mag, sample_rate=sr, init="zeros")
+    rand = aus.AudioSamples.griffinlim_cqt(mag, sample_rate=sr, n_iter=4, length=len(y), init="random")
+    assert np.max(np.abs(np.abs(rand.cqt()) - mag)) / np.max(mag) < 0.5
 
 
 def test_cq_to_chroma(fx):

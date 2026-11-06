@@ -742,20 +742,38 @@ fn onset_cfg_for_s(
 }
 
 /// Sub-band boundaries (librosa `channels` as integers).
-pub(crate) fn parse_channels(obj: Option<&Bound<'_, PyAny>>) -> PyResult<Option<Vec<usize>>> {
-    obj.filter(|o| !o.is_none())
-        .map(|o| {
-            if o.try_iter()?
-                .any(|v| v.is_ok_and(|v| v.is_instance_of::<pyo3::types::PySlice>()))
-            {
-                return Err(value_err(
-                    "channels",
-                    "slices are not supported; pass integer sub-band boundaries",
-                ));
-            }
-            usize_vec(o, "channels")
-        })
-        .transpose()
+pub(crate) fn parse_channels(
+    obj: Option<&Bound<'_, PyAny>>,
+    n_bins: usize,
+) -> PyResult<ChannelsArg> {
+    let Some(obj) = obj.filter(|o| !o.is_none()) else {
+        return Ok(ChannelsArg::Bounds(None));
+    };
+    let mut slices = Vec::new();
+    let mut others = false;
+    for item in obj.try_iter()? {
+        let item = item?;
+        match item.cast::<pyo3::types::PySlice>() {
+            Ok(s) => slices.push(crate::args::slice_on_axis(s, n_bins)?),
+            Err(_) => others = true,
+        }
+    }
+    match (slices.is_empty(), others) {
+        (false, false) => Ok(ChannelsArg::Slices(slices)),
+        (false, true) => Err(value_err(
+            "channels",
+            "expected all slices or all integer sub-band boundaries, not both",
+        )),
+        (true, _) => usize_vec(obj, "channels").map(|v| ChannelsArg::Bounds(Some(v))),
+    }
+}
+
+/// The `channels` of `onset_strength_multi`.
+pub(crate) enum ChannelsArg {
+    /// Sub-band boundaries, or `None` for one band.
+    Bounds(Option<Vec<usize>>),
+    /// One slice of the bins per band.
+    Slices(Vec<ndarray::Slice>),
 }
 
 // =============================================================================
@@ -855,10 +873,10 @@ pub fn onset_strength<'py>(
 ///     hop_length (int): Hop behind ``S`` (centring shift). Default 512.
 ///     lag, max_size, ref, detrend, center: As ``onset_strength``.
 ///     aggregate: As ``onset_strength``; ``False`` keeps every bin.
-///     channels (Optional[Sequence[int]]): Sub-band boundaries in bins; values
-///         above ``n_bins`` are dropped, the rest sorted and de-duplicated, and
-///         each consecutive pair is one band. None gives one band. Slices are
-///         not supported.
+///     channels (Optional[Sequence[int] | Sequence[slice]]): Sub-band boundaries in
+///         bins: values above ``n_bins`` are dropped, the rest sorted and
+///         de-duplicated, and each consecutive pair is one band. Or one slice of the
+///         bins per band, in any order. None gives one band.
 ///
 /// Returns:
 ///     numpy.ndarray[float32 | float64]: shape ``(n_bands, n_frames)`` for 2-D ``S``,
@@ -896,20 +914,28 @@ pub fn onset_strength_multi<'py>(
         n_fft,
         hop_length,
     )?;
-    let bounds = parse_channels(channels)?;
     with_precision!(precision_of(S), |F| {
         let (s, squeeze) = planes::<F>(S, "S")?;
+        let bands = parse_channels(channels, s.dim().1)?;
         let reference = r#ref
             .filter(|r| !r.is_none())
             .map(|r| planes::<F>(r, "ref").map(|p| p.0))
             .transpose()?;
         let scope = CallbackScope::install(agg.callable(), None, py);
-        let multi = scope.finish(rh::onset_strength_multi_from_db(
-            s.view(),
-            reference.as_ref().map(|r| r.view()),
-            &cfg,
-            bounds.as_deref(),
-        ))?;
+        let multi = scope.finish(match &bands {
+            ChannelsArg::Bounds(bounds) => rh::onset_strength_multi_from_db(
+                s.view(),
+                reference.as_ref().map(|r| r.view()),
+                &cfg,
+                bounds.as_deref(),
+            ),
+            ChannelsArg::Slices(slices) => rh::onset_strength_multi_from_db_slices(
+                s.view(),
+                reference.as_ref().map(|r| r.view()),
+                &cfg,
+                slices,
+            ),
+        })?;
         Ok(out3(py, multi, squeeze))
     })
 }
@@ -1657,13 +1683,14 @@ pub fn hybrid_tempogram<'py>(
 ///         (drop the infinite zero-lag bin of ``tempo_frequencies`` first).
 ///     factors (Optional[array_like]): Subharmonic factors; None uses
 ///         ``[1/3, 1/4, 1/5, 1/7]``.
-///     aggregate: Reduction over the tempo axis (default ``numpy.sum``). None
-///         (librosa's 4-D per-bin output) is not supported.
+///     aggregate: Reduction over the tempo axis (default ``numpy.sum``). None keeps
+///         every bin.
 ///     kind (str): Must be ``"linear"``.
 ///     fill_value (float): Value outside the frequency grid. Default 0.
 ///
 /// Returns:
-///     numpy.ndarray[float32 | float64]: shape ``(n_factors, n_frames)``, with a leading
+///     numpy.ndarray[float32 | float64]: shape ``(n_factors, n_frames)``, or
+///     ``(n_factors, n_freqs, n_frames)`` with ``aggregate=None``, with a leading
 ///     channel axis for 3-D input.
 #[pyfunction]
 #[pyo3(
@@ -1681,12 +1708,13 @@ pub fn metrogram<'py>(
 ) -> PyResult<Bound<'py, PyAny>> {
     check_kind(kind)?;
     let agg = aggregate.0;
-    let Some(aggregate) = agg.resolve(None) else {
+    if matches!(agg, AggregateSpec::Disabled) {
         return Err(value_err(
             "aggregate",
-            "aggregate=None (librosa's per-bin output) is not supported; pass a reduction",
+            "False is not a reduction; pass None to keep every bin",
         ));
-    };
+    }
+    let aggregate = agg.resolve(None);
     let freqs = vec1::<f64>(freqs, "freqs")?;
     let factors: Option<Vec<f64>> = factors
         .filter(|f| !f.is_none())
@@ -1694,6 +1722,15 @@ pub fn metrogram<'py>(
         .transpose()?;
     with_precision!(precision_of(tg), |F| {
         let (tg, squeeze) = planes::<F>(tg, "tg")?;
+        let Some(aggregate) = aggregate else {
+            let m = rh::metrogram_per_bin(tg.view(), &freqs, factors.as_deref(), fill_value)
+                .map_err(audio_err_to_py)?;
+            return Ok(if squeeze && m.dim().0 == 1 {
+                m.index_axis_move(Axis(0), 0).into_pyarray(py).into_any()
+            } else {
+                m.into_pyarray(py).into_any()
+            });
+        };
         let scope = CallbackScope::install(agg.callable(), None, py);
         let m = scope.finish(rh::metrogram(
             tg.view(),

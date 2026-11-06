@@ -22,7 +22,7 @@ use pyo3::prelude::*;
 
 use crate::args::{MelNormArg, WindowArg, mel_config, positive, stft_config, value_err};
 use crate::rhythm::{
-    AggregateArg, CallbackScope, detect_onsets, fourier_tempogram_config, hybrid_tempogram_config,
+    AggregateArg, CallbackScope, ChannelsArg, detect_onsets, fourier_tempogram_config, hybrid_tempogram_config,
     onset_peak_pick, parse_aggregate, parse_channels, parse_prior, plp_config, ratio_config,
     require_sparse, tempo_config, tempogram_config, track_beats,
 };
@@ -238,10 +238,10 @@ impl PyAudioSamples {
     /// ``librosa.onset.onset_strength_multi(y=..., sr=self.sample_rate, ...)``.
     ///
     /// Args:
-    ///     channels (Optional[Sequence[int]]): Sub-band boundaries in mel bins;
-    ///         values above ``n_mels`` are dropped, the rest sorted and
-    ///         de-duplicated, each consecutive pair is one band. None gives one
-    ///         band.
+    ///     channels (Optional[Sequence[int] | Sequence[slice]]): Sub-band boundaries in
+    ///         mel bins: values above ``n_mels`` are dropped, the rest sorted and
+    ///         de-duplicated, each consecutive pair is one band. Or one slice of the
+    ///         mel bins per band, in any order. None gives one band.
     ///     aggregate: As ``onset_strength``; ``False`` keeps every mel bin.
     ///     **kwargs: ``lag``, ``max_size``, ``detrend``, ``center``, ``n_fft``,
     ///         ``hop_length``, ``win_length``, ``window``, ``pad_mode``, ``power``,
@@ -299,12 +299,15 @@ impl PyAudioSamples {
             htk,
             norm,
         )?;
-        let bounds = parse_channels(channels)?;
+        let bands = parse_channels(channels, cfg.mel.mel.n_mels.get())?;
         let scope = CallbackScope::install(agg.callable(), None, py);
         dispatch_typed!(
             self,
             py,
-            |audio| audio.onset_strength_multi(&cfg, bounds.as_deref()),
+            |audio| match &bands {
+                ChannelsArg::Bounds(bounds) => audio.onset_strength_multi(&cfg, bounds.as_deref()),
+                ChannelsArg::Slices(slices) => rh::onset_strength_multi_slices(&audio, &cfg, slices),
+            },
             |r| scope.finish(r).map(|env| env.into_pyarray(py).into_any())
         )
     }

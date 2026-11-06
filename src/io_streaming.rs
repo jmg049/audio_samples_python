@@ -1,16 +1,16 @@
 //! Python bindings for the `audio_samples_io` streaming read/write subsystem.
 //!
 //! The Rust streaming readers/writers are generic over an arbitrary `Read + Seek` /
-//! `Write + Seek` source. The Python bindings only expose the file-path constructors,
-//! which monomorphise to `BufReader<File>` / `BufWriter<File>`. Every class implements the
-//! context-manager protocol (`__enter__`/`__exit__`) so it can be used with `with`.
+//! `Write + Seek` source. The reader takes a path or a Python binary file object; the
+//! writers take a path, which monomorphises to `BufWriter<File>`. Every class implements
+//! the context-manager protocol (`__enter__`/`__exit__`) so it can be used with `with`.
 //!
 //! Frame data crosses the boundary as numpy arrays, matching the bulk
 //! [`read`](crate::io::read) / [`save`](crate::io::save) idiom: mono audio is a 1-D array of
 //! shape `(frames,)` and multi-channel audio is a 2-D array of shape `(channels, frames)`.
 
 use std::fs::{File, OpenOptions as FsOpenOptions};
-use std::io::{BufReader, BufWriter};
+use std::io::{BufReader, BufWriter, Read, Seek, SeekFrom};
 use std::num::NonZeroU32;
 use std::path::Path;
 
@@ -21,13 +21,12 @@ use audio_samples_io::traits::{
 use audio_samples_io::wav::{StreamedWavFile, StreamedWavWriter, WavSink};
 use audio_samples_io::{
     StreamedFlacFile, StreamedFlacWriter, create_streamed_sink, create_streamed_writer,
-    open_streamed, open_streamed_flac,
 };
 use numpy::Element;
-use pyo3::exceptions::{PyRuntimeError, PyStopIteration, PyValueError};
+use pyo3::exceptions::{PyRuntimeError, PyStopIteration, PyTypeError, PyValueError};
 use pyo3::{
-    Bound, Py, PyResult, Python, pyclass, pymethods,
-    types::{PyAnyMethods, PyModule, PyModuleMethods},
+    Bound, Py, PyAny, PyErr, PyResult, Python, pyclass, pymethods,
+    types::{PyAnyMethods, PyBytes, PyBytesMethods, PyModule, PyModuleMethods, PyString},
 };
 
 use crate::io::PyCompressionLevel;
@@ -40,10 +39,113 @@ use crate::{
 // Helpers
 // ============================================================================
 
-/// The reader backing used by the path-based streaming constructors.
-type FileReader = BufReader<File>;
+/// The reader backing of the streaming constructors.
+type FileReader = BufReader<ReaderSource>;
 /// The writer backing used by the path-based streaming constructors.
 type FileWriter = BufWriter<File>;
+
+/// Bytes asked of a Python file object per call: each call allocates a `bytes` object of
+/// this size at most, so a large read does not hold a second copy of the audio.
+const PY_READ_CHUNK: usize = 64 * 1024;
+
+/// What a streaming reader reads from.
+enum ReaderSource {
+    File(File),
+    Python(PyFileSource),
+}
+
+impl Read for ReaderSource {
+    #[inline]
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        match self {
+            Self::File(f) => f.read(buf),
+            Self::Python(f) => f.read(buf),
+        }
+    }
+}
+
+impl Seek for ReaderSource {
+    #[inline]
+    fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
+        match self {
+            Self::File(f) => f.seek(pos),
+            Self::Python(f) => f.seek(pos),
+        }
+    }
+}
+
+/// A Python binary file object, read through its `read` and `seek` with the thread
+/// attached. Offsets count from the position the object had when it was opened.
+struct PyFileSource {
+    file: Py<PyAny>,
+    base: u64,
+}
+
+impl PyFileSource {
+    fn new(file: &Bound<'_, PyAny>) -> PyResult<Self> {
+        for method in ["read", "seek", "tell"] {
+            if !file.hasattr(method)? {
+                return Err(PyTypeError::new_err(format!(
+                    "fp: a file object needs read, seek and tell; this one has no {method}"
+                )));
+            }
+        }
+        Ok(Self {
+            file: file.clone().unbind(),
+            base: file.call_method0("tell")?.extract()?,
+        })
+    }
+}
+
+impl Read for PyFileSource {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        Python::attach(|py| {
+            let want = buf.len().min(PY_READ_CHUNK);
+            let data = self
+                .file
+                .bind(py)
+                .call_method1("read", (want,))
+                .map_err(std::io::Error::other)?;
+            let mut copy = |bytes: &[u8]| {
+                let n = bytes.len().min(want);
+                buf[..n].copy_from_slice(&bytes[..n]);
+                Ok(n)
+            };
+            if let Ok(bytes) = data.cast::<PyBytes>() {
+                return copy(bytes.as_bytes());
+            }
+            // Any other object with the buffer protocol; `str` from a text file is not.
+            match pyo3::types::PyBytes::new(py, &[]).get_type().call1((&data,)) {
+                Ok(bytes) if !data.is_instance_of::<PyString>() => {
+                    copy(bytes.cast::<PyBytes>().map_err(|e| std::io::Error::other(PyErr::from(e)))?.as_bytes())
+                }
+                _ => Err(std::io::Error::other(PyTypeError::new_err(
+                    "fp: read() must return bytes; open the file in binary mode",
+                ))),
+            }
+        })
+    }
+}
+
+impl Seek for PyFileSource {
+    fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
+        Python::attach(|py| {
+            let (offset, whence) = match pos {
+                SeekFrom::Start(n) => ((n + self.base) as i64, 0),
+                SeekFrom::Current(n) => (n, 1),
+                SeekFrom::End(n) => (n, 2),
+            };
+            let file = self.file.bind(py);
+            file.call_method1("seek", (offset, whence))
+                .map_err(std::io::Error::other)?;
+            let at: u64 = file
+                .call_method0("tell")
+                .and_then(|p| p.extract())
+                .map_err(std::io::Error::other)?;
+            Ok(at.saturating_sub(self.base))
+        })
+    }
+}
 
 /// Read up to `frame_count` frames into a new NumPy array, which becomes the array of the
 /// returned audio. WAV frames stay interleaved on disk order in a Fortran-layout
@@ -146,7 +248,8 @@ macro_rules! reader_dispatch {
 /// iterate with :meth:`frames`, :meth:`windows`, or :meth:`samples`.
 ///
 /// Args:
-///     fp (str | Path): Path to the audio file. The format is detected from the contents.
+///     fp (str | Path | BinaryIO): Path to the audio file, or a binary file object with
+///         ``read``, ``seek`` and ``tell``. The format is detected from the contents.
 ///
 /// Raises:
 ///     OSError: If the file cannot be opened.
@@ -170,23 +273,103 @@ impl PyStreamedAudioReader {
     fn open_path(fp: &str) -> PyResult<Self> {
         let path = Path::new(fp);
         // Re-use the crate's format detection by trying each opener based on extension/magic.
-        match audio_samples_io::types::FileType::detect(path) {
-            audio_samples_io::types::FileType::WAV => {
-                let r = open_streamed(path).map_err(audio_io_err_to_py)?;
-                Ok(Self {
-                    inner: Some(ReaderInner::Wav(r)),
-                })
-            }
-            audio_samples_io::types::FileType::FLAC => {
-                let r = open_streamed_flac(path).map_err(audio_io_err_to_py)?;
-                Ok(Self {
-                    inner: Some(ReaderInner::Flac(r)),
-                })
-            }
-            other => Err(PyValueError::new_err(format!(
-                "Unsupported file format for streaming: {other:?}"
-            ))),
+        let file_type = audio_samples_io::types::FileType::detect(path);
+        if !matches!(
+            file_type,
+            audio_samples_io::types::FileType::WAV | audio_samples_io::types::FileType::FLAC
+        ) {
+            return Err(PyValueError::new_err(format!(
+                "Unsupported file format for streaming: {file_type:?}"
+            )));
         }
+        let file = File::open(path)
+            .map_err(audio_samples_io::error::AudioIOError::from)
+            .map_err(audio_io_err_to_py)?;
+        let reader = BufReader::new(ReaderSource::File(file));
+        Self::open_reader(reader, file_type, path)
+    }
+
+    fn open_reader(
+        reader: FileReader,
+        file_type: audio_samples_io::types::FileType,
+        path: &Path,
+    ) -> PyResult<Self> {
+        let inner = match file_type {
+            audio_samples_io::types::FileType::WAV => ReaderInner::Wav(
+                StreamedWavFile::new_with_path(reader, path.to_path_buf())
+                    .map_err(audio_io_err_to_py)?,
+            ),
+            audio_samples_io::types::FileType::FLAC => ReaderInner::Flac(
+                StreamedFlacFile::new_with_path(reader, path.to_path_buf())
+                    .map_err(audio_io_err_to_py)?,
+            ),
+            other => {
+                return Err(PyValueError::new_err(format!(
+                    "Unsupported file format for streaming: {other:?}"
+                )));
+            }
+        };
+        Ok(Self { inner: Some(inner) })
+    }
+
+    /// Opens a Python binary file object at its current position. The format is detected
+    /// from the first bytes.
+    fn open_file_object(file: &Bound<'_, PyAny>) -> PyResult<Self> {
+        use audio_samples_io::types::FileType;
+        let mut source = PyFileSource::new(file)?;
+        let mut magic = [0u8; FileType::MAGIC_LEN];
+        let mut filled = 0;
+        while filled < magic.len() {
+            match source.read(&mut magic[filled..]).map_err(file_err)? {
+                0 => break,
+                n => filled += n,
+            }
+        }
+        source.seek(SeekFrom::Start(0)).map_err(file_err)?;
+        let file_type = FileType::from_magic_bytes(&magic[..filled]);
+        if !matches!(file_type, FileType::WAV | FileType::FLAC) {
+            return Err(PyValueError::new_err(
+                "fp: a file object must hold WAV or FLAC data",
+            ));
+        }
+        let reader = BufReader::with_capacity(PY_READ_CHUNK, ReaderSource::Python(source));
+        Self::open_reader(reader, file_type, Path::new("<file object>"))
+    }
+
+    /// Opens what the `fp` of `read` and `StreamedAudioReader` can be: a path or a binary
+    /// file object.
+    pub(crate) fn open_any(fp: &Bound<'_, PyAny>) -> PyResult<Self> {
+        match fp.extract::<std::path::PathBuf>() {
+            Ok(path) => Self::open_path(&path.to_string_lossy()),
+            Err(not_a_path) => {
+                if fp.hasattr("read")? {
+                    Self::open_file_object(fp)
+                } else {
+                    Err(not_a_path.into())
+                }
+            }
+        }
+    }
+
+    /// All the frames that are left, as `read_frames` gives them.
+    pub(crate) fn read_rest(
+        &mut self,
+        py: Python<'_>,
+        dtype: Option<PySampleType>,
+    ) -> PyResult<PyAudioSamples> {
+        let frames = reader_dispatch!(self, |r| AudioStreamReader::remaining_frames(r));
+        let frames = std::num::NonZeroUsize::new(frames)
+            .ok_or_else(|| PyValueError::new_err("the file holds no audio"))?;
+        self.read_frames(py, frames.get(), dtype)?
+            .ok_or_else(|| PyValueError::new_err("the file holds no audio"))
+    }
+}
+
+/// An I/O error of a Python file object, with the exception it came from when there is one.
+fn file_err(e: std::io::Error) -> pyo3::PyErr {
+    match e.downcast::<pyo3::PyErr>() {
+        Ok(py_err) => py_err,
+        Err(e) => pyo3::exceptions::PyOSError::new_err(e.to_string()),
     }
 }
 
@@ -195,17 +378,19 @@ impl PyStreamedAudioReader {
     /// Open a WAV or FLAC file for streaming reads.
     ///
     /// Args:
-    ///     fp (str | Path): Path to the audio file.
+    ///     fp (str | Path | BinaryIO): Path to the audio file, or a file object opened in
+    ///         binary mode with ``read``, ``seek`` and ``tell``. A file object is read from
+    ///         its current position and stays open; decoding calls its methods with the
+    ///         GIL held.
     ///
     /// Raises:
     ///     OSError: If the file cannot be opened.
     ///     ValueError: If the format is unsupported or the header is corrupt.
+    ///     TypeError: If ``fp`` is neither a path nor such a file object.
     #[new]
-    #[pyo3(signature = (fp: "str | Path"))]
-    fn new(fp: std::path::PathBuf) -> PyResult<Self> {
-        let fp = fp.to_string_lossy();
-        let fp: &str = &fp;
-        Self::open_path(fp)
+    #[pyo3(signature = (fp: "str | Path | BinaryIO"))]
+    fn new(fp: &Bound<'_, pyo3::PyAny>) -> PyResult<Self> {
+        Self::open_any(fp)
     }
 
     /// Sample rate in Hz.

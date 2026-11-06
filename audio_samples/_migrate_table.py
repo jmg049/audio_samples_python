@@ -227,9 +227,9 @@ _e(
     "path | sr mono offset duration dtype res_type",
     ("io.read", "io.read_and_resample"),
     WITH_DIFFERENCES,
-    "WAV and FLAC only (librosa: every libsndfile format, also MP3 and Ogg); a path, not a file object.",
+    "WAV and FLAC only (librosa: every libsndfile format, also MP3 and Ogg); a path or a binary file object.",
     options={
-        "path": Renamed("fp", "It must be a path to a WAV or FLAC file, not a file object."),
+        "path": Renamed("fp", "A path to a WAV or FLAC file, or a binary file object holding one."),
         "sr": Default(
             22050,
             "the file's own rate",
@@ -489,7 +489,7 @@ _e(
     "D | power",
     "AudioSamples.magphase",
     WITH_DIFFERENCES,
-    "A static method; 2-D complex64 or complex128 input; power is an integer.",
+    "A static method; 2-D complex64 or complex128 input.",
     options={
         "D": Renamed("complex_spect"),
         "power": Same("None means 1 here."),
@@ -616,12 +616,11 @@ _e(
     "C | n_iter sr hop_length fmin bins_per_octave tuning filter_scale norm sparsity window scale pad_mode res_type dtype length momentum init rng random_state",
     "AudioSamples.griffinlim_cqt",
     WITH_DIFFERENCES,
-    "A static method; only init=None.",
+    "A static method; init=None is the default; random phases come from this library's RNG.",
     options={
         "sr": _CQT_SAMPLE_RATE,
-        "init": Default("random", "init=None", "librosa starts from random phases here; this library has only init=None."),
-        "rng": Absorbed("there are no random phases to seed."),
-        "random_state": Absorbed("there are no random phases to seed."),
+        "init": Default("random", "init=None", "librosa starts from random phases here; pass init='random' to do the same."),
+        "rng": Default(None, "rng=0", "Repeated calls give the same output; pass rng=None for a new seed each call."),
     },
     behaviour=("Returns an AudioSamples.",),
 )
@@ -938,7 +937,7 @@ def _spectral_feature(
     )
 
 
-_spectral_feature("spectral_centroid", f"| y sr S {_STFT_PARAMS} freq", EQUIVALENT, "A time-varying 2-D freq is not supported.")
+_spectral_feature("spectral_centroid", f"| y sr S {_STFT_PARAMS} freq", EQUIVALENT)
 _spectral_feature(
     "spectral_bandwidth",
     f"| y sr S {_STFT_PARAMS} freq centroid norm p",
@@ -1154,7 +1153,7 @@ _e(
     "| tg freqs factors aggregate kind fill_value",
     "rhythm.metrogram",
     WITH_DIFFERENCES,
-    "aggregate=None (the 4-D per-bin output) is not supported.",
+    "The aggregate runs in the tempogram's float type.",
 )
 _e(
     "librosa.feature.inverse.mel_to_stft",
@@ -1217,7 +1216,7 @@ _e("librosa.effects.deemphasis", "y | coef zi return_zf", ("AudioSamples.deempha
 _TRIM_TOP_DB = Default(60, "a required top_db", "Pass top_db=60 to do the same.")
 _MAX_OVER_CHANNELS = Same("None is the maximum over channels.")
 _RMS_NOTE = "frame RMS in the sample type's float (librosa: float32)"
-_CALLABLE_ONLY = "Only numpy.max, numpy.min and numpy.mean are accepted as callables."
+_CALLABLE_ONLY = "A callable ref or aggregate runs with the GIL held."
 _e(
     "librosa.effects.trim",
     "y | top_db ref frame_length hop_length aggregate",
@@ -1254,7 +1253,7 @@ _e(
     options={"y": _Y},
     behaviour=("Returns two AudioSamples of the input's sample type.",),
 )
-_MASK_FALSE = Only((False,), "Use effects.hpss(S, mask=True) on a spectrogram.")
+_MASK_FALSE = Only((False,), "librosa returns the inverse STFT of the mask, not the masks; for the masks use effects.hpss(S, mask=True) on a spectrogram.")
 _e("librosa.effects.harmonic", _HPSS_PARAMS, "AudioSamples.harmonic", WITH_DIFFERENCES, "As hpss; mask=True is not supported.", options={"y": _Y, "mask": _MASK_FALSE})
 _e("librosa.effects.percussive", _HPSS_PARAMS, "AudioSamples.percussive", WITH_DIFFERENCES, "As harmonic.", options={"y": _Y, "mask": _MASK_FALSE})
 
@@ -1286,7 +1285,7 @@ _e(
     "| y sr S n_fft hop_length lag max_size ref detrend center feature aggregate channels **",
     ("AudioSamples.onset_strength_multi", "rhythm.onset_strength_multi"),
     WITH_DIFFERENCES,
-    "channels as boundaries only (no slices).",
+    "The method's channels count mel bands.",
     options={
         **_AUDIO,
         "S": _NOT_METHOD,
@@ -1363,7 +1362,7 @@ _e(
     "S | rec aggregate axis **",
     "effects.nn_filter",
     WITH_DIFFERENCES,
-    "Dense recurrence matrices; mean, median or weighted-average aggregates.",
+    "Dense or scipy.sparse recurrence matrices; any aggregate (a callable runs with the GIL held).",
 )
 
 # librosa.filters -----------------------------------------------------------
@@ -1454,7 +1453,7 @@ _e(
 )
 _e("librosa.util.normalize", "S | norm axis threshold fill", "features.normalize", EQUIVALENT)
 _e("librosa.util.peak_pick", "x | pre_max post_max pre_avg post_avg delta wait sparse method axis", "rhythm.peak_pick", WITH_DIFFERENCES, "1-D input.")
-_e("librosa.util.sync", "data idx | aggregate pad axis", "sequence.sync", WITH_DIFFERENCES, "Frame indices only (no slices); an empty index list gives one segment.")
+_e("librosa.util.sync", "data idx | aggregate pad axis", "sequence.sync", WITH_DIFFERENCES, "An empty index list gives one segment.")
 _e("librosa.util.softmask", "X X_ref | power split_zeros", "effects.softmask", EQUIVALENT)
 _e(
     "librosa.util.fix_length",

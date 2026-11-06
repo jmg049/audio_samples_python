@@ -10,20 +10,23 @@
 
 use crate::args::Int;
 use audio_samples::operations::effects::{
+    split_db_with, trim_db_with,
     HarmonicPercussiveConfig, PitchShiftConfig, SilenceConfig,
 };
 use audio_samples::operations::filterbanks::Window;
 use audio_samples::operations::spectrum::DbReference;
 use audio_samples::operations::types::ResamplingQuality;
 use audio_samples::{AudioEffects, AudioSample, AudioSamples, ChannelAggregate};
-use ndarray::Array2;
+use audio_samples::{AudioFloat, AudioSampleError, ParameterError};
+use ndarray::{Array2, ArrayView2};
 use numpy::{IntoPyArray, PyArray1, PyArray2, PyUntypedArrayMethods};
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
-use pyo3::types::PyString;
+use pyo3::types::{PyDict, PyString};
+use std::cell::RefCell;
 
 use crate::args::{
-    DbRefArg, WindowArg, i64_vec, non_negative, output_sample_type, positive, stft_config,
+    FloatElement, WindowArg, float_array_as, i64_vec, non_negative, output_sample_type, positive, stft_config,
     value_err, with_sample_type,
 };
 use crate::effects::{RngArg, effects_err, griffinlim_config, hpss_mask_config};
@@ -57,18 +60,49 @@ fn parse_res_type(obj: &Bound<'_, PyAny>) -> PyResult<ResamplingQuality> {
         .map_err(|_| PyTypeError::new_err("res_type must be a string or a ResamplingQuality"))
 }
 
-/// librosa's `ref` / `aggregate` of `trim` / `split`.
+/// librosa's `ref` of `trim` / `split`: what the dB conversions take, or any callable.
+pub(crate) enum SilenceRef {
+    Builtin(DbReference),
+    Callable(Py<PyAny>),
+}
+
+impl<'a, 'py> FromPyObject<'a, 'py> for SilenceRef {
+    type Error = PyErr;
+
+    fn extract(obj: pyo3::Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
+        let obj = obj.to_owned();
+        if obj.is_callable() {
+            let np = obj.py().import("numpy")?;
+            if !(obj.is(&np.getattr("max")?) || obj.is(&np.getattr("amax")?)) {
+                return Ok(Self::Callable(obj.unbind()));
+            }
+        }
+        crate::args::parse_db_ref(&obj).map(Self::Builtin)
+    }
+}
+
+/// librosa's `ref` / `aggregate` of `trim` / `split`: the configuration, and the
+/// callables that stand in for its fields.
+struct SilenceArgs {
+    config: SilenceConfig,
+    reference: Option<Py<PyAny>>,
+    aggregate: Option<Py<PyAny>>,
+}
+
 fn silence_config(
     py: Python<'_>,
     top_db: f64,
-    r#ref: DbRefArg,
+    r#ref: SilenceRef,
     frame_length: Int,
     hop_length: Int,
     aggregate: Option<&Bound<'_, PyAny>>,
-) -> PyResult<SilenceConfig> {
-    let reference = r#ref.0;
-    let aggregate = match aggregate.filter(|a| !a.is_none()) {
-        None => ChannelAggregate::Max,
+) -> PyResult<SilenceArgs> {
+    let (reference, ref_callable) = match r#ref {
+        SilenceRef::Builtin(r) => (r, None),
+        SilenceRef::Callable(f) => (DbReference::Max, Some(f)),
+    };
+    let (channel_aggregate, agg_callable) = match aggregate.filter(|a| !a.is_none()) {
+        None => (ChannelAggregate::Max, None),
         Some(a) => {
             let np = py.import("numpy")?;
             let name = a.cast::<PyString>().ok().map(|s| s.to_string());
@@ -76,23 +110,111 @@ fn silence_config(
                 Ok(name.as_deref() == Some(n) || a.is(&np.getattr(n)?))
             };
             if is("max")? || is("amax")? {
-                ChannelAggregate::Max
+                (ChannelAggregate::Max, None)
             } else if is("min")? || is("amin")? {
-                ChannelAggregate::Min
+                (ChannelAggregate::Min, None)
             } else if is("mean")? {
-                ChannelAggregate::Mean
+                (ChannelAggregate::Mean, None)
+            } else if a.is_callable() {
+                (ChannelAggregate::Max, Some(a.clone().unbind()))
             } else {
                 return Err(PyTypeError::new_err(
-                    "aggregate: only numpy.max, numpy.min and numpy.mean are supported",
+                    "aggregate: expected numpy.max, numpy.min, numpy.mean, their names or a callable",
                 ));
             }
         }
     };
-    Ok(SilenceConfig::new(top_db)
-        .with_reference(reference)
-        .with_frame_length(positive("frame_length", frame_length)?)
-        .with_hop_length(positive("hop_length", hop_length)?)
-        .with_aggregate(aggregate))
+    Ok(SilenceArgs {
+        config: SilenceConfig::new(top_db)
+            .with_reference(reference)
+            .with_frame_length(positive("frame_length", frame_length)?)
+            .with_hop_length(positive("hop_length", hop_length)?)
+            .with_aggregate(channel_aggregate),
+        reference: ref_callable,
+        aggregate: agg_callable,
+    })
+}
+
+/// A failure of a Python callable: the exception is kept for the caller, and the
+/// Rust call stops at this error.
+fn callback_failed(slot: &RefCell<Option<PyErr>>, e: PyErr) -> AudioSampleError {
+    *slot.borrow_mut() = Some(e);
+    AudioSampleError::Parameter(ParameterError::invalid_value(
+        "callable",
+        "the Python callable raised",
+    ))
+}
+
+/// The reference level with a callable `ref(rms, axis=..., keepdims=True)`, or the
+/// value of a built-in reference. Mono is passed without a channel axis, as librosa
+/// does for 1-D `y`.
+fn silence_reference<'py, F: FloatElement + AudioFloat>(
+    py: Python<'py>,
+    args: &SilenceArgs,
+    rms: ArrayView2<'_, F>,
+) -> PyResult<f64> {
+    let Some(f) = &args.reference else {
+        return Ok(match args.config.reference {
+            DbReference::Value(v) => v,
+            DbReference::Max => rms.iter().fold(f64::NEG_INFINITY, |m, v| m.max(v.as_f64())),
+        });
+    };
+    let kwargs = PyDict::new(py);
+    kwargs.set_item("keepdims", true)?;
+    let res = if rms.nrows() == 1 {
+        kwargs.set_item("axis", (-1,))?;
+        let arr = rms.row(0).to_owned().into_pyarray(py);
+        f.bind(py).call((arr,), Some(&kwargs))?
+    } else {
+        kwargs.set_item("axis", (-2, -1))?;
+        let arr = rms.to_owned().into_pyarray(py);
+        f.bind(py).call((arr,), Some(&kwargs))?
+    };
+    let res = if res.hasattr("item")? {
+        res.call_method0("item")?
+    } else {
+        res
+    };
+    res.extract().map_err(|e| {
+        PyTypeError::new_err(format!("ref: the callable must reduce to one number ({e})"))
+    })
+}
+
+/// The level of each frame with a callable `aggregate(db, 0)`, as
+/// `numpy.apply_over_axes` calls it, or a built-in combination. Mono is not combined,
+/// as librosa does not for 1-D `y`.
+fn silence_levels<'py, F: FloatElement + AudioFloat>(
+    py: Python<'py>,
+    args: &SilenceArgs,
+    db: ArrayView2<'_, F>,
+) -> PyResult<ndarray::Array1<F>> {
+    if db.nrows() == 1 {
+        return Ok(db.row(0).to_owned());
+    }
+    let Some(f) = &args.aggregate else {
+        let n = F::of_usize(db.nrows());
+        return Ok(db.map_axis(ndarray::Axis(0), |c| match args.config.aggregate {
+            ChannelAggregate::Max => c.iter().copied().fold(F::neg_infinity(), F::max),
+            ChannelAggregate::Min => c.iter().copied().fold(F::infinity(), F::min),
+            ChannelAggregate::Mean => c.iter().copied().sum::<F>() / n,
+        }));
+    };
+    let arr = db.to_owned().into_pyarray(py);
+    let res = f.bind(py).call1((arr, 0))?;
+    let res = float_array_as::<F>(&res, "aggregate")?;
+    let res = res.as_array();
+    match (res.ndim(), res.shape()) {
+        (1, _) => Ok(res.iter().copied().collect()),
+        (2, [1, _]) => Ok(res.iter().copied().collect()),
+        _ => Err(value_err(
+            "aggregate",
+            format!(
+                "the callable returned shape {:?} for levels of shape {:?}",
+                res.shape(),
+                db.shape()
+            ),
+        )),
+    }
 }
 
 /// Parses `intervals` (`(n, 2)` non-negative integers).
@@ -135,8 +257,8 @@ fn hp_config(
     if mask {
         return Err(value_err(
             "mask",
-            "mask=True is not supported for audio output (librosa would invert the mask itself); \
-             use audio_samples.effects.hpss(S, mask=True) on a spectrogram",
+            "mask=True has no audio output (librosa inverts the mask as if it were a \
+             spectrogram); for the masks use audio_samples.effects.hpss(S, mask=True)",
         ));
     }
     let ks = match kernel_size.filter(|k| !k.is_none()) {
@@ -393,8 +515,10 @@ impl PyAudioSamples {
     ///         ``numpy.max`` uses the loudest frame.
     ///     frame_length (int): RMS frame length. Default 2048.
     ///     hop_length (int): Hop between frames. Default 512.
-    ///     aggregate: Channel combination: ``numpy.max`` (default), ``numpy.min``
-    ///         or ``numpy.mean``.
+    ///     aggregate: Channel combination: ``numpy.max`` (default), ``numpy.min``,
+    ///         ``numpy.mean`` or any callable, called as ``aggregate(db, 0)`` on the
+    ///         ``(channels, frames)`` levels in dB of multichannel audio. A callable
+    ///         here or in ``ref`` runs with the GIL held.
     ///
     /// Returns:
     ///     tuple: ``(trimmed, index)``: the trimmed ``AudioSamples`` and an int64
@@ -405,42 +529,64 @@ impl PyAudioSamples {
     ///         (librosa returns an empty array and ``[0, 0]``; an
     ///         ``AudioSamples`` cannot be empty, use ``split_db`` to test).
     #[pyo3(
-        signature = (*, top_db, r#ref = DbRefArg(DbReference::Max), frame_length = Int(2048), hop_length = Int(512), aggregate = None),
+        signature = (*, top_db, r#ref = SilenceRef::Builtin(DbReference::Max), frame_length = Int(2048), hop_length = Int(512), aggregate = None),
         text_signature = "($self, *, top_db, ref='max', frame_length=2048, hop_length=512, aggregate=None)"
     )]
     fn trim_db<'py>(
         &self,
         py: Python<'py>,
         top_db: f64,
-        r#ref: DbRefArg,
+        r#ref: SilenceRef,
         frame_length: Int,
         hop_length: Int,
         aggregate: Option<&Bound<'py, PyAny>>,
     ) -> PyResult<(Self, Bound<'py, PyArray1<i64>>)> {
-        let cfg = silence_config(py, top_db, r#ref, frame_length, hop_length, aggregate)?;
-        let (audio, bounds) = dispatch_with_view_detached!(self, py, |audio| audio
-            .trim_db(&cfg)
-            .map(|(a, b)| (Self::from_audio_samples(a), b)))
-        .map_err(|e| {
+        let args = silence_config(py, top_db, r#ref, frame_length, hop_length, aggregate)?;
+        let cfg = &args.config;
+        let silent = |e| {
             if matches!(e, audio_samples::AudioSampleError::EmptyData { .. }) {
                 value_err("trim_db", "every frame is silent; nothing to keep")
             } else {
                 audio_err_to_py(e)
             }
-        })?;
+        };
+        if args.reference.is_none() && args.aggregate.is_none() {
+            let (audio, bounds) = dispatch_with_view_detached!(self, py, |audio| audio
+                .trim_db(cfg)
+                .map(|(a, b)| (Self::from_audio_samples(a), b)))
+            .map_err(silent)?;
+            return Ok((audio, bounds_array(py, bounds)));
+        }
+        let failed = RefCell::new(None);
+        let result = dispatch_typed!(
+            self,
+            py,
+            |audio| trim_db_with(
+                &audio,
+                cfg,
+                |rms| silence_reference(py, &args, rms).map_err(|e| callback_failed(&failed, e)),
+                |db| silence_levels(py, &args, db).map_err(|e| callback_failed(&failed, e)),
+            )
+            .map(|(a, b)| (Self::from_audio_samples(a), b)),
+            |r| r
+        );
+        if let Some(e) = failed.into_inner() {
+            return Err(e);
+        }
+        let (audio, bounds) = result.map_err(silent)?;
         Ok((audio, bounds_array(py, bounds)))
     }
 
     /// In-place ``trim_db``; returns the kept ``[start, end]`` (int64 array).
     #[pyo3(
-        signature = (*, top_db, r#ref = DbRefArg(DbReference::Max), frame_length = Int(2048), hop_length = Int(512), aggregate = None),
+        signature = (*, top_db, r#ref = SilenceRef::Builtin(DbReference::Max), frame_length = Int(2048), hop_length = Int(512), aggregate = None),
         text_signature = "($self, *, top_db, ref='max', frame_length=2048, hop_length=512, aggregate=None)"
     )]
     fn trim_db_in_place<'py>(
         &mut self,
         py: Python<'py>,
         top_db: f64,
-        r#ref: DbRefArg,
+        r#ref: SilenceRef,
         frame_length: Int,
         hop_length: Int,
         aggregate: Option<&Bound<'py, PyAny>>,
@@ -460,21 +606,42 @@ impl PyAudioSamples {
     ///     numpy.ndarray[int64]: shape ``(n_intervals, 2)`` of ``[start, end)``
     ///     sample ranges (``(0, 2)`` if everything is silent).
     #[pyo3(
-        signature = (*, top_db, r#ref = DbRefArg(DbReference::Max), frame_length = Int(2048), hop_length = Int(512), aggregate = None),
+        signature = (*, top_db, r#ref = SilenceRef::Builtin(DbReference::Max), frame_length = Int(2048), hop_length = Int(512), aggregate = None),
         text_signature = "($self, *, top_db, ref='max', frame_length=2048, hop_length=512, aggregate=None)"
     )]
     fn split_db<'py>(
         &self,
         py: Python<'py>,
         top_db: f64,
-        r#ref: DbRefArg,
+        r#ref: SilenceRef,
         frame_length: Int,
         hop_length: Int,
         aggregate: Option<&Bound<'py, PyAny>>,
     ) -> PyResult<Bound<'py, PyArray2<i64>>> {
-        let cfg = silence_config(py, top_db, r#ref, frame_length, hop_length, aggregate)?;
-        let iv = dispatch_with_view_detached!(self, py, |audio| audio.split_db(&cfg))
-            .map_err(audio_err_to_py)?;
+        let args = silence_config(py, top_db, r#ref, frame_length, hop_length, aggregate)?;
+        let cfg = &args.config;
+        let iv = if args.reference.is_none() && args.aggregate.is_none() {
+            dispatch_with_view_detached!(self, py, |audio| audio.split_db(cfg))
+                .map_err(audio_err_to_py)?
+        } else {
+            let failed = RefCell::new(None);
+            let result = dispatch_typed!(
+                self,
+                py,
+                |audio| split_db_with(
+                    &audio,
+                    cfg,
+                    |rms| silence_reference(py, &args, rms)
+                        .map_err(|e| callback_failed(&failed, e)),
+                    |db| silence_levels(py, &args, db).map_err(|e| callback_failed(&failed, e)),
+                ),
+                |r| r
+            );
+            if let Some(e) = failed.into_inner() {
+                return Err(e);
+            }
+            result.map_err(audio_err_to_py)?
+        };
         let flat: Vec<i64> = iv.iter().flat_map(|&(a, b)| [a as i64, b as i64]).collect();
         Ok(Array2::from_shape_vec((iv.len(), 2), flat)
             .expect("two values per interval")
@@ -542,7 +709,9 @@ impl PyAudioSamples {
     /// Args:
     ///     kernel_size (int | tuple[int, int]): Median filter lengths. Default 31.
     ///     power (float): Mask exponent. Default 2.
-    ///     mask (bool): Must be False.
+    ///     mask (bool): Must be False. librosa documents that True returns the masks,
+    ///         but it inverts the mask as if it were a spectrogram; the masks themselves
+    ///         are ``effects.hpss(S, mask=True)``.
     ///     margin (float | tuple[float, float]): Margins (>= 1). Default 1.
     ///     n_fft, hop_length, win_length, window, center, pad_mode: STFT
     ///         parameters. librosa ignores ``window`` here (always Hann); this
