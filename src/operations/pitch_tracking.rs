@@ -42,7 +42,7 @@ impl PyAudioSamples {
     ///     ValueError: For invalid parameters (e.g. ``fmax > sr / 2``) or a
     ///         too-short uncentred signal.
     #[pyo3(
-        signature = (*, fmin, fmax, frame_length = Int(2048), hop_length = None, trough_threshold = 0.1, center = true, pad_mode = "constant"),
+        signature = (*, fmin, fmax, frame_length = Int(2048), hop_length = None, trough_threshold = 0.1, center = true, pad_mode = "constant") -> "NDArray[Any]",
         text_signature = "($self, *, fmin, fmax, frame_length=2048, hop_length=None, trough_threshold=0.1, center=True, pad_mode='constant')"
     )]
     #[allow(
@@ -104,7 +104,7 @@ impl PyAudioSamples {
     ///
     ///     ValueError: For invalid parameters or a too-short uncentred signal.
     #[pyo3(
-        signature = (*, fmin, fmax, frame_length = Int(2048), hop_length = None, n_thresholds = Int(100), beta_parameters = (2.0, 18.0), boltzmann_parameter = 2.0, resolution = 0.1, max_transition_rate = 35.92, switch_prob = 0.01, no_trough_prob = 0.01, fill_na = FillNaArg(UnvoicedFill::Nan), center = true, pad_mode = "constant", transition_min_prob = Some(1e-4)),
+        signature = (*, fmin, fmax, frame_length = Int(2048), hop_length = None, n_thresholds = Int(100), beta_parameters = (2.0, 18.0), boltzmann_parameter = 2.0, resolution = 0.1, max_transition_rate = 35.92, switch_prob = 0.01, no_trough_prob = 0.01, fill_na = FillNaArg(UnvoicedFill::Nan), center = true, pad_mode = "constant", transition_min_prob = Some(1e-4)) -> "tuple[NDArray[Any], NDArray[Any], NDArray[Any]] | tuple[NDArray[np.float32], NDArray[np.bool_], NDArray[np.float32]] | tuple[NDArray[np.float64], NDArray[np.bool_], NDArray[np.float64]]",
         text_signature = "($self, *, fmin, fmax, frame_length=2048, hop_length=None, n_thresholds=100, beta_parameters=(2, 18), boltzmann_parameter=2, resolution=0.1, max_transition_rate=35.92, switch_prob=0.01, no_trough_prob=0.01, fill_na=math.nan, center=True, pad_mode='constant', transition_min_prob=0.0001)"
     )]
     #[allow(

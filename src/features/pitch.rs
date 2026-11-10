@@ -108,7 +108,7 @@ fn rows_out<T: numpy::Element>(py: Python<'_>, a: Array2<T>, ndim_in: usize) -> 
 ///     ValueError: For invalid parameters or a too-short signal.
 #[pyfunction]
 #[pyo3(
-    signature = (y, *, fmin, fmax, sr, frame_length = Int(2048), hop_length = None, trough_threshold = 0.1, center = true, pad_mode = "constant"),
+    signature = (y: "ArrayLike", *, fmin, fmax, sr, frame_length = Int(2048), hop_length = None, trough_threshold = 0.1, center = true, pad_mode = "constant") -> "NDArray[Any]",
     text_signature = "(y, *, fmin, fmax, sr, frame_length=2048, hop_length=None, trough_threshold=0.1, center=True, pad_mode='constant')"
 )]
 #[allow(
@@ -179,7 +179,7 @@ pub fn yin<'py>(
 ///     ValueError: For invalid parameters or a too-short signal.
 #[pyfunction]
 #[pyo3(
-    signature = (y, *, fmin, fmax, sr, frame_length = Int(2048), hop_length = None, n_thresholds = Int(100), beta_parameters = (2.0, 18.0), boltzmann_parameter = 2.0, resolution = 0.1, max_transition_rate = 35.92, switch_prob = 0.01, no_trough_prob = 0.01, fill_na = FillNaArg(audio_samples::operations::pitch_tracking::UnvoicedFill::Nan), center = true, pad_mode = "constant", transition_min_prob = Some(1e-4)),
+    signature = (y: "ArrayLike", *, fmin, fmax, sr, frame_length = Int(2048), hop_length = None, n_thresholds = Int(100), beta_parameters = (2.0, 18.0), boltzmann_parameter = 2.0, resolution = 0.1, max_transition_rate = 35.92, switch_prob = 0.01, no_trough_prob = 0.01, fill_na = FillNaArg(audio_samples::operations::pitch_tracking::UnvoicedFill::Nan), center = true, pad_mode = "constant", transition_min_prob = Some(1e-4)) -> "tuple[NDArray[Any], NDArray[Any], NDArray[Any]] | tuple[NDArray[np.float32], NDArray[np.bool_], NDArray[np.float32]] | tuple[NDArray[np.float64], NDArray[np.bool_], NDArray[np.float64]]",
     text_signature = "(y, *, fmin, fmax, sr, frame_length=2048, hop_length=None, n_thresholds=100, beta_parameters=(2, 18), boltzmann_parameter=2, resolution=0.1, max_transition_rate=35.92, switch_prob=0.01, no_trough_prob=0.01, fill_na=math.nan, center=True, pad_mode='constant', transition_min_prob=0.0001)"
 )]
 #[allow(
@@ -438,7 +438,7 @@ fn f0_harmonics_any<'py, F: crate::args::PyFloat>(
 ///     ValueError: For shape mismatches or unsupported options.
 #[pyfunction]
 #[pyo3(
-    signature = (S, *, freqs, harmonics, weights = None, aggregate = None, filter_peaks = true, fill_value = f64::NAN, kind = "linear", axis = Int(-2)),
+    signature = (S: "ArrayLike", *, freqs: "ArrayLike", harmonics: "Sequence[float]", weights = None, aggregate = None, filter_peaks = true, fill_value = f64::NAN, kind = "linear", axis = Int(-2)) -> "NDArray[Any]",
     text_signature = "(S, *, freqs, harmonics, weights=None, aggregate=None, filter_peaks=True, fill_value=math.nan, kind='linear', axis=-2)"
 )]
 #[allow(
@@ -504,7 +504,7 @@ pub fn salience<'py>(
 ///     ValueError: For shape mismatches or unsupported options.
 #[pyfunction]
 #[pyo3(
-    signature = (x, *, freqs, harmonics, kind = "linear", fill_value = 0.0, axis = Int(-2)),
+    signature = (x: "ArrayLike", *, freqs: "ArrayLike", harmonics: "ArrayLike", kind = "linear", fill_value = 0.0, axis = Int(-2)) -> "NDArray[Any]",
     text_signature = "(x, *, freqs, harmonics, kind='linear', fill_value=0, axis=-2)"
 )]
 pub fn interp_harmonics<'py>(
@@ -557,7 +557,7 @@ pub fn interp_harmonics<'py>(
 ///     ValueError: For shape mismatches or unsupported options.
 #[pyfunction]
 #[pyo3(
-    signature = (x, *, f0, freqs, harmonics, kind = "linear", fill_value = 0.0, axis = Int(-2)),
+    signature = (x: "ArrayLike", *, f0: "ArrayLike", freqs: "ArrayLike", harmonics: "ArrayLike", kind = "linear", fill_value = 0.0, axis = Int(-2)) -> "NDArray[Any]",
     text_signature = "(x, *, f0, freqs, harmonics, kind='linear', fill_value=0, axis=-2)"
 )]
 #[allow(
@@ -600,14 +600,4 @@ pub fn f0_harmonics<'py>(
             .map_err(audio_err_to_py)?;
         Ok(squeeze_out(py, r.into_dyn(), nd == 2))
     })
-}
-
-/// Registers the pitch-tracking functions.
-pub fn add(m: &Bound<'_, PyModule>) -> PyResult<()> {
-    m.add_function(wrap_pyfunction!(yin, m)?)?;
-    m.add_function(wrap_pyfunction!(pyin, m)?)?;
-    m.add_function(wrap_pyfunction!(salience, m)?)?;
-    m.add_function(wrap_pyfunction!(interp_harmonics, m)?)?;
-    m.add_function(wrap_pyfunction!(f0_harmonics, m)?)?;
-    Ok(())
 }

@@ -54,7 +54,7 @@ fn infer_n_fft(n_fft: Option<Int>, n_bins: usize) -> PyResult<std::num::NonZeroU
 ///     ValueError: For invalid parameters.
 #[pyfunction]
 #[pyo3(
-    signature = (*, sr, n_fft, n_chroma = Int(12), tuning = 0.0, ctroct = 5.0, octwidth = Some(2.0), norm = Some(2.0), base_c = true),
+    signature = (*, sr, n_fft, n_chroma = Int(12), tuning = 0.0, ctroct = 5.0, octwidth = Some(2.0), norm = Some(2.0), base_c = true) -> "NDArray[np.float64]",
     text_signature = "(*, sr, n_fft, n_chroma=12, tuning=0.0, ctroct=5.0, octwidth=2.0, norm=2.0, base_c=True)"
 )]
 #[allow(
@@ -109,7 +109,7 @@ pub fn chroma_filterbank(
 ///         ``norm=0``, or non-finite input.
 #[pyfunction]
 #[pyo3(
-    signature = (S, *, norm = Some(f64::INFINITY), axis = Some(Int(0)), threshold = None, fill = None),
+    signature = (S: "ArrayLike", *, norm = Some(f64::INFINITY), axis = Some(Int(0)), threshold = None, fill = None) -> "NDArray[Any]",
     text_signature = "(S, *, norm=math.inf, axis=0, threshold=None, fill=None)"
 )]
 #[allow(non_snake_case, reason = "argument names follow the Python API")]
@@ -152,7 +152,7 @@ pub fn normalize<'py>(
 ///     ValueError: If ``resolution`` is not in ``(0, 1)``.
 #[pyfunction]
 #[pyo3(
-    signature = (frequencies, *, resolution = 0.01, bins_per_octave = Int(12)),
+    signature = (frequencies: "ArrayLike", *, resolution = 0.01, bins_per_octave = Int(12)),
     text_signature = "(frequencies, *, resolution=0.01, bins_per_octave=12)"
 )]
 pub fn pitch_tuning(
@@ -193,7 +193,7 @@ pub fn pitch_tuning(
 ///     ValueError: For invalid parameters or a bin count that does not match ``n_fft``.
 #[pyfunction]
 #[pyo3(
-    signature = (S, *, sr, norm = Some(f64::INFINITY), n_fft = None, tuning = Some(0.0), n_chroma = Int(12), ctroct = 5.0, octwidth = Some(2.0), base_c = true),
+    signature = (S: "ArrayLike", *, sr, norm = Some(f64::INFINITY), n_fft = None, tuning = Some(0.0), n_chroma = Int(12), ctroct = 5.0, octwidth = Some(2.0), base_c = true) -> "NDArray[Any]",
     text_signature = "(S, *, sr, norm=math.inf, n_fft=None, tuning=0.0, n_chroma=12, ctroct=5.0, octwidth=2.0, base_c=True)"
 )]
 #[allow(
@@ -273,7 +273,7 @@ fn piptrack_cfg(
 ///     ValueError: For invalid parameters or a bin count that does not match ``n_fft``.
 #[pyfunction]
 #[pyo3(
-    signature = (S, *, sr, n_fft = None, fmin = 150.0, fmax = 4000.0, threshold = 0.1, r#ref = None),
+    signature = (S: "ArrayLike", *, sr, n_fft = None, fmin = 150.0, fmax = 4000.0, threshold = 0.1, r#ref = None) -> "tuple[NDArray[Any], NDArray[Any]] | tuple[NDArray[np.float32], NDArray[np.float32]] | tuple[NDArray[np.float64], NDArray[np.float64]]",
     text_signature = "(S, *, sr, n_fft=None, fmin=150.0, fmax=4000.0, threshold=0.1, ref=None)"
 )]
 #[allow(
@@ -326,7 +326,7 @@ pub fn piptrack_from_spectrogram<'py>(
 ///     ValueError: For invalid parameters.
 #[pyfunction]
 #[pyo3(
-    signature = (S, *, sr, n_fft = None, resolution = 0.01, bins_per_octave = Int(12), fmin = 150.0, fmax = 4000.0, threshold = 0.1, r#ref = None),
+    signature = (S: "ArrayLike", *, sr, n_fft = None, resolution = 0.01, bins_per_octave = Int(12), fmin = 150.0, fmax = 4000.0, threshold = 0.1, r#ref = None),
     text_signature = "(S, *, sr, n_fft=None, resolution=0.01, bins_per_octave=12, fmin=150.0, fmax=4000.0, threshold=0.1, ref=None)"
 )]
 #[allow(
@@ -379,7 +379,7 @@ pub fn estimate_tuning_from_spectrogram(
 ///     ValueError: For invalid parameters or a signal too short for an uncentred STFT.
 #[pyfunction]
 #[pyo3(
-    signature = (y, *, sr, n_fft = Int(2048), resolution = 0.01, bins_per_octave = Int(12), hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", fmin = 150.0, fmax = 4000.0, threshold = 0.1, r#ref = None),
+    signature = (y: "ArrayLike", *, sr, n_fft = Int(2048), resolution = 0.01, bins_per_octave = Int(12), hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", fmin = 150.0, fmax = 4000.0, threshold = 0.1, r#ref = None),
     text_signature = "(y, *, sr, n_fft=2048, resolution=0.01, bins_per_octave=12, hop_length=None, win_length=None, window='hann', center=True, pad_mode='constant', fmin=150.0, fmax=4000.0, threshold=0.1, ref=None)"
 )]
 #[allow(
@@ -415,16 +415,4 @@ pub fn estimate_tuning_from_signal(
         }
         tonal::estimate_tuning_from_signal(x.view(), sr, &cfg).map_err(audio_err_to_py)
     })
-}
-
-/// Registers the tonal functions.
-pub fn add(m: &Bound<'_, PyModule>) -> PyResult<()> {
-    m.add_function(wrap_pyfunction!(chroma_filterbank, m)?)?;
-    m.add_function(wrap_pyfunction!(normalize, m)?)?;
-    m.add_function(wrap_pyfunction!(pitch_tuning, m)?)?;
-    m.add_function(wrap_pyfunction!(chroma_stft_from_spectrogram, m)?)?;
-    m.add_function(wrap_pyfunction!(piptrack_from_spectrogram, m)?)?;
-    m.add_function(wrap_pyfunction!(estimate_tuning_from_spectrogram, m)?)?;
-    m.add_function(wrap_pyfunction!(estimate_tuning_from_signal, m)?)?;
-    Ok(())
 }

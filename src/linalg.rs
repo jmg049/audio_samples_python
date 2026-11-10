@@ -102,7 +102,7 @@ fn nnls_in<'py, F: PyFloat>(
 ///
 ///     ``ValueError``: Dimensions disagree or an input is not finite.
 #[pyfunction]
-#[pyo3(name = "nnls", signature = (A, B, *, max_iter = Int(200), tol = 1e-5), text_signature = "(A, B, *, max_iter=200, tol=1e-05)")]
+#[pyo3(name = "nnls", signature = (A: "ArrayLike", B: "ArrayLike", *, max_iter = Int(200), tol = 1e-5) -> "NDArray[Any]", text_signature = "(A, B, *, max_iter=200, tol=1e-05)")]
 #[allow(non_snake_case, reason = "argument names follow the Python API")]
 #[inline]
 pub fn nnls<'py>(
@@ -134,7 +134,7 @@ pub fn nnls<'py>(
 ///
 ///     numpy.ndarray: ``(n, m)``, of ``a``'s precision.
 #[pyfunction]
-#[pyo3(signature = (a, *, rcond = 1e-15), text_signature = "(a, *, rcond=1e-15)")]
+#[pyo3(signature = (a: "ArrayLike", *, rcond = 1e-15) -> "NDArray[Any]", text_signature = "(a, *, rcond=1e-15)")]
 #[inline]
 pub fn pinv<'py>(a: &Bound<'py, PyAny>, rcond: f64) -> PyResult<Bound<'py, PyAny>> {
     let py = a.py();
@@ -161,6 +161,7 @@ pub fn pinv<'py>(a: &Bound<'py, PyAny>, rcond: f64) -> PyResult<Bound<'py, PyAny
 ///     eigenvectors in the columns, both ``float64``.
 #[pyfunction]
 #[inline]
+#[pyo3(signature = (a: "ArrayLike") -> "tuple[NDArray[np.float64], NDArray[np.float64]]")]
 pub fn eigh<'py>(a: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
     let py = a.py();
     with_float_view::<f64, _>(a, "a", |v| {
@@ -189,7 +190,7 @@ pub fn eigh<'py>(a: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
 ///
 ///     tuple[numpy.ndarray, numpy.ndarray, numpy.ndarray]: ``u``, ``s``, ``vt``, ``float64``.
 #[pyfunction]
-#[pyo3(signature = (a, *, k = None, n_iter = Int(4), seed = 0), text_signature = "(a, *, k=None, n_iter=4, seed=0)")]
+#[pyo3(signature = (a: "ArrayLike", *, k = None, n_iter = Int(4), seed = 0) -> "tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]", text_signature = "(a, *, k=None, n_iter=4, seed=0)")]
 #[inline]
 pub fn svd<'py>(
     a: &Bound<'py, PyAny>,
@@ -221,17 +222,9 @@ pub fn svd<'py>(
     })
 }
 
-#[inline]
-pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
-    let m = PyModule::new(py, "linalg")?;
-    m.add(
-        "__doc__",
-        "Dense linear algebra: non-negative least squares, the pseudo-inverse, the symmetric eigenproblem and the SVD.",
-    )?;
-    m.add_function(wrap_pyfunction!(nnls, &m)?)?;
-    m.add_function(wrap_pyfunction!(pinv, &m)?)?;
-    m.add_function(wrap_pyfunction!(eigh, &m)?)?;
-    m.add_function(wrap_pyfunction!(svd, &m)?)?;
-    parent.add_submodule(&m)?;
-    Ok(())
+#[doc = "Dense linear algebra: non-negative least squares, the pseudo-inverse, the symmetric eigenproblem and the SVD."]
+#[pymodule(submodule, name = "linalg")]
+pub mod py_module {
+    #[pymodule_export]
+    use super::{eigh, nnls, pinv, svd};
 }

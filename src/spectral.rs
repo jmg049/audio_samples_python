@@ -61,7 +61,7 @@ where
 ///     ValueError: For invalid parameters or input with more than 2 dimensions.
 #[pyfunction]
 #[pyo3(
-    signature = (y, *, n_fft = Int(2048), hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant"),
+    signature = (y: "ArrayLike", *, n_fft = Int(2048), hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant") -> "NDArray[Any]",
     text_signature = "(y, *, n_fft=2048, hop_length=None, win_length=None, window='hann', center=True, pad_mode='constant')"
 )]
 #[allow(
@@ -130,7 +130,7 @@ pub fn stft<'py>(
 ///     ValueError: For invalid parameters or a bin count that does not match ``n_fft``.
 #[pyfunction]
 #[pyo3(
-    signature = (stft_matrix, *, hop_length = None, win_length = None, n_fft = None, window = WindowArg(Window::Hann), center = true, length = None),
+    signature = (stft_matrix: "ArrayLike", *, hop_length = None, win_length = None, n_fft = None, window = WindowArg(Window::Hann), center = true, length = None) -> "NDArray[Any]",
     text_signature = "(stft_matrix, *, hop_length=None, win_length=None, n_fft=None, window='hann', center=True, length=None)"
 )]
 #[allow(
@@ -230,7 +230,7 @@ const fn db_config(
 ///     TypeError: For complex input (pass power, e.g. ``numpy.abs(D) ** 2``).
 #[pyfunction]
 #[pyo3(
-    signature = (S, *, r#ref = DbRefArg(audio_samples::DbReference::Value(1.0)), amin = 1e-10, top_db = None, axes = DbAxesArg(audio_samples::DbAxes::Auto)),
+    signature = (S: "float | ArrayLike", *, r#ref = DbRefArg(audio_samples::DbReference::Value(1.0)), amin = 1e-10, top_db = None, axes = DbAxesArg(audio_samples::DbAxes::Auto)) -> "NDArray[Any] | float",
     text_signature = "(S, *, ref=1.0, amin=1e-10, top_db=None, axes='auto')"
 )]
 #[allow(non_snake_case, reason = "argument names follow the Python API")]
@@ -277,7 +277,7 @@ pub fn power_to_db<'py>(
 ///     ValueError: If ``amin <= 0`` or ``top_db < 0``.
 #[pyfunction]
 #[pyo3(
-    signature = (S, *, r#ref = DbRefArg(audio_samples::DbReference::Value(1.0)), amin = 1e-5, top_db = None, axes = DbAxesArg(audio_samples::DbAxes::Auto)),
+    signature = (S: "float | ArrayLike", *, r#ref = DbRefArg(audio_samples::DbReference::Value(1.0)), amin = 1e-5, top_db = None, axes = DbAxesArg(audio_samples::DbAxes::Auto)) -> "NDArray[Any] | float",
     text_signature = "(S, *, ref=1.0, amin=1e-05, top_db=None, axes='auto')"
 )]
 #[allow(non_snake_case, reason = "argument names follow the Python API")]
@@ -324,7 +324,7 @@ pub fn amplitude_to_db<'py>(
 ///
 ///     float | numpy.ndarray[float32 | float64]: Same shape as ``S_db``.
 #[pyfunction]
-#[pyo3(signature = (S_db, *, r#ref = 1.0), text_signature = "(S_db, *, ref=1.0)")]
+#[pyo3(signature = (S_db: "float | ArrayLike", *, r#ref = 1.0) -> "NDArray[Any] | float", text_signature = "(S_db, *, ref=1.0)")]
 #[allow(non_snake_case, reason = "argument names follow the Python API")]
 pub fn db_to_power<'py>(
     py: Python<'py>,
@@ -350,7 +350,7 @@ pub fn db_to_power<'py>(
 ///
 ///     float | numpy.ndarray[float32 | float64]: Same shape as ``S_db``.
 #[pyfunction]
-#[pyo3(signature = (S_db, *, r#ref = 1.0), text_signature = "(S_db, *, ref=1.0)")]
+#[pyo3(signature = (S_db: "float | ArrayLike", *, r#ref = 1.0) -> "NDArray[Any] | float", text_signature = "(S_db, *, ref=1.0)")]
 #[allow(non_snake_case, reason = "argument names follow the Python API")]
 pub fn db_to_amplitude<'py>(
     py: Python<'py>,
@@ -386,7 +386,7 @@ pub fn db_to_amplitude<'py>(
 ///     ValueError: For invalid parameters (e.g. ``fmax <= fmin``).
 #[pyfunction]
 #[pyo3(
-    signature = (*, sr, n_fft, n_mels = Int(128), fmin = 0.0, fmax = None, htk = false, norm = MelNormArg(audio_samples::MelFilterNorm::Slaney)),
+    signature = (*, sr, n_fft, n_mels = Int(128), fmin = 0.0, fmax = None, htk = false, norm = MelNormArg(audio_samples::MelFilterNorm::Slaney)) -> "NDArray[np.float64]",
     text_signature = "(*, sr, n_fft, n_mels=128, fmin=0.0, fmax=None, htk=False, norm='slaney')"
 )]
 #[allow(
@@ -428,7 +428,7 @@ pub fn mel_filterbank(
 ///
 ///     ValueError: Unknown window, invalid parameter, or an array of the wrong length.
 #[pyfunction]
-#[pyo3(signature = (window, Nx, *, fftbins = true), text_signature = "(window, Nx, *, fftbins=True)")]
+#[pyo3(signature = (window, Nx, *, fftbins = true) -> "NDArray[np.float64]", text_signature = "(window, Nx, *, fftbins=True)")]
 #[allow(non_snake_case, clippy::needless_pass_by_value)] // PyO3 argument names; `WindowArg` is extracted by value
 pub fn get_window(
     py: Python<'_>,
@@ -466,7 +466,7 @@ pub fn get_window(
 ///     ValueError: For invalid parameters.
 #[pyfunction]
 #[pyo3(
-    signature = (*, window, n_frames, hop_length = Int(512), win_length = None, n_fft = Int(2048), norm = None, dtype = None),
+    signature = (*, window, n_frames, hop_length = Int(512), win_length = None, n_fft = Int(2048), norm = None, dtype = None) -> "NDArray[np.float32] | NDArray[np.float64]",
     text_signature = "(*, window, n_frames, hop_length=512, win_length=None, n_fft=2048, norm=None, dtype=None)"
 )]
 #[allow(
@@ -544,7 +544,7 @@ pub fn window_sumsquare<'py>(
 ///
 ///     float: Bandwidth in bins (1.0 for boxcar, 1.5 for Hann).
 #[pyfunction]
-#[pyo3(signature = (window, n = Int(1000)), text_signature = "(window, n=1000)")]
+#[pyo3(signature = (window: "str | tuple[str, float] | float | ArrayLike", n = Int(1000)), text_signature = "(window, n=1000)")]
 pub fn window_bandwidth<'py>(
     py: Python<'py>,
     window: &Bound<'py, PyAny>,
@@ -606,7 +606,7 @@ pub fn window_bandwidth<'py>(
 ///         ``width`` larger than the axis.
 #[pyfunction]
 #[pyo3(
-    signature = (data, *, width = Int(9), order = Int(1), axis = Int(-1), mode = "interp"),
+    signature = (data: "ArrayLike", *, width = Int(9), order = Int(1), axis = Int(-1), mode = "interp") -> "NDArray[Any]",
     text_signature = "(data, *, width=9, order=1, axis=-1, mode='interp')"
 )]
 pub fn delta<'py>(
@@ -662,7 +662,7 @@ pub fn delta<'py>(
 ///
 ///     ValueError: If ``n_steps < 1`` or ``delay == 0``.
 #[pyfunction]
-#[pyo3(signature = (data, *, n_steps = Int(2), delay = Int(1)), text_signature = "(data, *, n_steps=2, delay=1)")]
+#[pyo3(signature = (data: "ArrayLike", *, n_steps = Int(2), delay = Int(1)) -> "NDArray[Any]", text_signature = "(data, *, n_steps=2, delay=1)")]
 pub fn stack_memory<'py>(
     py: Python<'py>,
     data: &Bound<'py, PyAny>,
@@ -711,7 +711,7 @@ pub fn stack_memory<'py>(
 ///         or (copy only) the frame matrix would exceed 2^31 elements.
 #[pyfunction]
 #[pyo3(
-    signature = (x, *, frame_length, hop_length, copy = true),
+    signature = (x: "ArrayLike", *, frame_length, hop_length, copy = true) -> "NDArray[Any]",
     text_signature = "(x, *, frame_length, hop_length, copy=True)"
 )]
 pub fn frame<'py>(
@@ -800,7 +800,7 @@ fn readonly_frames<'py, F: numpy::Element>(
 ///     numpy.ndarray[float32 | float64]: shape ``(n_mels, T)`` or ``(channels, n_mels, T)``.
 #[pyfunction]
 #[pyo3(
-    signature = (S, *, sr, n_fft = None, n_mels = Int(128), fmin = 0.0, fmax = None, htk = false, norm = MelNormArg(audio_samples::MelFilterNorm::Slaney)),
+    signature = (S: "ArrayLike", *, sr, n_fft = None, n_mels = Int(128), fmin = 0.0, fmax = None, htk = false, norm = MelNormArg(audio_samples::MelFilterNorm::Slaney)) -> "NDArray[Any]",
     text_signature = "(S, *, sr, n_fft=None, n_mels=128, fmin=0.0, fmax=None, htk=False, norm='slaney')"
 )]
 #[allow(
@@ -867,7 +867,7 @@ pub fn melspectrogram_from_spectrogram<'py>(
 ///     numpy.ndarray[float32 | float64]: shape ``(..., n_mfcc, T)``.
 #[pyfunction]
 #[pyo3(
-    signature = (S, *, n_mfcc = Int(20), dct_type = Int(2), norm = Some("ortho"), lifter = 0.0),
+    signature = (S: "ArrayLike", *, n_mfcc = Int(20), dct_type = Int(2), norm = Some("ortho"), lifter = 0.0) -> "NDArray[Any]",
     text_signature = "(S, *, n_mfcc=20, dct_type=2, norm='ortho', lifter=0.0)"
 )]
 #[allow(non_snake_case, reason = "argument names follow the Python API")]
@@ -887,31 +887,18 @@ pub fn mfcc_from_mel_db<'py>(
     })
 }
 
-/// Registers `audio_samples.spectral`.
-pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
-    let m = PyModule::new(py, "spectral")?;
-    m.add(
-        "__doc__",
-        "Spectral functions over NumPy arrays (STFT/ISTFT, dB \
+#[doc = "Spectral functions over NumPy arrays (STFT/ISTFT, dB \
          conversions, mel filterbank, windows, delta, stack_memory, frame). \
          float32 / complex64 arrays are processed in float32 and give float32 \
-         output; any other input is converted to float64.",
-    )?;
-    m.add_function(wrap_pyfunction!(stft, &m)?)?;
-    m.add_function(wrap_pyfunction!(istft, &m)?)?;
-    m.add_function(wrap_pyfunction!(power_to_db, &m)?)?;
-    m.add_function(wrap_pyfunction!(amplitude_to_db, &m)?)?;
-    m.add_function(wrap_pyfunction!(db_to_power, &m)?)?;
-    m.add_function(wrap_pyfunction!(db_to_amplitude, &m)?)?;
-    m.add_function(wrap_pyfunction!(mel_filterbank, &m)?)?;
-    m.add_function(wrap_pyfunction!(get_window, &m)?)?;
-    m.add_function(wrap_pyfunction!(window_sumsquare, &m)?)?;
-    m.add_function(wrap_pyfunction!(window_bandwidth, &m)?)?;
-    m.add_function(wrap_pyfunction!(delta, &m)?)?;
-    m.add_function(wrap_pyfunction!(stack_memory, &m)?)?;
-    m.add_function(wrap_pyfunction!(frame, &m)?)?;
-    m.add_function(wrap_pyfunction!(melspectrogram_from_spectrogram, &m)?)?;
-    m.add_function(wrap_pyfunction!(mfcc_from_mel_db, &m)?)?;
-    parent.add_submodule(&m)?;
-    Ok(())
+         output; any other input is converted to float64."]
+#[pymodule(submodule, name = "spectral")]
+pub mod py_module {
+    #[pymodule_export]
+    use super::{
+        amplitude_to_db, db_to_amplitude, db_to_power, delta, frame, get_window, istft,
+        mel_filterbank, melspectrogram_from_spectrogram, mfcc_from_mel_db, power_to_db,
+        stack_memory, stft, window_bandwidth, window_sumsquare,
+    };
+    #[pymodule_export]
+    use crate::pitch_filterbank::mellin_transform;
 }

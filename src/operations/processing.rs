@@ -13,11 +13,19 @@ use crate::{
 
 /// A resampling quality given as a ``ResamplingQuality`` or by name
 /// (``"fast"``, ``"medium"``, ``"high"``).
+#[cfg(feature = "stubs")]
+use pyo3::type_hint_union;
+
 #[derive(Debug, Clone, Copy)]
 pub struct QualityArg(pub PyResamplingQuality);
 
 impl<'a, 'py> FromPyObject<'a, 'py> for QualityArg {
     type Error = PyErr;
+    #[cfg(feature = "stubs")]
+    const INPUT_TYPE: pyo3::inspect::PyStaticExpr = type_hint_union!(
+        <PyResamplingQuality as pyo3::PyTypeInfo>::TYPE_HINT,
+        crate::args::hints::QUALITY_NAME
+    );
 
     fn extract(obj: pyo3::Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
         if let Ok(q) = obj.extract::<PyResamplingQuality>() {

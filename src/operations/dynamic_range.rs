@@ -236,7 +236,7 @@ impl PyAudioSamples {
     ///
     ///     ValueError: If ``input_levels_db`` is empty or the configuration is invalid.
     ///     AudioError: If the computation fails.
-    #[pyo3(signature = (config: "CompressorConfig", input_levels_db: "np.typing.NDArray[np.float64]"))]
+    #[pyo3(signature = (config: "CompressorConfig", input_levels_db: "np.typing.NDArray[np.float64]") -> "NDArray[np.float64]")]
     fn get_compression_curve<'py>(
         &self,
         py: Python<'py>,
@@ -273,7 +273,7 @@ impl PyAudioSamples {
     /// Raises:
     ///
     ///     AudioError: If the configuration is invalid or processing fails.
-    #[pyo3(signature = (config: "CompressorConfig"))]
+    #[pyo3(signature = (config: "CompressorConfig") -> "NDArray[np.float64]")]
     fn get_gain_reduction<'py>(
         &self,
         py: Python<'py>,

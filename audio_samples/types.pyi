@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import final
 from typing_extensions import Self
-from typing import ClassVar, Optional
+from typing import ClassVar, Optional, Sequence
 import numpy
 import numpy.typing
 from audio_samples.spectrograms import CqtParams, StftParams, WindowType as WindowType
@@ -403,7 +403,7 @@ class VadConfig:
     energy_only: VadConfig
     """Convenience preset using energy-based detection with default parameters."""
 
-    def validate(self) -> None:
+    def validate(self) -> VadConfig:
         """
         Validate configuration parameters.
 
@@ -935,7 +935,7 @@ class IirFilterDesign:
         ...
 
     def frequency_response(
-        self, frequencies: numpy.typing.ArrayLike, sample_rate: float
+        self, frequencies: Sequence[float] | numpy.typing.NDArray[numpy.floating], sample_rate: float
     ) -> tuple[numpy.typing.NDArray[numpy.float64], numpy.typing.NDArray[numpy.float64]]:
         """
         Linear magnitude and phase (radians, wrapped to (-pi, pi]) of the
@@ -1437,7 +1437,7 @@ class CompressorConfig:
     @property
     def lookahead_ms(self) -> float: ...
 
-    def validate(self, sample_rate: float) -> None:
+    def validate(self, sample_rate: float) -> CompressorConfig:
         """
         Validate compressor configuration parameters.
 
@@ -1554,7 +1554,7 @@ class LimiterConfig:
     def isp_limiting(self) -> bool: ...
     """Whether inter-sample peak limiting is enabled."""
 
-    def validate(self, sample_rate: float) -> None:
+    def validate(self, sample_rate: float) -> LimiterConfig:
         """
         Validate limiter configuration parameters.
 

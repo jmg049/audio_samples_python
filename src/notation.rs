@@ -68,7 +68,7 @@ pub fn pythagorean_intervals(
 ///     numpy.ndarray[float64] | list[dict[int, int]]: Ratios in ``[1, 2)``, or factors.
 #[pyfunction]
 #[pyo3(
-    signature = (*, primes, bins_per_octave = Int(12), sort = true, return_factors = false),
+    signature = (*, primes: "ArrayLike", bins_per_octave = Int(12), sort = true, return_factors = false),
     text_signature = "(*, primes, bins_per_octave=12, sort=True, return_factors=False)"
 )]
 #[inline]
@@ -142,7 +142,7 @@ fn map_each<'py, R: pyo3::IntoPyObject<'py>>(
 ///     str | numpy.ndarray: The names.
 #[pyfunction]
 #[pyo3(
-    signature = (midi, *, octave = true, cents = false, key = "C:maj", unicode = false),
+    signature = (midi: "float | ArrayLike", *, octave = true, cents = false, key = "C:maj", unicode = false),
     text_signature = "(midi, *, octave=True, cents=False, key='C:maj', unicode=False)"
 )]
 #[inline]
@@ -170,7 +170,7 @@ pub fn midi_to_note<'py>(
 ///     str | numpy.ndarray: The names.
 #[pyfunction]
 #[pyo3(
-    signature = (hz, *, octave = true, cents = false, key = "C:maj", unicode = false),
+    signature = (hz: "float | ArrayLike", *, octave = true, cents = false, key = "C:maj", unicode = false),
     text_signature = "(hz, *, octave=True, cents=False, key='C:maj', unicode=False)"
 )]
 #[inline]
@@ -228,7 +228,7 @@ fn note_number(note: &str, round_midi: bool) -> PyResult<f64> {
 ///
 ///     float | numpy.ndarray: The numbers.
 #[pyfunction]
-#[pyo3(signature = (note, *, round_midi = true), text_signature = "(note, *, round_midi=True)")]
+#[pyo3(signature = (note: "str | Iterable[str]", *, round_midi = true), text_signature = "(note, *, round_midi=True)")]
 #[inline]
 pub fn note_to_midi<'py>(
     note: &Bound<'py, PyAny>,
@@ -250,7 +250,7 @@ pub fn note_to_midi<'py>(
 ///
 ///     float | numpy.ndarray: The frequencies in Hz.
 #[pyfunction]
-#[pyo3(signature = (note, *, round_midi = false), text_signature = "(note, *, round_midi=False)")]
+#[pyo3(signature = (note: "str | Iterable[str]", *, round_midi = false), text_signature = "(note, *, round_midi=False)")]
 #[inline]
 pub fn note_to_hz<'py>(note: &Bound<'py, PyAny>, round_midi: bool) -> PyResult<Bound<'py, PyAny>> {
     map_each(note, |n| {
@@ -276,7 +276,7 @@ pub fn note_to_hz<'py>(note: &Bound<'py, PyAny>, round_midi: bool) -> PyResult<B
 ///     numpy.ndarray[float64]: The frequencies.
 #[pyfunction]
 #[pyo3(
-    signature = (n_bins, *, fmin, intervals, bins_per_octave = Int(12), tuning = 0.0, sort = true),
+    signature = (n_bins, *, fmin, intervals: "str | ArrayLike", bins_per_octave = Int(12), tuning = 0.0, sort = true) -> "NDArray[np.float64]",
     text_signature = "(n_bins, *, fmin, intervals, bins_per_octave=12, tuning=0.0, sort=True)"
 )]
 #[inline]
@@ -509,6 +509,7 @@ pub fn list_thaat(py: Python<'_>) -> PyResult<Bound<'_, PyList>> {
 ///     numpy.ndarray[int64]: Seven degrees.
 #[pyfunction]
 #[inline]
+#[pyo3(signature = (thaat) -> "NDArray[np.int64]")]
 pub fn thaat_to_degrees<'py>(py: Python<'py>, thaat: &str) -> PyResult<Bound<'py, PyAny>> {
     let d = nt::thaat_to_degrees(thaat).map_err(audio_err_to_py)?;
     Ok(PyArray1::from_slice(py, &d.map(i64::from)).into_any())
@@ -611,6 +612,7 @@ fn mela_arg(mela: &Bound<'_, PyAny>) -> PyResult<u8> {
 ///     numpy.ndarray[int64]: Seven degrees.
 #[pyfunction]
 #[inline]
+#[pyo3(signature = (mela: "int | str") -> "NDArray[np.int64]")]
 pub fn mela_to_degrees<'py>(mela: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
     let d = nt::mela_to_degrees(mela_arg(mela)?).map_err(audio_err_to_py)?;
     Ok(PyArray1::from_slice(mela.py(), &d.map(i64::from)).into_any())
@@ -628,7 +630,7 @@ pub fn mela_to_degrees<'py>(mela: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyA
 ///
 ///     list[str]: Twelve names.
 #[pyfunction]
-#[pyo3(signature = (mela, *, abbr = true, unicode = true), text_signature = "(mela, *, abbr=True, unicode=True)")]
+#[pyo3(signature = (mela: "int | str", *, abbr = true, unicode = true), text_signature = "(mela, *, abbr=True, unicode=True)")]
 #[inline]
 pub fn mela_to_svara<'py>(
     mela: &Bound<'py, PyAny>,
@@ -685,7 +687,7 @@ pub fn midi_to_svara_h<'py>(
 ///     str | numpy.ndarray[str]: The svara, the shape of the input.
 #[pyfunction]
 #[pyo3(
-    signature = (midi, *, Sa, mela, abbr = true, octave = true, unicode = true),
+    signature = (midi, *, Sa, mela: "int | str", abbr = true, octave = true, unicode = true),
     text_signature = "(midi, *, Sa, mela, abbr=True, octave=True, unicode=True)"
 )]
 #[allow(non_snake_case, reason = "argument names follow the Python API")]
@@ -748,7 +750,7 @@ pub fn hz_to_svara_h<'py>(
 ///     str | numpy.ndarray[str]: The svara, the shape of the input.
 #[pyfunction]
 #[pyo3(
-    signature = (frequencies, *, Sa, mela, abbr = true, octave = true, unicode = true),
+    signature = (frequencies, *, Sa, mela: "int | str", abbr = true, octave = true, unicode = true),
     text_signature = "(frequencies, *, Sa, mela, abbr=True, octave=True, unicode=True)"
 )]
 #[allow(non_snake_case, reason = "argument names follow the Python API")]
@@ -801,7 +803,7 @@ fn map_notes<'py>(
 ///     str | numpy.ndarray[str]: The svara.
 #[pyfunction]
 #[pyo3(
-    signature = (notes, *, Sa, abbr = true, octave = true, unicode = true),
+    signature = (notes: "str | Sequence[str]", *, Sa, abbr = true, octave = true, unicode = true),
     text_signature = "(notes, *, Sa, abbr=True, octave=True, unicode=True)"
 )]
 #[allow(non_snake_case, reason = "argument names follow the Python API")]
@@ -832,7 +834,7 @@ pub fn note_to_svara_h<'py>(
 ///     str | numpy.ndarray[str]: The svara.
 #[pyfunction]
 #[pyo3(
-    signature = (notes, *, Sa, mela, abbr = true, octave = true, unicode = true),
+    signature = (notes: "str | Sequence[str]", *, Sa, mela: "int | str", abbr = true, octave = true, unicode = true),
     text_signature = "(notes, *, Sa, mela, abbr=True, octave=True, unicode=True)"
 )]
 #[allow(non_snake_case, reason = "argument names follow the Python API")]
@@ -851,34 +853,22 @@ pub fn note_to_svara_c<'py>(
     })
 }
 
-#[inline]
-pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
-    let m = PyModule::new(py, "notation")?;
-    m.add(
-        "__doc__",
-        "Tuning systems and musical notation: interval generators, Functional Just System, svara, mela and thaat names.",
-    )?;
-    m.add_function(wrap_pyfunction!(pythagorean_intervals, &m)?)?;
-    m.add_function(wrap_pyfunction!(plimit_intervals, &m)?)?;
-    m.add_function(wrap_pyfunction!(midi_to_note, &m)?)?;
-    m.add_function(wrap_pyfunction!(hz_to_note, &m)?)?;
-    m.add_function(wrap_pyfunction!(note_to_midi, &m)?)?;
-    m.add_function(wrap_pyfunction!(note_to_hz, &m)?)?;
-    m.add_function(wrap_pyfunction!(interval_frequencies, &m)?)?;
-    m.add_function(wrap_pyfunction!(fifths_to_note, &m)?)?;
-    m.add_function(wrap_pyfunction!(interval_to_fjs, &m)?)?;
-    m.add_function(wrap_pyfunction!(hz_to_fjs, &m)?)?;
-    m.add_function(wrap_pyfunction!(list_thaat, &m)?)?;
-    m.add_function(wrap_pyfunction!(thaat_to_degrees, &m)?)?;
-    add_list_mela(py, &m)?;
-    m.add_function(wrap_pyfunction!(mela_to_degrees, &m)?)?;
-    m.add_function(wrap_pyfunction!(mela_to_svara, &m)?)?;
-    m.add_function(wrap_pyfunction!(midi_to_svara_h, &m)?)?;
-    m.add_function(wrap_pyfunction!(midi_to_svara_c, &m)?)?;
-    m.add_function(wrap_pyfunction!(hz_to_svara_h, &m)?)?;
-    m.add_function(wrap_pyfunction!(hz_to_svara_c, &m)?)?;
-    m.add_function(wrap_pyfunction!(note_to_svara_h, &m)?)?;
-    m.add_function(wrap_pyfunction!(note_to_svara_c, &m)?)?;
-    parent.add_submodule(&m)?;
-    Ok(())
+#[doc = "Tuning systems and musical notation: interval generators, Functional Just System, svara, mela and thaat names."]
+#[pymodule(submodule, name = "notation")]
+pub mod py_module {
+    use pyo3::prelude::*;
+
+    #[pymodule_export]
+    use super::{
+        fifths_to_note, hz_to_fjs, hz_to_note, hz_to_svara_c, hz_to_svara_h, interval_frequencies,
+        interval_to_fjs, list_thaat, mela_to_degrees, mela_to_svara, midi_to_note, midi_to_svara_c,
+        midi_to_svara_h, note_to_hz, note_to_midi, note_to_svara_c, note_to_svara_h,
+        plimit_intervals, pythagorean_intervals, thaat_to_degrees,
+    };
+
+    #[pymodule_init]
+    fn init(m: &Bound<'_, PyModule>) -> PyResult<()> {
+        // `list_mela` is a raw fast-call function object, not a `#[pyfunction]`.
+        super::add_list_mela(m.py(), m)
+    }
 }

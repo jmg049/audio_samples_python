@@ -20,6 +20,12 @@
 #![warn(clippy::undocumented_unsafe_blocks)]
 #![warn(clippy::multiple_unsafe_ops_per_block)]
 
+#[cfg(all(feature = "stubs", not(debug_assertions)))]
+compile_error!(
+    "the `stubs` feature embeds pyo3's introspection data for scripts/stubs.sh; \
+     optimised builds such as release wheels must not enable it"
+);
+
 mod args;
 mod arrays;
 mod effects;
@@ -185,41 +191,6 @@ macro_rules! impl_py_default_static {
     };
 }
 pub(crate) use impl_py_default_static;
-
-macro_rules! reexport {
-    ($parent:expr, $child:expr, $( $name:literal ),+ $(,)?) => {
-        $(
-            $parent.add($name, $child.getattr($name)?)?;
-        )+
-    };
-}
-pub(crate) use reexport;
-
-macro_rules! register_types {
-    (
-        $py:ident,
-        $parent:ident,
-        $submod:ident,
-        [
-            $(
-                ($pytype:ty, $pyname:literal)
-            ),+ $(,)?
-        ]
-    ) => {{
-        $(
-            $submod.add_class::<$pytype>()?;
-        )+
-
-        reexport!(
-            $parent,
-            $submod,
-            $(
-                $pyname
-            ),+
-        );
-    }};
-}
-pub(crate) use register_types;
 
 // =============================================================================
 // DISPATCH MACROS
@@ -791,56 +762,46 @@ pub(crate) fn audio_read_err_to_py(e: AudioIOError, path: &str, context: &str) -
 // `tests/test_threads.py` checks concurrent use, and docs/source/free_threading.rst
 // states what callers must not do.
 #[pymodule(name = "audio_samples", gil_used = false)]
-fn audio_samples_python(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
-    // Exception hierarchy (audio_samples.exceptions), re-exported at top level.
-    let exceptions_mod = exceptions_module(py)?;
-    m.add_submodule(exceptions_mod)?;
-    for name in exceptions_mod
-        .getattr("__all__")?
-        .extract::<Vec<String>>()?
-    {
-        m.add(name.as_str(), exceptions_mod.getattr(name.as_str())?)?;
-    }
+mod audio_samples_python {
+    use pyo3::prelude::*;
 
-    types::types(py, m)?;
-    m.add_class::<PyAudioSamples>()?;
+    #[pymodule_export]
+    use crate::PyAudioSamples;
+    #[pymodule_export]
+    use crate::arrays::py_module as arrays;
+    #[pymodule_export]
+    use crate::effects::py_module as effects;
+    #[pymodule_export]
+    use crate::explain::py_module as explain;
+    #[pymodule_export]
+    use crate::factorization::py_module as factorization;
+    #[pymodule_export]
+    use crate::features::py_module as features;
+    #[pymodule_export]
+    use crate::inverse::py_module as inverse;
+    #[pymodule_export]
+    use crate::io::py_module as io;
+    #[pymodule_export]
+    use crate::linalg::py_module as linalg;
+    #[pymodule_export]
+    use crate::notation::py_module as notation;
+    #[pymodule_export]
+    use crate::pitch_filterbank::py_module as pitch_filterbank;
+    #[pymodule_export]
+    use crate::rhythm::py_module as rhythm;
+    #[pymodule_export]
+    use crate::segment::py_module as segment;
+    #[pymodule_export]
+    use crate::sequence::py_module as sequence;
+    #[pymodule_export]
+    use crate::spectral::py_module as spectral;
+    #[pymodule_export]
+    use crate::types::py_module as types;
+    #[pymodule_export]
+    use crate::utils::py_module as utils;
 
-    io::io(py, m)?;
-    utils::utils(py, m)?;
-
-    // Re-export spectrograms module
-    let spectrograms_mod = PyModule::new(py, "spectrograms")?;
-    spectrograms::python::register_module(py, &spectrograms_mod)?;
-    // `ChromaParams(norm=...)` takes a ChromaNorm, which the spectrograms crate
-    // does not register; expose it so the norm can actually be chosen.
-    if !spectrograms_mod.hasattr("ChromaNorm")? {
-        spectrograms_mod.add_class::<spectrograms::python::PyChromaNorm>()?;
-    }
-    m.add_submodule(&spectrograms_mod)?;
-
-    // Array-level analysis functions
-    spectral::register(py, m)?;
-    sequence::register(py, m)?;
-    features::register(py, m)?;
-    rhythm::register(py, m)?;
-    effects::register(py, m)?;
-    linalg::register(py, m)?;
-    inverse::register(py, m)?;
-    factorization::register(py, m)?;
-    pitch_filterbank::register(py, m)?;
-    segment::register(py, m)?;
-    arrays::register(py, m)?;
-    notation::register(py, m)?;
-
-    // Explanations (audio_samples.explain); ExplainDoc is re-exported at top level.
-    explain::explain_module(py, m)?;
-
-    // Re-exports
-    let utils_mod = m.getattr("utils")?;
-
-    reexport!(
-        m,
-        utils_mod,
+    /// Names of `audio_samples.utils` that the top-level module re-exports.
+    const UTILS_NAMES: &[&str] = &[
         "sine_wave",
         "cosine_wave",
         "sawtooth_wave",
@@ -864,25 +825,53 @@ fn audio_samples_python(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()>
         "stereo_chirp",
         "stereo_silence",
         "mu_law_encode",
-        "mu_law_decode"
-    );
+        "mu_law_decode",
+    ];
 
-    let io_mod = m.getattr("io")?;
-    reexport!(
-        m,
-        io_mod,
-        "AudioInfo",
-        "info",
-        "read",
-        "read_with_info",
-        "read_and_resample",
-        "peek_native_type",
-        "save",
-        "write_with_options",
-        "write_with_metadata"
-    );
+    #[pymodule_init]
+    fn init(m: &Bound<'_, PyModule>) -> PyResult<()> {
+        let py = m.py();
+        // Exception hierarchy (audio_samples.exceptions), re-exported at top level.
+        let exceptions_mod = super::exceptions_module(py)?;
+        m.add_submodule(exceptions_mod)?;
+        for name in exceptions_mod
+            .getattr("__all__")?
+            .extract::<Vec<String>>()?
+        {
+            m.add(name.as_str(), exceptions_mod.getattr(name.as_str())?)?;
+        }
 
-    Ok(())
+        // Every class of audio_samples.types is also a top-level name.
+        let types_mod = m.getattr("types")?;
+        for name in types_mod.dir()? {
+            let name = name.extract::<String>()?;
+            if !name.starts_with('_') {
+                m.add(name.as_str(), types_mod.getattr(name.as_str())?)?;
+            }
+        }
+
+        // Re-export spectrograms module
+        let spectrograms_mod = PyModule::new(py, "spectrograms")?;
+        spectrograms::python::register_module(py, &spectrograms_mod)?;
+        // `ChromaParams(norm=...)` takes a ChromaNorm, which the spectrograms crate
+        // does not register; expose it so the norm can actually be chosen.
+        if !spectrograms_mod.hasattr("ChromaNorm")? {
+            spectrograms_mod.add_class::<spectrograms::python::PyChromaNorm>()?;
+        }
+        m.add_submodule(&spectrograms_mod)?;
+
+        // ExplainDoc is re-exported at top level.
+        m.add("ExplainDoc", m.getattr("explain")?.getattr("ExplainDoc")?)?;
+
+        // Re-exports, as the same objects.
+        for (sub, names) in [("utils", UTILS_NAMES), ("io", crate::io::TOP_LEVEL_NAMES)] {
+            let sub = m.getattr(sub)?;
+            for name in names {
+                m.add(*name, sub.getattr(*name)?)?;
+            }
+        }
+        Ok(())
+    }
 }
 
 /// Represents homogeneous audio samples with associated metadata.
@@ -2757,6 +2746,7 @@ impl PyAudioSamples {
     }
 
     // Helper methods for numpy array operations
+    #[pyo3(signature = (numpy_array: "NDArray[Any]"))]
     fn add_numpy_array(
         &self,
         py: Python<'_>,
@@ -2766,6 +2756,7 @@ impl PyAudioSamples {
         self.arithmetic_with_array(py, numpy_array.as_any(), Arithmetic::Add)
     }
 
+    #[pyo3(signature = (numpy_array: "NDArray[Any]"))]
     fn sub_numpy_array(
         &self,
         py: Python<'_>,
@@ -2775,6 +2766,7 @@ impl PyAudioSamples {
         self.arithmetic_with_array(py, numpy_array.as_any(), Arithmetic::Sub)
     }
 
+    #[pyo3(signature = (numpy_array: "NDArray[Any]"))]
     fn mul_numpy_array(
         &self,
         py: Python<'_>,
@@ -2784,6 +2776,7 @@ impl PyAudioSamples {
         self.arithmetic_with_array(py, numpy_array.as_any(), Arithmetic::Mul)
     }
 
+    #[pyo3(signature = (numpy_array: "NDArray[Any]"))]
     fn div_numpy_array(
         &self,
         py: Python<'_>,
@@ -2794,6 +2787,7 @@ impl PyAudioSamples {
     }
 
     #[allow(clippy::wrong_self_convention)] // Python method name; it copies `self`'s metadata.
+    #[pyo3(signature = (numpy_array: "NDArray[Any]"))]
     fn from_numpy_array_with_metadata(
         &self,
         py: Python<'_>,
@@ -3537,7 +3531,7 @@ impl PyAudioSamples {
     ///     (2, 44100)
     ///     >>> arr.dtype
     ///     dtype('float64')
-    #[pyo3(signature = ())]
+    #[pyo3(signature = () -> "NDArray[Any]")]
     fn to_numpy<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         use PyAudioBacking::{NumpyInterleaved, NumpyMono, NumpyMulti, OwnedMono, OwnedMulti};
 

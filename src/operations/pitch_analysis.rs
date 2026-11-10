@@ -219,6 +219,7 @@ impl PyAudioSamples {
     /// Raises:
     ///
     ///     AudioError: If key estimation fails.
+    #[pyo3(signature = (stft_params: "StftParams"))]
     pub fn estimate_key(&self, py: Python<'_>, stft_params: &PyStftParams) -> PyResult<PyKey> {
         let stft_params = &stft_params.inner;
 

@@ -46,7 +46,7 @@ fn opt_non_negative(name: &str, v: Option<Int>) -> PyResult<Option<usize>> {
 ///     >>> hz_to_mel(1000.0)              # HTK: ~999.99
 ///     >>> hz_to_mel(1000.0, htk=False)   # Slaney: 15.0
 #[pyfunction]
-#[pyo3(signature = (freq_hz, *, htk = true), text_signature = "(freq_hz, *, htk=True)")]
+#[pyo3(signature = (freq_hz: "float | ArrayLike", *, htk = true) -> "float | NDArray[np.float64]", text_signature = "(freq_hz, *, htk=True)")]
 pub fn hz_to_mel<'py>(freq_hz: &Bound<'py, PyAny>, htk: bool) -> PyResult<Bound<'py, PyAny>> {
     let scale = mel_scale_of(htk);
     map_f64(freq_hz, "freq_hz", |f| {
@@ -73,14 +73,14 @@ pub fn hz_to_mel<'py>(freq_hz: &Bound<'py, PyAny>, htk: bool) -> PyResult<Bound<
 ///     >>> from audio_samples.utils import mel_to_hz
 ///     >>> mel_to_hz(15.0, htk=False)  # 1000.0
 #[pyfunction]
-#[pyo3(signature = (mel, *, htk = true), text_signature = "(mel, *, htk=True)")]
+#[pyo3(signature = (mel: "float | ArrayLike", *, htk = true) -> "float | NDArray[np.float64]", text_signature = "(mel, *, htk=True)")]
 pub fn mel_to_hz<'py>(mel: &Bound<'py, PyAny>, htk: bool) -> PyResult<Bound<'py, PyAny>> {
     let scale = mel_scale_of(htk);
     map_f64(mel, "mel", |m| audio_math::mel_to_hz_with_scale(m, scale))
 }
 
 #[pyfunction]
-#[pyo3(signature = (n_mels, fmin, fmax))]
+#[pyo3(signature = (n_mels, fmin, fmax) -> "NDArray[np.float64]")]
 /// Generates a sequence of frequencies whose spacing is uniform in the mel domain.
 ///
 /// Args:
@@ -119,7 +119,7 @@ pub fn mel_scale(py: Python<'_>, n_mels: usize, fmin: f64, fmax: f64) -> Bound<'
 ///     >>> from audio_samples.utils import hz_to_midi
 ///     >>> hz_to_midi(440.0)  # 69.0
 #[pyfunction]
-#[pyo3(signature = (freq_hz), text_signature = "(freq_hz)")]
+#[pyo3(signature = (freq_hz: "float | ArrayLike") -> "float | NDArray[np.float64]", text_signature = "(freq_hz)")]
 pub fn hz_to_midi<'py>(freq_hz: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
     map_f64_slice(
         freq_hz,
@@ -145,7 +145,7 @@ pub fn hz_to_midi<'py>(freq_hz: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny
 ///     >>> from audio_samples.utils import midi_to_hz
 ///     >>> midi_to_hz(69.0)  # 440.0
 #[pyfunction]
-#[pyo3(signature = (midi_note), text_signature = "(midi_note)")]
+#[pyo3(signature = (midi_note: "float | ArrayLike") -> "float | NDArray[np.float64]", text_signature = "(midi_note)")]
 pub fn midi_to_hz<'py>(midi_note: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
     map_f64(midi_note, "midi_note", audio_math::midi_to_hz)
 }
@@ -269,7 +269,7 @@ pub fn db_to_power(db: f64) -> f64 {
 ///     >>> frames_to_time(100, 44100.0, 512)
 ///     >>> frames_to_time([0, 1, 2], 22050.0, 512, n_fft=2048)
 #[pyfunction]
-#[pyo3(signature = (frames, sample_rate, hop_size, *, n_fft = None), text_signature = "(frames, sample_rate, hop_size, *, n_fft=None)")]
+#[pyo3(signature = (frames: "float | ArrayLike", sample_rate, hop_size, *, n_fft = None) -> "float | NDArray[np.float64]", text_signature = "(frames, sample_rate, hop_size, *, n_fft=None)")]
 pub fn frames_to_time<'py>(
     frames: &Bound<'py, PyAny>,
     sample_rate: f64,
@@ -305,7 +305,7 @@ pub fn frames_to_time<'py>(
 ///     >>> from audio_samples.utils import time_to_frames
 ///     >>> time_to_frames(1.0, 44100.0, 512)  # 86
 #[pyfunction]
-#[pyo3(signature = (time_seconds, sample_rate, hop_size), text_signature = "(time_seconds, sample_rate, hop_size)")]
+#[pyo3(signature = (time_seconds: "float | ArrayLike", sample_rate, hop_size) -> "int | NDArray[np.int64]", text_signature = "(time_seconds, sample_rate, hop_size)")]
 pub fn time_to_frames<'py>(
     time_seconds: &Bound<'py, PyAny>,
     sample_rate: f64,
@@ -318,7 +318,7 @@ pub fn time_to_frames<'py>(
 }
 
 #[pyfunction]
-#[pyo3(signature = (samples, sample_rate))]
+#[pyo3(signature = (samples: "int | ArrayLike", sample_rate) -> "float | NDArray[np.float64]")]
 /// Converts sample indices into time offsets expressed in seconds.
 ///
 /// Args:
@@ -453,7 +453,7 @@ pub fn ms_to_samples(ms: f64, sample_rate: f64) -> usize {
 // =============================================================================
 
 #[pyfunction]
-#[pyo3(signature = (note_name))]
+#[pyo3(signature = (note_name: "str | Sequence[str]") -> "int | NDArray[np.int64]")]
 /// Parses scientific pitch notation and converts it into MIDI note numbers.
 ///
 /// Accepts upper- or lowercase note letters, any run of the accidentals
@@ -518,7 +518,7 @@ pub fn note_to_midi<'py>(note_name: &Bound<'py, PyAny>) -> PyResult<Bound<'py, P
 ///     >>> midi_to_note(69)  # "A4"
 ///     >>> midi_to_note(61)  # "C#4"
 #[pyfunction]
-#[pyo3(signature = (midi_note), text_signature = "(midi_note)")]
+#[pyo3(signature = (midi_note: "int | ArrayLike") -> "str | list[str]", text_signature = "(midi_note)")]
 pub fn midi_to_note<'py>(midi_note: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
     use pyo3::IntoPyObjectExt;
     let py = midi_note.py();
@@ -545,7 +545,7 @@ pub fn midi_to_note<'py>(midi_note: &Bound<'py, PyAny>) -> PyResult<Bound<'py, P
 }
 
 #[pyfunction]
-#[pyo3(signature = (note_name))]
+#[pyo3(signature = (note_name: "str | Sequence[str]") -> "float | NDArray[np.float64]")]
 /// Converts scientific pitch notation into frequencies expressed in Hertz.
 ///
 /// Args:
@@ -580,7 +580,7 @@ pub fn note_to_frequency<'py>(note_name: &Bound<'py, PyAny>) -> PyResult<Bound<'
 }
 
 #[pyfunction]
-#[pyo3(signature = (freq_hz))]
+#[pyo3(signature = (freq_hz: "float | ArrayLike") -> "tuple[str, float] | tuple[list[str], NDArray[np.float64]]")]
 /// Converts a frequency expressed in Hertz into the nearest musical note and cents offset.
 ///
 /// Args:
@@ -693,7 +693,7 @@ pub fn ratio_to_cents(ratio: f64) -> f64 {
 // =============================================================================
 
 #[pyfunction]
-#[pyo3(signature = (n_fft, sample_rate))]
+#[pyo3(signature = (n_fft, sample_rate) -> "NDArray[np.float64]")]
 /// Generates the positive-frequency bin centres for a real-valued FFT.
 ///
 /// Args:
@@ -738,7 +738,7 @@ pub fn fft_frequencies(py: Python<'_>, n_fft: usize, sample_rate: f64) -> Bound<
 ///     >>> from audio_samples.utils import mel_frequencies
 ///     >>> mel_frequencies(128, 0.0, 11025.0, htk=False)  # 128 Slaney-spaced frequencies
 #[pyfunction]
-#[pyo3(signature = (n_mels, fmin, fmax, *, htk = true), text_signature = "(n_mels, fmin, fmax, *, htk=True)")]
+#[pyo3(signature = (n_mels, fmin, fmax, *, htk = true) -> "NDArray[np.float64]", text_signature = "(n_mels, fmin, fmax, *, htk=True)")]
 pub fn mel_frequencies(
     py: Python<'_>,
     n_mels: Int,
@@ -752,7 +752,7 @@ pub fn mel_frequencies(
 }
 
 #[pyfunction]
-#[pyo3(signature = (start, end, num))]
+#[pyo3(signature = (start, end, num) -> "NDArray[np.float64]")]
 /// Generates a linearly spaced sequence of values between two endpoints.
 ///
 /// Args:
@@ -800,7 +800,7 @@ pub fn linspace(py: Python<'_>, start: f64, end: f64, num: usize) -> Bound<'_, P
 ///     >>> from audio_samples.utils import time_to_samples
 ///     >>> time_to_samples([0.0, 0.5, -0.5], sample_rate=100.0)  # [0, 50, -50]
 #[pyfunction]
-#[pyo3(signature = (times, *, sample_rate = None, sr = None), text_signature = "(times, *, sample_rate=None, sr=None)")]
+#[pyo3(signature = (times: "float | ArrayLike", *, sample_rate = None, sr = None) -> "int | NDArray[np.int64]", text_signature = "(times, *, sample_rate=None, sr=None)")]
 pub fn time_to_samples<'py>(
     times: &Bound<'py, PyAny>,
     sample_rate: Option<f64>,
@@ -830,7 +830,7 @@ pub fn time_to_samples<'py>(
 ///
 ///     int | numpy.ndarray[int64]: Frame indices, same shape as the input.
 #[pyfunction]
-#[pyo3(signature = (samples, *, hop_length, n_fft = None), text_signature = "(samples, *, hop_length, n_fft=None)")]
+#[pyo3(signature = (samples: "float | ArrayLike", *, hop_length, n_fft = None) -> "int | NDArray[np.int64]", text_signature = "(samples, *, hop_length, n_fft=None)")]
 pub fn samples_to_frames<'py>(
     samples: &Bound<'py, PyAny>,
     hop_length: Int,
@@ -860,7 +860,7 @@ pub fn samples_to_frames<'py>(
 ///
 ///     int | numpy.ndarray[int64]: Sample indices, same shape as the input.
 #[pyfunction]
-#[pyo3(signature = (frames, *, hop_length, n_fft = None), text_signature = "(frames, *, hop_length, n_fft=None)")]
+#[pyo3(signature = (frames: "float | ArrayLike", *, hop_length, n_fft = None) -> "int | NDArray[np.int64]", text_signature = "(frames, *, hop_length, n_fft=None)")]
 pub fn frames_to_samples<'py>(
     frames: &Bound<'py, PyAny>,
     hop_length: Int,
@@ -913,7 +913,7 @@ fn blocks_map<'py>(
 ///
 ///     int | numpy.ndarray[int64]: Frame indices, same shape as the input.
 #[pyfunction]
-#[pyo3(signature = (blocks, *, block_length), text_signature = "(blocks, *, block_length)")]
+#[pyo3(signature = (blocks: "float | ArrayLike", *, block_length) -> "int | NDArray[np.int64]", text_signature = "(blocks, *, block_length)")]
 #[inline]
 pub fn blocks_to_frames<'py>(
     blocks: &Bound<'py, PyAny>,
@@ -937,7 +937,7 @@ pub fn blocks_to_frames<'py>(
 ///
 ///     int | numpy.ndarray[int64]: Sample indices, same shape as the input.
 #[pyfunction]
-#[pyo3(signature = (blocks, *, block_length, hop_length), text_signature = "(blocks, *, block_length, hop_length)")]
+#[pyo3(signature = (blocks: "float | ArrayLike", *, block_length, hop_length) -> "int | NDArray[np.int64]", text_signature = "(blocks, *, block_length, hop_length)")]
 #[inline]
 pub fn blocks_to_samples<'py>(
     blocks: &Bound<'py, PyAny>,
@@ -966,7 +966,7 @@ pub fn blocks_to_samples<'py>(
 ///
 ///     float | numpy.ndarray[float64]: Times in seconds, same shape as the input.
 #[pyfunction]
-#[pyo3(signature = (blocks, *, block_length, hop_length, sample_rate), text_signature = "(blocks, *, block_length, hop_length, sample_rate)")]
+#[pyo3(signature = (blocks: "float | ArrayLike", *, block_length, hop_length, sample_rate) -> "float | NDArray[np.float64]", text_signature = "(blocks, *, block_length, hop_length, sample_rate)")]
 #[inline]
 pub fn blocks_to_time<'py>(
     blocks: &Bound<'py, PyAny>,
@@ -1016,7 +1016,7 @@ pub fn blocks_to_time<'py>(
 ///     >>> from audio_samples.utils import time_to_frames_floor
 ///     >>> time_to_frames_floor([0.0, 0.1, 0.2], sample_rate=22050, hop_length=512)  # [0, 4, 8]
 #[pyfunction]
-#[pyo3(signature = (times, *, sample_rate = None, hop_length, n_fft = None, sr = None), text_signature = "(times, *, sample_rate=None, hop_length, n_fft=None, sr=None)")]
+#[pyo3(signature = (times: "float | ArrayLike", *, sample_rate = None, hop_length, n_fft = None, sr = None) -> "int | NDArray[np.int64]", text_signature = "(times, *, sample_rate=None, hop_length, n_fft=None, sr=None)")]
 pub fn time_to_frames_floor<'py>(
     times: &Bound<'py, PyAny>,
     sample_rate: Option<f64>,
@@ -1098,7 +1098,7 @@ fn frame_count(x: &Bound<'_, PyAny>, axis: Int) -> PyResult<usize> {
 ///
 ///     numpy.ndarray[float64]: shape ``(n_frames,)``.
 #[pyfunction]
-#[pyo3(signature = (X, *, sample_rate = None, hop_length, n_fft = None, axis = Int(-1), sr = None), text_signature = "(X, *, sample_rate=None, hop_length, n_fft=None, axis=-1, sr=None)")]
+#[pyo3(signature = (X: "int | ArrayLike", *, sample_rate = None, hop_length, n_fft = None, axis = Int(-1), sr = None) -> "NDArray[np.float64]", text_signature = "(X, *, sample_rate=None, hop_length, n_fft=None, axis=-1, sr=None)")]
 #[allow(non_snake_case, reason = "argument names follow the Python API")]
 pub fn times_like<'py>(
     py: Python<'py>,
@@ -1128,7 +1128,7 @@ pub fn times_like<'py>(
 ///
 ///     numpy.ndarray[int64]: shape ``(n_frames,)``.
 #[pyfunction]
-#[pyo3(signature = (X, *, hop_length, n_fft = None, axis = Int(-1)), text_signature = "(X, *, hop_length, n_fft=None, axis=-1)")]
+#[pyo3(signature = (X: "int | ArrayLike", *, hop_length, n_fft = None, axis = Int(-1)) -> "NDArray[np.int64]", text_signature = "(X, *, hop_length, n_fft=None, axis=-1)")]
 #[allow(non_snake_case, reason = "argument names follow the Python API")]
 pub fn samples_like<'py>(
     py: Python<'py>,
@@ -1171,7 +1171,7 @@ pub fn samples_like<'py>(
 ///     >>> from audio_samples import mu_law_encode
 ///     >>> mu_law_encode([-1.0, 0.0, 1.0])  # array([-128, 0, 127])
 #[pyfunction]
-#[pyo3(signature = (x, *, mu = 255.0), text_signature = "(x, *, mu=255.0)")]
+#[pyo3(signature = (x: "float | ArrayLike", *, mu = 255.0) -> "int | NDArray[np.int64]", text_signature = "(x, *, mu=255.0)")]
 pub fn mu_law_encode<'py>(x: &Bound<'py, PyAny>, mu: f64) -> PyResult<Bound<'py, PyAny>> {
     use crate::args::{Precision, float_array_as, precision_of};
     use pyo3::IntoPyObjectExt;
@@ -1249,7 +1249,7 @@ const MU_BLOCK: usize = 4096;
 ///
 ///     ValueError: If ``mu <= 0`` or a code is out of range.
 #[pyfunction]
-#[pyo3(signature = (codes, *, mu = 255.0), text_signature = "(codes, *, mu=255.0)")]
+#[pyo3(signature = (codes: "int | ArrayLike", *, mu = 255.0) -> "float | NDArray[np.float64]", text_signature = "(codes, *, mu=255.0)")]
 pub fn mu_law_decode<'py>(codes: &Bound<'py, PyAny>, mu: f64) -> PyResult<Bound<'py, PyAny>> {
     use pyo3::IntoPyObjectExt;
     let py = codes.py();

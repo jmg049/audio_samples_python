@@ -40,6 +40,74 @@ use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyString, PyTuple};
 
+/// Python types of the argument extractors below, for the stubs generated from
+/// pyo3's introspection data (`--features stubs`, see `scripts/stubs.sh`).
+#[cfg(feature = "stubs")]
+pub mod hints {
+    use pyo3::inspect::{PyStaticConstant, PyStaticExpr};
+    use pyo3::type_hint_union;
+    use pyo3::{type_hint_identifier as id, type_hint_subscript as sub};
+
+    const fn literal(value: &'static str) -> PyStaticExpr {
+        PyStaticExpr::Constant {
+            value: PyStaticConstant::Str(value),
+        }
+    }
+    const NONE: PyStaticExpr = PyStaticExpr::Constant {
+        value: PyStaticConstant::None,
+    };
+    const INT: PyStaticExpr = id!("builtins", "int");
+    const FLOAT: PyStaticExpr = id!("builtins", "float");
+    const STR: PyStaticExpr = id!("builtins", "str");
+    const LITERAL: PyStaticExpr = id!("typing", "Literal");
+    const ANY_CALLABLE: PyStaticExpr = sub!(
+        id!("collections.abc", "Callable"),
+        PyStaticExpr::Constant {
+            value: PyStaticConstant::Ellipsis
+        },
+        id!("typing", "Any")
+    );
+
+    /// `int`
+    pub const INT_HINT: PyStaticExpr = INT;
+    /// A window: a SciPy name, `(name, parameter)`, a Kaiser beta or the coefficients.
+    pub const WINDOW: PyStaticExpr = type_hint_union!(
+        STR,
+        sub!(id!("builtins", "tuple"), STR, FLOAT),
+        FLOAT,
+        id!("numpy.typing", "ArrayLike")
+    );
+    /// `"slaney"`, a p-norm exponent or `None`.
+    pub const MEL_NORM: PyStaticExpr =
+        type_hint_union!(sub!(LITERAL, literal("slaney")), FLOAT, NONE);
+    /// A dB reference: a number, `"max"` or a function such as `numpy.max`.
+    pub const DB_REF: PyStaticExpr =
+        type_hint_union!(FLOAT, sub!(LITERAL, literal("max")), ANY_CALLABLE);
+    /// `"auto"` or `None`.
+    pub const DB_AXES: PyStaticExpr = type_hint_union!(sub!(LITERAL, literal("auto")), NONE);
+    /// Anything `numpy.dtype()` accepts.
+    pub const DTYPE: PyStaticExpr = id!("numpy.typing", "DTypeLike");
+    /// A seed, `None`, or what `numpy.random.default_rng` accepts.
+    pub const RNG: PyStaticExpr = type_hint_union!(
+        INT,
+        NONE,
+        id!("numpy.random", "Generator"),
+        id!("numpy.random", "RandomState"),
+        id!("numpy.random", "SeedSequence"),
+        id!("numpy.random", "BitGenerator"),
+        sub!(id!("collections.abc", "Sequence"), INT)
+    );
+    /// A number or `None`.
+    pub const OPT_FLOAT: PyStaticExpr = type_hint_union!(FLOAT, NONE);
+    /// A number or a function of the spectrogram.
+    pub const FLOAT_OR_CALLABLE: PyStaticExpr = type_hint_union!(FLOAT, ANY_CALLABLE);
+    /// Any object; the binding checks it at run time.
+    pub const ANY: PyStaticExpr = id!("typing", "Any");
+    /// The names of the resampling qualities.
+    pub const QUALITY_NAME: PyStaticExpr =
+        sub!(LITERAL, literal("fast"), literal("medium"), literal("high"));
+}
+
 /// `ValueError(f"{name} ...")`.
 pub fn value_err(name: &str, msg: impl std::fmt::Display) -> PyErr {
     PyValueError::new_err(format!("{name}: {msg}"))
@@ -63,6 +131,8 @@ pub struct Int(pub i64);
 
 impl<'a, 'py> FromPyObject<'a, 'py> for Int {
     type Error = PyErr;
+    #[cfg(feature = "stubs")]
+    const INPUT_TYPE: pyo3::inspect::PyStaticExpr = hints::INT_HINT;
 
     fn extract(obj: pyo3::Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
         match obj.extract::<i64>() {
@@ -990,12 +1060,14 @@ pub fn parse_db_axes(obj: &Bound<'_, PyAny>) -> PyResult<DbAxes> {
 // so a binding writes e.g. `window = WindowArg(Window::Hann)` as its default.
 
 macro_rules! arg_newtype {
-    ($(#[$m:meta])* $name:ident($inner:ty) via $parse:ident) => {
+    ($(#[$m:meta])* $name:ident($inner:ty) via $parse:ident, hint $hint:ident) => {
         $(#[$m])*
         pub struct $name(pub $inner);
 
         impl<'a, 'py> FromPyObject<'a, 'py> for $name {
             type Error = PyErr;
+            #[cfg(feature = "stubs")]
+            const INPUT_TYPE: pyo3::inspect::PyStaticExpr = hints::$hint;
 
             fn extract(obj: pyo3::Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
                 $parse(&obj.to_owned()).map($name)
@@ -1007,22 +1079,22 @@ macro_rules! arg_newtype {
 arg_newtype!(
     /// A window specification, parsed by [`parse_window`].
     #[derive(Debug, Clone, PartialEq)]
-    WindowArg(Window) via parse_window
+    WindowArg(Window) via parse_window, hint WINDOW
 );
 arg_newtype!(
     /// A mel filter `norm` (`None`, `"slaney"` or a number), parsed by [`parse_mel_norm`].
     #[derive(Debug, Clone, Copy, PartialEq)]
-    MelNormArg(MelFilterNorm) via parse_mel_norm
+    MelNormArg(MelFilterNorm) via parse_mel_norm, hint MEL_NORM
 );
 arg_newtype!(
     /// A dB reference (number, `"max"` or `numpy.max`), parsed by [`parse_db_ref`].
     #[derive(Debug, Clone, Copy, PartialEq)]
-    DbRefArg(DbReference) via parse_db_ref
+    DbRefArg(DbReference) via parse_db_ref, hint DB_REF
 );
 arg_newtype!(
     /// The dB `axes` argument (`"auto"` or `None`), parsed by [`parse_db_axes`].
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-    DbAxesArg(DbAxes) via parse_db_axes
+    DbAxesArg(DbAxes) via parse_db_axes, hint DB_AXES
 );
 
 /// A NumPy dtype given in any form `numpy.dtype()` accepts: a `numpy.dtype`
@@ -1032,6 +1104,8 @@ pub struct DTypeArg<'py>(pub Bound<'py, numpy::PyArrayDescr>);
 
 impl<'a, 'py> FromPyObject<'a, 'py> for DTypeArg<'py> {
     type Error = PyErr;
+    #[cfg(feature = "stubs")]
+    const INPUT_TYPE: pyo3::inspect::PyStaticExpr = hints::DTYPE;
 
     fn extract(obj: pyo3::Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
         let np = numpy(obj.py())?;

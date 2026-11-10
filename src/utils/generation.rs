@@ -9,7 +9,7 @@ use pyo3::{
     prelude::*,
 };
 
-use crate::{PyAudioSamples, nzu32_or_err, reexport};
+use crate::{PyAudioSamples, nzu32_or_err};
 
 #[derive(Debug, Clone, Copy)]
 pub enum Generator {
@@ -143,87 +143,49 @@ fn generate_audio(
     })
 }
 
-#[pymodule]
-pub fn generation(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
-    let generation_mod = PyModule::new(py, "generation")?;
-
-    // Mono generation functions
-    generation_mod.add_function(wrap_pyfunction!(sine_wave, &generation_mod)?)?;
-    generation_mod.add_function(wrap_pyfunction!(cosine_wave, &generation_mod)?)?;
-    generation_mod.add_function(wrap_pyfunction!(sawtooth_wave, &generation_mod)?)?;
-    generation_mod.add_function(wrap_pyfunction!(triangle_wave, &generation_mod)?)?;
-    generation_mod.add_function(wrap_pyfunction!(square_wave, &generation_mod)?)?;
-    generation_mod.add_function(wrap_pyfunction!(white_noise, &generation_mod)?)?;
-    generation_mod.add_function(wrap_pyfunction!(pink_noise, &generation_mod)?)?;
-    generation_mod.add_function(wrap_pyfunction!(brown_noise, &generation_mod)?)?;
-    generation_mod.add_function(wrap_pyfunction!(impulse, &generation_mod)?)?;
-    generation_mod.add_function(wrap_pyfunction!(silence, &generation_mod)?)?;
-    generation_mod.add_function(wrap_pyfunction!(chirp, &generation_mod)?)?;
-
-    // Band-limited / modulated / compound generators (New in 2.0)
-    generation_mod.add_function(wrap_pyfunction!(square_wave_bandlimited, &generation_mod)?)?;
-    generation_mod.add_function(wrap_pyfunction!(
-        sawtooth_wave_bandlimited,
-        &generation_mod
-    )?)?;
-    generation_mod.add_function(wrap_pyfunction!(
-        triangle_wave_bandlimited,
-        &generation_mod
-    )?)?;
-    generation_mod.add_function(wrap_pyfunction!(exponential_chirp, &generation_mod)?)?;
-    generation_mod.add_function(wrap_pyfunction!(fm_signal, &generation_mod)?)?;
-    generation_mod.add_function(wrap_pyfunction!(am_signal, &generation_mod)?)?;
-    generation_mod.add_function(wrap_pyfunction!(compound_tone, &generation_mod)?)?;
-    generation_mod.add_function(wrap_pyfunction!(exponential_bursts, &generation_mod)?)?;
-
-    // Stereo generation functions
-    generation_mod.add_function(wrap_pyfunction!(stereo_sine_wave, &generation_mod)?)?;
-    generation_mod.add_function(wrap_pyfunction!(stereo_chirp, &generation_mod)?)?;
-    generation_mod.add_function(wrap_pyfunction!(stereo_silence, &generation_mod)?)?;
-
-    // Example clips
-    generation_mod.add_function(wrap_pyfunction!(example_clip, &generation_mod)?)?;
-    generation_mod.add_function(wrap_pyfunction!(example_clip_names, &generation_mod)?)?;
-    generation_mod.add_function(wrap_pyfunction!(example_clip_info, &generation_mod)?)?;
-    generation_mod.add_function(wrap_pyfunction!(example_speech_f0, &generation_mod)?)?;
-    generation_mod.add(
-        "EXAMPLE_TEMPO_BPM",
-        audio_samples::utils::generation::EXAMPLE_TEMPO_BPM,
-    )?;
-    generation_mod.add(
-        "EXAMPLE_NOISY_SNR_DB",
-        audio_samples::utils::generation::EXAMPLE_NOISY_SNR_DB,
-    )?;
-
-    reexport!(
-        m,
-        generation_mod,
-        "sine_wave",
-        "cosine_wave",
-        "sawtooth_wave",
-        "triangle_wave",
-        "square_wave",
-        "white_noise",
-        "pink_noise",
-        "brown_noise",
-        "impulse",
-        "silence",
-        "chirp",
-        "square_wave_bandlimited",
-        "sawtooth_wave_bandlimited",
-        "triangle_wave_bandlimited",
-        "exponential_chirp",
-        "fm_signal",
-        "am_signal",
-        "compound_tone",
-        "exponential_bursts",
-        "stereo_sine_wave",
-        "stereo_chirp",
-        "stereo_silence"
-    );
-    m.add_submodule(&generation_mod)?;
-    Ok(())
+/// Signal generators (tones, noise, chirps, band-limited, modulated and compound
+/// waveforms) and the example clips.
+#[pymodule(submodule, name = "generation")]
+pub mod py_module {
+    #[pymodule_export]
+    use super::{
+        am_signal, brown_noise, chirp, compound_tone, cosine_wave, example_clip, example_clip_info,
+        example_clip_names, example_speech_f0, exponential_bursts, exponential_chirp, fm_signal,
+        impulse, pink_noise, sawtooth_wave, sawtooth_wave_bandlimited, silence, sine_wave,
+        square_wave, square_wave_bandlimited, stereo_chirp, stereo_silence, stereo_sine_wave,
+        triangle_wave, triangle_wave_bandlimited, white_noise,
+    };
+    #[pymodule_export]
+    const EXAMPLE_TEMPO_BPM: f64 = audio_samples::utils::generation::EXAMPLE_TEMPO_BPM;
+    #[pymodule_export]
+    const EXAMPLE_NOISY_SNR_DB: f64 = audio_samples::utils::generation::EXAMPLE_NOISY_SNR_DB;
 }
+
+/// Names of `audio_samples.utils.generation` that `audio_samples.utils` re-exports.
+pub const UTILS_NAMES: &[&str] = &[
+    "sine_wave",
+    "cosine_wave",
+    "sawtooth_wave",
+    "triangle_wave",
+    "square_wave",
+    "white_noise",
+    "pink_noise",
+    "brown_noise",
+    "impulse",
+    "silence",
+    "chirp",
+    "square_wave_bandlimited",
+    "sawtooth_wave_bandlimited",
+    "triangle_wave_bandlimited",
+    "exponential_chirp",
+    "fm_signal",
+    "am_signal",
+    "compound_tone",
+    "exponential_bursts",
+    "stereo_sine_wave",
+    "stereo_chirp",
+    "stereo_silence",
+];
 
 /// Render a named example clip of realistic audio.
 ///

@@ -6,87 +6,53 @@ pub mod tuning;
 
 use pyo3::prelude::*;
 
-#[pymodule]
-pub fn utils(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
-    let utils_mod = PyModule::new(py, "utils")?;
+/// Unit conversions (Hz, mel, MIDI, notes, octaves, frames, samples, time, dB), signal
+/// comparison metrics and tuning helpers, with the ``generation`` and ``detection``
+/// submodules.
+#[pymodule(submodule, name = "utils")]
+pub mod py_module {
+    use pyo3::prelude::*;
 
-    // TODO: Implement concatenate and stack as class methods on PyAudioSamples first
-    // utils_mod.add_function(wrap_pyfunction!(concatenate, &utils_mod)?)?;
-    // utils_mod.add_function(wrap_pyfunction!(stack, &utils_mod)?)?;
+    #[pymodule_export]
+    use super::audio_math::{
+        amplitude_to_db, blocks_to_frames, blocks_to_samples, blocks_to_time, cents_to_ratio,
+        db_to_amplitude, db_to_power, fft_frequencies, frames_to_samples, frames_to_time,
+        frequency_to_note, hz_to_mel, hz_to_midi, linspace, mel_frequencies, mel_scale, mel_to_hz,
+        midi_to_hz, midi_to_note, ms_to_samples, mu_law_decode, mu_law_encode, note_to_frequency,
+        note_to_midi, power_to_db, ratio_to_cents, samples_like, samples_to_frames,
+        samples_to_time, seconds_to_samples, time_to_frames, time_to_frames_floor, time_to_samples,
+        times_like,
+    };
+    #[pymodule_export]
+    use super::comparison::{
+        align_signals, correlation, correlation_per_channel, log_spectral_distance, mse,
+        mse_per_channel, psnr, segmental_snr, snr, snr_per_channel,
+    };
+    #[pymodule_export]
+    use super::detection::py_module as detection;
+    #[pymodule_export]
+    use super::generation::py_module as generation;
+    #[pymodule_export]
+    use super::tuning::{
+        a4_to_tuning, cqt_frequencies, hz_to_octs, key_to_degrees, key_to_notes, octs_to_hz,
+        tuning_to_a4,
+    };
 
-    // Audio math functions - frequency conversions
-    utils_mod.add_function(wrap_pyfunction!(audio_math::hz_to_mel, &utils_mod)?)?;
-    utils_mod.add_function(wrap_pyfunction!(audio_math::mel_to_hz, &utils_mod)?)?;
-    utils_mod.add_function(wrap_pyfunction!(audio_math::mel_scale, &utils_mod)?)?;
-    utils_mod.add_function(wrap_pyfunction!(audio_math::hz_to_midi, &utils_mod)?)?;
-    utils_mod.add_function(wrap_pyfunction!(audio_math::midi_to_hz, &utils_mod)?)?;
-
-    // Audio math functions - amplitude/power conversions
-    utils_mod.add_function(wrap_pyfunction!(audio_math::amplitude_to_db, &utils_mod)?)?;
-    utils_mod.add_function(wrap_pyfunction!(audio_math::db_to_amplitude, &utils_mod)?)?;
-    utils_mod.add_function(wrap_pyfunction!(audio_math::power_to_db, &utils_mod)?)?;
-    utils_mod.add_function(wrap_pyfunction!(audio_math::db_to_power, &utils_mod)?)?;
-
-    // Audio math functions - time/frame conversions
-    utils_mod.add_function(wrap_pyfunction!(audio_math::frames_to_time, &utils_mod)?)?;
-    utils_mod.add_function(wrap_pyfunction!(audio_math::time_to_frames, &utils_mod)?)?;
-    utils_mod.add_function(wrap_pyfunction!(audio_math::samples_to_time, &utils_mod)?)?;
-    utils_mod.add_function(wrap_pyfunction!(
-        audio_math::seconds_to_samples,
-        &utils_mod
-    )?)?;
-    utils_mod.add_function(wrap_pyfunction!(audio_math::ms_to_samples, &utils_mod)?)?;
-    utils_mod.add_function(wrap_pyfunction!(audio_math::time_to_samples, &utils_mod)?)?;
-    utils_mod.add_function(wrap_pyfunction!(audio_math::samples_to_frames, &utils_mod)?)?;
-    utils_mod.add_function(wrap_pyfunction!(audio_math::frames_to_samples, &utils_mod)?)?;
-    utils_mod.add_function(wrap_pyfunction!(audio_math::blocks_to_frames, &utils_mod)?)?;
-    utils_mod.add_function(wrap_pyfunction!(audio_math::blocks_to_samples, &utils_mod)?)?;
-    utils_mod.add_function(wrap_pyfunction!(audio_math::blocks_to_time, &utils_mod)?)?;
-    utils_mod.add_function(wrap_pyfunction!(
-        audio_math::time_to_frames_floor,
-        &utils_mod
-    )?)?;
-    utils_mod.add_function(wrap_pyfunction!(audio_math::times_like, &utils_mod)?)?;
-    utils_mod.add_function(wrap_pyfunction!(audio_math::samples_like, &utils_mod)?)?;
-    utils_mod.add_function(wrap_pyfunction!(audio_math::mu_law_encode, &utils_mod)?)?;
-    utils_mod.add_function(wrap_pyfunction!(audio_math::mu_law_decode, &utils_mod)?)?;
-
-    // Audio math functions - musical theory
-    utils_mod.add_function(wrap_pyfunction!(audio_math::note_to_midi, &utils_mod)?)?;
-    utils_mod.add_function(wrap_pyfunction!(audio_math::midi_to_note, &utils_mod)?)?;
-    utils_mod.add_function(wrap_pyfunction!(audio_math::note_to_frequency, &utils_mod)?)?;
-    utils_mod.add_function(wrap_pyfunction!(audio_math::frequency_to_note, &utils_mod)?)?;
-    utils_mod.add_function(wrap_pyfunction!(audio_math::cents_to_ratio, &utils_mod)?)?;
-    utils_mod.add_function(wrap_pyfunction!(audio_math::ratio_to_cents, &utils_mod)?)?;
-
-    // Audio math functions - spectral utilities
-    utils_mod.add_function(wrap_pyfunction!(audio_math::fft_frequencies, &utils_mod)?)?;
-    utils_mod.add_function(wrap_pyfunction!(audio_math::mel_frequencies, &utils_mod)?)?;
-    utils_mod.add_function(wrap_pyfunction!(audio_math::linspace, &utils_mod)?)?;
-
-    // Comparison functions
-    utils_mod.add_function(wrap_pyfunction!(comparison::correlation, &utils_mod)?)?;
-    utils_mod.add_function(wrap_pyfunction!(comparison::mse, &utils_mod)?)?;
-    utils_mod.add_function(wrap_pyfunction!(comparison::snr, &utils_mod)?)?;
-    utils_mod.add_function(wrap_pyfunction!(comparison::align_signals, &utils_mod)?)?;
-    utils_mod.add_function(wrap_pyfunction!(comparison::psnr, &utils_mod)?)?;
-    utils_mod.add_function(wrap_pyfunction!(comparison::segmental_snr, &utils_mod)?)?;
-    utils_mod.add_function(wrap_pyfunction!(
-        comparison::log_spectral_distance,
-        &utils_mod
-    )?)?;
-    utils_mod.add_function(wrap_pyfunction!(
-        comparison::correlation_per_channel,
-        &utils_mod
-    )?)?;
-    utils_mod.add_function(wrap_pyfunction!(comparison::mse_per_channel, &utils_mod)?)?;
-    utils_mod.add_function(wrap_pyfunction!(comparison::snr_per_channel, &utils_mod)?)?;
-
-    tuning::add(&utils_mod)?;
-    generation::generation(py, &utils_mod)?;
-    detection::detection(py, &utils_mod)?;
-    m.add_submodule(&utils_mod)?;
-    Ok(())
+    #[pymodule_init]
+    fn init(m: &Bound<'_, PyModule>) -> PyResult<()> {
+        // The generation and detection functions are also reachable from
+        // `audio_samples.utils`, as the same objects.
+        for (sub, names) in [
+            ("generation", super::generation::UTILS_NAMES),
+            ("detection", super::detection::UTILS_NAMES),
+        ] {
+            let sub = m.getattr(sub)?;
+            for name in names {
+                m.add(*name, sub.getattr(*name)?)?;
+            }
+        }
+        Ok(())
+    }
 }
 
 // TODO: Implement concatenate and stack as class methods on PyAudioSamples first

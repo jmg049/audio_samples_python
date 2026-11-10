@@ -4,7 +4,7 @@
 //! fundamental-frequency detection, silence/clipping region detection, dynamic-range and
 //! noise-floor analysis, and lower-level spectral/autocorrelation helpers.
 
-use crate::{PyAudioSamples, audio_err_to_py, dispatch_with_view, reexport};
+use crate::{PyAudioSamples, audio_err_to_py, dispatch_with_view};
 use audio_samples::CastInto;
 use audio_samples::utils::detection::{
     analyze_spectrum_for_cutoff, detect_clipping, detect_dynamic_range,
@@ -182,7 +182,7 @@ pub fn py_estimate_frequency_range(
 }
 
 #[pyfunction]
-#[pyo3(name = "analyze_spectrum_for_cutoff", signature=(spectrum, nyquist_freq))]
+#[pyo3(name = "analyze_spectrum_for_cutoff", signature=(spectrum: "NDArray[np.float64]", nyquist_freq))]
 /// Analyse a power spectrum for a spectral cutoff indicating prior resampling.
 ///
 /// Checks candidate Nyquist frequencies (derived from common sample rates) for a 2x or
@@ -217,7 +217,7 @@ pub fn py_analyze_spectrum_for_cutoff(
 }
 
 #[pyfunction]
-#[pyo3(name = "detect_fundamental_autocorrelation", signature=(data, sample_rate))]
+#[pyo3(name = "detect_fundamental_autocorrelation", signature=(data: "NDArray[np.float64]", sample_rate))]
 /// Estimate the fundamental frequency of a raw sample buffer using autocorrelation.
 ///
 /// Searches candidate periods corresponding to fundamentals in the range 50..2000 Hz.
@@ -250,46 +250,28 @@ pub fn py_detect_fundamental_autocorrelation(
     detect_fundamental_autocorrelation(&buf, sample_rate).map_err(audio_err_to_py)
 }
 
-#[pymodule]
-pub fn detection(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
-    let detection_mod = PyModule::new(py, "detection")?;
-
-    detection_mod.add_function(wrap_pyfunction!(py_detect_sample_rate, &detection_mod)?)?;
-    detection_mod.add_function(wrap_pyfunction!(
-        py_detect_fundamental_frequency,
-        &detection_mod
-    )?)?;
-    detection_mod.add_function(wrap_pyfunction!(py_detect_silence_regions, &detection_mod)?)?;
-    detection_mod.add_function(wrap_pyfunction!(py_detect_clipping, &detection_mod)?)?;
-    detection_mod.add_function(wrap_pyfunction!(py_detect_dynamic_range, &detection_mod)?)?;
-    detection_mod.add_function(wrap_pyfunction!(py_estimate_noise_floor, &detection_mod)?)?;
-    detection_mod.add_function(wrap_pyfunction!(
-        py_estimate_frequency_range,
-        &detection_mod
-    )?)?;
-    detection_mod.add_function(wrap_pyfunction!(
-        py_analyze_spectrum_for_cutoff,
-        &detection_mod
-    )?)?;
-    detection_mod.add_function(wrap_pyfunction!(
-        py_detect_fundamental_autocorrelation,
-        &detection_mod
-    )?)?;
-
-    reexport!(
-        m,
-        detection_mod,
-        "detect_sample_rate",
-        "detect_fundamental_frequency",
-        "detect_silence_regions",
-        "detect_clipping",
-        "detect_dynamic_range",
-        "estimate_noise_floor",
-        "estimate_frequency_range",
-        "analyze_spectrum_for_cutoff",
-        "detect_fundamental_autocorrelation"
-    );
-
-    m.add_submodule(&detection_mod)?;
-    Ok(())
+/// Detection and estimation on audio: sample rate, fundamental frequency, silent regions,
+/// clipping, dynamic range, noise floor and occupied frequency range.
+#[pymodule(submodule, name = "detection")]
+pub mod py_module {
+    #[pymodule_export]
+    use super::{
+        py_analyze_spectrum_for_cutoff, py_detect_clipping, py_detect_dynamic_range,
+        py_detect_fundamental_autocorrelation, py_detect_fundamental_frequency,
+        py_detect_sample_rate, py_detect_silence_regions, py_estimate_frequency_range,
+        py_estimate_noise_floor,
+    };
 }
+
+/// Names of `audio_samples.utils.detection` that `audio_samples.utils` re-exports.
+pub const UTILS_NAMES: &[&str] = &[
+    "detect_sample_rate",
+    "detect_fundamental_frequency",
+    "detect_silence_regions",
+    "detect_clipping",
+    "detect_dynamic_range",
+    "estimate_noise_floor",
+    "estimate_frequency_range",
+    "analyze_spectrum_for_cutoff",
+    "detect_fundamental_autocorrelation",
+];

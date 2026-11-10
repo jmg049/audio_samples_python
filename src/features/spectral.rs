@@ -50,7 +50,7 @@ fn out<T: numpy::Element>(py: Python<'_>, a: Array3<T>, ndim_in: usize) -> Bound
 ///     ValueError: If ``S`` has negative or non-finite values, or ``freq`` has
 ///         the wrong shape.
 #[pyfunction]
-#[pyo3(signature = (S, *, sr, freq = None), text_signature = "(S, *, sr, freq=None)")]
+#[pyo3(signature = (S: "ArrayLike", *, sr, freq = None) -> "NDArray[Any]", text_signature = "(S, *, sr, freq=None)")]
 #[allow(non_snake_case, reason = "argument names follow the Python API")]
 pub fn spectral_centroid_from_spectrogram<'py>(
     py: Python<'py>,
@@ -93,7 +93,7 @@ pub fn spectral_centroid_from_spectrogram<'py>(
 ///     ValueError: For invalid spectrogram values or shapes, or ``p`` zero / not finite.
 #[pyfunction]
 #[pyo3(
-    signature = (S, *, sr, freq = None, centroid = None, norm = true, p = 2.0),
+    signature = (S: "ArrayLike", *, sr, freq = None, centroid = None, norm = true, p = 2.0) -> "NDArray[Any]",
     text_signature = "(S, *, sr, freq=None, centroid=None, norm=True, p=2.0)"
 )]
 #[allow(non_snake_case, reason = "argument names follow the Python API")]
@@ -159,7 +159,7 @@ pub fn spectral_bandwidth_from_spectrogram<'py>(
 ///     ValueError: For invalid spectrogram values or ``roll_percent`` outside ``(0, 1)``.
 #[pyfunction]
 #[pyo3(
-    signature = (S, *, sr, freq = None, roll_percent = 0.85),
+    signature = (S: "ArrayLike", *, sr, freq = None, roll_percent = 0.85) -> "NDArray[Any]",
     text_signature = "(S, *, sr, freq=None, roll_percent=0.85)"
 )]
 #[allow(non_snake_case, reason = "argument names follow the Python API")]
@@ -207,7 +207,7 @@ pub fn spectral_rolloff_from_spectrogram<'py>(
 ///     ValueError: For invalid spectrogram values, ``amin <= 0`` or ``power <= 0``.
 #[pyfunction]
 #[pyo3(
-    signature = (S, *, amin = 1e-10, power = 2.0),
+    signature = (S: "ArrayLike", *, amin = 1e-10, power = 2.0) -> "NDArray[Any]",
     text_signature = "(S, *, amin=1e-10, power=2.0)"
 )]
 #[allow(non_snake_case, reason = "argument names follow the Python API")]
@@ -254,7 +254,7 @@ pub fn spectral_flatness_from_spectrogram<'py>(
 ///     ValueError: For invalid parameters (e.g. the top band above Nyquist).
 #[pyfunction]
 #[pyo3(
-    signature = (S, *, sr, freq = None, fmin = 200.0, n_bands = Int(6), quantile = 0.02, linear = false),
+    signature = (S: "ArrayLike", *, sr, freq = None, fmin = 200.0, n_bands = Int(6), quantile = 0.02, linear = false) -> "NDArray[Any]",
     text_signature = "(S, *, sr, freq=None, fmin=200.0, n_bands=6, quantile=0.02, linear=False)"
 )]
 #[allow(
@@ -308,7 +308,7 @@ pub fn spectral_contrast_from_spectrogram<'py>(
 ///     ValueError: If ``order`` is negative or not below the number of bins.
 #[pyfunction]
 #[pyo3(
-    signature = (S, *, sr, freq = None, order = Int(1)),
+    signature = (S: "ArrayLike", *, sr, freq = None, order = Int(1)) -> "NDArray[Any]",
     text_signature = "(S, *, sr, freq=None, order=1)"
 )]
 #[allow(non_snake_case, reason = "argument names follow the Python API")]
@@ -359,7 +359,7 @@ pub fn poly_features_from_spectrogram<'py>(
 ///
 ///     ValueError: If the bin count is not ``1 + frame_length // 2``.
 #[pyfunction]
-#[pyo3(signature = (S, *, frame_length = Int(2048)), text_signature = "(S, *, frame_length=2048)")]
+#[pyo3(signature = (S: "ArrayLike", *, frame_length = Int(2048)) -> "NDArray[Any]", text_signature = "(S, *, frame_length=2048)")]
 #[allow(non_snake_case, reason = "argument names follow the Python API")]
 pub fn rms_from_spectrogram<'py>(
     py: Python<'py>,
@@ -435,7 +435,7 @@ fn pcen_zi<F: FloatElement>(
 ///         ``numpy.abs(S)``).
 #[pyfunction]
 #[pyo3(
-    signature = (S, *, sr, hop_length, gain = 0.98, bias = 2.0, power = 0.5, time_constant = 0.4, eps = 1e-6, b = None, max_size = Int(1), r#ref = None, axis = Int(-1), max_axis = None, zi = None, return_zf = false),
+    signature = (S: "ArrayLike", *, sr, hop_length, gain = 0.98, bias = 2.0, power = 0.5, time_constant = 0.4, eps = 1e-6, b = None, max_size = Int(1), r#ref = None, axis = Int(-1), max_axis = None, zi = None, return_zf = false) -> "NDArray[Any] | tuple[NDArray[Any], NDArray[Any]] | tuple[NDArray[np.float32], NDArray[np.float32]] | tuple[NDArray[np.float64], NDArray[np.float64]]",
     text_signature = "(S, *, sr, hop_length, gain=0.98, bias=2.0, power=0.5, time_constant=0.4, eps=1e-06, b=None, max_size=1, ref=None, axis=-1, max_axis=None, zi=None, return_zf=False)"
 )]
 #[allow(
@@ -592,7 +592,7 @@ weighting_fn!(d_weighting, d_weighting, "D");
 ///     float | numpy.ndarray[float64]: dB weights, same shape as ``frequencies``
 ///     (a float for scalar input).
 #[pyfunction]
-#[pyo3(signature = (frequencies, *, min_db = Some(-80.0)), text_signature = "(frequencies, *, min_db=-80.0)")]
+#[pyo3(signature = (frequencies: "float | ArrayLike", *, min_db = Some(-80.0)) -> "float | NDArray[np.float64]", text_signature = "(frequencies, *, min_db=-80.0)")]
 pub fn z_weighting<'py>(
     frequencies: &Bound<'py, PyAny>,
     min_db: Option<f64>,
@@ -652,7 +652,7 @@ pub fn z_weighting<'py>(
 ///     ValueError: For an unknown ``kind``.
 #[pyfunction]
 #[pyo3(
-    signature = (frequencies, *, kind = "A", min_db = None),
+    signature = (frequencies: "float | ArrayLike", *, kind = "A", min_db = None) -> "float | NDArray[np.float64]",
     text_signature = "(frequencies, *, kind='A', min_db=None)"
 )]
 pub fn frequency_weighting<'py>(
@@ -697,7 +697,7 @@ fn parse_kinds(kinds: &Bound<'_, PyAny>) -> PyResult<Vec<FrequencyWeighting>> {
 ///     ValueError: For an unknown curve name.
 #[pyfunction]
 #[pyo3(
-    signature = (frequencies, *, kinds = None, min_db = None),
+    signature = (frequencies: "ArrayLike", *, kinds = None, min_db = None) -> "NDArray[np.float64]",
     text_signature = "(frequencies, *, kinds='ZAC', min_db=None)"
 )]
 pub fn multi_frequency_weighting<'py>(
@@ -756,7 +756,7 @@ pub fn multi_frequency_weighting<'py>(
 ///     ValueError: For shape mismatches or invalid dB parameters.
 #[pyfunction]
 #[pyo3(
-    signature = (S, frequencies, *, kind = "A", r#ref = DbRefArg(audio_samples::DbReference::Value(1.0)), amin = 1e-10, top_db = None),
+    signature = (S: "ArrayLike", frequencies: "ArrayLike", *, kind = "A", r#ref = DbRefArg(audio_samples::DbReference::Value(1.0)), amin = 1e-10, top_db = None) -> "NDArray[Any]",
     text_signature = "(S, frequencies, *, kind='A', ref=1.0, amin=1e-10, top_db=None)"
 )]
 #[allow(non_snake_case, reason = "argument names follow the Python API")]
@@ -780,25 +780,4 @@ pub fn perceptual_weighting<'py>(
         let r = feat::perceptual_weighting(s.view(), &f, k, &db).map_err(audio_err_to_py)?;
         Ok(out(py, r, nd))
     })
-}
-
-/// Registers the spectral-descriptor functions.
-pub fn add(m: &Bound<'_, PyModule>) -> PyResult<()> {
-    m.add_function(wrap_pyfunction!(spectral_centroid_from_spectrogram, m)?)?;
-    m.add_function(wrap_pyfunction!(spectral_bandwidth_from_spectrogram, m)?)?;
-    m.add_function(wrap_pyfunction!(spectral_rolloff_from_spectrogram, m)?)?;
-    m.add_function(wrap_pyfunction!(spectral_flatness_from_spectrogram, m)?)?;
-    m.add_function(wrap_pyfunction!(spectral_contrast_from_spectrogram, m)?)?;
-    m.add_function(wrap_pyfunction!(poly_features_from_spectrogram, m)?)?;
-    m.add_function(wrap_pyfunction!(rms_from_spectrogram, m)?)?;
-    m.add_function(wrap_pyfunction!(pcen, m)?)?;
-    m.add_function(wrap_pyfunction!(a_weighting, m)?)?;
-    m.add_function(wrap_pyfunction!(b_weighting, m)?)?;
-    m.add_function(wrap_pyfunction!(c_weighting, m)?)?;
-    m.add_function(wrap_pyfunction!(d_weighting, m)?)?;
-    m.add_function(wrap_pyfunction!(z_weighting, m)?)?;
-    m.add_function(wrap_pyfunction!(frequency_weighting, m)?)?;
-    m.add_function(wrap_pyfunction!(multi_frequency_weighting, m)?)?;
-    m.add_function(wrap_pyfunction!(perceptual_weighting, m)?)?;
-    Ok(())
 }

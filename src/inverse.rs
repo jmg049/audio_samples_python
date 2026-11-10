@@ -60,7 +60,7 @@ fn mel_inversion(
 ///     input, of ``M``'s precision.
 #[pyfunction]
 #[pyo3(
-    signature = (M, *, sr, n_fft = Int(2048), power = 2.0, fmin = 0.0, fmax = None, htk = false, norm = MelNormArg(audio_samples::MelFilterNorm::Slaney)),
+    signature = (M: "ArrayLike", *, sr, n_fft = Int(2048), power = 2.0, fmin = 0.0, fmax = None, htk = false, norm = MelNormArg(audio_samples::MelFilterNorm::Slaney)) -> "NDArray[Any]",
     text_signature = "(M, *, sr, n_fft=2048, power=2.0, fmin=0.0, fmax=None, htk=False, norm='slaney')"
 )]
 #[allow(
@@ -144,7 +144,7 @@ fn rows_out<F: PyFloat>(py: Python<'_>, y: ndarray::Array2<F>, squeeze: bool) ->
 ///     numpy.ndarray: ``(n,)``, or ``(channels, n)`` for 3-D input, of ``M``'s precision.
 #[pyfunction]
 #[pyo3(
-    signature = (M, *, sr, n_fft = Int(2048), hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", power = 2.0, n_iter = Int(32), length = None, momentum = 0.99, init = Some("random"), rng = RngArg::SEEDED, fmin = 0.0, fmax = None, htk = false, norm = MelNormArg(audio_samples::MelFilterNorm::Slaney)),
+    signature = (M: "ArrayLike", *, sr, n_fft = Int(2048), hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", power = 2.0, n_iter = Int(32), length = None, momentum = 0.99, init = Some("random"), rng = RngArg::SEEDED, fmin = 0.0, fmax = None, htk = false, norm = MelNormArg(audio_samples::MelFilterNorm::Slaney)) -> "NDArray[Any]",
     text_signature = "(M, *, sr, n_fft=2048, hop_length=None, win_length=None, window='hann', center=True, pad_mode='constant', power=2.0, n_iter=32, length=None, momentum=0.99, init='random', rng=0, fmin=0.0, fmax=None, htk=False, norm='slaney')"
 )]
 #[allow(
@@ -221,7 +221,7 @@ fn mfcc_inversion(
 ///     of ``mfcc``'s precision.
 #[pyfunction]
 #[pyo3(
-    signature = (mfcc, *, n_mels = Int(128), dct_type = Int(2), norm = Some("ortho"), r#ref = 1.0, lifter = 0.0),
+    signature = (mfcc: "ArrayLike", *, n_mels = Int(128), dct_type = Int(2), norm = Some("ortho"), r#ref = 1.0, lifter = 0.0) -> "NDArray[Any]",
     text_signature = "(mfcc, *, n_mels=128, dct_type=2, norm='ortho', ref=1.0, lifter=0.0)"
 )]
 #[inline]
@@ -262,7 +262,7 @@ pub fn mfcc_to_mel<'py>(
 ///     numpy.ndarray: ``(n,)``, or ``(channels, n)`` for 3-D input, of ``mfcc``'s precision.
 #[pyfunction]
 #[pyo3(
-    signature = (mfcc, *, sr, n_mels = Int(128), dct_type = Int(2), norm = Some("ortho"), r#ref = 1.0, lifter = 0.0, n_fft = Int(2048), hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", power = 2.0, n_iter = Int(32), length = None, momentum = 0.99, init = Some("random"), rng = RngArg::SEEDED, fmin = 0.0, fmax = None, htk = false, mel_norm = MelNormArg(audio_samples::MelFilterNorm::Slaney)),
+    signature = (mfcc: "ArrayLike", *, sr, n_mels = Int(128), dct_type = Int(2), norm = Some("ortho"), r#ref = 1.0, lifter = 0.0, n_fft = Int(2048), hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", power = 2.0, n_iter = Int(32), length = None, momentum = 0.99, init = Some("random"), rng = RngArg::SEEDED, fmin = 0.0, fmax = None, htk = false, mel_norm = MelNormArg(audio_samples::MelFilterNorm::Slaney)) -> "NDArray[Any]",
     text_signature = "(mfcc, *, sr, n_mels=128, dct_type=2, norm='ortho', ref=1.0, lifter=0.0, n_fft=2048, hop_length=None, win_length=None, window='hann', center=True, pad_mode='constant', power=2.0, n_iter=32, length=None, momentum=0.99, init='random', rng=0, fmin=0.0, fmax=None, htk=False, mel_norm='slaney')"
 )]
 #[allow(
@@ -321,17 +321,9 @@ pub fn mfcc_to_audio<'py>(
     })
 }
 
-#[inline]
-pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
-    let m = PyModule::new(py, "inverse")?;
-    m.add(
-        "__doc__",
-        "Inversion of mel spectrograms and MFCCs to spectrograms and audio.",
-    )?;
-    m.add_function(wrap_pyfunction!(mel_to_stft, &m)?)?;
-    m.add_function(wrap_pyfunction!(mel_to_audio, &m)?)?;
-    m.add_function(wrap_pyfunction!(mfcc_to_mel, &m)?)?;
-    m.add_function(wrap_pyfunction!(mfcc_to_audio, &m)?)?;
-    parent.add_submodule(&m)?;
-    Ok(())
+#[doc = "Inversion of mel spectrograms and MFCCs to spectrograms and audio."]
+#[pymodule(submodule, name = "inverse")]
+pub mod py_module {
+    #[pymodule_export]
+    use super::{mel_to_audio, mel_to_stft, mfcc_to_audio, mfcc_to_mel};
 }

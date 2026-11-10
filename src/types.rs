@@ -34,72 +34,27 @@ use spectrograms::{StftParams, WindowType};
 use crate::operations::iir_filtering::PySosFilter;
 use crate::{
     audio_err_to_py, impl_py_default_static, impl_py_repr, impl_py_wrapper_core,
-    impl_py_wrapper_fromstr, nzu_or_err, reexport, register_types,
+    impl_py_wrapper_fromstr, nzu_or_err,
 };
 
-#[pymodule]
-pub fn types(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
-    let types_mod = PyModule::new(py, "types")?;
-
-    register_types!(
-        py,
-        m,
-        types_mod,
-        [
-            (PyAdaptiveThresholdConfig, "AdaptiveThresholdConfig"),
-            (PyAdaptiveThresholdMethod, "AdaptiveThresholdMethod"),
-            (PyBeatTrackingConfig, "BeatTrackingConfig"),
-            (PyBeatTrackingData, "BeatTrackingData"),
-            (PyChannelReduction, "ChannelReduction"),
-            (PyComplexOnsetConfig, "ComplexOnsetConfig"),
-            (PyCompressorConfig, "CompressorConfig"),
-            (PyOnsetDetectionConfig, "OnsetDetectionConfig"),
-            (PyDynamicRangeMethod, "DynamicRangeMethod"),
-            (PyEnvelopeFollower, "EnvelopeFollower"),
-            (PyEqBand, "EqBand"),
-            (PyEqBandType, "EqBandType"),
-            (PyExpanderConfig, "ExpanderConfig"),
-            (PyFilterResponse, "FilterResponse"),
-            (PyGateConfig, "GateConfig"),
-            (PyHpssConfig, "HpssConfig"),
-            (PyIirFilterDesign, "IirFilterDesign"),
-            (PyIirFilterType, "IirFilterType"),
-            (PyKey, "Key"),
-            (PyKneeType, "KneeType"),
-            (PyLimiterConfig, "LimiterConfig"),
-            (PyMode, "Mode"),
-            (PyMonoConversionMethod, "MonoConversionMethod"),
-            (PyNormalizationMethod, "NormalizationMethod"),
-            (PyPadSide, "PadSide"),
-            (PyParametricEq, "ParametricEq"),
-            (PyPeakPickingConfig, "PeakPickingConfig"),
-            (PyPitchClass, "PitchClass"),
-            (PyPitchContour, "PitchContour"),
-            (PyPitchDetectionMethod, "PitchDetectionMethod"),
-            (PyPitchFrame, "PitchFrame"),
-            (PyPsd, "Psd"),
-            (PySideChainConfig, "SideChainConfig"),
-            (PySosFilter, "SosFilter"),
-            (PySpectralFluxConfig, "SpectralFluxConfig"),
-            (PySpectralFluxMethod, "SpectralFluxMethod"),
-            (PySpectrogramScale, "SpectrogramScale"),
-            (PyStereoConversionMethod, "StereoConversionMethod"),
-            (PyThreeBandEqConfig, "ThreeBandEqConfig"),
-            (PyVadChannelPolicy, "VadChannelPolicy"),
-            (PyVadConfig, "VadConfig"),
-            (PyVadMethod, "VadMethod"),
-            (PyWindowType, "WindowType"),
-            (PyFadeCurve, "FadeCurve"),
-            (PySampleType, "SampleType"),
-            (PyNoiseColor, "NoiseColor"),
-            (PyPerturbationMethod, "PerturbationMethod"),
-            (PyPerturbationConfig, "PerturbationConfig"),
-            (PyResamplingQuality, "ResamplingQuality"),
-        ]
-    );
-
-    m.add_submodule(&types_mod)?;
-    Ok(())
+/// Configuration and result classes of the ``AudioSamples`` methods. Every class is
+/// also available from the top-level package.
+#[pymodule(submodule, name = "types")]
+pub mod py_module {
+    #[pymodule_export]
+    use super::{
+        PyAdaptiveThresholdConfig, PyAdaptiveThresholdMethod, PyBeatTrackingConfig,
+        PyBeatTrackingData, PyChannelReduction, PyComplexOnsetConfig, PyCompressorConfig,
+        PyDynamicRangeMethod, PyEnvelopeFollower, PyEqBand, PyEqBandType, PyExpanderConfig,
+        PyFadeCurve, PyFilterResponse, PyGateConfig, PyHpssConfig, PyIirFilterDesign,
+        PyIirFilterType, PyKey, PyKneeType, PyLimiterConfig, PyMode, PyMonoConversionMethod,
+        PyNoiseColor, PyNormalizationMethod, PyOnsetDetectionConfig, PyPadSide, PyParametricEq,
+        PyPeakPickingConfig, PyPerturbationConfig, PyPerturbationMethod, PyPitchClass,
+        PyPitchContour, PyPitchDetectionMethod, PyPitchFrame, PyPsd, PyResamplingQuality,
+        PySampleType, PySideChainConfig, PySosFilter, PySpectralFluxConfig, PySpectralFluxMethod,
+        PySpectrogramScale, PyStereoConversionMethod, PyThreeBandEqConfig, PyVadChannelPolicy,
+        PyVadConfig, PyVadMethod, PyWindowType,
+    };
 }
 
 /// Enumeration of supported audio sample data types.
@@ -1985,7 +1940,7 @@ impl PyIirFilterDesign {
     /// Raises:
     ///
     ///     ValueError: If the design is invalid for ``sample_rate``.
-    #[pyo3(signature = (sample_rate: "float"))]
+    #[pyo3(signature = (sample_rate: "float") -> "NDArray[np.float64]")]
     fn sos<'py>(&self, py: Python<'py>, sample_rate: f64) -> PyResult<Bound<'py, PyArray2<f64>>> {
         let rows = self
             .inner
@@ -2013,7 +1968,7 @@ impl PyIirFilterDesign {
     /// Raises:
     ///
     ///     ValueError: If the design is invalid for ``sample_rate``.
-    #[pyo3(signature = (frequencies: "np.typing.NDArray[np.float64]", sample_rate: "float"))]
+    #[pyo3(signature = (frequencies: "Sequence[float] | NDArray[np.floating]", sample_rate: "float"))]
     #[allow(clippy::needless_pass_by_value)] // PyO3 extracts the sequence argument by value
     fn frequency_response<'py>(
         &self,
@@ -3509,7 +3464,7 @@ impl PyPerturbationConfig {
     /// ``PerturbationConfig``
     ///     A new perturbation configuration.
     #[new]
-    #[pyo3(signature=(method: "PerturbationMethod", seed: "Option[u64]"=None))]
+    #[pyo3(signature=(method: "PerturbationMethod", seed: "int | None" = None))]
     const fn new(method: PyPerturbationMethod, seed: Option<u64>) -> Self {
         let mut inner = PerturbationConfig::new(method.inner);
         inner.seed = seed;
@@ -4920,7 +4875,7 @@ impl PyEnvelopeFollower {
     /// -------
     /// numpy.ndarray
     ///     Envelope level for each input sample.
-    #[pyo3(signature = (samples))]
+    #[pyo3(signature = (samples: "NDArray[np.float64]") -> "NDArray[np.float64]")]
     fn process_array<'py>(
         &mut self,
         py: Python<'py>,

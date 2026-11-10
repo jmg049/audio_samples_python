@@ -826,7 +826,7 @@ pub enum ChannelsArg {
 ///     ValueError: For invalid parameters or an empty spectrogram.
 #[pyfunction]
 #[pyo3(
-    signature = (*, S, sr, lag = Int(1), max_size = Int(1), r#ref = None, detrend = false, center = true, aggregate = None, n_fft = Int(2048), hop_length = Int(512)),
+    signature = (*, S: "ArrayLike", sr, lag = Int(1), max_size = Int(1), r#ref = None, detrend = false, center = true, aggregate = None, n_fft = Int(2048), hop_length = Int(512)) -> "NDArray[Any]",
     text_signature = "(*, S, sr, lag=1, max_size=1, ref=None, detrend=False, center=True, aggregate=None, n_fft=2048, hop_length=512)"
 )]
 #[allow(
@@ -904,7 +904,7 @@ pub fn onset_strength<'py>(
 ///     ValueError: For invalid parameters or boundaries.
 #[pyfunction]
 #[pyo3(
-    signature = (*, S, sr, n_fft = Int(2048), hop_length = Int(512), lag = Int(1), max_size = Int(1), r#ref = None, detrend = false, center = true, aggregate = None, channels = None),
+    signature = (*, S: "ArrayLike", sr, n_fft = Int(2048), hop_length = Int(512), lag = Int(1), max_size = Int(1), r#ref = None, detrend = false, center = true, aggregate = None, channels = None) -> "NDArray[Any]",
     text_signature = "(*, S, sr, n_fft=2048, hop_length=512, lag=1, max_size=1, ref=None, detrend=False, center=True, aggregate=None, channels=None)"
 )]
 #[allow(
@@ -990,7 +990,7 @@ pub fn onset_strength_multi<'py>(
 ///     ValueError: For invalid parameters, non-finite input or ``sparse=False``.
 #[pyfunction]
 #[pyo3(
-    signature = (x, *, pre_max, post_max, pre_avg, post_avg, delta, wait, sparse = true, method = "greedy", axis = Int(-1)),
+    signature = (x: "ArrayLike", *, pre_max, post_max, pre_avg, post_avg, delta, wait, sparse = true, method = "greedy", axis = Int(-1)) -> "NDArray[np.int64]",
     text_signature = "(x, *, pre_max, post_max, pre_avg, post_avg, delta, wait, sparse=True, method='greedy', axis=-1)"
 )]
 #[allow(
@@ -1046,7 +1046,7 @@ pub fn peak_pick<'py>(
 ///     numpy.ndarray[int64]: one backtracked frame per event. An empty
 ///     ``events`` gives an empty array.
 #[pyfunction]
-#[pyo3(signature = (events, energy), text_signature = "(events, energy)")]
+#[pyo3(signature = (events: "ArrayLike", energy: "ArrayLike") -> "NDArray[np.int64]", text_signature = "(events, energy)")]
 pub fn onset_backtrack<'py>(
     py: Python<'py>,
     events: &Bound<'py, PyAny>,
@@ -1095,7 +1095,7 @@ pub fn onset_backtrack<'py>(
 ///     ValueError: For invalid parameters, a 2-D envelope or ``sparse=False``.
 #[pyfunction]
 #[pyo3(
-    signature = (*, onset_envelope, sr, hop_length = Int(512), backtrack = false, energy = None, units = "frames", normalize = true, sparse = true, pre_max = None, post_max = None, pre_avg = None, post_avg = None, delta = None, wait = None, method = "greedy"),
+    signature = (*, onset_envelope: "ArrayLike", sr, hop_length = Int(512), backtrack = false, energy = None, units = "frames", normalize = true, sparse = true, pre_max = None, post_max = None, pre_avg = None, post_avg = None, delta = None, wait = None, method = "greedy") -> "NDArray[np.float64] | NDArray[np.int64]",
     text_signature = "(*, onset_envelope, sr, hop_length=512, backtrack=False, energy=None, units='frames', normalize=True, sparse=True, pre_max=None, post_max=None, pre_avg=None, post_avg=None, delta=None, wait=None, method='greedy')"
 )]
 #[allow(
@@ -1148,7 +1148,7 @@ pub fn onset_detect<'py>(
 ///     numpy.ndarray[float64]: shape ``(n_bins,)``; bin 0 (zero lag) is ``inf``.
 #[pyfunction]
 #[pyo3(
-    signature = (n_bins, *, hop_length = Int(512), sr),
+    signature = (n_bins, *, hop_length = Int(512), sr) -> "NDArray[np.float64]",
     text_signature = "(n_bins, *, hop_length=512, sr)"
 )]
 pub fn tempo_frequencies(
@@ -1174,7 +1174,7 @@ pub fn tempo_frequencies(
 ///     numpy.ndarray[float64]: shape ``(win_length // 2 + 1,)``.
 #[pyfunction]
 #[pyo3(
-    signature = (*, sr, win_length = Int(384), hop_length = Int(512)),
+    signature = (*, sr, win_length = Int(384), hop_length = Int(512)) -> "NDArray[np.float64]",
     text_signature = "(*, sr, win_length=384, hop_length=512)"
 )]
 pub fn fourier_tempo_frequencies(
@@ -1217,7 +1217,7 @@ pub fn fourier_tempo_frequencies(
 ///     ValueError: For invalid parameters or (uncentred) a too-short envelope.
 #[pyfunction]
 #[pyo3(
-    signature = (*, onset_envelope, sr, hop_length = Int(512), win_length = Int(384), center = true, window = WindowArg(Window::Hann), norm = Some(f64::INFINITY)),
+    signature = (*, onset_envelope: "ArrayLike", sr, hop_length = Int(512), win_length = Int(384), center = true, window = WindowArg(Window::Hann), norm = Some(f64::INFINITY)) -> "NDArray[Any]",
     text_signature = "(*, onset_envelope, sr, hop_length=512, win_length=384, center=True, window='hann', norm=math.inf)"
 )]
 #[allow(
@@ -1260,7 +1260,7 @@ pub fn tempogram<'py>(
 ///     (centred) for 1-D input, with a leading channel axis for 2-D.
 #[pyfunction]
 #[pyo3(
-    signature = (*, onset_envelope, sr, hop_length = Int(512), win_length = Int(384), center = true, window = WindowArg(Window::Hann)),
+    signature = (*, onset_envelope: "ArrayLike", sr, hop_length = Int(512), win_length = Int(384), center = true, window = WindowArg(Window::Hann)) -> "NDArray[Any]",
     text_signature = "(*, onset_envelope, sr, hop_length=512, win_length=384, center=True, window='hann')"
 )]
 #[allow(
@@ -1319,7 +1319,7 @@ pub fn fourier_tempogram<'py>(
 ///     ValueError: For invalid parameters, or neither/both inputs given.
 #[pyfunction]
 #[pyo3(
-    signature = (*, onset_envelope = None, tg = None, sr, hop_length = Int(512), start_bpm = 120.0, std_bpm = 1.0, ac_size = 8.0, max_tempo = Some(320.0), aggregate = AggregateArg::mean(), prior = None),
+    signature = (*, onset_envelope = None, tg = None, sr, hop_length = Int(512), start_bpm = 120.0, std_bpm = 1.0, ac_size = 8.0, max_tempo = Some(320.0), aggregate: "Callable[..., Any] | Literal['mean', 'median', 'max', 'min', 'sum'] | None" = AggregateArg::mean(), prior = None) -> "NDArray[np.float64]",
     text_signature = "(*, onset_envelope=None, tg=None, sr, hop_length=512, start_bpm=120, std_bpm=1.0, ac_size=8.0, max_tempo=320.0, aggregate='mean', prior=None)"
 )]
 #[allow(
@@ -1405,7 +1405,7 @@ pub fn tempo<'py>(
 ///     ValueError: For invalid parameters, a 2-D envelope or ``sparse=False``.
 #[pyfunction]
 #[pyo3(
-    signature = (*, onset_envelope, sr, hop_length = Int(512), start_bpm = 120.0, tightness = 100.0, trim = false, bpm = None, prior = None, units = "frames", sparse = true),
+    signature = (*, onset_envelope: "ArrayLike", sr, hop_length = Int(512), start_bpm = 120.0, tightness = 100.0, trim = false, bpm = None, prior = None, units = "frames", sparse = true),
     text_signature = "(*, onset_envelope, sr, hop_length=512, start_bpm=120.0, tightness=100, trim=False, bpm=None, prior=None, units='frames', sparse=True)"
 )]
 #[allow(
@@ -1458,7 +1458,7 @@ pub fn beat_track<'py>(
 ///         fast that its period is under one frame.
 #[pyfunction]
 #[pyo3(
-    signature = (onset_envelope, bpm, *, sr, hop_length = Int(512), tightness = 100.0, trim = false),
+    signature = (onset_envelope: "ArrayLike", bpm: "float | ArrayLike", *, sr, hop_length = Int(512), tightness = 100.0, trim = false) -> "NDArray[np.int64]",
     text_signature = "(onset_envelope, bpm, *, sr, hop_length=512, tightness=100.0, trim=False)"
 )]
 pub fn beat_track_with_bpm<'py>(
@@ -1512,7 +1512,7 @@ pub fn beat_track_with_bpm<'py>(
 ///     ValueError: If ``tempo_max <= tempo_min`` or the envelope is empty.
 #[pyfunction]
 #[pyo3(
-    signature = (*, onset_envelope, sr, hop_length = Int(512), win_length = Int(384), tempo_min = Some(30.0), tempo_max = Some(300.0), prior = None),
+    signature = (*, onset_envelope: "ArrayLike", sr, hop_length = Int(512), win_length = Int(384), tempo_min = Some(30.0), tempo_max = Some(300.0), prior = None) -> "NDArray[Any]",
     text_signature = "(*, onset_envelope, sr, hop_length=512, win_length=384, tempo_min=30, tempo_max=300, prior=None)"
 )]
 #[allow(
@@ -1577,7 +1577,7 @@ pub fn plp<'py>(
 ///         or neither input given.
 #[pyfunction]
 #[pyo3(
-    signature = (*, onset_envelope = None, tg = None, bpm = None, sr, hop_length = Int(512), win_length = Int(384), start_bpm = 120.0, std_bpm = 1.0, max_tempo = Some(320.0), freqs = None, factors = None, aggregate = None, prior = None, center = true, window = WindowArg(Window::Hann), kind = "linear", fill_value = 0.0, norm = Some(f64::INFINITY)),
+    signature = (*, onset_envelope = None, tg = None, bpm = None, sr, hop_length = Int(512), win_length = Int(384), start_bpm = 120.0, std_bpm = 1.0, max_tempo = Some(320.0), freqs = None, factors = None, aggregate = None, prior = None, center = true, window = WindowArg(Window::Hann), kind = "linear", fill_value = 0.0, norm = Some(f64::INFINITY)) -> "NDArray[Any]",
     text_signature = "(*, onset_envelope=None, tg=None, bpm=None, sr, hop_length=512, win_length=384, start_bpm=120, std_bpm=1.0, max_tempo=320.0, freqs=None, factors=None, aggregate=None, prior=None, center=True, window='hann', kind='linear', fill_value=0, norm=math.inf)"
 )]
 #[allow(
@@ -1732,7 +1732,7 @@ pub fn ratio_config(
 ///     ``fourier_tempo_frequencies`` grid, with a leading channel axis for 2-D input.
 #[pyfunction]
 #[pyo3(
-    signature = (*, onset_envelope, sr, hop_length = Int(512), win_length = Int(384), center = true, window = WindowArg(Window::Hann)),
+    signature = (*, onset_envelope: "ArrayLike", sr, hop_length = Int(512), win_length = Int(384), center = true, window = WindowArg(Window::Hann)) -> "NDArray[Any]",
     text_signature = "(*, onset_envelope, sr, hop_length=512, win_length=384, center=True, window='hann')"
 )]
 pub fn hybrid_tempogram<'py>(
@@ -1778,7 +1778,7 @@ pub fn hybrid_tempogram<'py>(
 ///     channel axis for 3-D input.
 #[pyfunction]
 #[pyo3(
-    signature = (*, tg, freqs, factors = None, aggregate = AggregateArg::sum(), kind = "linear", fill_value = 0.0),
+    signature = (*, tg: "ArrayLike", freqs: "ArrayLike", factors = None, aggregate: "Callable[..., Any] | Literal['mean', 'median', 'max', 'min', 'sum'] | None" = AggregateArg::sum(), kind = "linear", fill_value = 0.0) -> "NDArray[Any]",
     text_signature = "(*, tg, freqs, factors=None, aggregate='sum', kind='linear', fill_value=0)"
 )]
 pub fn metrogram<'py>(
@@ -1827,32 +1827,16 @@ pub fn metrogram<'py>(
     })
 }
 
-/// Registers `audio_samples.rhythm`.
-pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
-    let m = PyModule::new(py, "rhythm")?;
-    m.add(
-        "__doc__",
-        "Rhythm analysis over NumPy arrays (onset strength and \
+#[doc = "Rhythm analysis over NumPy arrays (onset strength and \
          detection, peak picking, tempograms, tempo, beat tracking, PLP). \
          float32 / complex64 arrays are processed in float32 and give float32 \
-         output; any other input is converted to float64.",
-    )?;
-    m.add_function(wrap_pyfunction!(onset_strength, &m)?)?;
-    m.add_function(wrap_pyfunction!(onset_strength_multi, &m)?)?;
-    m.add_function(wrap_pyfunction!(onset_detect, &m)?)?;
-    m.add_function(wrap_pyfunction!(onset_backtrack, &m)?)?;
-    m.add_function(wrap_pyfunction!(peak_pick, &m)?)?;
-    m.add_function(wrap_pyfunction!(tempo_frequencies, &m)?)?;
-    m.add_function(wrap_pyfunction!(fourier_tempo_frequencies, &m)?)?;
-    m.add_function(wrap_pyfunction!(tempogram, &m)?)?;
-    m.add_function(wrap_pyfunction!(fourier_tempogram, &m)?)?;
-    m.add_function(wrap_pyfunction!(tempo, &m)?)?;
-    m.add_function(wrap_pyfunction!(beat_track, &m)?)?;
-    m.add_function(wrap_pyfunction!(beat_track_with_bpm, &m)?)?;
-    m.add_function(wrap_pyfunction!(plp, &m)?)?;
-    m.add_function(wrap_pyfunction!(tempogram_ratio, &m)?)?;
-    m.add_function(wrap_pyfunction!(hybrid_tempogram, &m)?)?;
-    m.add_function(wrap_pyfunction!(metrogram, &m)?)?;
-    parent.add_submodule(&m)?;
-    Ok(())
+         output; any other input is converted to float64."]
+#[pymodule(submodule, name = "rhythm")]
+pub mod py_module {
+    #[pymodule_export]
+    use super::{
+        beat_track, beat_track_with_bpm, fourier_tempo_frequencies, fourier_tempogram,
+        hybrid_tempogram, metrogram, onset_backtrack, onset_detect, onset_strength,
+        onset_strength_multi, peak_pick, plp, tempo, tempo_frequencies, tempogram, tempogram_ratio,
+    };
 }

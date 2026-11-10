@@ -103,7 +103,7 @@ impl PyAudioSamples {
     ///     ValueError: For invalid parameters, or ``center=False`` with a signal
     ///         shorter than ``n_fft``.
     #[pyo3(
-        signature = (*, n_fft = Int(2048), hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant"),
+        signature = (*, n_fft = Int(2048), hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant") -> "NDArray[Any]",
         text_signature = "($self, *, n_fft=2048, hop_length=None, win_length=None, window='hann', center=True, pad_mode='constant')"
     )]
     #[allow(
@@ -238,7 +238,7 @@ impl PyAudioSamples {
     ///         ``n_fft``, or parameters are invalid.
     #[staticmethod]
     #[pyo3(
-        signature = (stft_matrix, *, sample_rate, hop_length = None, win_length = None, n_fft = None, window = WindowArg(Window::Hann), center = true, length = None, dtype = None),
+        signature = (stft_matrix: "ArrayLike", *, sample_rate, hop_length = None, win_length = None, n_fft = None, window = WindowArg(Window::Hann), center = true, length = None, dtype = None),
         text_signature = "(stft_matrix, *, sample_rate, hop_length=None, win_length=None, n_fft=None, window='hann', center=True, length=None, dtype=None)"
     )]
     #[allow(
@@ -294,7 +294,7 @@ impl PyAudioSamples {
     ///
     ///     ValueError: For invalid parameters or a non-positive power.
     #[pyo3(
-        signature = (*, n_fft = Int(2048), hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", power = 1.0),
+        signature = (*, n_fft = Int(2048), hop_length = None, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", power = 1.0) -> "NDArray[Any]",
         text_signature = "($self, *, n_fft=2048, hop_length=None, win_length=None, window='hann', center=True, pad_mode='constant', power=1.0)"
     )]
     #[allow(
@@ -342,7 +342,7 @@ impl PyAudioSamples {
     ///
     ///     ValueError: For invalid parameters.
     #[pyo3(
-        signature = (*, n_fft = Int(2048), hop_length = Int(512), win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", power = 2.0, n_mels = Int(128), fmin = 0.0, fmax = None, htk = false, norm = MelNormArg(audio_samples::MelFilterNorm::Slaney)),
+        signature = (*, n_fft = Int(2048), hop_length = Int(512), win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", power = 2.0, n_mels = Int(128), fmin = 0.0, fmax = None, htk = false, norm = MelNormArg(audio_samples::MelFilterNorm::Slaney)) -> "NDArray[Any]",
         text_signature = "($self, *, n_fft=2048, hop_length=512, win_length=None, window='hann', center=True, pad_mode='constant', power=2.0, n_mels=128, fmin=0.0, fmax=None, htk=False, norm='slaney')"
     )]
     #[allow(
@@ -411,7 +411,7 @@ impl PyAudioSamples {
     ///
     ///     ValueError: For invalid parameters, including ``n_mfcc > n_mels``.
     #[pyo3(
-        signature = (*, n_mfcc = Int(20), dct_type = Int(2), norm = Some("ortho"), lifter = 0.0, mel_norm = MelNormArg(audio_samples::MelFilterNorm::Slaney), n_fft = Int(2048), hop_length = Int(512), win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", power = 2.0, n_mels = Int(128), fmin = 0.0, fmax = None, htk = false, r#ref = DbRefArg(audio_samples::DbReference::Value(1.0)), amin = 1e-10, top_db = None),
+        signature = (*, n_mfcc = Int(20), dct_type = Int(2), norm = Some("ortho"), lifter = 0.0, mel_norm = MelNormArg(audio_samples::MelFilterNorm::Slaney), n_fft = Int(2048), hop_length = Int(512), win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", power = 2.0, n_mels = Int(128), fmin = 0.0, fmax = None, htk = false, r#ref = DbRefArg(audio_samples::DbReference::Value(1.0)), amin = 1e-10, top_db = None) -> "NDArray[Any]",
         text_signature = "($self, *, n_mfcc=20, dct_type=2, norm='ortho', lifter=0.0, mel_norm='slaney', n_fft=2048, hop_length=512, win_length=None, window='hann', center=True, pad_mode='constant', power=2.0, n_mels=128, fmin=0.0, fmax=None, htk=False, ref=1.0, amin=1e-10, top_db=None)"
     )]
     #[allow(

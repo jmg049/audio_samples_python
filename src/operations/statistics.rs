@@ -10,7 +10,7 @@ use crate::{
 
 #[pymethods]
 impl PyAudioSamples {
-    #[pyo3(signature = ())]
+    #[pyo3(signature = () -> "int | float")]
     /// Compute the peak sample value across all channels.
     ///
     /// Returns:
@@ -27,7 +27,7 @@ impl PyAudioSamples {
         })
     }
 
-    #[pyo3(name = "min", signature = ())]
+    #[pyo3(name = "min", signature = () -> "int | float")]
     /// Compute the minimum sample value across all channels.
     ///
     /// Returns:
@@ -44,7 +44,7 @@ impl PyAudioSamples {
         })
     }
 
-    #[pyo3(name = "max", signature = ())]
+    #[pyo3(name = "max", signature = () -> "int | float")]
     /// Compute the maximum sample value across all channels.
     ///
     /// Returns:
@@ -482,7 +482,7 @@ channels, got {self_ch} and {other_ch}; use to_mono() or extract_channel() first
         })
     }
 
-    #[pyo3(signature = ())]
+    #[pyo3(signature = () -> "int | float")]
     /// Return the peak (maximum absolute value) across all samples and channels.
     ///
     /// Alias for ``peak``, provided to match the conventional term "amplitude"

@@ -126,7 +126,7 @@ fn rows_out<T: numpy::Element>(py: Python<'_>, a: Array2<T>, squeeze: bool) -> B
 ///         value is out of range.
 #[pyfunction]
 #[pyo3(
-    signature = (D, *, rate = None, t_out = None, kind = "linear", hop_length = None, n_fft = None),
+    signature = (D: "ArrayLike", *, rate = None, t_out = None, kind = "linear", hop_length = None, n_fft = None) -> "NDArray[Any]",
     text_signature = "(D, *, rate=None, t_out=None, kind='linear', hop_length=None, n_fft=None)"
 )]
 #[allow(non_snake_case, reason = "argument names follow the Python API")]
@@ -263,7 +263,7 @@ fn emphasis<'py, F: PyFloat>(
 ///         with the default ``zi``.
 #[pyfunction]
 #[pyo3(
-    signature = (y, *, coef = 0.97, zi = None, return_zf = false),
+    signature = (y: "ArrayLike", *, coef = 0.97, zi = None, return_zf = false) -> "NDArray[Any] | tuple[NDArray[Any], NDArray[Any]] | tuple[NDArray[np.float32], NDArray[np.float32]] | tuple[NDArray[np.float64], NDArray[np.float64]]",
     text_signature = "(y, *, coef=0.97, zi=None, return_zf=False)"
 )]
 pub fn preemphasis<'py>(
@@ -303,7 +303,7 @@ pub fn preemphasis<'py>(
 ///     ValueError: As ``preemphasis``.
 #[pyfunction]
 #[pyo3(
-    signature = (y, *, coef = 0.97, zi = None, return_zf = false),
+    signature = (y: "ArrayLike", *, coef = 0.97, zi = None, return_zf = false) -> "NDArray[Any] | tuple[NDArray[Any], NDArray[Any]] | tuple[NDArray[np.float32], NDArray[np.float32]] | tuple[NDArray[np.float64], NDArray[np.float64]]",
     text_signature = "(y, *, coef=0.97, zi=None, return_zf=False)"
 )]
 pub fn deemphasis<'py>(
@@ -348,7 +348,7 @@ pub fn deemphasis<'py>(
 ///     ValueError: For mismatched shapes, negative input or ``power <= 0``.
 #[pyfunction]
 #[pyo3(
-    signature = (X, X_ref, *, power = 1.0, split_zeros = false),
+    signature = (X: "ArrayLike", X_ref: "ArrayLike", *, power = 1.0, split_zeros = false) -> "NDArray[Any]",
     text_signature = "(X, X_ref, *, power=1, split_zeros=False)"
 )]
 #[allow(non_snake_case, reason = "argument names follow the Python API")]
@@ -401,7 +401,7 @@ pub fn softmask<'py>(
 ///     ValueError: For invalid parameters or negative magnitudes.
 #[pyfunction]
 #[pyo3(
-    signature = (S, *, kernel_size = None, power = 2.0, mask = false, margin = None),
+    signature = (S: "ArrayLike", *, kernel_size = None, power = 2.0, mask = false, margin = None),
     text_signature = "(S, *, kernel_size=31, power=2.0, mask=False, margin=1.0)"
 )]
 #[allow(non_snake_case, reason = "argument names follow the Python API")]
@@ -655,7 +655,7 @@ fn sparse_rec<'py>(rec: &Bound<'py, PyAny>) -> PyResult<Option<SparseRec<'py>>> 
 ///     TypeError: For an aggregate that is not callable or unknown keyword arguments.
 #[pyfunction]
 #[pyo3(
-    signature = (S, *, rec = None, aggregate = None, axis = Int(-1), **kwargs),
+    signature = (S: "ArrayLike", *, rec = None, aggregate = None, axis = Int(-1), **kwargs) -> "NDArray[Any]",
     text_signature = "(S, *, rec=None, aggregate=None, axis=-1, **kwargs)"
 )]
 #[allow(non_snake_case, reason = "argument names follow the Python API")]
@@ -881,6 +881,8 @@ impl RngArg {
 
 impl<'a, 'py> FromPyObject<'a, 'py> for RngArg {
     type Error = PyErr;
+    #[cfg(feature = "stubs")]
+    const INPUT_TYPE: pyo3::inspect::PyStaticExpr = crate::args::hints::RNG;
 
     #[inline]
     fn extract(obj: pyo3::Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
@@ -988,7 +990,7 @@ pub fn griffinlim_config(
 ///     ValueError: For invalid parameters or a bin count that does not match ``n_fft``.
 #[pyfunction]
 #[pyo3(
-    signature = (S, *, n_iter = Int(32), hop_length = None, win_length = None, n_fft = None, window = WindowArg(Window::Hann), center = true, dtype = None, length = None, pad_mode = "constant", momentum = 0.99, init = Some("random"), rng = RngArg::SEEDED, random_state = None),
+    signature = (S: "ArrayLike", *, n_iter = Int(32), hop_length = None, win_length = None, n_fft = None, window = WindowArg(Window::Hann), center = true, dtype = None, length = None, pad_mode = "constant", momentum = 0.99, init = Some("random"), rng = RngArg::SEEDED, random_state = None) -> "NDArray[Any]",
     text_signature = "(S, *, n_iter=32, hop_length=None, win_length=None, n_fft=None, window='hann', center=True, dtype=None, length=None, pad_mode='constant', momentum=0.99, init='random', rng=0, random_state=None)"
 )]
 #[allow(
@@ -1057,7 +1059,7 @@ pub fn griffinlim<'py>(
 ///
 ///     ValueError: For a too-short or non-finite signal.
 #[pyfunction]
-#[pyo3(signature = (y, *, order, axis = Int(-1)), text_signature = "(y, *, order, axis=-1)")]
+#[pyo3(signature = (y: "ArrayLike", *, order, axis = Int(-1)) -> "NDArray[Any]", text_signature = "(y, *, order, axis=-1)")]
 pub fn lpc<'py>(
     py: Python<'py>,
     y: &Bound<'py, PyAny>,
@@ -1124,7 +1126,7 @@ pub fn lpc<'py>(
 ///         negative, or parameters are invalid.
 #[pyfunction]
 #[pyo3(
-    signature = (*, times = None, frames = None, sr, hop_length = None, click_freq = 1000.0, click_duration = 0.1, click = None, length = None, dtype = None),
+    signature = (*, times = None, frames = None, sr, hop_length = None, click_freq = 1000.0, click_duration = 0.1, click = None, length = None, dtype = None) -> "NDArray[np.float32] | NDArray[np.float64]",
     text_signature = "(*, times=None, frames=None, sr, hop_length=None, click_freq=1000.0, click_duration=0.1, click=None, length=None, dtype=None)"
 )]
 #[allow(clippy::too_many_arguments, clippy::needless_pass_by_value)] // PyO3 signature; `DTypeArg` is extracted by value
@@ -1228,26 +1230,15 @@ pub fn clicks<'py>(
     }
 }
 
-/// Registers `audio_samples.effects`.
-pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
-    let m = PyModule::new(py, "effects")?;
-    m.add(
-        "__doc__",
-        "Effect and decomposition functions over NumPy arrays \
+#[doc = "Effect and decomposition functions over NumPy arrays \
          (phase vocoder, pre-/de-emphasis with filter state, soft masks, HPSS, \
          nearest-neighbour filtering, Griffin-Lim, LPC, click tracks). \
          float32 / complex64 arrays are processed in float32 and give float32 \
-         output; any other input is converted to float64.",
-    )?;
-    m.add_function(wrap_pyfunction!(phase_vocoder, &m)?)?;
-    m.add_function(wrap_pyfunction!(preemphasis, &m)?)?;
-    m.add_function(wrap_pyfunction!(deemphasis, &m)?)?;
-    m.add_function(wrap_pyfunction!(softmask, &m)?)?;
-    m.add_function(wrap_pyfunction!(hpss, &m)?)?;
-    m.add_function(wrap_pyfunction!(nn_filter, &m)?)?;
-    m.add_function(wrap_pyfunction!(griffinlim, &m)?)?;
-    m.add_function(wrap_pyfunction!(lpc, &m)?)?;
-    m.add_function(wrap_pyfunction!(clicks, &m)?)?;
-    parent.add_submodule(&m)?;
-    Ok(())
+         output; any other input is converted to float64."]
+#[pymodule(submodule, name = "effects")]
+pub mod py_module {
+    #[pymodule_export]
+    use super::{
+        clicks, deemphasis, griffinlim, hpss, lpc, nn_filter, phase_vocoder, preemphasis, softmask,
+    };
 }

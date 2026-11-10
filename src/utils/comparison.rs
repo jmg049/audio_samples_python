@@ -550,7 +550,7 @@ pub fn log_spectral_distance(py: Python, a: &PyAudioSamples, b: &PyAudioSamples)
 }
 
 #[pyfunction]
-#[pyo3(signature = (a, b))]
+#[pyo3(signature = (a, b) -> "NDArray[np.float64]")]
 /// Computes the Pearson correlation coefficient for each channel independently.
 ///
 /// Mirrors :func:`correlation` but returns one value per channel instead of an average.
@@ -579,7 +579,7 @@ pub fn correlation_per_channel<'py>(
 }
 
 #[pyfunction]
-#[pyo3(signature = (a, b))]
+#[pyo3(signature = (a, b) -> "NDArray[np.float64]")]
 /// Computes the mean squared error (MSE) for each channel independently.
 ///
 /// Mirrors :func:`mse` but returns one value per channel instead of an average.
@@ -608,7 +608,7 @@ pub fn mse_per_channel<'py>(
 }
 
 #[pyfunction]
-#[pyo3(signature = (signal, noise))]
+#[pyo3(signature = (signal, noise) -> "NDArray[np.float64]")]
 /// Computes the signal-to-noise ratio (SNR) in decibels for each channel independently.
 ///
 /// Mirrors :func:`snr` but returns one value per channel instead of aggregating across all

@@ -1184,7 +1184,7 @@ def f0_harmonics(
     ...
 
 __all__ = [
-    "__doc__",
+    
     "a_weighting",
     "b_weighting",
     "c_weighting",

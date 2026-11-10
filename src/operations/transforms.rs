@@ -39,7 +39,7 @@ impl PyAudioSamples {
     ///
     ///     ValueError: If n_fft is zero.
     ///     AudioError: If the FFT computation fails.
-    #[pyo3(signature = (n_fft: "int"))]
+    #[pyo3(signature = (n_fft: "int") -> "NDArray[np.complex128]")]
     fn fft<'py>(
         &self,
         py: Python<'py>,
@@ -70,7 +70,7 @@ impl PyAudioSamples {
     ///
     ///     ValueError: If n_fft is zero.
     ///     AudioError: If the RFFT computation fails.
-    #[pyo3(signature = (n_fft: "int"))]
+    #[pyo3(signature = (n_fft: "int") -> "NDArray[np.float64]")]
     fn rfft<'py>(&self, py: Python<'py>, n_fft: usize) -> PyResult<Bound<'py, PyArray2<f64>>> {
         dispatch_with_view!(self, py, |audio| {
             let n_fft_nz = nzu_or_err(n_fft)?;
@@ -91,7 +91,7 @@ impl PyAudioSamples {
     /// Raises:
     ///
     ///     AudioError: If the STFT computation fails.
-    #[pyo3(signature = (params: "StftParams"))]
+    #[pyo3(signature = (params: "StftParams") -> "StftResult")]
     fn stft(&self, py: Python<'_>, params: &Bound<'_, PyStftParams>) -> PyResult<PyStftResult> {
         let params = params.borrow().clone();
         dispatch_with_view!(self, py, |audio| {
@@ -202,7 +202,7 @@ impl PyAudioSamples {
     ///     The filters are **not** normalised by default
     ///     (``MelParams(norm=None)``, triangles of peak 1); pass
     ///     ``norm="slaney"`` for area normalisation.
-    #[pyo3(signature = (spec_params: "SpectrogramParams", mel_params: "MelParams", log_params: "Optional[LogParams]"=None))]
+    #[pyo3(signature = (spec_params: "SpectrogramParams", mel_params: "MelParams", log_params: "Optional[LogParams]"=None) -> "NDArray[np.float64]")]
     fn mel_spectrogram<'py>(
         &self,
         py: Python<'py>,
@@ -254,7 +254,7 @@ impl PyAudioSamples {
     ///
     ///     ``log_params.floor_db`` is an absolute floor in dB re 1, not a
     ///     range below the maximum (as ``top_db`` is).
-    #[pyo3(signature = (spec_params: "SpectrogramParams", erb_params: "ErbParams", log_params: "Optional[LogParams]"=None))]
+    #[pyo3(signature = (spec_params: "SpectrogramParams", erb_params: "ErbParams", log_params: "Optional[LogParams]"=None) -> "NDArray[np.float64]")]
     fn gammatone_spectrogram<'py>(
         &self,
         py: Python<'py>,
@@ -315,7 +315,7 @@ impl PyAudioSamples {
     ///     The result equals ``mfcc_frames`` (orthonormal DCT, no lifter, no dB
     ///     floor) times ``s_q * lifter_q``, with ``s_0 = sqrt(n_mels)`` and
     ///     ``s_q = sqrt(n_mels / 2)`` for ``q >= 1``.
-    #[pyo3(signature = (stft_params: "StftParams", n_mels: "int", mfcc_params: "MfccParams"))]
+    #[pyo3(signature = (stft_params: "StftParams", n_mels: "int", mfcc_params: "MfccParams") -> "NDArray[np.float64]")]
     fn mfcc<'py>(
         &self,
         py: Python<'py>,
@@ -350,7 +350,7 @@ impl PyAudioSamples {
     /// Raises:
     ///
     ///     AudioError: If chroma computation fails.
-    #[pyo3(signature = (stft_params: "StftParams", chroma_params: "ChromaParams"))]
+    #[pyo3(signature = (stft_params: "StftParams", chroma_params: "ChromaParams") -> "NDArray[np.float64]")]
     fn chroma<'py>(
         &self,
         py: Python<'py>,
@@ -442,7 +442,7 @@ impl PyAudioSamples {
     ///
     ///     ValueError: If hop_size is zero.
     ///     AudioError: If the signal is multi-channel or the computation fails.
-    #[pyo3(signature = (params: "CqtParams", hop_size: "int"))]
+    #[pyo3(signature = (params: "CqtParams", hop_size: "int") -> "NDArray[np.complex128]")]
     fn constant_q_transform<'py>(
         &self,
         py: Python<'py>,

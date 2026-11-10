@@ -692,7 +692,7 @@ def metrogram(
     ...
 
 __all__ = [
-    "__doc__",
+    
     "beat_track",
     "beat_track_with_bpm",
     "fourier_tempo_frequencies",

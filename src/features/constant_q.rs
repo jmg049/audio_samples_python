@@ -34,7 +34,7 @@ use crate::audio_err_to_py;
 ///     ``ValueError``: For invalid parameters.
 #[pyfunction]
 #[pyo3(
-    signature = (n_input, *, bins_per_octave = Int(12), n_chroma = Int(12), fmin = None, window = None, base_c = true),
+    signature = (n_input, *, bins_per_octave = Int(12), n_chroma = Int(12), fmin = None, window = None, base_c = true) -> "NDArray[np.float64]",
     text_signature = "(n_input, *, bins_per_octave=12, n_chroma=12, fmin=None, window=None, base_c=True)"
 )]
 pub fn cq_to_chroma<'py>(
@@ -112,7 +112,7 @@ fn wavelet_config(
 ///     ``ValueError``: For invalid frequencies or parameters.
 #[pyfunction]
 #[pyo3(
-    signature = (*, freqs, sr, window = WindowArg(Window::Hann), filter_scale = 1.0, gamma = Some(0.0), alpha = None),
+    signature = (*, freqs: "ArrayLike", sr, window = WindowArg(Window::Hann), filter_scale = 1.0, gamma = Some(0.0), alpha = None),
     text_signature = "(*, freqs, sr, window='hann', filter_scale=1.0, gamma=0.0, alpha=None)"
 )]
 pub fn wavelet_lengths<'py>(
@@ -198,7 +198,7 @@ pub fn wavelet_lengths<'py>(
 ///     ValueError: For invalid frequencies or parameters.
 #[pyfunction]
 #[pyo3(
-    signature = (*, freqs, sr, window = WindowArg(Window::Hann), filter_scale = 1.0, pad_fft = true, norm = Some(1.0), gamma = Some(0.0), alpha = None),
+    signature = (*, freqs: "ArrayLike", sr, window = WindowArg(Window::Hann), filter_scale = 1.0, pad_fft = true, norm = Some(1.0), gamma = Some(0.0), alpha = None),
     text_signature = "(*, freqs, sr, window='hann', filter_scale=1.0, pad_fft=True, norm=1.0, gamma=0.0, alpha=None)"
 )]
 #[allow(
@@ -253,7 +253,7 @@ pub fn wavelet<'py>(
 ///     ValueError: For invalid parameters; RuntimeError for non-finite input.
 #[pyfunction]
 #[pyo3(
-    signature = (chroma, *, norm = Some(2.0), win_len_smooth = Some(Int(41)), smoothing_window = WindowArg(Window::Hann)),
+    signature = (chroma: "ArrayLike", *, norm = Some(2.0), win_len_smooth = Some(Int(41)), smoothing_window = WindowArg(Window::Hann)) -> "NDArray[Any]",
     text_signature = "(chroma, *, norm=2.0, win_len_smooth=41, smoothing_window='hann')"
 )]
 #[allow(
@@ -294,7 +294,7 @@ pub fn chroma_cens_from_chroma<'py>(
 ///
 ///     RuntimeError: For non-finite input.
 #[pyfunction]
-#[pyo3(signature = (chroma), text_signature = "(chroma)")]
+#[pyo3(signature = (chroma: "ArrayLike") -> "NDArray[Any]", text_signature = "(chroma)")]
 pub fn tonnetz_from_chroma<'py>(
     py: Python<'py>,
     chroma: &Bound<'py, PyAny>,
@@ -304,14 +304,4 @@ pub fn tonnetz_from_chroma<'py>(
         let r = cq::tonnetz_from_chroma(&c.view()).map_err(audio_err_to_py)?;
         Ok(squeeze_out(py, r.into_dyn(), nd == 2))
     })
-}
-
-/// Registers the constant-Q functions.
-pub fn add(m: &Bound<'_, PyModule>) -> PyResult<()> {
-    m.add_function(wrap_pyfunction!(cq_to_chroma, m)?)?;
-    m.add_function(wrap_pyfunction!(wavelet_lengths, m)?)?;
-    m.add_function(wrap_pyfunction!(wavelet, m)?)?;
-    m.add_function(wrap_pyfunction!(chroma_cens_from_chroma, m)?)?;
-    m.add_function(wrap_pyfunction!(tonnetz_from_chroma, m)?)?;
-    Ok(())
 }

@@ -30,7 +30,7 @@ use crate::audio_err_to_py;
 ///     numpy.ndarray[float64]: The kernel.
 #[pyfunction]
 #[pyo3(
-    signature = (window, n, *, slope = 1.0, angle = None, zero_mean = false),
+    signature = (window, n, *, slope = 1.0, angle = None, zero_mean = false) -> "NDArray[np.float64]",
     text_signature = "(window, n, *, slope=1.0, angle=None, zero_mean=False)"
 )]
 #[inline]
@@ -160,7 +160,7 @@ fn enhance<'py, F: PyFloat>(
 ///     numpy.ndarray: The shape of ``R``, of its precision.
 #[pyfunction]
 #[pyo3(
-    signature = (R, n, *, window = WindowArg(Window::Hann), max_ratio = 2.0, min_ratio = None, n_filters = Int(7), zero_mean = false, clip = true, **kwargs),
+    signature = (R: "ArrayLike", n, *, window = WindowArg(Window::Hann), max_ratio = 2.0, min_ratio = None, n_filters = Int(7), zero_mean = false, clip = true, **kwargs) -> "NDArray[Any]",
     text_signature = "(R, n, *, window='hann', max_ratio=2.0, min_ratio=None, n_filters=7, zero_mean=False, clip=True, **kwargs)"
 )]
 #[allow(
@@ -252,7 +252,7 @@ impl TimelagFiltered {
 ///
 ///     Callable: Takes the same arguments as ``function`` and returns a recurrence matrix.
 #[pyfunction]
-#[pyo3(signature = (function, pad = true, index = Int(0)), text_signature = "(function, pad=True, index=0)")]
+#[pyo3(signature = (function: "Callable[..., Any]", pad = true, index = Int(0)), text_signature = "(function, pad=True, index=0)")]
 #[inline]
 pub fn timelag_filter(function: Py<PyAny>, pad: bool, index: Int) -> PyResult<TimelagFiltered> {
     Ok(TimelagFiltered {
@@ -308,7 +308,7 @@ fn boundaries_out<'py>(py: Python<'py>, v: &[usize]) -> PyResult<Bound<'py, PyAn
 ///     numpy.ndarray[int64]: The first frame of each segment.
 #[pyfunction]
 #[pyo3(
-    signature = (data, k, *, clusterer = None, axis = Int(-1)),
+    signature = (data: "ArrayLike", k, *, clusterer = None, axis = Int(-1)) -> "NDArray[np.int64]",
     text_signature = "(data, k, *, clusterer=None, axis=-1)"
 )]
 #[inline]
@@ -362,7 +362,7 @@ pub fn agglomerative<'py>(
 ///     numpy.ndarray[int64]: The first frame of each subsegment.
 #[pyfunction]
 #[pyo3(
-    signature = (data, frames, *, n_segments = Int(4), axis = Int(-1)),
+    signature = (data: "ArrayLike", frames: "ArrayLike", *, n_segments = Int(4), axis = Int(-1)) -> "NDArray[np.int64]",
     text_signature = "(data, frames, *, n_segments=4, axis=-1)"
 )]
 #[inline]
@@ -400,7 +400,7 @@ pub fn subsegment<'py>(
 ///
 ///     numpy.ndarray[float64]: One value per frame on the path.
 #[pyfunction]
-#[pyo3(signature = (path, *, inverse = false), text_signature = "(path, *, inverse=False)")]
+#[pyo3(signature = (path: "ArrayLike", *, inverse = false) -> "NDArray[np.float64]", text_signature = "(path, *, inverse=False)")]
 #[inline]
 pub fn path_to_steps<'py>(path: &Bound<'py, PyAny>, inverse: bool) -> PyResult<Bound<'py, PyAny>> {
     let py = path.py();
@@ -419,21 +419,11 @@ pub fn path_to_steps<'py>(path: &Bound<'py, PyAny>, inverse: bool) -> PyResult<B
     Ok(out.into_pyarray(py).into_any())
 }
 
-#[inline]
-pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
-    let m = PyModule::new(py, "segment")?;
-    m.add(
-        "__doc__",
-        "Structure analysis over feature matrices: path enhancement, temporally constrained clustering, subsegmentation.",
-    )?;
-    m.add_class::<TimelagFiltered>()?;
-    m.add_function(wrap_pyfunction!(diagonal_filter, &m)?)?;
-    m.add_function(wrap_pyfunction!(path_enhance, &m)?)?;
-    m.add_function(wrap_pyfunction!(timelag_filter, &m)?)?;
-    m.add_function(wrap_pyfunction!(agglomerative, &m)?)?;
-    m.add_function(wrap_pyfunction!(subsegment, &m)?)?;
-    parent.add_submodule(&m)?;
-    let sequence = parent.getattr("sequence")?.cast_into::<PyModule>()?;
-    sequence.add_function(wrap_pyfunction!(path_to_steps, &sequence)?)?;
-    Ok(())
+#[doc = "Structure analysis over feature matrices: path enhancement, temporally constrained clustering, subsegmentation."]
+#[pymodule(submodule, name = "segment")]
+pub mod py_module {
+    #[pymodule_export]
+    use super::{
+        TimelagFiltered, agglomerative, diagonal_filter, path_enhance, subsegment, timelag_filter,
+    };
 }

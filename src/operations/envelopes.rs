@@ -17,7 +17,7 @@ impl PyAudioSamples {
     /// Raises:
     ///
     ///     AudioError: If envelope computation fails.
-    #[pyo3(signature = ())]
+    #[pyo3(signature = () -> "NDArray[Any]")]
     fn amplitude_envelope<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         dispatch_with_view!(self, py, |audio| {
             let result = audio.amplitude_envelope();
@@ -40,7 +40,7 @@ impl PyAudioSamples {
     ///
     ///     ValueError: If window_size or hop_size is zero.
     ///     AudioError: If envelope computation fails.
-    #[pyo3(signature = (window_size: "int", hop_size: "int"))]
+    #[pyo3(signature = (window_size: "int", hop_size: "int") -> "NDArray[Any]")]
     fn rms_envelope<'py>(
         &self,
         py: Python<'py>,
@@ -92,7 +92,7 @@ impl PyAudioSamples {
     /// Raises:
     ///
     ///     AudioError: If envelope computation fails.
-    #[pyo3(signature = ())]
+    #[pyo3(signature = () -> "NDArray[Any]")]
     fn analytic_envelope<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         dispatch_with_view!(self, py, |audio| {
             let result = audio.analytic_envelope();
@@ -115,7 +115,7 @@ impl PyAudioSamples {
     ///
     ///     ValueError: If window_size or hop_size is zero.
     ///     AudioError: If envelope computation fails.
-    #[pyo3(signature = (window_size: "int", hop_size: "int"))]
+    #[pyo3(signature = (window_size: "int", hop_size: "int") -> "NDArray[Any]")]
     fn moving_average_envelope<'py>(
         &self,
         py: Python<'py>,

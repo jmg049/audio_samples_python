@@ -5158,8 +5158,10 @@ class AudioSamples(Generic[_S_co]):
         """Check if audio is multi-channel."""
         ...
 
-    duration_seconds: float
-    """Get the duration in seconds."""
+    @property
+    def duration_seconds(self) -> float:
+        """Get the duration in seconds."""
+        ...
 
     def to_numpy(self) -> NDArray[_S_co]:
         """Convert AudioSamples to a numpy ndarray."""

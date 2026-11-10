@@ -499,7 +499,7 @@ def clicks(
     ...
 
 __all__ = [
-    "__doc__",
+    
     "clicks",
     "deemphasis",
     "griffinlim",

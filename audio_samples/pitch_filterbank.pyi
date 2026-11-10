@@ -33,4 +33,4 @@ def iirt(
     res_type: str = "soxr_hq", **kwargs: Any,
 ) -> NDArray[Any]: ...
 
-__all__ = ["__doc__", "iirt", "mr_frequencies", "semitone_filterbank"]
+__all__ = ["iirt", "mr_frequencies", "semitone_filterbank"]

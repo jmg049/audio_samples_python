@@ -204,7 +204,7 @@ impl PyAudioSamples {
     /// Raises:
     ///
     ///     AudioError: If matrix computation fails.
-    #[pyo3(signature = (config: "ComplexOnsetConfig"))]
+    #[pyo3(signature = (config: "ComplexOnsetConfig") -> "NDArray[np.float64]")]
     fn magnitude_difference_matrix<'py>(
         &self,
         py: Python<'py>,
@@ -232,7 +232,7 @@ impl PyAudioSamples {
     /// Raises:
     ///
     ///     AudioError: If matrix computation fails.
-    #[pyo3(signature = (config: "ComplexOnsetConfig"))]
+    #[pyo3(signature = (config: "ComplexOnsetConfig") -> "NDArray[np.float64]")]
     fn phase_deviation_matrix<'py>(
         &self,
         py: Python<'py>,

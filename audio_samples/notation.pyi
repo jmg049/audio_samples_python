@@ -102,7 +102,7 @@ def note_to_hz(note: str | Iterable[str], *, round_midi: bool = False) -> Any:
 
 
 __all__ = [
-    "__doc__",
+    
     "midi_to_note",
     "hz_to_note",
     "note_to_midi",

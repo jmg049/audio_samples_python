@@ -53,4 +53,4 @@ def decompose(
 ) -> tuple[NDArray[Any], NDArray[Any]]:
     """Factorises a spectrogram into templates and activations."""
 
-__all__ = ["__doc__", "Nmf", "decompose"]
+__all__ = ["Nmf", "decompose"]

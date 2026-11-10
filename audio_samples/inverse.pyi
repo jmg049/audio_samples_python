@@ -90,4 +90,4 @@ def mfcc_to_audio(
 ) -> NDArray[Any]:
     """Estimates audio from MFCCs."""
 
-__all__ = ["__doc__", "mel_to_audio", "mel_to_stft", "mfcc_to_audio", "mfcc_to_mel"]
+__all__ = ["mel_to_audio", "mel_to_stft", "mfcc_to_audio", "mfcc_to_mel"]

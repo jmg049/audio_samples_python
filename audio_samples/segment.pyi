@@ -48,4 +48,4 @@ def subsegment(
 ) -> NDArray[np.int64]:
     """Subdivides each interval of a segmentation."""
 
-__all__ = ["__doc__", "TimelagFiltered", "agglomerative", "diagonal_filter", "path_enhance", "subsegment", "timelag_filter"]
+__all__ = ["TimelagFiltered", "agglomerative", "diagonal_filter", "path_enhance", "subsegment", "timelag_filter"]

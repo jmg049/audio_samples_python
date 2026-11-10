@@ -31,6 +31,7 @@ use crate::{PyAudioSamples, audio_err_to_py, dispatch_typed};
 ///     rates in Hz, 85 of each.
 #[pyfunction]
 #[inline]
+#[pyo3(signature = (tuning) -> "tuple[NDArray[np.float64], NDArray[np.float64]]")]
 pub fn mr_frequencies(py: Python<'_>, tuning: f64) -> PyResult<Bound<'_, PyAny>> {
     let (f, r) = pf::mr_frequencies(tuning);
     (PyArray1::from_slice(py, &f), PyArray1::from_slice(py, &r)).into_bound_py_any(py)
@@ -125,7 +126,7 @@ fn parse_layout(flayout: &str) -> PyResult<FilterLayout> {
 ///     sections, or a ``(b, a)`` tuple; and the sample rates.
 #[pyfunction]
 #[pyo3(
-    signature = (*, center_freqs = None, tuning = 0.0, sample_rates = None, flayout = "sos", **kwargs),
+    signature = (*, center_freqs = None, tuning = 0.0, sample_rates = None, flayout = "sos", **kwargs) -> "tuple[list[Any], NDArray[np.float64]]",
     text_signature = "(*, center_freqs=None, tuning=0.0, sample_rates=None, flayout='sos', **kwargs)"
 )]
 #[inline]
@@ -230,7 +231,7 @@ fn iirt_config(
 ///     ``y``'s precision.
 #[pyfunction]
 #[pyo3(
-    signature = (y, *, sr, win_length = Int(2048), hop_length = None, center = true, tuning = 0.0, pad_mode = "constant", flayout = "sos", res_type = "soxr_hq", **kwargs),
+    signature = (y: "ArrayLike", *, sr, win_length = Int(2048), hop_length = None, center = true, tuning = 0.0, pad_mode = "constant", flayout = "sos", res_type = "soxr_hq", **kwargs) -> "NDArray[Any]",
     text_signature = "(y, *, sr, win_length=2048, hop_length=None, center=True, tuning=0.0, pad_mode='constant', flayout='sos', res_type='soxr_hq', **kwargs)"
 )]
 #[allow(
@@ -286,7 +287,7 @@ impl PyAudioSamples {
     ///     ``I24`` and ``f32`` audio, otherwise ``float64``.
     #[pyo3(
         name = "iirt",
-        signature = (*, win_length = Int(2048), hop_length = None, center = true, tuning = 0.0, pad_mode = "constant", flayout = "sos", res_type = "soxr_hq", **kwargs),
+        signature = (*, win_length = Int(2048), hop_length = None, center = true, tuning = 0.0, pad_mode = "constant", flayout = "sos", res_type = "soxr_hq", **kwargs) -> "NDArray[Any]",
         text_signature = "(self, *, win_length=2048, hop_length=None, center=True, tuning=0.0, pad_mode='constant', flayout='sos', res_type='soxr_hq', **kwargs)"
     )]
     #[allow(
@@ -373,7 +374,7 @@ where
 ///     for ``float32`` input, otherwise ``complex128``.
 #[pyfunction]
 #[pyo3(
-    signature = (y, *, t_min = 0.5, n_fmt = None, kind = "cubic", beta = 0.5, over_sample = 1.0, axis = Int(-1)),
+    signature = (y: "ArrayLike", *, t_min = 0.5, n_fmt = None, kind = "cubic", beta = 0.5, over_sample = 1.0, axis = Int(-1)) -> "NDArray[Any]",
     text_signature = "(y, *, t_min=0.5, n_fmt=None, kind='cubic', beta=0.5, over_sample=1.0, axis=-1)"
 )]
 #[inline]
@@ -398,18 +399,9 @@ pub fn mellin_transform<'py>(
     with_precision!(precision_of(y), |F| mellin_in::<F>(y, &cfg, axis))
 }
 
-#[inline]
-pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
-    let m = PyModule::new(py, "pitch_filterbank")?;
-    m.add(
-        "__doc__",
-        "Multirate semitone filterbank and the IIR time-frequency representation.",
-    )?;
-    m.add_function(wrap_pyfunction!(mr_frequencies, &m)?)?;
-    m.add_function(wrap_pyfunction!(semitone_filterbank, &m)?)?;
-    m.add_function(wrap_pyfunction!(iirt, &m)?)?;
-    parent.add_submodule(&m)?;
-    let spectral = parent.getattr("spectral")?.cast_into::<PyModule>()?;
-    spectral.add_function(wrap_pyfunction!(mellin_transform, &spectral)?)?;
-    Ok(())
+#[doc = "Multirate semitone filterbank and the IIR time-frequency representation."]
+#[pymodule(submodule, name = "pitch_filterbank")]
+pub mod py_module {
+    #[pymodule_export]
+    use super::{iirt, mr_frequencies, semitone_filterbank};
 }

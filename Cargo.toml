@@ -61,6 +61,10 @@ default = []
 audio-samples-plotting = ["audio_samples/plotting"]
 simd = ["audio_samples/simd"]
 flac-parallel = ["audio_samples_io/flac-parallel"]
+# Embeds pyo3's introspection data, from which `scripts/stubs.sh` generates the
+# reference stubs. Only for that build: it adds about 1.4 MB to the extension, so
+# release wheels are built without it.
+stubs = ["pyo3/experimental-inspect"]
 
 [profile.release]
 opt-level = 3
@@ -69,3 +73,9 @@ strip = "symbols"
 lto = "fat"
 codegen-units = 1
 panic = "unwind"
+
+# The build `scripts/stubs.sh` generates and checks the stubs from (with `--features stubs`).
+# Unoptimised and unstripped: the stub generator reads symbols of the extension.
+[profile.stubs]
+inherits = "dev"
+debug = false

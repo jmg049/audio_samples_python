@@ -6,6 +6,7 @@ use pyo3::{Bound, Python, pymethods};
 impl PyAudioSamples {
     /// Time of each sample in seconds, one value per sample of a channel:
     /// ``numpy.arange(samples_per_channel()) / sample_rate``.
+    #[pyo3(signature = () -> "NDArray[np.float64]")]
     fn time_axis<'py>(&'py self, py: Python<'py>) -> Bound<'py, PyArray1<f64>> {
         // n samples at times 0, 1/sr, ..., (n-1)/sr (the last sample starts one
         // period before `duration_seconds`; multi-channel audio shares the axis).

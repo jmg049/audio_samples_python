@@ -181,7 +181,7 @@ impl Nmf {
     /// Returns:
     ///
     ///     numpy.ndarray: ``(n_samples, n_components)``, of ``X``'s precision.
-    #[pyo3(signature = (X, W = None, H = None))]
+    #[pyo3(signature = (X: "ArrayLike", W = None, H = None) -> "NDArray[Any]")]
     #[allow(non_snake_case, reason = "argument names follow the Python API")]
     fn fit_transform<'py>(
         &self,
@@ -202,6 +202,7 @@ impl Nmf {
     ///
     ///     numpy.ndarray: ``(n_samples, n_components)``, of ``X``'s precision.
     #[allow(non_snake_case, reason = "argument names follow the Python API")]
+    #[pyo3(signature = (X: "ArrayLike") -> "NDArray[Any]")]
     fn transform<'py>(&self, X: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
         let py = X.py();
         let h = self.components_(py)?;
@@ -298,7 +299,7 @@ impl Nmf {
 ///     ``activations`` ``(k, n_frames)``.
 #[pyfunction]
 #[pyo3(
-    signature = (S, *, n_components = None, transformer = None, sort = false, fit = true, **kwargs),
+    signature = (S: "ArrayLike", *, n_components = None, transformer = None, sort = false, fit = true, **kwargs) -> "tuple[NDArray[Any], NDArray[Any]]",
     text_signature = "(S, *, n_components=None, transformer=None, sort=False, fit=True, **kwargs)"
 )]
 #[allow(non_snake_case, reason = "argument names follow the Python API")]
@@ -376,15 +377,9 @@ pub fn decompose<'py>(
     pyo3::IntoPyObjectExt::into_bound_py_any((components, activations), py)
 }
 
-#[inline]
-pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
-    let m = PyModule::new(py, "factorization")?;
-    m.add(
-        "__doc__",
-        "Non-negative matrix factorisation of spectrograms.",
-    )?;
-    m.add_class::<Nmf>()?;
-    m.add_function(wrap_pyfunction!(decompose, &m)?)?;
-    parent.add_submodule(&m)?;
-    Ok(())
+#[doc = "Non-negative matrix factorisation of spectrograms."]
+#[pymodule(submodule, name = "factorization")]
+pub mod py_module {
+    #[pymodule_export]
+    use super::{Nmf, decompose};
 }

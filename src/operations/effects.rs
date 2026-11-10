@@ -68,6 +68,8 @@ pub enum SilenceRef {
 
 impl<'a, 'py> FromPyObject<'a, 'py> for SilenceRef {
     type Error = PyErr;
+    #[cfg(feature = "stubs")]
+    const INPUT_TYPE: pyo3::inspect::PyStaticExpr = crate::args::hints::DB_REF;
 
     fn extract(obj: pyo3::Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
         let obj = obj.to_owned();
@@ -612,7 +614,7 @@ impl PyAudioSamples {
 
     /// In-place ``trim_db``; returns the kept ``[start, end]`` (int64 array).
     #[pyo3(
-        signature = (*, top_db, r#ref = SilenceRef::Builtin(DbReference::Max), frame_length = Int(2048), hop_length = Int(512), aggregate = None),
+        signature = (*, top_db, r#ref = SilenceRef::Builtin(DbReference::Max), frame_length = Int(2048), hop_length = Int(512), aggregate = None) -> "NDArray[np.int64]",
         text_signature = "($self, *, top_db, ref='max', frame_length=2048, hop_length=512, aggregate=None)"
     )]
     fn trim_db_in_place<'py>(
@@ -641,7 +643,7 @@ impl PyAudioSamples {
     ///     numpy.ndarray[int64]: shape ``(n_intervals, 2)`` of ``[start, end)``
     ///     sample ranges (``(0, 2)`` if everything is silent).
     #[pyo3(
-        signature = (*, top_db, r#ref = SilenceRef::Builtin(DbReference::Max), frame_length = Int(2048), hop_length = Int(512), aggregate = None),
+        signature = (*, top_db, r#ref = SilenceRef::Builtin(DbReference::Max), frame_length = Int(2048), hop_length = Int(512), aggregate = None) -> "NDArray[np.int64]",
         text_signature = "($self, *, top_db, ref='max', frame_length=2048, hop_length=512, aggregate=None)"
     )]
     fn split_db<'py>(
@@ -703,7 +705,7 @@ impl PyAudioSamples {
     ///
     ///     ValueError: For malformed or all-empty intervals.
     #[pyo3(
-        signature = (intervals, *, align_zeros = false),
+        signature = (intervals: "ArrayLike", *, align_zeros = false),
         text_signature = "($self, intervals, *, align_zeros=False)"
     )]
     fn remix(
@@ -727,7 +729,7 @@ impl PyAudioSamples {
 
     /// In-place ``remix``.
     #[pyo3(
-        signature = (intervals, *, align_zeros = false),
+        signature = (intervals: "ArrayLike", *, align_zeros = false),
         text_signature = "($self, intervals, *, align_zeros=False)"
     )]
     fn remix_in_place(
@@ -1002,7 +1004,7 @@ impl PyAudioSamples {
     /// Raises:
     ///
     ///     ValueError: For a too-short or non-finite channel.
-    #[pyo3(signature = (*, order), text_signature = "($self, *, order)")]
+    #[pyo3(signature = (*, order) -> "NDArray[Any]", text_signature = "($self, *, order)")]
     fn lpc<'py>(&self, py: Python<'py>, order: Int) -> PyResult<Bound<'py, PyAny>> {
         let order = positive("order", order)?;
         dispatch_typed!(self, py, |audio| AudioEffects::lpc(&audio, order), |r| r
@@ -1037,7 +1039,7 @@ impl PyAudioSamples {
     ///     AudioSamples: audio of sample type ``dtype`` (mono for one channel).
     #[staticmethod]
     #[pyo3(
-        signature = (S, *, sample_rate, n_iter = Int(32), hop_length = None, win_length = None, n_fft = None, window = WindowArg(Window::Hann), center = true, length = None, pad_mode = "constant", momentum = 0.99, init = Some("random"), rng = RngArg::SEEDED, dtype = None),
+        signature = (S: "ArrayLike", *, sample_rate, n_iter = Int(32), hop_length = None, win_length = None, n_fft = None, window = WindowArg(Window::Hann), center = true, length = None, pad_mode = "constant", momentum = 0.99, init = Some("random"), rng = RngArg::SEEDED, dtype = None),
         text_signature = "(S, *, sample_rate, n_iter=32, hop_length=None, win_length=None, n_fft=None, window='hann', center=True, length=None, pad_mode='constant', momentum=0.99, init='random', rng=0, dtype=None)"
     )]
     #[allow(

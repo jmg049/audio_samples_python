@@ -159,7 +159,7 @@ impl PyAudioSamples {
     ///
     ///     ValueError: For invalid parameters (e.g. bins above Nyquist).
     #[pyo3(
-        signature = (*, hop_length = Int(512), fmin = None, n_bins = Some(Int(84)), bins_per_octave = Int(12), tuning = Some(0.0), filter_scale = 1.0, norm = Some(1.0), sparsity = 0.01, window = WindowArg(Window::Hann), scale = true, pad_mode = "constant", res_type = "soxr_hq"),
+        signature = (*, hop_length = Int(512), fmin = None, n_bins = Some(Int(84)), bins_per_octave = Int(12), tuning = Some(0.0), filter_scale = 1.0, norm = Some(1.0), sparsity = 0.01, window = WindowArg(Window::Hann), scale = true, pad_mode = "constant", res_type = "soxr_hq") -> "NDArray[Any]",
         text_signature = "($self, *, hop_length=512, fmin=None, n_bins=84, bins_per_octave=12, tuning=0.0, filter_scale=1, norm=1, sparsity=0.01, window='hann', scale=True, pad_mode='constant', res_type='soxr_hq')"
     )]
     #[allow(
@@ -217,7 +217,7 @@ impl PyAudioSamples {
     ///
     ///     ValueError: For invalid parameters or ``intervals`` other than ``"equal"``.
     #[pyo3(
-        signature = (*, hop_length = Int(512), fmin = None, n_bins = Some(Int(84)), intervals = None, gamma = None, bins_per_octave = Int(12), tuning = Some(0.0), filter_scale = 1.0, norm = Some(1.0), sparsity = 0.01, window = WindowArg(Window::Hann), scale = true, pad_mode = "constant", res_type = "soxr_hq"),
+        signature = (*, hop_length = Int(512), fmin = None, n_bins = Some(Int(84)), intervals = None, gamma = None, bins_per_octave = Int(12), tuning = Some(0.0), filter_scale = 1.0, norm = Some(1.0), sparsity = 0.01, window = WindowArg(Window::Hann), scale = true, pad_mode = "constant", res_type = "soxr_hq") -> "NDArray[Any]",
         text_signature = "($self, *, hop_length=512, fmin=None, n_bins=84, intervals='equal', gamma=None, bins_per_octave=12, tuning=0.0, filter_scale=1, norm=1, sparsity=0.01, window='hann', scale=True, pad_mode='constant', res_type='soxr_hq')"
     )]
     #[allow(
@@ -286,7 +286,7 @@ impl PyAudioSamples {
     ///
     ///     ValueError: For invalid parameters.
     #[pyo3(
-        signature = (*, hop_length = Int(512), fmin = None, n_bins = Some(Int(84)), bins_per_octave = Int(12), tuning = Some(0.0), filter_scale = 1.0, norm = Some(1.0), sparsity = 0.01, window = WindowArg(Window::Hann), scale = true, pad_mode = "constant"),
+        signature = (*, hop_length = Int(512), fmin = None, n_bins = Some(Int(84)), bins_per_octave = Int(12), tuning = Some(0.0), filter_scale = 1.0, norm = Some(1.0), sparsity = 0.01, window = WindowArg(Window::Hann), scale = true, pad_mode = "constant") -> "NDArray[Any]",
         text_signature = "($self, *, hop_length=512, fmin=None, n_bins=84, bins_per_octave=12, tuning=0.0, filter_scale=1, norm=1, sparsity=0.01, window='hann', scale=True, pad_mode='constant')"
     )]
     #[allow(
@@ -341,7 +341,7 @@ impl PyAudioSamples {
     ///
     ///     ValueError: For invalid parameters.
     #[pyo3(
-        signature = (*, hop_length = Int(512), fmin = None, n_bins = Some(Int(84)), bins_per_octave = Int(12), tuning = Some(0.0), filter_scale = 1.0, norm = Some(1.0), sparsity = 0.01, window = WindowArg(Window::Hann), scale = true, pad_mode = "constant", res_type = "soxr_hq"),
+        signature = (*, hop_length = Int(512), fmin = None, n_bins = Some(Int(84)), bins_per_octave = Int(12), tuning = Some(0.0), filter_scale = 1.0, norm = Some(1.0), sparsity = 0.01, window = WindowArg(Window::Hann), scale = true, pad_mode = "constant", res_type = "soxr_hq") -> "NDArray[Any]",
         text_signature = "($self, *, hop_length=512, fmin=None, n_bins=84, bins_per_octave=12, tuning=0.0, filter_scale=1, norm=1, sparsity=0.01, window='hann', scale=True, pad_mode='constant', res_type='soxr_hq')"
     )]
     #[allow(
@@ -408,7 +408,7 @@ impl PyAudioSamples {
     ///     ValueError: For invalid parameters or an empty ``C``.
     #[staticmethod]
     #[pyo3(
-        signature = (C, *, sample_rate, hop_length = Int(512), fmin = None, bins_per_octave = Int(12), tuning = 0.0, filter_scale = 1.0, norm = Some(1.0), sparsity = 0.01, window = WindowArg(Window::Hann), scale = true, length = None, res_type = "soxr_hq", dtype = None),
+        signature = (C: "ArrayLike", *, sample_rate, hop_length = Int(512), fmin = None, bins_per_octave = Int(12), tuning = 0.0, filter_scale = 1.0, norm = Some(1.0), sparsity = 0.01, window = WindowArg(Window::Hann), scale = true, length = None, res_type = "soxr_hq", dtype = None),
         text_signature = "(C, *, sample_rate, hop_length=512, fmin=None, bins_per_octave=12, tuning=0.0, filter_scale=1, norm=1, sparsity=0.01, window='hann', scale=True, length=None, res_type='soxr_hq', dtype=None)"
     )]
     #[allow(
@@ -495,7 +495,7 @@ impl PyAudioSamples {
     ///         ``"random"``.
     #[staticmethod]
     #[pyo3(
-        signature = (C, *, sample_rate, n_iter = Int(32), hop_length = Int(512), fmin = None, bins_per_octave = Int(12), tuning = 0.0, filter_scale = 1.0, norm = Some(1.0), sparsity = 0.01, window = WindowArg(Window::Hann), scale = true, pad_mode = "constant", res_type = "soxr_hq", length = None, momentum = 0.99, init = None, rng = RngArg::SEEDED, random_state = None, dtype = None),
+        signature = (C: "ArrayLike", *, sample_rate, n_iter = Int(32), hop_length = Int(512), fmin = None, bins_per_octave = Int(12), tuning = 0.0, filter_scale = 1.0, norm = Some(1.0), sparsity = 0.01, window = WindowArg(Window::Hann), scale = true, pad_mode = "constant", res_type = "soxr_hq", length = None, momentum = 0.99, init = None, rng = RngArg::SEEDED, random_state = None, dtype = None),
         text_signature = "(C, *, sample_rate, n_iter=32, hop_length=512, fmin=None, bins_per_octave=12, tuning=0.0, filter_scale=1, norm=1, sparsity=0.01, window='hann', scale=True, pad_mode='constant', res_type='soxr_hq', length=None, momentum=0.99, init=None, rng=0, random_state=None, dtype=None)"
     )]
     #[allow(
@@ -587,7 +587,7 @@ impl PyAudioSamples {
     ///
     ///     ValueError: For invalid parameters.
     #[pyo3(
-        signature = (*, hop_length = Int(512), fmin = None, norm = Some(f64::INFINITY), threshold = Some(0.0), tuning = Some(0.0), n_chroma = Int(12), n_octaves = Int(7), window = None, bins_per_octave = Some(Int(36)), cqt_mode = "full"),
+        signature = (*, hop_length = Int(512), fmin = None, norm = Some(f64::INFINITY), threshold = Some(0.0), tuning = Some(0.0), n_chroma = Int(12), n_octaves = Int(7), window = None, bins_per_octave = Some(Int(36)), cqt_mode = "full") -> "NDArray[Any]",
         text_signature = "($self, *, hop_length=512, fmin=None, norm=math.inf, threshold=0.0, tuning=0.0, n_chroma=12, n_octaves=7, window=None, bins_per_octave=36, cqt_mode='full')"
     )]
     #[allow(
@@ -642,7 +642,7 @@ impl PyAudioSamples {
     ///
     ///     ValueError: For invalid parameters.
     #[pyo3(
-        signature = (*, hop_length = Int(512), fmin = None, tuning = Some(0.0), n_chroma = Int(12), n_octaves = Int(7), bins_per_octave = Int(36), cqt_mode = "full", window = None, norm = Some(2.0), win_len_smooth = Some(Int(41)), smoothing_window = WindowArg(Window::Hann)),
+        signature = (*, hop_length = Int(512), fmin = None, tuning = Some(0.0), n_chroma = Int(12), n_octaves = Int(7), bins_per_octave = Int(36), cqt_mode = "full", window = None, norm = Some(2.0), win_len_smooth = Some(Int(41)), smoothing_window = WindowArg(Window::Hann)) -> "NDArray[Any]",
         text_signature = "($self, *, hop_length=512, fmin=None, tuning=0.0, n_chroma=12, n_octaves=7, bins_per_octave=36, cqt_mode='full', window=None, norm=2, win_len_smooth=41, smoothing_window='hann')"
     )]
     #[allow(
@@ -707,7 +707,7 @@ impl PyAudioSamples {
     ///
     ///     ValueError: For invalid parameters or ``intervals`` other than ``"equal"``.
     #[pyo3(
-        signature = (*, hop_length = Int(512), fmin = None, intervals = None, norm = Some(f64::INFINITY), threshold = Some(0.0), n_octaves = Int(7), bins_per_octave = Int(12), gamma = Some(0.0)),
+        signature = (*, hop_length = Int(512), fmin = None, intervals = None, norm = Some(f64::INFINITY), threshold = Some(0.0), n_octaves = Int(7), bins_per_octave = Int(12), gamma = Some(0.0)) -> "NDArray[Any]",
         text_signature = "($self, *, hop_length=512, fmin=None, intervals='equal', norm=math.inf, threshold=0.0, n_octaves=7, bins_per_octave=12, gamma=0)"
     )]
     #[allow(
@@ -756,7 +756,7 @@ impl PyAudioSamples {
     ///
     ///     ValueError: For invalid parameters.
     #[pyo3(
-        signature = (*, hop_length = Int(512), fmin = None, norm = Some(f64::INFINITY), threshold = Some(0.0), tuning = Some(0.0), n_chroma = Int(12), n_octaves = Int(7), bins_per_octave = Some(Int(36)), cqt_mode = "full"),
+        signature = (*, hop_length = Int(512), fmin = None, norm = Some(f64::INFINITY), threshold = Some(0.0), tuning = Some(0.0), n_chroma = Int(12), n_octaves = Int(7), bins_per_octave = Some(Int(36)), cqt_mode = "full") -> "NDArray[Any]",
         text_signature = "($self, *, hop_length=512, fmin=None, norm=math.inf, threshold=0.0, tuning=0.0, n_chroma=12, n_octaves=7, bins_per_octave=36, cqt_mode='full')"
     )]
     #[allow(

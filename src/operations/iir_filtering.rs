@@ -997,7 +997,7 @@ impl PySosFilter {
 
     /// The filter's second-order sections as a ``(n_sections, 6)`` array
     /// (SciPy ``sos`` layout, ``a0`` normalised to 1).
-    #[pyo3(signature = ())]
+    #[pyo3(signature = () -> "NDArray[np.float64]")]
     fn sos<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyArray2<f64>>> {
         let rows = self.inner.sos_coefficients().map_err(audio_err_to_py)?;
         let flat: Vec<f64> = rows.iter().flat_map(|r| r.iter().copied()).collect();
@@ -1019,7 +1019,7 @@ impl PySosFilter {
     /// Returns:
     ///
     ///     np.typing.NDArray[np.float64]: Filtered signal, same length.
-    #[pyo3(signature = (samples: "np.typing.NDArray[np.float64]"))]
+    #[pyo3(signature = (samples: "np.typing.NDArray[np.float64]") -> "NDArray[np.float64]")]
     fn filtfilt<'py>(
         &self,
         py: Python<'py>,
@@ -1060,7 +1060,7 @@ impl PySosFilter {
     /// Returns:
     ///
     ///     np.typing.NDArray[np.float64]: Filtered output, same length as input.
-    #[pyo3(signature = (samples: "np.typing.NDArray[np.float64]"))]
+    #[pyo3(signature = (samples: "np.typing.NDArray[np.float64]") -> "NDArray[np.float64]")]
     fn process_samples<'py>(
         &mut self,
         py: Python<'py>,

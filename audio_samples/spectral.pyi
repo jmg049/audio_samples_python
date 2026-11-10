@@ -578,7 +578,7 @@ def mellin_transform(
     input, otherwise ``complex128``."""
 
 __all__ = [
-    "__doc__",
+    
     "amplitude_to_db",
     "db_to_amplitude",
     "db_to_power",

@@ -833,7 +833,7 @@ def path_to_steps(path: npt.ArrayLike, *, inverse: bool = False) -> NDArray[np.f
     """The fractional index on one side of an alignment path for each frame on the other."""
 
 __all__ = [
-    "__doc__",
+    
     "cross_similarity",
     "dtw",
     "dtw_backtracking",

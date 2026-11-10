@@ -226,7 +226,7 @@ def chirp(
 
 
 __all__ = [
-    "__doc__",
+    
     "zero_crossings",
     "tone",
     "chirp",

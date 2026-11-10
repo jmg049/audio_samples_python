@@ -183,7 +183,7 @@ impl PyAudioSamples {
     ///
     ///     ValueError: For invalid parameters.
     #[pyo3(
-        signature = (*, lag = Int(1), max_size = Int(1), detrend = false, center = true, aggregate = None, n_fft = Int(2048), hop_length = Int(512), win_length = None, window = WindowArg(Window::Hann), pad_mode = "constant", power = 2.0, n_mels = Int(128), fmin = 0.0, fmax = None, htk = false, norm = MelNormArg(MelFilterNorm::Slaney)),
+        signature = (*, lag = Int(1), max_size = Int(1), detrend = false, center = true, aggregate = None, n_fft = Int(2048), hop_length = Int(512), win_length = None, window = WindowArg(Window::Hann), pad_mode = "constant", power = 2.0, n_mels = Int(128), fmin = 0.0, fmax = None, htk = false, norm = MelNormArg(MelFilterNorm::Slaney)) -> "NDArray[Any]",
         text_signature = "($self, *, lag=1, max_size=1, detrend=False, center=True, aggregate=None, n_fft=2048, hop_length=512, win_length=None, window='hann', pad_mode='constant', power=2.0, n_mels=128, fmin=0.0, fmax=None, htk=False, norm='slaney')"
     )]
     #[allow(
@@ -265,7 +265,7 @@ impl PyAudioSamples {
     ///
     ///     ValueError: For invalid parameters or boundaries.
     #[pyo3(
-        signature = (*, channels = None, lag = Int(1), max_size = Int(1), detrend = false, center = true, aggregate = None, n_fft = Int(2048), hop_length = Int(512), win_length = None, window = WindowArg(Window::Hann), pad_mode = "constant", power = 2.0, n_mels = Int(128), fmin = 0.0, fmax = None, htk = false, norm = MelNormArg(MelFilterNorm::Slaney)),
+        signature = (*, channels = None, lag = Int(1), max_size = Int(1), detrend = false, center = true, aggregate = None, n_fft = Int(2048), hop_length = Int(512), win_length = None, window = WindowArg(Window::Hann), pad_mode = "constant", power = 2.0, n_mels = Int(128), fmin = 0.0, fmax = None, htk = false, norm = MelNormArg(MelFilterNorm::Slaney)) -> "NDArray[Any]",
         text_signature = "($self, *, channels=None, lag=1, max_size=1, detrend=False, center=True, aggregate=None, n_fft=2048, hop_length=512, win_length=None, window='hann', pad_mode='constant', power=2.0, n_mels=128, fmin=0.0, fmax=None, htk=False, norm='slaney')"
     )]
     #[allow(
@@ -355,7 +355,7 @@ impl PyAudioSamples {
     ///     ValueError: For multi-channel audio, invalid parameters or
     ///         ``sparse=False``.
     #[pyo3(
-        signature = (*, hop_length = Int(512), backtrack = false, energy = None, units = "frames", normalize = true, sparse = true, pre_max = None, post_max = None, pre_avg = None, post_avg = None, delta = None, wait = None, method = "greedy"),
+        signature = (*, hop_length = Int(512), backtrack = false, energy = None, units = "frames", normalize = true, sparse = true, pre_max = None, post_max = None, pre_avg = None, post_avg = None, delta = None, wait = None, method = "greedy") -> "NDArray[Any]",
         text_signature = "($self, *, hop_length=512, backtrack=False, energy=None, units='frames', normalize=True, sparse=True, pre_max=None, post_max=None, pre_avg=None, post_avg=None, delta=None, wait=None, method='greedy')"
     )]
     #[allow(
@@ -420,7 +420,7 @@ impl PyAudioSamples {
     ///
     ///     ValueError: For invalid parameters.
     #[pyo3(
-        signature = (*, hop_length = Int(512), win_length = Int(384), center = true, window = WindowArg(Window::Hann), norm = Some(f64::INFINITY)),
+        signature = (*, hop_length = Int(512), win_length = Int(384), center = true, window = WindowArg(Window::Hann), norm = Some(f64::INFINITY)) -> "NDArray[Any]",
         text_signature = "($self, *, hop_length=512, win_length=384, center=True, window='hann', norm=math.inf)"
     )]
     fn tempogram<'py>(
@@ -454,7 +454,7 @@ impl PyAudioSamples {
     ///     ``(channels, win_length // 2 + 1, n_frames + 1)`` (centred); index
     ///     ``[0]`` for the 2-D array of mono audio.
     #[pyo3(
-        signature = (*, hop_length = Int(512), win_length = Int(384), center = true, window = WindowArg(Window::Hann)),
+        signature = (*, hop_length = Int(512), win_length = Int(384), center = true, window = WindowArg(Window::Hann)) -> "NDArray[Any]",
         text_signature = "($self, *, hop_length=512, win_length=384, center=True, window='hann')"
     )]
     fn fourier_tempogram<'py>(
@@ -499,7 +499,7 @@ impl PyAudioSamples {
     ///
     ///     ValueError: For invalid parameters.
     #[pyo3(
-        signature = (*, hop_length = Int(512), start_bpm = 120.0, std_bpm = 1.0, ac_size = 8.0, max_tempo = Some(320.0), aggregate = AggregateArg::mean(), prior = None),
+        signature = (*, hop_length = Int(512), start_bpm = 120.0, std_bpm = 1.0, ac_size = 8.0, max_tempo = Some(320.0), aggregate: "Callable[..., Any] | Literal['mean', 'median', 'max', 'min', 'sum']" = AggregateArg::mean(), prior = None) -> "NDArray[np.float64]",
         text_signature = "($self, *, hop_length=512, start_bpm=120, std_bpm=1.0, ac_size=8.0, max_tempo=320.0, aggregate='mean', prior=None)"
     )]
     #[allow(
@@ -630,7 +630,7 @@ impl PyAudioSamples {
     ///
     ///     ValueError: If ``tempo_max <= tempo_min`` or parameters are invalid.
     #[pyo3(
-        signature = (*, hop_length = Int(512), win_length = Int(384), tempo_min = Some(30.0), tempo_max = Some(300.0), prior = None),
+        signature = (*, hop_length = Int(512), win_length = Int(384), tempo_min = Some(30.0), tempo_max = Some(300.0), prior = None) -> "NDArray[Any]",
         text_signature = "($self, *, hop_length=512, win_length=384, tempo_min=30, tempo_max=300, prior=None)"
     )]
     fn plp<'py>(
@@ -673,7 +673,7 @@ impl PyAudioSamples {
     ///     ``(channels, n_factors, 1)`` when aggregated (the time axis is kept);
     ///     index ``[0]`` for the array of mono audio.
     #[pyo3(
-        signature = (*, hop_length = Int(512), win_length = Int(384), start_bpm = 120.0, std_bpm = 1.0, max_tempo = Some(320.0), factors = None, aggregate = None, prior = None, center = true, window = WindowArg(Window::Hann), fill_value = 0.0, norm = Some(f64::INFINITY)),
+        signature = (*, hop_length = Int(512), win_length = Int(384), start_bpm = 120.0, std_bpm = 1.0, max_tempo = Some(320.0), factors = None, aggregate = None, prior = None, center = true, window = WindowArg(Window::Hann), fill_value = 0.0, norm = Some(f64::INFINITY)) -> "NDArray[Any]",
         text_signature = "($self, *, hop_length=512, win_length=384, start_bpm=120, std_bpm=1.0, max_tempo=320.0, factors=None, aggregate=None, prior=None, center=True, window='hann', fill_value=0, norm=math.inf)"
     )]
     #[allow(
@@ -746,7 +746,7 @@ impl PyAudioSamples {
     ///     on the ``fourier_tempo_frequencies`` grid; index ``[0]`` for the 2-D
     ///     array of mono audio.
     #[pyo3(
-        signature = (*, hop_length = Int(512), win_length = Int(384), center = true, window = WindowArg(Window::Hann)),
+        signature = (*, hop_length = Int(512), win_length = Int(384), center = true, window = WindowArg(Window::Hann)) -> "NDArray[Any]",
         text_signature = "($self, *, hop_length=512, win_length=384, center=True, window='hann')"
     )]
     fn hybrid_tempogram<'py>(

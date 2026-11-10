@@ -45,7 +45,7 @@ impl PyAudioSamples {
     ///
     ///     ValueError: For invalid parameters.
     #[pyo3(
-        signature = (*, norm = Some(f64::INFINITY), n_fft = Int(2048), hop_length = Int(512), win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", tuning = Some(0.0), n_chroma = Int(12), ctroct = 5.0, octwidth = Some(2.0), base_c = true),
+        signature = (*, norm = Some(f64::INFINITY), n_fft = Int(2048), hop_length = Int(512), win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", tuning = Some(0.0), n_chroma = Int(12), ctroct = 5.0, octwidth = Some(2.0), base_c = true) -> "NDArray[Any]",
         text_signature = "($self, *, norm=math.inf, n_fft=2048, hop_length=512, win_length=None, window='hann', center=True, pad_mode='constant', tuning=0.0, n_chroma=12, ctroct=5.0, octwidth=2.0, base_c=True)"
     )]
     #[allow(
@@ -109,7 +109,7 @@ impl PyAudioSamples {
     ///
     ///     ValueError: For invalid parameters.
     #[pyo3(
-        signature = (*, n_fft = Int(2048), hop_length = None, fmin = 150.0, fmax = 4000.0, threshold = 0.1, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", r#ref = None),
+        signature = (*, n_fft = Int(2048), hop_length = None, fmin = 150.0, fmax = 4000.0, threshold = 0.1, win_length = None, window = WindowArg(Window::Hann), center = true, pad_mode = "constant", r#ref = None) -> "tuple[NDArray[Any], NDArray[Any]] | tuple[NDArray[np.float32], NDArray[np.float32]] | tuple[NDArray[np.float64], NDArray[np.float64]]",
         text_signature = "($self, *, n_fft=2048, hop_length=None, fmin=150.0, fmax=4000.0, threshold=0.1, win_length=None, window='hann', center=True, pad_mode='constant', ref=None)"
     )]
     #[allow(

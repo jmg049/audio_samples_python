@@ -1,6 +1,6 @@
 use crate::{
     PyAudioSamples, audio_err_to_py, audio_io_err_to_py, audio_read_err_to_py, dispatch_with_view,
-    dispatch_with_view_detached, impl_py_repr, impl_py_wrapper_core, nzu32_or_err, reexport,
+    dispatch_with_view_detached, impl_py_repr, impl_py_wrapper_core, nzu32_or_err,
     types::PySampleType,
 };
 use audio_samples::operations::ResamplingQuality;
@@ -14,7 +14,7 @@ use pyo3::{
     Bound, PyAny, PyResult, Python,
     exceptions::{PyTypeError, PyValueError},
     pyclass, pyfunction, pymethods, pymodule,
-    types::{PyAnyMethods, PyModule, PyModuleMethods},
+    types::PyAnyMethods,
 };
 
 macro_rules! dispatch_sample_type {
@@ -117,7 +117,7 @@ where
 ///         neither a path nor a file object.
 ///     ValueError: If a file object holds anything other than WAV or FLAC.
 #[pyfunction]
-#[pyo3(signature = (fp: "str|Path|BinaryIO", as_type:"SampleType"=None))]
+#[pyo3(signature = (fp: "str|Path|BinaryIO", as_type: "SampleType | None" = None))]
 pub fn read(
     py: Python<'_>,
     fp: &Bound<'_, PyAny>,
@@ -155,7 +155,7 @@ pub fn read(
 }
 
 #[pyfunction]
-#[pyo3(signature = (fp: "str|Path", as_type: "SampleType" = None))]
+#[pyo3(signature = (fp: "str|Path", as_type: "np.dtype[Any] | None" = None))]
 #[allow(clippy::needless_pass_by_value)] // PyO3 extracts `PathBuf` by value
 pub fn read_with_info(
     py: Python<'_>,
@@ -296,7 +296,7 @@ where
 ///         ``flac_md5`` is false and the file is not FLAC.
 ///     OSError: If the file cannot be written.
 #[pyfunction]
-#[pyo3(signature = (fp: "str|Path", samples: "AudioSamples", as_type: "SampleType" = None, flac_md5: "bool" = true))]
+#[pyo3(signature = (fp: "str|Path", samples: "AudioSamples", as_type: "SampleType | None" = None, flac_md5: "bool" = true))]
 #[allow(clippy::needless_pass_by_value)] // PyO3 extracts `PathBuf` by value
 pub fn save(
     py: Python<'_>,
@@ -430,7 +430,7 @@ fn native_sample_type(fp: &str) -> PyResult<PySampleType> {
 ///     TypeError: If the file cannot be read or the format is unsupported.
 ///     RuntimeError: If resampling fails.
 #[pyfunction]
-#[pyo3(signature = (fp: "str | Path", target_sr: "int", quality: "ResamplingQuality" = None, as_type: "SampleType" = None))]
+#[pyo3(signature = (fp: "str | Path", target_sr: "int", quality: "ResamplingQuality | None" = None, as_type: "SampleType | None" = None))]
 #[allow(clippy::needless_pass_by_value)] // PyO3 extracts `PathBuf` by value
 pub fn read_and_resample(
     py: Python<'_>,
@@ -506,7 +506,7 @@ pub struct PyWriteOptions {
 #[pymethods]
 impl PyWriteOptions {
     #[new]
-    #[pyo3(signature = (write_buf_capacity: "int" = None))]
+    #[pyo3(signature = (write_buf_capacity: "int | None" = None))]
     fn new(write_buf_capacity: Option<usize>) -> Self {
         let mut inner = WriteOptions::default();
         if let Some(cap) = write_buf_capacity {
@@ -542,7 +542,7 @@ pub struct PyCompressionLevel {
 #[pymethods]
 impl PyCompressionLevel {
     #[new]
-    #[pyo3(signature = (level: "int" = None))]
+    #[pyo3(signature = (level: "int | None" = None))]
     fn new(level: Option<u8>) -> Self {
         Self {
             inner: level.map_or_else(CompressionLevel::default, CompressionLevel::new),
@@ -684,7 +684,7 @@ pub struct PyWavMetadata {
 #[pymethods]
 impl PyWavMetadata {
     #[new]
-    #[pyo3(signature = (info: "InfoMetadata" = None))]
+    #[pyo3(signature = (info: "InfoMetadata | None" = None))]
     fn new(info: Option<PyInfoMetadata>) -> Self {
         let mut inner = WavMetadata::default();
         inner.info = info.map(|i| i.inner);
@@ -895,7 +895,7 @@ impl_py_wrapper_core!(PyStreamInfo, StreamInfo);
 ///         and the file is not FLAC.
 ///     OSError: If the file cannot be written.
 #[pyfunction]
-#[pyo3(signature = (fp: "str | Path", samples: "AudioSamples", options: "WriteOptions" = None, as_type: "SampleType" = None, flac_md5: "bool" = true))]
+#[pyo3(signature = (fp: "str | Path", samples: "AudioSamples", options: "WriteOptions | None" = None, as_type: "SampleType | None" = None, flac_md5: "bool" = true))]
 #[allow(clippy::needless_pass_by_value)] // PyO3 extracts `PathBuf` by value
 pub fn write_with_options(
     py: Python<'_>,
@@ -1098,59 +1098,45 @@ pub fn read_flac_stream_info(fp: std::path::PathBuf) -> PyResult<PyStreamInfo> {
     })
 }
 
-#[pymodule]
-pub fn io(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
-    let io = PyModule::new(py, "io")?;
-    io.add_class::<PyAudioInfo>()?;
-    io.add_class::<PyWriteOptions>()?;
-    io.add_class::<PyCompressionLevel>()?;
-    io.add_class::<PyInfoMetadata>()?;
-    io.add_class::<PyCuePoint>()?;
-    io.add_class::<PyWavMetadata>()?;
-    io.add_class::<PyVorbisComment>()?;
-    io.add_class::<PyStreamInfo>()?;
-
-    io.add_function(pyo3::wrap_pyfunction!(info, &io)?)?;
-    io.add_function(pyo3::wrap_pyfunction!(read, &io)?)?;
-    io.add_function(pyo3::wrap_pyfunction!(read_with_info, &io)?)?;
-    io.add_function(pyo3::wrap_pyfunction!(read_and_resample, &io)?)?;
-    io.add_function(pyo3::wrap_pyfunction!(peek_native_type, &io)?)?;
-    io.add_function(pyo3::wrap_pyfunction!(save, &io)?)?;
-    io.add_function(pyo3::wrap_pyfunction!(write_with_options, &io)?)?;
-    io.add_function(pyo3::wrap_pyfunction!(set_thread_limit, &io)?)?;
-    io.add_function(pyo3::wrap_pyfunction!(thread_limit, &io)?)?;
-    io.add_function(pyo3::wrap_pyfunction!(write_with_metadata, &io)?)?;
-    io.add_function(pyo3::wrap_pyfunction!(read_wav_info_tags, &io)?)?;
-    io.add_function(pyo3::wrap_pyfunction!(read_wav_cue_points, &io)?)?;
-    io.add_function(pyo3::wrap_pyfunction!(read_flac_stream_info, &io)?)?;
-
-    // Streaming subsystem.
-    crate::io_streaming::register(&io)?;
-
-    reexport!(
-        m,
-        io,
-        "AudioInfo",
-        "WriteOptions",
-        "CompressionLevel",
-        "InfoMetadata",
-        "CuePoint",
-        "WavMetadata",
-        "VorbisComment",
-        "StreamInfo",
-        "info",
-        "read",
-        "read_with_info",
-        "read_and_resample",
-        "peek_native_type",
-        "save",
-        "write_with_options",
-        "write_with_metadata",
-        "read_wav_info_tags",
-        "read_wav_cue_points",
-        "read_flac_stream_info"
-    );
-    crate::io_streaming::reexport_names(m, &io)?;
-    m.add_submodule(&io)?;
-    Ok(())
+/// Reading, writing and streaming audio files (WAV and FLAC).
+#[pymodule(submodule, name = "io")]
+pub mod py_module {
+    #[pymodule_export]
+    use super::{
+        PyAudioInfo, PyCompressionLevel, PyCuePoint, PyInfoMetadata, PyStreamInfo, PyVorbisComment,
+        PyWavMetadata, PyWriteOptions, info, peek_native_type, read, read_and_resample,
+        read_flac_stream_info, read_wav_cue_points, read_wav_info_tags, read_with_info, save,
+        set_thread_limit, thread_limit, write_with_metadata, write_with_options,
+    };
+    #[pymodule_export]
+    use crate::io_streaming::{
+        PyStreamedAudioReader, PyStreamedAudioWriter, PyStreamedFrameIterator, PyWavSink,
+    };
 }
+
+/// Names of `audio_samples.io` that the top-level module re-exports.
+pub const TOP_LEVEL_NAMES: &[&str] = &[
+    "AudioInfo",
+    "WriteOptions",
+    "CompressionLevel",
+    "InfoMetadata",
+    "CuePoint",
+    "WavMetadata",
+    "VorbisComment",
+    "StreamInfo",
+    "info",
+    "read",
+    "read_with_info",
+    "read_and_resample",
+    "peek_native_type",
+    "save",
+    "write_with_options",
+    "write_with_metadata",
+    "read_wav_info_tags",
+    "read_wav_cue_points",
+    "read_flac_stream_info",
+    "StreamedAudioReader",
+    "StreamedFrameIterator",
+    "StreamedAudioWriter",
+    "WavSink",
+];

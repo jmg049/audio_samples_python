@@ -142,7 +142,7 @@ fn path_array(py: Python<'_>, path: Vec<[usize; 2]>) -> Bound<'_, PyArray2<i64>>
 ///     ValueError: Incompatible inputs, NaN costs, or no valid path.
 #[pyfunction]
 #[pyo3(
-    signature = (X = None, Y = None, *, C = None, metric = "euclidean", step_sizes_sigma = None, weights_add = None, weights_mul = None, subseq = false, backtrack = true, global_constraints = false, band_rad = 0.25, return_steps = false),
+    signature = (X = None, Y = None, *, C = None, metric = "euclidean", step_sizes_sigma = None, weights_add = None, weights_mul = None, subseq = false, backtrack = true, global_constraints = false, band_rad = 0.25, return_steps = false) -> "tuple[NDArray[Any], NDArray[Any]] | tuple[NDArray[Any], NDArray[Any], NDArray[Any]] | NDArray[Any] | tuple[NDArray[np.float32], NDArray[np.int64]] | tuple[NDArray[np.float32], NDArray[np.int64], NDArray[np.int64]] | tuple[NDArray[np.float64], NDArray[np.int64]] | tuple[NDArray[np.float64], NDArray[np.int64], NDArray[np.int64]]",
     text_signature = "(X=None, Y=None, *, C=None, metric='euclidean', step_sizes_sigma=None, weights_add=None, weights_mul=None, subseq=False, backtrack=True, global_constraints=False, band_rad=0.25, return_steps=False)"
 )]
 #[allow(
@@ -237,7 +237,7 @@ pub fn dtw<'py>(
 ///     numpy.ndarray[int64]: shape ``(path_length, 2)``, end first.
 #[pyfunction]
 #[pyo3(
-    signature = (steps, *, step_sizes_sigma = None, subseq = false, start = None),
+    signature = (steps: "ArrayLike", *, step_sizes_sigma = None, subseq = false, start = None) -> "NDArray[np.int64]",
     text_signature = "(steps, *, step_sizes_sigma=None, subseq=False, start=None)"
 )]
 pub fn dtw_backtracking<'py>(
@@ -306,7 +306,7 @@ fn states_out<'py, T: numpy::Element, D: ndarray::Dimension>(
 ///     ValueError: Shape mismatch or invalid probabilities.
 #[pyfunction]
 #[pyo3(
-    signature = (prob, transition, *, p_init = None, return_logp = false, transition_min_prob = None),
+    signature = (prob: "ArrayLike", transition: "ArrayLike", *, p_init = None, return_logp = false, transition_min_prob = None) -> "NDArray[np.int64] | tuple[NDArray[np.int64], float]",
     text_signature = "(prob, transition, *, p_init=None, return_logp=False, transition_min_prob=None)"
 )]
 pub fn viterbi<'py>(
@@ -350,7 +350,7 @@ pub fn viterbi<'py>(
 ///     numpy.ndarray[int64] ``(n_steps,)`` or ``(states, logp)``.
 #[pyfunction]
 #[pyo3(
-    signature = (prob, transition, *, p_state = None, p_init = None, return_logp = false, transition_min_prob = None),
+    signature = (prob: "ArrayLike", transition: "ArrayLike", *, p_state = None, p_init = None, return_logp = false, transition_min_prob = None) -> "NDArray[np.int64] | tuple[NDArray[np.int64], float]",
     text_signature = "(prob, transition, *, p_state=None, p_init=None, return_logp=False, transition_min_prob=None)"
 )]
 pub fn viterbi_discriminative<'py>(
@@ -401,7 +401,7 @@ pub fn viterbi_discriminative<'py>(
 ///     ``(n_states,)``.
 #[pyfunction]
 #[pyo3(
-    signature = (prob, transition, *, p_state = None, p_init = None, return_logp = false, transition_min_prob = None, dtype = None),
+    signature = (prob: "ArrayLike", transition: "ArrayLike", *, p_state = None, p_init = None, return_logp = false, transition_min_prob = None, dtype = None) -> "tuple[NDArray[np.bool_], NDArray[np.float64]] | tuple[NDArray[np.uint16], NDArray[np.float64]] | tuple[NDArray[np.int64], NDArray[np.float64]] | NDArray[Any] | tuple[NDArray[Any], NDArray[np.float64]]",
     text_signature = "(prob, transition, *, p_state=None, p_init=None, return_logp=False, transition_min_prob=None, dtype=None)"
 )]
 #[allow(clippy::too_many_arguments, clippy::needless_pass_by_value)] // PyO3 signature; `DTypeArg` is extracted by value
@@ -545,7 +545,7 @@ fn is_one_d(obj: &Bound<'_, PyAny>, name: &str) -> PyResult<bool> {
 ///
 ///     numpy.ndarray[float64]: ``(n_states, n_states)`` filled with ``1 / n_states``.
 #[pyfunction]
-#[pyo3(signature = (n_states), text_signature = "(n_states)")]
+#[pyo3(signature = (n_states) -> "NDArray[np.float64]", text_signature = "(n_states)")]
 pub fn transition_uniform(py: Python<'_>, n_states: Int) -> PyResult<Bound<'_, PyArray2<f64>>> {
     let t = seq::transition_uniform::<f64>(positive("n_states", n_states)?.get())
         .map_err(audio_err_to_py)?;
@@ -584,7 +584,7 @@ fn with_float_slice<R>(
 ///
 ///     numpy.ndarray[float64]: ``(n_states, n_states)``.
 #[pyfunction]
-#[pyo3(signature = (n_states, prob), text_signature = "(n_states, prob)")]
+#[pyo3(signature = (n_states, prob: "float | ArrayLike") -> "NDArray[np.float64]", text_signature = "(n_states, prob)")]
 pub fn transition_loop<'py>(
     py: Python<'py>,
     n_states: Int,
@@ -608,7 +608,7 @@ pub fn transition_loop<'py>(
 ///
 ///     numpy.ndarray[float64]: ``(n_states, n_states)``.
 #[pyfunction]
-#[pyo3(signature = (n_states, prob), text_signature = "(n_states, prob)")]
+#[pyo3(signature = (n_states, prob: "float | ArrayLike") -> "NDArray[np.float64]", text_signature = "(n_states, prob)")]
 pub fn transition_cycle<'py>(
     py: Python<'py>,
     n_states: Int,
@@ -636,7 +636,7 @@ pub fn transition_cycle<'py>(
 ///     numpy.ndarray[float64]: ``(n_states, n_states)``, row-stochastic.
 #[pyfunction]
 #[pyo3(
-    signature = (n_states, width, *, window = "triangle", wrap = false),
+    signature = (n_states, width: "int | ArrayLike", *, window = "triangle", wrap = false) -> "NDArray[np.float64]",
     text_signature = "(n_states, width, *, window='triangle', wrap=False)"
 )]
 pub fn transition_local<'py>(
@@ -687,7 +687,7 @@ pub fn transition_local<'py>(
 ///     from start to end (empty when there is no recurrence).
 #[pyfunction]
 #[pyo3(
-    signature = (sim, *, gap_onset = 1.0, gap_extend = 1.0, knight_moves = true, backtrack = true),
+    signature = (sim: "ArrayLike", *, gap_onset = 1.0, gap_extend = 1.0, knight_moves = true, backtrack = true) -> "tuple[NDArray[Any], NDArray[Any]] | NDArray[Any] | tuple[NDArray[np.float32], NDArray[np.int64]] | tuple[NDArray[np.float64], NDArray[np.int64]]",
     text_signature = "(sim, *, gap_onset=1.0, gap_extend=1.0, knight_moves=True, backtrack=True)"
 )]
 pub fn rqa<'py>(
@@ -802,7 +802,7 @@ fn similarity_out<F: PyFloat>(
 ///     ``data``'s precision.
 #[pyfunction]
 #[pyo3(
-    signature = (data, *, k = None, width = Int(1), metric = "euclidean", sym = false, sparse = false, mode = "connectivity", bandwidth = None, self_links = false, axis = Int(-1), full = false, **kwargs),
+    signature = (data: "ArrayLike", *, k = None, width = Int(1), metric = "euclidean", sym = false, sparse = false, mode = "connectivity", bandwidth = None, self_links = false, axis = Int(-1), full = false, **kwargs) -> "NDArray[Any]",
     text_signature = "(data, *, k=None, width=1, metric='euclidean', sym=False, sparse=False, mode='connectivity', bandwidth=None, self=False, axis=-1, full=False, self_links=False)"
 )]
 #[allow(clippy::too_many_arguments, clippy::fn_params_excessive_bools)] // PyO3 signature mirrors the Python keyword arguments
@@ -905,7 +905,7 @@ pub fn recurrence_matrix<'py>(
 ///     ``data``'s precision.
 #[pyfunction]
 #[pyo3(
-    signature = (data, data_ref, *, k = None, metric = "euclidean", sparse = false, mode = "connectivity", bandwidth = None, full = false),
+    signature = (data: "ArrayLike", data_ref: "ArrayLike", *, k = None, metric = "euclidean", sparse = false, mode = "connectivity", bandwidth = None, full = false) -> "NDArray[Any]",
     text_signature = "(data, data_ref, *, k=None, metric='euclidean', sparse=False, mode='connectivity', bandwidth=None, full=False)"
 )]
 #[allow(
@@ -964,7 +964,7 @@ pub fn cross_similarity<'py>(
 ///     numpy.ndarray: ``(2t, t)`` or ``(t, t)``; bool if ``rec`` is bool, else ``rec``'s precision.
 #[pyfunction]
 #[pyo3(
-    signature = (rec, *, pad = true, axis = Int(-1)),
+    signature = (rec: "ArrayLike", *, pad = true, axis = Int(-1)) -> "NDArray[Any]",
     text_signature = "(rec, *, pad=True, axis=-1)"
 )]
 pub fn recurrence_to_lag<'py>(
@@ -1014,7 +1014,7 @@ pub fn recurrence_to_lag<'py>(
 ///
 ///     numpy.ndarray: ``(t, t)``; bool if ``lag`` is bool, else ``lag``'s precision.
 #[pyfunction]
-#[pyo3(signature = (lag, *, axis = Int(-1)), text_signature = "(lag, *, axis=-1)")]
+#[pyo3(signature = (lag: "ArrayLike", *, axis = Int(-1)) -> "NDArray[Any]", text_signature = "(lag, *, axis=-1)")]
 pub fn lag_to_recurrence<'py>(
     py: Python<'py>,
     lag: &Bound<'py, PyAny>,
@@ -1130,7 +1130,7 @@ fn bool_or_float<F: PyFloat>(py: Python<'_>, m: Array2<F>, is_bool: bool) -> Bou
 ///     ValueError: Negative indices or 0-d data.
 #[pyfunction]
 #[pyo3(
-    signature = (data, idx, *, aggregate = None, pad = true, axis = Int(-1)),
+    signature = (data: "ArrayLike", idx: "ArrayLike | Sequence[slice]", *, aggregate = None, pad = true, axis = Int(-1)) -> "NDArray[Any]",
     text_signature = "(data, idx, *, aggregate=None, pad=True, axis=-1)"
 )]
 pub fn sync<'py>(
@@ -1316,31 +1316,18 @@ fn builtin_aggregate(a: &Bound<'_, PyAny>) -> PyResult<Option<SyncAggregate>> {
     Ok(None)
 }
 
-/// Registers `audio_samples.sequence`.
-pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
-    let m = PyModule::new(py, "sequence")?;
-    m.add(
-        "__doc__",
-        "Sequence alignment and decoding: DTW, Viterbi, transition matrices, RQA, \
+#[doc = "Sequence alignment and decoding: DTW, Viterbi, transition matrices, RQA, \
          recurrence and cross-similarity matrices, lag conversions and sync. \
          float32 / complex64 arrays are processed in float32 and give float32 \
-         output; any other input is converted to float64.",
-    )?;
-    m.add_function(wrap_pyfunction!(dtw, &m)?)?;
-    m.add_function(wrap_pyfunction!(dtw_backtracking, &m)?)?;
-    m.add_function(wrap_pyfunction!(viterbi, &m)?)?;
-    m.add_function(wrap_pyfunction!(viterbi_discriminative, &m)?)?;
-    m.add_function(wrap_pyfunction!(viterbi_binary, &m)?)?;
-    m.add_function(wrap_pyfunction!(transition_uniform, &m)?)?;
-    m.add_function(wrap_pyfunction!(transition_loop, &m)?)?;
-    m.add_function(wrap_pyfunction!(transition_cycle, &m)?)?;
-    m.add_function(wrap_pyfunction!(transition_local, &m)?)?;
-    m.add_function(wrap_pyfunction!(rqa, &m)?)?;
-    m.add_function(wrap_pyfunction!(recurrence_matrix, &m)?)?;
-    m.add_function(wrap_pyfunction!(cross_similarity, &m)?)?;
-    m.add_function(wrap_pyfunction!(recurrence_to_lag, &m)?)?;
-    m.add_function(wrap_pyfunction!(lag_to_recurrence, &m)?)?;
-    m.add_function(wrap_pyfunction!(sync, &m)?)?;
-    parent.add_submodule(&m)?;
-    Ok(())
+         output; any other input is converted to float64."]
+#[pymodule(submodule, name = "sequence")]
+pub mod py_module {
+    #[pymodule_export]
+    use super::{
+        cross_similarity, dtw, dtw_backtracking, lag_to_recurrence, recurrence_matrix,
+        recurrence_to_lag, rqa, sync, transition_cycle, transition_local, transition_loop,
+        transition_uniform, viterbi, viterbi_binary, viterbi_discriminative,
+    };
+    #[pymodule_export]
+    use crate::segment::path_to_steps;
 }

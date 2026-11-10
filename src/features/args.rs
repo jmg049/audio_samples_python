@@ -239,6 +239,8 @@ pub struct FillNaArg(pub UnvoicedFill);
 
 impl<'a, 'py> FromPyObject<'a, 'py> for FillNaArg {
     type Error = PyErr;
+    #[cfg(feature = "stubs")]
+    const INPUT_TYPE: pyo3::inspect::PyStaticExpr = crate::args::hints::OPT_FLOAT;
 
     fn extract(obj: pyo3::Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
         parse_fill_na(&obj.to_owned()).map(FillNaArg)
@@ -251,6 +253,8 @@ pub struct ReassignRefArg(pub ReassignRefPower);
 
 impl<'a, 'py> FromPyObject<'a, 'py> for ReassignRefArg {
     type Error = PyErr;
+    #[cfg(feature = "stubs")]
+    const INPUT_TYPE: pyo3::inspect::PyStaticExpr = crate::args::hints::FLOAT_OR_CALLABLE;
 
     fn extract(obj: pyo3::Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
         parse_reassign_ref(&obj.to_owned()).map(ReassignRefArg)

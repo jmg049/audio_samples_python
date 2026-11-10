@@ -26,13 +26,12 @@ use numpy::Element;
 use pyo3::exceptions::{PyRuntimeError, PyStopIteration, PyTypeError, PyValueError};
 use pyo3::{
     Bound, Py, PyAny, PyErr, PyResult, Python, pyclass, pymethods,
-    types::{PyAnyMethods, PyBytes, PyBytesMethods, PyModule, PyModuleMethods, PyString},
+    types::{PyAnyMethods, PyBytes, PyBytesMethods, PyString},
 };
 
 use crate::io::PyCompressionLevel;
 use crate::{
-    PyAudioSamples, audio_io_err_to_py, dispatch_with_view, nzu_or_err, reexport,
-    types::PySampleType,
+    PyAudioSamples, audio_io_err_to_py, dispatch_with_view, nzu_or_err, types::PySampleType,
 };
 
 // ============================================================================
@@ -482,7 +481,7 @@ impl PyStreamedAudioReader {
     ///     ValueError: If ``frame_count`` is zero.
     ///     RuntimeError: If the reader is closed.
     ///     OSError: If reading fails or the data is corrupt.
-    #[pyo3(signature = (frame_count: "int", dtype: "SampleType" = None))]
+    #[pyo3(signature = (frame_count: "int", dtype: "SampleType | None" = None))]
     fn read_frames(
         &mut self,
         py: Python<'_>,
@@ -552,7 +551,7 @@ impl PyStreamedAudioReader {
     /// Returns:
     ///
     ///     StreamedFrameIterator: An iterator of :class:`AudioSamples` chunks.
-    #[pyo3(signature = (chunk_frames: "int" = 4096, dtype: "SampleType" = None))]
+    #[pyo3(signature = (chunk_frames: "int" = 4096, dtype: "SampleType | None" = None))]
     fn frames(
         slf: Py<Self>,
         chunk_frames: usize,
@@ -587,7 +586,7 @@ impl PyStreamedAudioReader {
     /// Raises:
     ///
     ///     ValueError: If ``window`` or ``hop`` is zero.
-    #[pyo3(signature = (window: "int", hop: "int", dtype: "SampleType" = None))]
+    #[pyo3(signature = (window: "int", hop: "int", dtype: "SampleType | None" = None))]
     fn windows(
         slf: Py<Self>,
         window: usize,
@@ -617,7 +616,7 @@ impl PyStreamedAudioReader {
     /// Returns:
     ///
     ///     StreamedFrameIterator: An iterator of single-frame :class:`AudioSamples`.
-    #[pyo3(signature = (dtype: "SampleType" = None))]
+    #[pyo3(signature = (dtype: "SampleType | None" = None))]
     const fn samples(slf: Py<Self>, dtype: Option<PySampleType>) -> PyStreamedFrameIterator {
         PyStreamedFrameIterator {
             reader: slf,
@@ -765,7 +764,7 @@ fn make_wav_writer(
 impl PyStreamedAudioWriter {
     /// Create a streaming writer to ``fp`` (format chosen from the extension).
     #[new]
-    #[pyo3(signature = (fp: "str | Path", channels: "int", sample_rate: "int", dtype: "SampleType" = None))]
+    #[pyo3(signature = (fp: "str | Path", channels: "int", sample_rate: "int", dtype: "SampleType | None" = None))]
     #[allow(clippy::needless_pass_by_value)] // PyO3 extracts `PathBuf` by value
     fn new(
         fp: std::path::PathBuf,
@@ -817,7 +816,7 @@ impl PyStreamedAudioWriter {
     ///     OSError: If the file cannot be created.
     ///     ValueError: If the type is not a FLAC-supported integer type.
     #[staticmethod]
-    #[pyo3(signature = (fp: "str | Path", channels: "int", sample_rate: "int", compression: "CompressionLevel" = None, dtype: "SampleType" = None))]
+    #[pyo3(signature = (fp: "str | Path", channels: "int", sample_rate: "int", compression: "CompressionLevel | None" = None, dtype: "SampleType | None" = None))]
     #[allow(clippy::needless_pass_by_value)] // PyO3 extracts `PathBuf` by value
     fn create_flac(
         fp: std::path::PathBuf,
@@ -1035,7 +1034,7 @@ pub struct PyWavSink {
 #[pymethods]
 impl PyWavSink {
     #[new]
-    #[pyo3(signature = (fp: "str | Path", channels: "int", sample_rate: "int", dtype: "SampleType" = None, total_frames: "int" = None))]
+    #[pyo3(signature = (fp: "str | Path", channels: "int", sample_rate: "int", dtype: "SampleType | None" = None, total_frames: "int | None" = None))]
     #[allow(clippy::needless_pass_by_value)] // PyO3 extracts `PathBuf` by value
     fn new(
         fp: std::path::PathBuf,
@@ -1163,26 +1162,4 @@ fn create_streamed_sink_typed(
         V::F64 => create_streamed_sink::<_, f64>(file, channels, sample_rate, total_frames),
     };
     r.map_err(audio_io_err_to_py)
-}
-
-/// Register the streaming classes onto the `io` submodule.
-pub fn register(io: &Bound<'_, PyModule>) -> PyResult<()> {
-    io.add_class::<PyStreamedAudioReader>()?;
-    io.add_class::<PyStreamedFrameIterator>()?;
-    io.add_class::<PyStreamedAudioWriter>()?;
-    io.add_class::<PyWavSink>()?;
-    Ok(())
-}
-
-/// Re-export the streaming class names from the parent module.
-pub fn reexport_names(parent: &Bound<'_, PyModule>, io: &Bound<'_, PyModule>) -> PyResult<()> {
-    reexport!(
-        parent,
-        io,
-        "StreamedAudioReader",
-        "StreamedFrameIterator",
-        "StreamedAudioWriter",
-        "WavSink"
-    );
-    Ok(())
 }

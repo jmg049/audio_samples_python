@@ -20,4 +20,4 @@ def svd(
 ) -> tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]:
     """Thin singular value decomposition, or the truncated one with ``k``."""
 
-__all__ = ["__doc__", "eigh", "nnls", "pinv", "svd"]
+__all__ = ["eigh", "nnls", "pinv", "svd"]

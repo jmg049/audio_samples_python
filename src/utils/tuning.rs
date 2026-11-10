@@ -25,7 +25,7 @@ use crate::audio_err_to_py;
 ///     float | numpy.ndarray[float64]: octave numbers, same shape as the input.
 #[pyfunction]
 #[pyo3(
-    signature = (frequencies, *, tuning = 0.0, bins_per_octave = Int(12)),
+    signature = (frequencies: "float | ArrayLike", *, tuning = 0.0, bins_per_octave = Int(12)) -> "float | NDArray[np.float64]",
     text_signature = "(frequencies, *, tuning=0.0, bins_per_octave=12)"
 )]
 pub fn hz_to_octs<'py>(
@@ -56,7 +56,7 @@ pub fn hz_to_octs<'py>(
 ///     float | numpy.ndarray[float64]: frequencies in Hz, same shape as the input.
 #[pyfunction]
 #[pyo3(
-    signature = (octs, *, tuning = 0.0, bins_per_octave = Int(12)),
+    signature = (octs: "float | ArrayLike", *, tuning = 0.0, bins_per_octave = Int(12)) -> "float | NDArray[np.float64]",
     text_signature = "(octs, *, tuning=0.0, bins_per_octave=12)"
 )]
 pub fn octs_to_hz<'py>(
@@ -80,7 +80,7 @@ pub fn octs_to_hz<'py>(
 ///
 ///     float | numpy.ndarray[float64]: tuning, same shape as the input.
 #[pyfunction]
-#[pyo3(signature = (A4, *, bins_per_octave = Int(12)), text_signature = "(A4, *, bins_per_octave=12)")]
+#[pyo3(signature = (A4: "float | ArrayLike", *, bins_per_octave = Int(12)) -> "float | NDArray[np.float64]", text_signature = "(A4, *, bins_per_octave=12)")]
 #[allow(non_snake_case, reason = "argument names follow the Python API")]
 pub fn a4_to_tuning<'py>(
     A4: &Bound<'py, PyAny>,
@@ -107,7 +107,7 @@ pub fn a4_to_tuning<'py>(
 ///
 ///     float | numpy.ndarray[float64]: A4 in Hz, same shape as the input.
 #[pyfunction]
-#[pyo3(signature = (tuning, *, bins_per_octave = Int(12)), text_signature = "(tuning, *, bins_per_octave=12)")]
+#[pyo3(signature = (tuning: "float | ArrayLike", *, bins_per_octave = Int(12)) -> "float | NDArray[np.float64]", text_signature = "(tuning, *, bins_per_octave=12)")]
 pub fn tuning_to_a4<'py>(
     tuning: &Bound<'py, PyAny>,
     bins_per_octave: Int,
@@ -130,7 +130,7 @@ pub fn tuning_to_a4<'py>(
 ///     numpy.ndarray[float64]: shape ``(n_bins,)``.
 #[pyfunction]
 #[pyo3(
-    signature = (n_bins, *, fmin, bins_per_octave = Int(12), tuning = 0.0),
+    signature = (n_bins, *, fmin, bins_per_octave = Int(12), tuning = 0.0) -> "NDArray[np.float64]",
     text_signature = "(n_bins, *, fmin, bins_per_octave=12, tuning=0.0)"
 )]
 pub fn cqt_frequencies(
@@ -220,7 +220,7 @@ pub fn key_to_notes<'py>(
 ///
 ///     ValueError: For an unparsable key.
 #[pyfunction]
-#[pyo3(signature = (key), text_signature = "(key)")]
+#[pyo3(signature = (key) -> "NDArray[np.int64]", text_signature = "(key)")]
 pub fn key_to_degrees<'py>(py: Python<'py>, key: &str) -> PyResult<Bound<'py, PyArray1<i64>>> {
     use numpy::PyArrayMethods;
     let d = audio_math::key_to_degrees(key).map_err(audio_err_to_py)?;
@@ -233,16 +233,4 @@ pub fn key_to_degrees<'py>(py: Python<'py>, key: &str) -> PyResult<Bound<'py, Py
         *o = i64::from(x);
     }
     Ok(out)
-}
-
-/// Registers the tuning helpers on `audio_samples.utils`.
-pub fn add(m: &Bound<'_, PyModule>) -> PyResult<()> {
-    m.add_function(wrap_pyfunction!(hz_to_octs, m)?)?;
-    m.add_function(wrap_pyfunction!(octs_to_hz, m)?)?;
-    m.add_function(wrap_pyfunction!(a4_to_tuning, m)?)?;
-    m.add_function(wrap_pyfunction!(tuning_to_a4, m)?)?;
-    m.add_function(wrap_pyfunction!(cqt_frequencies, m)?)?;
-    m.add_function(wrap_pyfunction!(key_to_notes, m)?)?;
-    m.add_function(wrap_pyfunction!(key_to_degrees, m)?)?;
-    Ok(())
 }

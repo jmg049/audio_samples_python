@@ -729,52 +729,45 @@ fn topic_fir(coefficients: Vec<f64>, sample_rate: f64) -> PyExplainDoc {
     topics::fir(&coefficients, sample_rate).into()
 }
 
-/// Create the `audio_samples.explain` submodule and re-export `ExplainDoc`.
-pub fn explain_module(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
-    let sub = PyModule::new(py, "explain")?;
-    sub.setattr(
-        "__doc__",
-        "Explanations of configurations and concepts, computed from your settings.\n\n\
-         ``explain(obj, ...)`` describes what a configuration (StftParams, MelParams,\n\
-         IirFilterDesign, CompressorConfig, ...) will do; the topic functions\n\
-         (sampling, aliasing, quantisation, dft, window, yin, autocorrelation_pitch,\n\
-         lpc, cepstrum, resampling, fir) explain concepts that have no\n\
-         configuration class. All return an ExplainDoc.",
-    )?;
-    sub.add_class::<PyExplainDoc>()?;
-    sub.add_function(wrap_pyfunction!(explain_fn, &sub)?)?;
-    sub.add_function(wrap_pyfunction!(topic_sampling, &sub)?)?;
-    sub.add_function(wrap_pyfunction!(topic_aliasing, &sub)?)?;
-    sub.add_function(wrap_pyfunction!(topic_quantisation, &sub)?)?;
-    sub.add_function(wrap_pyfunction!(topic_dft, &sub)?)?;
-    sub.add_function(wrap_pyfunction!(topic_window, &sub)?)?;
-    sub.add_function(wrap_pyfunction!(topic_yin, &sub)?)?;
-    sub.add_function(wrap_pyfunction!(topic_autocorrelation_pitch, &sub)?)?;
-    sub.add_function(wrap_pyfunction!(topic_lpc, &sub)?)?;
-    sub.add_function(wrap_pyfunction!(topic_cepstrum, &sub)?)?;
-    sub.add_function(wrap_pyfunction!(topic_resampling, &sub)?)?;
-    sub.add_function(wrap_pyfunction!(topic_fir, &sub)?)?;
-    sub.setattr(
-        "__all__",
-        vec![
-            "ExplainDoc",
-            "explain",
-            "sampling",
-            "aliasing",
-            "quantisation",
-            "dft",
-            "window",
-            "yin",
-            "autocorrelation_pitch",
-            "lpc",
-            "cepstrum",
-            "resampling",
-            "fir",
-        ],
-    )?;
-    m.add_submodule(&sub)?;
-    m.add("ExplainDoc", sub.getattr("ExplainDoc")?)?;
-    Ok(())
+/// Explanations of configurations and concepts, computed from your settings.
+///
+/// ``explain(obj, ...)`` describes what a configuration (``StftParams``, ``MelParams``,
+/// ``IirFilterDesign``, ``CompressorConfig``, ...) will do; the topic functions
+/// (``sampling``, ``aliasing``, ``quantisation``, ``dft``, ``window``, ``yin``,
+/// ``autocorrelation_pitch``, ``lpc``, ``cepstrum``, ``resampling``, ``fir``) explain concepts
+/// that have no configuration class. All return an ``ExplainDoc``.
+#[pymodule(submodule, name = "explain")]
+pub mod py_module {
+    use pyo3::prelude::*;
+
+    #[pymodule_export]
+    use super::{
+        PyExplainDoc, explain_fn, topic_aliasing, topic_autocorrelation_pitch, topic_cepstrum,
+        topic_dft, topic_fir, topic_lpc, topic_quantisation, topic_resampling, topic_sampling,
+        topic_window, topic_yin,
+    };
+
+    #[pymodule_init]
+    fn init(m: &Bound<'_, PyModule>) -> PyResult<()> {
+        m.setattr(
+            "__all__",
+            vec![
+                "ExplainDoc",
+                "explain",
+                "sampling",
+                "aliasing",
+                "quantisation",
+                "dft",
+                "window",
+                "yin",
+                "autocorrelation_pitch",
+                "lpc",
+                "cepstrum",
+                "resampling",
+                "fir",
+            ],
+        )
+    }
 }
 
 // =============================================================================
@@ -818,7 +811,7 @@ impl PyAudioSamples {
     ///     >>> doc = audio.explain(params)
     ///     >>> doc.quantity("Frequency resolution")
     ///     31.25
-    #[pyo3(name = "explain", signature = (obj, *, f0_range: "tuple[float, float] | None" = None, n_fft: "int | None" = None, n_mels: "int | None" = None))]
+    #[pyo3(name = "explain", signature = (obj: "StftParams | SpectrogramParams | MelParams | MfccParams | WindowType | IirFilterDesign | EqBand | CompressorConfig | LimiterConfig | VadConfig | OnsetDetectionConfig", *, f0_range: "tuple[float, float] | None" = None, n_fft: "int | None" = None, n_mels: "int | None" = None))]
     fn explain_config(
         &self,
         py: Python<'_>,
