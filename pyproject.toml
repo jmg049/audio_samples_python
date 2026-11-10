@@ -175,6 +175,15 @@ test = [
     "pyright>=1.1.400",
     "pre-commit>=4",
 ]
+# The versions scripts/stubs.sh was set up with: other mypy, pyright and numpy versions write the
+# revealed types in tests/typing/reveals.snapshot differently, and another maturin may generate
+# stubs/generated/ differently.
+typing = [
+    "maturin==1.16.0",
+    "mypy==2.4.1",
+    "pyright==1.1.414",
+    "numpy==2.5.4",
+]
 
 [tool.pyright]
 include = ["audio_samples/*.pyi", "audio_samples/utils", "audio_samples/mpl/*.pyi", "tests/typing/usage.py"]

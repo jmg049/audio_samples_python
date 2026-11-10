@@ -5,9 +5,8 @@
 #
 # The notebook hooks guard the tutorials in docs/source/tutorials: they must be
 # committed without outputs, and they must execute (each asserts the numbers
-# its text states). Executing them, and comparing the type stubs with the
-# extension, needs the extension built into the active environment
-# (`maturin develop --release`).
+# its text states). Executing them needs the extension built into the active
+# environment (`maturin develop --release`). The type-stub hook builds its own.
 repos:
   - repo: local
     hooks:
@@ -37,9 +36,12 @@ repos:
         language: system
         files: ^docs/source/tutorials/.*\.ipynb$
 
+      # Builds the extension with pyo3's introspection data (scripts/stubs.sh --check):
+      # stubs/generated/ must be what the bindings generate, and the hand-written stubs must
+      # agree with it, keep every overload's result, and pass stubtest, mypy and pyright.
       - id: type-stubs
-        name: type stubs match the extension (mypy.stubtest, mypy, pyright)
+        name: type stubs match the Rust bindings (scripts/stubs.sh --check)
         entry: tests/hooks/check_stubs.sh
         language: system
         pass_filenames: false
-        files: ^(audio_samples/.*\.pyi|tests/typing/.*|tests/test_stub_types\.py|tests/hooks/check_stubs\.sh|pyproject\.toml|src/.*\.rs)$
+        files: ^(audio_samples/.*\.pyi?|stubs/.*|scripts/stubs\.sh|tests/typing/.*|tests/test_stub_types\.py|tests/test_librosa_stubs\.py|tests/hooks/check_stubs\.sh|pyproject\.toml|build\.rs|Cargo\.(toml|lock)|src/.*\.rs)$

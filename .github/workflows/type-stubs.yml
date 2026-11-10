@@ -34,12 +34,14 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: audio_samples_python
-      - name: Build the extension
+      - name: Install the checkers
         working-directory: audio_samples_python
         run: |
           python -m venv .venv
-          .venv/bin/python -m pip install maturin
-          .venv/bin/maturin develop --group test
+          .venv/bin/python -m pip install --upgrade pip maturin
+          .venv/bin/python -m pip install --group test --group typing
+      # Builds with pyo3's introspection data, regenerates the stubs and fails if
+      # stubs/generated/ or the hand-written stubs disagree with the bindings.
       - name: Check the stubs
         working-directory: audio_samples_python
         run: tests/hooks/check_stubs.sh

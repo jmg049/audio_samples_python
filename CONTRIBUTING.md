@@ -24,6 +24,41 @@ tests and `pre-commit run --all-files` runs the hooks. Without `--group`, `matur
 instead, which holds the extras for notebooks and benchmarks. The `heavy` group (PyTorch and Qt) is needed only by
 `audio_samples/io_benchmark.py` and interactive plotting: add it with `--group test,heavy`.
 
+## Type stubs
+
+The stubs in `audio_samples/*.pyi` are written by hand: they hold what Rust cannot express, such as
+the generic `AudioSamples`, the overloads for dtype rules and argument-dependent results, and
+`Literal` values. `stubs/generated/` holds the stubs pyo3 generates from the bindings, and the hand
+stubs are checked against it. After adding or changing a binding, or editing a stub, run
+
+```bash
+scripts/stubs.sh
+```
+
+It builds the extension with the `stubs` feature (pyo3's introspection data; release wheels are
+built without it), rewrites `stubs/generated/` and `tests/typing/reveals/`, and runs the checks.
+Fix what it reports, then commit the regenerated files with the change. The pre-commit hook and the
+`Type stubs` workflow run `scripts/stubs.sh --check`, which fails when `stubs/generated/` is out of
+date or when:
+
+* a binding (function, class, method, property) is missing from the hand stubs, or the stubs have
+  an item the bindings do not;
+* a parameter differs in name, kind or default;
+* a stub type disagrees with the Rust type: each overload's parameter types must be accepted by the
+  Rust type and its return type must be one the Rust type allows
+  (`tests/typing/check_against_rust.py`, proven by mypy and pyright);
+* a binding gives no Python type where the stub states one. Give it one in Rust:
+  `#[pyo3(signature = (x: "NDArray[np.float64]") -> "float")]`, or `INPUT_TYPE` on an argument
+  extractor (see `args::hints`). `tests/typing/untyped_bindings.txt` lists the bindings not yet
+  typed in Rust; it may only shrink;
+* any overload, method or property gives a different type under mypy or pyright than recorded in
+  `tests/typing/reveals.snapshot`. For an intended change run
+  `python tests/typing/check_precision.py --update` and commit the snapshot;
+* `mypy.stubtest`, mypy, pyright or `tests/test_stub_types.py` fail.
+
+The revealed types depend on the checker versions: install them with
+`pip install --group test --group typing`.
+
 ## Building
 
 The bindings build against checkouts of

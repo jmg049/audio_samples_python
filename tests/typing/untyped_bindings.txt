@@ -1,0 +1,29 @@
+# Bindings whose Rust side gives no Python type for a parameter or the return
+# (Any or Incomplete in stubs/generated), so their stub types cannot be checked
+# against Rust. This list may only shrink; see tests/typing/check_against_rust.py.
+audio_samples.AudioSamples.__array__ -> return
+audio_samples.AudioSamples.__class_getitem__ -> return
+audio_samples.AudioSamples.__getitem__ -> return
+audio_samples.AudioSamples.info -> return
+audio_samples.arrays.SparseRows.data -> return
+audio_samples.arrays.SparseRows.indices -> return
+audio_samples.arrays.SparseRows.indptr -> return
+audio_samples.arrays.abs2 -> return
+audio_samples.arrays.phasor -> return
+audio_samples.explain.explain(obj)
+audio_samples.factorization.Nmf.components_ -> return
+audio_samples.features.a_weighting -> return
+audio_samples.features.a_weighting(frequencies)
+audio_samples.features.b_weighting -> return
+audio_samples.features.b_weighting(frequencies)
+audio_samples.features.c_weighting -> return
+audio_samples.features.c_weighting(frequencies)
+audio_samples.features.d_weighting -> return
+audio_samples.features.d_weighting(frequencies)
+audio_samples.segment.TimelagFiltered.__call__ -> return
+audio_samples.segment.TimelagFiltered.__wrapped__ -> return
+audio_samples.types.ComplexOnsetConfig.cqt_params -> return
+audio_samples.types.OnsetDetectionConfig.cqt_params -> return
+audio_samples.types.Psd.density -> return
+audio_samples.types.Psd.frequencies -> return
+audio_samples.types.SpectralFluxConfig.cqt_params -> return
