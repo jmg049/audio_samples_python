@@ -76,9 +76,13 @@ tar -C "$ROOT" --exclude='__pycache__' --exclude='*.so' -cf - audio_samples | ta
 SUFFIX=$("$PY" -c "import importlib.machinery as m; print(m.EXTENSION_SUFFIXES[0])")
 cp "$SO" "$WORK/pkg/audio_samples/audio_samples$SUFFIX"
 export PYTHONPATH="$WORK/pkg${PYTHONPATH:+:$PYTHONPATH}"
+# -P: do not put the working directory, with its own audio_samples/ and whatever extension is
+# installed there, ahead of this build on sys.path.
+"$PY" -P -c 'import audio_samples, sys; sys.exit(not audio_samples.__file__.startswith(sys.argv[1]))' "$WORK/pkg" \
+    || { echo "audio_samples is not imported from $WORK/pkg" >&2; exit 1; }
 
 step "mypy.stubtest: stubs against the runtime"
-"$PY" -m mypy.stubtest audio_samples --concise \
+"$PY" -P -m mypy.stubtest audio_samples --concise \
     --mypy-config-file pyproject.toml \
     --allowlist tests/typing/stubtest_allowlist.txt
 
@@ -88,7 +92,7 @@ step "mypy and pyright"
 "$PYRIGHT" --pythonpath "$PY"
 
 step "reveal_type against the dtype each call returns"
-"$PY" -m pytest -q -p no:cacheprovider tests/test_stub_types.py tests/test_librosa_stubs.py
+"$PY" -P -m pytest -q -p no:cacheprovider tests/test_stub_types.py tests/test_librosa_stubs.py
 
 echo
 echo "stubs: all checks passed"
