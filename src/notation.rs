@@ -153,9 +153,43 @@ pub fn midi_to_note<'py>(
     key: &str,
     unicode: bool,
 ) -> PyResult<Bound<'py, PyAny>> {
-    map_each(midi, |m| {
-        nt::midi_name(m.extract()?, octave, cents, key, unicode).map_err(audio_err_to_py)
-    })
+    let name = KeyNames::new(key, unicode);
+    map_each(midi, |m| name.midi(m.extract()?, octave, cents))
+}
+
+/// The note names of a key, spelled at the first finite number and reused
+/// for the rest (so that a key is still only parsed when a name needs it).
+struct KeyNames<'k> {
+    key: &'k str,
+    unicode: bool,
+    notes: std::cell::RefCell<Option<Vec<String>>>,
+}
+
+impl<'k> KeyNames<'k> {
+    const fn new(key: &'k str, unicode: bool) -> Self {
+        Self {
+            key,
+            unicode,
+            notes: std::cell::RefCell::new(None),
+        }
+    }
+
+    /// `nt::midi_name(midi, octave, cents, key, unicode)`.
+    fn midi(&self, midi: f64, octave: bool, cents: bool) -> PyResult<String> {
+        if !midi.is_finite() || (cents && !octave) {
+            return nt::midi_name(midi, octave, cents, self.key, self.unicode)
+                .map_err(audio_err_to_py);
+        }
+        let mut notes = self.notes.borrow_mut();
+        if notes.is_none() {
+            *notes = Some(
+                audio_samples::utils::audio_math::key_to_notes(self.key, self.unicode, false)
+                    .map_err(audio_err_to_py)?,
+            );
+        }
+        let notes = notes.as_deref().unwrap_or_default();
+        nt::midi_name_in(notes, midi, octave, cents).map_err(audio_err_to_py)
+    }
 }
 
 /// The name of a frequency.
@@ -181,6 +215,7 @@ pub fn hz_to_note<'py>(
     key: &str,
     unicode: bool,
 ) -> PyResult<Bound<'py, PyAny>> {
+    let name = KeyNames::new(key, unicode);
     map_each(hz, |f| {
         let f: f64 = f.extract()?;
         #[allow(
@@ -188,7 +223,7 @@ pub fn hz_to_note<'py>(
             reason = "the unfused form is the reference rounding"
         )]
         let midi = 12.0 * (f.log2() - 440f64.log2()) + 69.0;
-        nt::midi_name(midi, octave, cents, key, unicode).map_err(audio_err_to_py)
+        name.midi(midi, octave, cents)
     })
 }
 
