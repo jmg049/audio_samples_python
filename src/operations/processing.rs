@@ -308,7 +308,9 @@ impl PyAudioSamples {
     ///   interpolation (images are not suppressed).
     /// * ``"medium"``: passband 0.90 x Nyquist, 100 dB stopband.
     /// * ``"high"``: passband 0.913 x Nyquist, 125 dB stopband.
-    /// * ``"very_high"``: passband 0.95 x Nyquist, 185 dB stopband.
+    /// * ``"very_high"``: 185 dB stopband; passband 0.95 x Nyquist for
+    ///   decimation by a power of two, 0.98 for other ratios with no prime
+    ///   factor above 7, 0.996 for the rest (such as pitch shifts).
     ///
     /// Args:
     ///

@@ -511,7 +511,10 @@ class ResamplingQuality:
     """Windowed sinc, passband 0.913 x Nyquist, 125 dB stopband."""
 
     very_high: ResamplingQuality
-    """Windowed sinc, passband 0.95 x Nyquist, 185 dB stopband."""
+    """Windowed sinc, 185 dB stopband; passband 0.95 x Nyquist for
+    decimation by a power of two, 0.98 for other ratios with no prime factor
+    above 7, 0.996 for the rest (such as pitch shifts).
+    """
 
     ...
 
