@@ -3104,10 +3104,13 @@ class ResamplingQuality:
       100 dB stopband.
     - ``ResamplingQuality.high``: windowed sinc, passband 0.913 x Nyquist,
       125 dB stopband.
+    - ``ResamplingQuality.very_high``: windowed sinc, passband 0.95 x Nyquist,
+      185 dB stopband (limited to about -140 dB by rounding for float32
+      audio).
 
     Instances are immutable enum-like values accessed via the class
     attributes; resampling methods also accept the names ``"fast"``,
-    ``"medium"`` and ``"high"``.
+    ``"medium"``, ``"high"`` and ``"very_high"``.
     """
     fast: Final[ResamplingQuality]
     """
@@ -3123,6 +3126,11 @@ class ResamplingQuality:
     """
     Medium quality resampling: windowed sinc, passband 0.90 x Nyquist,
     100 dB stopband.
+    """
+    very_high: Final[ResamplingQuality]
+    """
+    Very high quality resampling: windowed sinc, passband 0.95 x Nyquist,
+    185 dB stopband.
     """
     @staticmethod
     def default() -> ResamplingQuality: ...

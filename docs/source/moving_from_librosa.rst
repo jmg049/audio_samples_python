@@ -545,8 +545,9 @@ resampler. ``"high"`` is designed after ``soxr_hq``'s passband and attenuation b
 reproduce it, so anything downstream of resampling agrees less closely than everything
 else on this page. Measured against librosa 1.0.0 (soxr 1.1.0) from 22050 Hz to 11025, 16000 and 44100 Hz: 129
 to 135 dB SNR in the middle of a band-limited signal, 59 to 104 dB at its abrupt edges, 50
-to 58 dB on white noise. There is no ``res_type`` choice of filter design (``soxr_vhq``,
-``kaiser_best``, ``scipy`` and so on), and fractional rates are not accepted.
+to 58 dB on white noise. ``"very_high"`` (what ``res_type="soxr_vhq"`` selects) has a passband
+to 0.95 x Nyquist and a 185 dB stopband. There is no ``res_type`` choice of other filter designs
+(``kaiser_best``, ``scipy`` and so on), and fractional rates are not accepted.
 
 ``AudioSamples.resample`` defaults to ``"fast"``, which is a much lower quality:
 

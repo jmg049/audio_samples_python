@@ -494,7 +494,8 @@ class ResamplingQuality:
     time ``k * in_rate / out_rate``) and produces exactly
     ``ceil(n * out_rate / in_rate)`` samples; the tiers differ in the
     anti-aliasing / anti-imaging filter (Nyquist of the lower rate). Resampling
-    methods also accept the names ``"fast"``, ``"medium"`` and ``"high"``.
+    methods also accept the names ``"fast"``, ``"medium"``, ``"high"`` and
+    ``"very_high"``.
     """
 
     fast: ResamplingQuality
@@ -508,6 +509,9 @@ class ResamplingQuality:
 
     high: ResamplingQuality
     """Windowed sinc, passband 0.913 x Nyquist, 125 dB stopband."""
+
+    very_high: ResamplingQuality
+    """Windowed sinc, passband 0.95 x Nyquist, 185 dB stopband."""
 
     ...
 

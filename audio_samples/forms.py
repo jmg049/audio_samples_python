@@ -345,7 +345,10 @@ def stream_blocks(
     file = os.fspath(path)
     if sr is not None and sr != _aus.io.info(file).sample_rate:
         audio = read_segment(file, offset=offset, duration=duration)
-        audio = audio.resample(sr, res_type if res_type in ("fast", "medium", "high") else "high")
+        quality = {"soxr_vhq": "very_high"}.get(res_type, res_type)
+        if quality not in ("fast", "medium", "high", "very_high"):
+            quality = "high"
+        audio = audio.resample(sr, quality)
         data = audio.to_numpy()
         if mono and data.ndim > 1:
             data = data.mean(axis=0)

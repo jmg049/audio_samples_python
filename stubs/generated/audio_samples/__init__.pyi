@@ -136,7 +136,7 @@ class AudioSamples:
         Never raises: on any failure it returns ``None`` and Jupyter falls back
         to the plain-text ``repr``.
         """
-    def _resample_array(self, /, target_sample_rate: int, quality: ResamplingQuality | Literal["fast", "medium", "high"], gain: float | None = None) -> Any:
+    def _resample_array(self, /, target_sample_rate: int, quality: ResamplingQuality | Literal["fast", "medium", "high", "very_high"], gain: float | None = None) -> Any:
         """
         ``resample`` returning the samples as an array of their own type. Float samples are
         moved into the array rather than copied out of an ``AudioSamples``.
@@ -1564,8 +1564,8 @@ class AudioSamples:
             scale (bool): Divide by ``sqrt(filter length)``. Default True.
             pad_mode (str): Padding at the signal ends. Default ``"constant"``.
             res_type (str): Quality of the crate's resampler for the octave
-                decimation: ``"soxr_hq"`` (default) and ``"soxr_vhq"`` high,
-                ``"soxr_mq"`` medium, ``"soxr_lq"`` fast.
+                decimation: ``"soxr_hq"`` (default) high, ``"soxr_vhq"`` very
+                high, ``"soxr_mq"`` medium, ``"soxr_lq"`` fast.
 
         Returns:
 
@@ -3659,13 +3659,14 @@ class AudioSamples:
           interpolation (images are not suppressed).
         * ``"medium"``: passband 0.90 x Nyquist, 100 dB stopband.
         * ``"high"``: passband 0.913 x Nyquist, 125 dB stopband.
+        * ``"very_high"``: passband 0.95 x Nyquist, 185 dB stopband.
 
         Args:
 
             target_sample_rate (int): Output sample rate in Hz (> 0).
             quality (ResamplingQuality | str): ``ResamplingQuality.fast`` (default),
-                ``.medium``, ``.high``, or the names ``"fast"``, ``"medium"``,
-                ``"high"``.
+                ``.medium``, ``.high``, ``.very_high``, or the names ``"fast"``,
+                ``"medium"``, ``"high"``, ``"very_high"``.
 
         Returns:
 

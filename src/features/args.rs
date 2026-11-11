@@ -174,20 +174,22 @@ pub fn parse_aggregate(obj: &Bound<'_, PyAny>) -> PyResult<(SalienceAggregate, b
     })
 }
 
-/// `res_type` -> resampler quality. `"soxr_hq"` (default), `"soxr_vhq"`
-/// and `"high"` select [`ResamplingQuality::High`]; `"soxr_mq"`/`"medium"`
+/// `res_type` -> resampler quality. `"soxr_hq"` (default) and `"high"`
+/// select [`ResamplingQuality::High`]; `"soxr_vhq"`/`"very_high"`
+/// [`ResamplingQuality::VeryHigh`]; `"soxr_mq"`/`"medium"`
 /// [`ResamplingQuality::Medium`]; `"soxr_lq"`/`"soxr_qq"`/`"fast"`
 /// [`ResamplingQuality::Fast`].
 pub fn parse_res_type(res_type: &str) -> PyResult<ResamplingQuality> {
     match res_type {
-        "soxr_hq" | "soxr_vhq" | "high" => Ok(ResamplingQuality::High),
+        "soxr_hq" | "high" => Ok(ResamplingQuality::High),
+        "soxr_vhq" | "very_high" => Ok(ResamplingQuality::VeryHigh),
         "soxr_mq" | "medium" => Ok(ResamplingQuality::Medium),
         "soxr_lq" | "soxr_qq" | "fast" => Ok(ResamplingQuality::Fast),
         other => Err(value_err(
             "res_type",
             format!(
                 "unsupported res_type {other:?}; expected 'soxr_hq' (default), 'soxr_vhq', \
-                 'soxr_mq', 'soxr_lq', 'high', 'medium' or 'fast' (the crate's own resampler \
+                 'soxr_mq', 'soxr_lq', 'very_high', 'high', 'medium' or 'fast' (the crate's own resampler \
                  is used for all of them)"
             ),
         )),

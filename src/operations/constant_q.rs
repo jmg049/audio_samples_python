@@ -147,8 +147,8 @@ impl PyAudioSamples {
     ///     scale (bool): Divide by ``sqrt(filter length)``. Default True.
     ///     pad_mode (str): Padding at the signal ends. Default ``"constant"``.
     ///     res_type (str): Quality of the crate's resampler for the octave
-    ///         decimation: ``"soxr_hq"`` (default) and ``"soxr_vhq"`` high,
-    ///         ``"soxr_mq"`` medium, ``"soxr_lq"`` fast.
+    ///         decimation: ``"soxr_hq"`` (default) high, ``"soxr_vhq"`` very
+    ///         high, ``"soxr_mq"`` medium, ``"soxr_lq"`` fast.
     ///
     /// Returns:
     ///

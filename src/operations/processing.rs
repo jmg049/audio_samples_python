@@ -12,7 +12,7 @@ use crate::{
 };
 
 /// A resampling quality given as a ``ResamplingQuality`` or by name
-/// (``"fast"``, ``"medium"``, ``"high"``).
+/// (``"fast"``, ``"medium"``, ``"high"``, ``"very_high"``).
 #[cfg(feature = "stubs")]
 use pyo3::type_hint_union;
 
@@ -36,13 +36,15 @@ impl<'a, 'py> FromPyObject<'a, 'py> for QualityArg {
                 "fast" => Ok(Self(PyResamplingQuality::resample_fast())),
                 "medium" => Ok(Self(PyResamplingQuality::resample_mediuem())),
                 "high" => Ok(Self(PyResamplingQuality::resample_high())),
+                "very_high" => Ok(Self(PyResamplingQuality::resample_very_high())),
                 other => Err(PyValueError::new_err(format!(
-                    "quality: unknown resampling quality {other:?}; expected 'fast', 'medium' or 'high'"
+                    "quality: unknown resampling quality {other:?}; expected 'fast', 'medium', \
+                     'high' or 'very_high'"
                 ))),
             };
         }
         Err(pyo3::exceptions::PyTypeError::new_err(
-            "quality must be a ResamplingQuality or one of 'fast', 'medium', 'high'",
+            "quality must be a ResamplingQuality or one of 'fast', 'medium', 'high', 'very_high'",
         ))
     }
 }
@@ -306,13 +308,14 @@ impl PyAudioSamples {
     ///   interpolation (images are not suppressed).
     /// * ``"medium"``: passband 0.90 x Nyquist, 100 dB stopband.
     /// * ``"high"``: passband 0.913 x Nyquist, 125 dB stopband.
+    /// * ``"very_high"``: passband 0.95 x Nyquist, 185 dB stopband.
     ///
     /// Args:
     ///
     ///     target_sample_rate (int): Output sample rate in Hz (> 0).
     ///     quality (ResamplingQuality | str): ``ResamplingQuality.fast`` (default),
-    ///         ``.medium``, ``.high``, or the names ``"fast"``, ``"medium"``,
-    ///         ``"high"``.
+    ///         ``.medium``, ``.high``, ``.very_high``, or the names ``"fast"``,
+    ///         ``"medium"``, ``"high"``, ``"very_high"``.
     ///
     /// Returns:
     ///

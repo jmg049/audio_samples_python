@@ -105,7 +105,13 @@ pub mod hints {
     pub const ANY: PyStaticExpr = id!("typing", "Any");
     /// The names of the resampling qualities.
     pub const QUALITY_NAME: PyStaticExpr =
-        sub!(LITERAL, literal("fast"), literal("medium"), literal("high"));
+        sub!(
+            LITERAL,
+            literal("fast"),
+            literal("medium"),
+            literal("high"),
+            literal("very_high")
+        );
 }
 
 /// `ValueError(f"{name} ...")`.

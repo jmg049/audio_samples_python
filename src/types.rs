@@ -870,10 +870,13 @@ impl_py_repr!(PyVadConfig);
 ///   100 dB stopband.
 /// - ``ResamplingQuality.high``: windowed sinc, passband 0.913 x Nyquist,
 ///   125 dB stopband.
+/// - ``ResamplingQuality.very_high``: windowed sinc, passband 0.95 x Nyquist,
+///   185 dB stopband (limited to about -140 dB by rounding for float32
+///   audio).
 ///
 /// Instances are immutable enum-like values accessed via the class
 /// attributes; resampling methods also accept the names ``"fast"``,
-/// ``"medium"`` and ``"high"``.
+/// ``"medium"``, ``"high"`` and ``"very_high"``.
 #[pyclass(
     name = "ResamplingQuality",
     from_py_object,
@@ -905,6 +908,13 @@ impl PyResamplingQuality {
             inner: ResamplingQuality::High,
         }
     }
+
+    #[inline]
+    pub const fn resample_very_high() -> Self {
+        Self {
+            inner: ResamplingQuality::VeryHigh,
+        }
+    }
 }
 
 #[pymethods]
@@ -933,6 +943,15 @@ impl PyResamplingQuality {
     const fn high() -> Self {
         Self {
             inner: ResamplingQuality::High,
+        }
+    }
+
+    /// Very high quality resampling: windowed sinc, passband 0.95 x Nyquist,
+    /// 185 dB stopband.
+    #[classattr]
+    const fn very_high() -> Self {
+        Self {
+            inner: ResamplingQuality::VeryHigh,
         }
     }
 }

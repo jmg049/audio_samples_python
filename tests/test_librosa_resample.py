@@ -77,7 +77,7 @@ def test_resample_by_ratio_and_names(fx):
     np.testing.assert_array_equal(np.asarray(by_ratio.to_numpy()), by_name)
 
 
-@pytest.mark.parametrize("quality", ["fast", "medium", "high"])
+@pytest.mark.parametrize("quality", ["fast", "medium", "high", "very_high"])
 @pytest.mark.parametrize("target", [8000, 16000, 44100, 48000])
 def test_exact_length_and_alignment(quality, target):
     sr = 22050

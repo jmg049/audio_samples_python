@@ -41,14 +41,16 @@ use crate::{
 fn parse_res_type(obj: &Bound<'_, PyAny>) -> PyResult<ResamplingQuality> {
     if let Ok(s) = obj.cast::<PyString>() {
         return match &*s.to_cow()? {
-            "soxr_hq" | "soxr_vhq" | "high" | "kaiser_best" => Ok(ResamplingQuality::High),
+            "soxr_hq" | "high" | "kaiser_best" => Ok(ResamplingQuality::High),
+            "soxr_vhq" | "very_high" => Ok(ResamplingQuality::VeryHigh),
             "soxr_mq" | "medium" | "kaiser_fast" => Ok(ResamplingQuality::Medium),
             "soxr_lq" | "soxr_qq" | "fast" | "linear" => Ok(ResamplingQuality::Fast),
             other => Err(value_err(
                 "res_type",
                 format!(
                     "unsupported res_type {other:?}; expected 'soxr_hq' (default, -> High), \
-                     'soxr_mq' (-> Medium), 'soxr_lq' (-> Fast), 'high', 'medium', 'fast' \
+                     'soxr_vhq' (-> VeryHigh), 'soxr_mq' (-> Medium), 'soxr_lq' (-> Fast), \
+                     'very_high', 'high', 'medium', 'fast' \
                      or a ResamplingQuality"
                 ),
             )),

@@ -206,10 +206,10 @@ def r_AudioSamples__stft__1(self_: AudioSamples[_T], params: StftParams) -> None
 def r_AudioSamples__istft__1(stft_result: StftResult) -> None:
     reveal_type(AudioSamples.istft(stft_result))
 
-def r_AudioSamples__resample__1(self_: AudioSamples[_T], target_sample_rate: int, quality: ResamplingQuality | Literal['fast', 'medium', 'high']) -> None:
+def r_AudioSamples__resample__1(self_: AudioSamples[_T], target_sample_rate: int, quality: ResamplingQuality | Literal['fast', 'medium', 'high', 'very_high']) -> None:
     reveal_type(self_.resample(target_sample_rate, quality))
 
-def r_AudioSamples__resample_by_ratio__1(self_: AudioSamples[_T], ratio: float, quality: ResamplingQuality | Literal['fast', 'medium', 'high']) -> None:
+def r_AudioSamples__resample_by_ratio__1(self_: AudioSamples[_T], ratio: float, quality: ResamplingQuality | Literal['fast', 'medium', 'high', 'very_high']) -> None:
     reveal_type(self_.resample_by_ratio(ratio, quality))
 
 def r_AudioSamples__apply_filter__1(self_: AudioSamples[_T], coefficients: NDArray[np.float64]) -> None:

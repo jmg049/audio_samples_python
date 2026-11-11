@@ -633,7 +633,7 @@ class AudioSamples(Generic[_S_co]):
     def resample(
         self,
         target_sample_rate: int,
-        quality: "ResamplingQuality | Literal['fast', 'medium', 'high']" = "fast",
+        quality: "ResamplingQuality | Literal['fast', 'medium', 'high', 'very_high']" = "fast",
     ) -> Self:
         """Resample to ``target_sample_rate``.
 
@@ -660,7 +660,7 @@ class AudioSamples(Generic[_S_co]):
     def resample_by_ratio(
         self,
         ratio: float,
-        quality: "ResamplingQuality | Literal['fast', 'medium', 'high']" = "fast",
+        quality: "ResamplingQuality | Literal['fast', 'medium', 'high', 'very_high']" = "fast",
     ) -> Self:
         """Resample to ``round(sample_rate * ratio)`` Hz; otherwise as ``resample``.
 
