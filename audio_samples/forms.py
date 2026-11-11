@@ -424,7 +424,7 @@ def resample(
     Returns:
         The resampled array, of ``y``'s dtype.
     """
-    quality = {"soxr_hq": "high", "soxr_vhq": "high", "soxr_mq": "medium", "soxr_lq": "fast", "soxr_qq": "fast"}.get(res_type, res_type)
+    quality = {"soxr_hq": "high", "soxr_vhq": "very_high", "soxr_mq": "medium", "soxr_lq": "fast", "soxr_qq": "fast"}.get(res_type, res_type)
     y = np.asarray(y)
     # A multiplication is several times cheaper than a division per sample.
     gain = 1.0 / np.sqrt(target_sr / orig_sr) if scale else None
