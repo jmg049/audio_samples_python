@@ -65,7 +65,10 @@ pub fn octs_to_hz<'py>(
     bins_per_octave: Int,
 ) -> PyResult<Bound<'py, PyAny>> {
     let b = positive("bins_per_octave", bins_per_octave)?;
-    map_f64(octs, "octs", |o| audio_math::octs_to_hz(o, tuning, b))
+    // `octs_to_hz(o)` is `(A / 16) * 2^o` with `A` the tuned A4, which does
+    // not depend on `o`: take it once (`octs_to_hz(0)` is exactly `A / 16`).
+    let base = audio_math::octs_to_hz(0.0, tuning, b);
+    map_f64(octs, "octs", |o| base * 2.0f64.powf(o))
 }
 
 /// Converts an A4 reference frequency to a tuning deviation in fractions of a
