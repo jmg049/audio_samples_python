@@ -300,7 +300,14 @@ impl PyStreamedAudioReader {
         let file = File::open(path)
             .map_err(audio_samples_io::error::AudioIOError::from)
             .map_err(audio_io_err_to_py)?;
-        let reader = BufReader::new(ReaderSource::File(file));
+        // A WAV file off the disk streams faster through a larger buffer; see
+        // `stream_buffer_capacity`. FLAC frames are read as they are decoded.
+        let capacity = if matches!(file_type, audio_samples_io::types::FileType::WAV) {
+            audio_samples_io::stream_buffer_capacity(&file)
+        } else {
+            8 * 1024
+        };
+        let reader = BufReader::with_capacity(capacity, ReaderSource::File(file));
         Self::open_reader(reader, file_type, path)
     }
 
