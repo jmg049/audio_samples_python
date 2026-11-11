@@ -287,6 +287,12 @@ impl PyStreamedAudioReader {
 
     fn open_path(fp: &str) -> PyResult<Self> {
         let path = Path::new(fp);
+        // Opened before the format is detected, so that a small file off the disk is asked for whole
+        // before the first read; see `prepare_for_streaming`.
+        let file = File::open(path)
+            .map_err(audio_samples_io::error::AudioIOError::from)
+            .map_err(audio_io_err_to_py)?;
+        let capacity = audio_samples_io::prepare_for_streaming(&file);
         // Re-use the crate's format detection by trying each opener based on extension/magic.
         let file_type = audio_samples_io::types::FileType::detect(path);
         if !matches!(
@@ -297,13 +303,9 @@ impl PyStreamedAudioReader {
                 "Unsupported file format for streaming: {file_type:?}"
             )));
         }
-        let file = File::open(path)
-            .map_err(audio_samples_io::error::AudioIOError::from)
-            .map_err(audio_io_err_to_py)?;
-        // A WAV file off the disk streams faster through a larger buffer; see
-        // `stream_buffer_capacity`. FLAC frames are read as they are decoded.
+        // A larger buffer only helps WAV; FLAC frames are read as they are decoded.
         let capacity = if matches!(file_type, audio_samples_io::types::FileType::WAV) {
-            audio_samples_io::stream_buffer_capacity(&file)
+            capacity
         } else {
             8 * 1024
         };
