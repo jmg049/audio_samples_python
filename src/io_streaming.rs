@@ -39,7 +39,7 @@ use crate::{
 // ============================================================================
 
 /// The reader backing of the streaming constructors.
-type FileReader = BufReader<ReaderSource>;
+type FileReader = audio_samples_io::StreamReader<ReaderSource>;
 /// The writer backing used by the path-based streaming constructors.
 type FileWriter = BufWriter<File>;
 
@@ -286,31 +286,40 @@ impl PyStreamedAudioReader {
     }
 
     fn open_path(fp: &str) -> PyResult<Self> {
+        use std::io::BufRead;
         let path = Path::new(fp);
-        // Opened before the format is detected, so that a small file off the disk is asked for whole
-        // before the first read; see `prepare_for_streaming`.
+        // One open, and the first read is the first buffer of the file: the format is told from
+        // it and the header parsed from it, so nothing is read twice. The buffer, and whether a
+        // small file off the disk is asked for whole first, follow `stream_plan`.
         let file = File::open(path)
             .map_err(audio_samples_io::error::AudioIOError::from)
             .map_err(audio_io_err_to_py)?;
-        let capacity = audio_samples_io::prepare_for_streaming(&file);
-        // Re-use the crate's format detection by trying each opener based on extension/magic.
-        let file_type = audio_samples_io::types::FileType::detect(path);
-        if !matches!(
-            file_type,
-            audio_samples_io::types::FileType::WAV | audio_samples_io::types::FileType::FLAC
-        ) {
-            return Err(PyValueError::new_err(format!(
-                "Unsupported file format for streaming: {file_type:?}"
-            )));
-        }
-        // A larger buffer only helps WAV; FLAC frames are read as they are decoded.
-        let capacity = if matches!(file_type, audio_samples_io::types::FileType::WAV) {
-            capacity
-        } else {
-            8 * 1024
+        let plan = audio_samples_io::stream_plan(&file);
+        let len = plan.len;
+        let mut reader = audio_samples_io::StreamReader::new(ReaderSource::File(file), plan);
+        let head = reader
+            .fill_buf()
+            .map_err(audio_samples_io::error::AudioIOError::from)
+            .map_err(audio_io_err_to_py)?;
+        let magic = &head[..head.len().min(audio_samples_io::types::FileType::MAGIC_LEN)];
+        let file_type = match audio_samples_io::types::FileType::from_magic_bytes(magic) {
+            audio_samples_io::types::FileType::Unknown => audio_samples_io::types::FileType::from_path(path),
+            known => known,
         };
-        let reader = BufReader::with_capacity(capacity, ReaderSource::File(file));
-        Self::open_reader(reader, file_type, path)
+        let inner = match file_type {
+            audio_samples_io::types::FileType::WAV => ReaderInner::Wav(
+                StreamedWavFile::new_with_len(reader, path.to_path_buf(), len).map_err(audio_io_err_to_py)?,
+            ),
+            audio_samples_io::types::FileType::FLAC => ReaderInner::Flac(
+                StreamedFlacFile::new_with_path(reader, path.to_path_buf()).map_err(audio_io_err_to_py)?,
+            ),
+            other => {
+                return Err(PyValueError::new_err(format!(
+                    "Unsupported file format for streaming: {other:?}"
+                )));
+            }
+        };
+        Ok(Self { inner: Some(inner) })
     }
 
     fn open_reader(
@@ -356,7 +365,7 @@ impl PyStreamedAudioReader {
                 "fp: a file object must hold WAV or FLAC data",
             ));
         }
-        let reader = BufReader::with_capacity(PY_READ_CHUNK, ReaderSource::Python(source));
+        let reader = audio_samples_io::StreamReader::with_buffer(ReaderSource::Python(source), PY_READ_CHUNK, PY_READ_CHUNK);
         Self::open_reader(reader, file_type, Path::new("<file object>"))
     }
 

@@ -135,9 +135,9 @@ pub fn read(
     };
     let fp = fp.to_string_lossy();
     let fp: &str = &fp;
-    crate::ensure_file_exists(fp)?;
     // Fast path: no type conversion requested → single-pass (one open, one header parse, one read).
-    // This eliminates the extra File::open + header parse that peek_native_type() would add.
+    // This eliminates the extra File::open + header parse that peek_native_type() would add, and
+    // the existence check, since a missing file falls through to the check below.
     #[cfg(target_endian = "little")]
     if as_type.is_none() {
         if let Some(result) = audio_samples_io::read_pyarray_native(py, std::path::Path::new(fp)) {
@@ -145,6 +145,7 @@ pub fn read(
         }
         // Falls through for I24 or any format read_pyarray_native doesn't handle.
     }
+    crate::ensure_file_exists(fp)?;
 
     // Slow path: type conversion requested, or fast path not applicable.
     let target = match as_type {
