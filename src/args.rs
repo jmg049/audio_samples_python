@@ -104,14 +104,13 @@ pub mod hints {
     /// Any object; the binding checks it at run time.
     pub const ANY: PyStaticExpr = id!("typing", "Any");
     /// The names of the resampling qualities.
-    pub const QUALITY_NAME: PyStaticExpr =
-        sub!(
-            LITERAL,
-            literal("fast"),
-            literal("medium"),
-            literal("high"),
-            literal("very_high")
-        );
+    pub const QUALITY_NAME: PyStaticExpr = sub!(
+        LITERAL,
+        literal("fast"),
+        literal("medium"),
+        literal("high"),
+        literal("very_high")
+    );
 }
 
 /// `ValueError(f"{name} ...")`.
