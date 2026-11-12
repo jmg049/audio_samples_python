@@ -251,11 +251,6 @@ def get_duration(
     return float(samples) / sr
 
 
-def _native_type(path: str) -> Any:
-    name = str(_aus.io.peek_native_type(path)).upper()
-    return getattr(_aus.SampleType, name)
-
-
 def read_segment(path: str | os.PathLike[str], *, offset: float = 0.0, duration: float | None = None, **kwargs: Any) -> Any:
     """Reads part of an audio file.
 
@@ -278,7 +273,6 @@ def read_segment(path: str | os.PathLike[str], *, offset: float = 0.0, duration:
     if kwargs:
         raise TypeError(f"unexpected arguments {sorted(kwargs)}")
     file = os.fspath(path)
-    dtype = as_type if as_type is not None else _native_type(file)
     reader = _aus.io.StreamedAudioReader(file)
     try:
         rate = reader.sample_rate
@@ -287,7 +281,7 @@ def read_segment(path: str | os.PathLike[str], *, offset: float = 0.0, duration:
         count = available if duration is None else min(int(duration * rate), available)
         if count > 0:
             reader.seek_to_frame(start)
-            part = reader.read_frames(count, dtype)
+            part = reader.read_frames(count, as_type)
             if part is not None:
                 return part
     finally:
@@ -369,12 +363,11 @@ def stream_blocks(
         left = reader.total_frames - first
         if duration is not None:
             left = min(left, int(duration * rate))
-        dtype = _native_type(file)
         kept: NDArray[Any] | None = None
         while left > 0:
             have = 0 if kept is None else kept.shape[-1]
             count = min(block - have, left)
-            chunk = reader.read_frames(count, dtype) if count > 0 else None
+            chunk = reader.read_frames(count) if count > 0 else None
             if chunk is not None:
                 fresh = chunk.to_numpy()
                 left -= fresh.shape[-1]

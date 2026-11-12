@@ -10,7 +10,7 @@
 //! shape `(frames,)` and multi-channel audio is a 2-D array of shape `(channels, frames)`.
 
 use std::fs::{File, OpenOptions as FsOpenOptions};
-use std::io::{BufReader, BufWriter, Read, Seek, SeekFrom};
+use std::io::{BufWriter, Read, Seek, SeekFrom};
 use std::num::NonZeroU32;
 use std::path::Path;
 
@@ -301,7 +301,9 @@ impl PyStreamedAudioReader {
             .fill_buf()
             .map_err(audio_samples_io::error::AudioIOError::from)
             .map_err(audio_io_err_to_py)?;
-        let magic = &head[..head.len().min(audio_samples_io::types::FileType::MAGIC_LEN)];
+        let magic = head
+            .get(..audio_samples_io::types::FileType::MAGIC_LEN)
+            .unwrap_or(head);
         let file_type = match audio_samples_io::types::FileType::from_magic_bytes(magic) {
             audio_samples_io::types::FileType::Unknown => {
                 audio_samples_io::types::FileType::from_path(path)
