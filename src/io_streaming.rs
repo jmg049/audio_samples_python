@@ -303,15 +303,19 @@ impl PyStreamedAudioReader {
             .map_err(audio_io_err_to_py)?;
         let magic = &head[..head.len().min(audio_samples_io::types::FileType::MAGIC_LEN)];
         let file_type = match audio_samples_io::types::FileType::from_magic_bytes(magic) {
-            audio_samples_io::types::FileType::Unknown => audio_samples_io::types::FileType::from_path(path),
+            audio_samples_io::types::FileType::Unknown => {
+                audio_samples_io::types::FileType::from_path(path)
+            }
             known => known,
         };
         let inner = match file_type {
             audio_samples_io::types::FileType::WAV => ReaderInner::Wav(
-                StreamedWavFile::new_with_len(reader, path.to_path_buf(), len).map_err(audio_io_err_to_py)?,
+                StreamedWavFile::new_with_len(reader, path.to_path_buf(), len)
+                    .map_err(audio_io_err_to_py)?,
             ),
             audio_samples_io::types::FileType::FLAC => ReaderInner::Flac(
-                StreamedFlacFile::new_with_path(reader, path.to_path_buf()).map_err(audio_io_err_to_py)?,
+                StreamedFlacFile::new_with_path(reader, path.to_path_buf())
+                    .map_err(audio_io_err_to_py)?,
             ),
             other => {
                 return Err(PyValueError::new_err(format!(
@@ -365,7 +369,11 @@ impl PyStreamedAudioReader {
                 "fp: a file object must hold WAV or FLAC data",
             ));
         }
-        let reader = audio_samples_io::StreamReader::with_buffer(ReaderSource::Python(source), PY_READ_CHUNK, PY_READ_CHUNK);
+        let reader = audio_samples_io::StreamReader::with_buffer(
+            ReaderSource::Python(source),
+            PY_READ_CHUNK,
+            PY_READ_CHUNK,
+        );
         Self::open_reader(reader, file_type, Path::new("<file object>"))
     }
 
