@@ -247,6 +247,20 @@ def test_str_of_multichannel_does_not_panic():
     assert "3 ch" in str(audio)
 
 
+def test_str_is_one_line_and_repr_previews_channels():
+    data = np.arange(20, dtype=np.int16).reshape(2, 10)
+    audio = aus.AudioSamples.new_multi(data, 8000)
+    header = "AudioSamples<i16>: 2 ch × 10 samples @ 8000 Hz (0.001 s)"
+    assert str(audio) == header
+    assert repr(audio) == (
+        header + "\n  ch 0: [0, 1, 2, ..., 7, 8, 9]\n  ch 1: [10, 11, 12, ..., 17, 18, 19]"
+    )
+    mono = aus.AudioSamples.new_mono(np.array([0.25, -0.5], np.float32), 48000)
+    assert repr(mono) == (
+        "AudioSamples<f32>: 1 ch × 2 samples @ 48000 Hz (0.000 s)\n  ch 0: [0.2500, -0.5000]"
+    )
+
+
 @pytest.mark.parametrize(
     "call",
     [

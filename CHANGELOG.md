@@ -11,6 +11,10 @@ has the full detail.
 
 ## [Unreleased]
 
+- **`str(audio)` is one line and `repr(audio)` previews each channel.** `str` gives
+  `AudioSamples<f32>: 2 ch × 48000 samples @ 48000 Hz (1.000 s)`; `repr` adds a line per channel
+  (up to eight) with its first and last three samples. `str` of mono audio used to include a
+  preview line, and the header used `x` for `×`.
 - **`==` and `!=` on AudioSamples compare sample type, sample rate, shape and samples**; `==`
   returned False for any two objects.
 - **`forms.resample` and `forms.pitch_shift` with `scale=True` multiply by the reciprocal of the

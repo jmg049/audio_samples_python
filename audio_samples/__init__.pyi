@@ -5279,7 +5279,7 @@ class AudioSamples(Generic[_S_co]):
         ...
 
     def __str__(self) -> str:
-        """String representation of the audio samples."""
+        """One line: sample type, channels, samples per channel, sample rate and duration."""
         ...
 
     @property

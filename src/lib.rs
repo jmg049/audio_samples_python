@@ -2611,16 +2611,14 @@ impl PyAudioSamples {
         })
     }
 
-    fn __str__(&self, py: Python<'_>) -> String {
-        // The core crate's compact multi-channel Display indexes channels by
-        // the sample count and panics; use the detailed view for those.
-        if self.is_multi_channel(py) {
-            format!("{self:#}")
-        } else {
-            format!("{self}")
-        }
+    /// One line: sample type, channels, samples per channel, sample rate and
+    /// duration, e.g. ``AudioSamples<f32>: 2 ch × 48000 samples @ 48000 Hz (1.000 s)``.
+    fn __str__(&self) -> String {
+        format!("{self}")
     }
 
+    /// The :meth:`__str__` line followed by one line per channel (up to eight)
+    /// previewing its first and last three samples.
     fn __repr__(&self) -> String {
         format!("{self:#}")
     }
