@@ -5,5 +5,5 @@
 .. |cases| replace:: 176
 .. |loadrows| replace:: 92
 .. |when| replace:: 2026-11-04
-.. |rust| replace:: 31450b0
+.. |rust| replace:: 9067893
 .. |py| replace:: 44bcbb4
