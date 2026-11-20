@@ -21,8 +21,8 @@ maturin develop --release --group test
 
 This builds the extension into the environment and installs what the tests and hooks need. `pytest` then runs the
 tests and `pre-commit run --all-files` runs the hooks. Without `--group`, `maturin develop` installs the `dev` group
-instead, which holds the extras for notebooks and benchmarks. The `heavy` group (PyTorch and Qt) is needed only by
-`audio_samples/io_benchmark.py` and interactive plotting: add it with `--group test,heavy`.
+instead, which holds the extras for notebooks and benchmarks. The `heavy` group (PyTorch and Qt) is needed only for the
+PyTorch interop and interactive plotting: add it with `--group test,heavy`.
 
 ## Type stubs
 

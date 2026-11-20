@@ -13,9 +13,9 @@
 
 ## Overview
 
-Python bindings for the AudioSamples Rust crates. An `AudioSamples` object stores its sample rate, channel layout and sample type together with the samples, so these properties do not have to be passed separately to each function, as they do in most existing audio processing libraries.
+Python bindings for the AudioSamples Rust crates. An `AudioSamples` object stores its sample rate, channel layout and sample type together with the samples, so these properties do not have to be passed separately to each function.
 
-In libraries such as librosa, soundfile and torchaudio, the caller keeps track of the sample rate, channel layout and format and passes them to each function call. A mismatch between these values and the data is an easy mistake to make and is often not detected. AudioSamples stores these properties in the data structure, and processing methods carry them through to their outputs.
+When audio is held as a bare array, the caller keeps track of the sample rate, channel layout and format and passes them to each function call. A mismatch between these values and the data is an easy mistake to make and is often not detected. AudioSamples stores these properties in the data structure, and processing methods carry them through to their outputs.
 
 
 ```text
@@ -41,23 +41,21 @@ audio_samples
 
 ## Why AudioSamples?
 
-### The Problem with Existing Libraries
+### Audio as a bare array
 
-**Manual Metadata Coordination**: Every operation requires passing sample rates and format information manually:
+**Manual Metadata Coordination**: When the samples are a plain array, every operation needs the sample rate and format passed by hand, and nothing checks that they belong to the array:
 
-<!-- readme-test: skip (illustrative librosa code, needs audio.wav) -->
+<!-- readme-test: skip (illustrative code with placeholder functions, needs audio.wav) -->
 ```python
-# Traditional approach - error-prone manual coordination
-data, sr = soundfile.read('audio.wav') # silently converts all samples in 'audio.wav' to 'float64'
-mel = librosa.feature.melspectrogram(y=data, sr=sr)  # Must pass sr manually
-freqs = librosa.fft_frequencies(sr=sr, n_fft=2048)  # Must pass sr again
+# The sample rate travels separately from the samples
+data, sr = read_wav('audio.wav')            # the samples may already be converted to float64
+mel = melspectrogram(data, sr=sr)           # pass sr by hand
+freqs = fft_frequencies(sr=sr, n_fft=2048)  # and again
 ```
 
-**Hidden Operations**: Some libraries change the data without the caller asking. librosa resamples to 22050 Hz by default and converts the sample format on load, which makes research results harder to reproduce.
+**Hidden Operations**: A loader that resamples to a default rate or converts the sample format without being asked makes research results harder to reproduce.
 
-**I/O Performance**: TorchAudio's file I/O is 4-10x slower than that of dedicated audio I/O libraries.
-
-### The AudioSamples Solution
+### Audio that carries its properties
 
 **Audio-First Design**: Audio objects carry sample rates, channel configurations, and format information intrinsically:
 
@@ -71,7 +69,7 @@ freqs = stft.frequencies  # frequency axis in Hz, from the audio's own sample ra
 
 **Explicit Operations Only**: The aim is that nothing happens to the data unless the caller requests it (any remaining implicit behaviour is treated as a bug). AudioSamples keeps the original audio properties unless the caller asks to change them.
 
-**I/O Speed**: File I/O, implemented in Rust, is 2-4x faster than in established Python libraries, and the data converts to and from NumPy arrays.
+**I/O Speed**: File I/O is implemented in Rust and reads into and writes from NumPy arrays directly; the [benchmarks](#performance-benchmarks) below compare it with other libraries.
 
 ## Installation
 
@@ -319,7 +317,7 @@ lp = audio.low_pass_filter(1000.0)         # Low-pass at 1kHz
 hp = audio.high_pass_filter(100.0)         # High-pass at 100Hz
 bp = audio.band_pass_filter(200.0, 2000.0) # Band-pass 200Hz-2kHz
 
-# Higher-order IIR filters (match scipy.signal) are applied in place
+# Higher-order IIR filters are applied in place
 audio.butterworth_highpass(4, 80.0)        # 4th-order Butterworth high-pass
 
 # Designs interoperate with scipy: same SOS coefficients

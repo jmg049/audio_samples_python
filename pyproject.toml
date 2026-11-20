@@ -40,9 +40,7 @@ classifiers = [
 ]
 dynamic = ["version"]
 # The spectrogram classes (StftParams, MelParams, ...) are compiled into the
-# extension and exposed as ``audio_samples.spectrograms``; the separate
-# ``spectrograms`` pip package is not needed (its objects are not accepted by
-# AudioSamples methods).
+# extension and exposed as ``audio_samples.spectrograms``.
 dependencies = [
     "numpy>=1.24.4",
 ]
@@ -156,7 +154,7 @@ dev = [
     "resampy>=0.4.3",
     "samplerate>=0.2.3",
 ]
-# Large downloads that only audio_samples/io_benchmark.py and interactive plotting use.
+# Large downloads: PyTorch for the tensor interop and Qt for interactive plotting.
 heavy = [
     "pyqt6>=6.7.1",
     "torchaudio>=2.5.1",

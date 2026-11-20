@@ -1,7 +1,7 @@
 # Builds wheels and the sdist, tests them, and publishes to PyPI on a version tag.
 #
-# Started from the output of `maturin generate-ci github` (maturin 1.16), with
-# these changes:
+# Differences from the workflow that `maturin generate-ci github` (maturin 1.16)
+# writes:
 #   - the bindings need sibling checkouts of audio_samples and audio_samples_io,
 #     so every repository is checked out under the workspace and maturin runs
 #     from audio_samples_python/. The manylinux and musllinux containers only

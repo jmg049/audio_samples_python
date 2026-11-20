@@ -15,8 +15,8 @@ has the full detail.
   square root of the ratio** instead of dividing by it: within one rounding of the quotient, and
   several times cheaper per sample. For float32 and float64 input, `forms.resample` applies it
   while the samples are written (the same values, one pass fewer).
-- **Downsampling by ratios such as 22050 to 16000 or 8000 Hz and 48000 to 44100 Hz is 40-55 %
-  faster** and its output changes at the stopband level; see the crate's changelog.
+- **Downsampling by ratios such as 22050 to 16000 or 8000 Hz and 48000 to 44100 Hz is faster**
+  and its output changes at the stopband level; see the crate's changelog.
 - **`features.wavelet_lengths` and `features.wavelet` accept one frequency when `alpha` is
   given.** The bandwidth then does not come from the spacing of the frequencies; without
   `alpha`, two or more are still required.
@@ -100,8 +100,8 @@ has the full detail.
 - **Example clips.** `generation.example_clip` renders named clips of music and speech with known
   contents at any sample rate, duration and sample type. Nothing is stored or downloaded, and the same
   arguments give the same bytes on any platform with IEEE 754 arithmetic.
-- **Free-threaded Python.** The module now states `gil_used = false` after an audit and
-  a ThreadSanitizer run; on `python3.14t` the GIL stays off. A read that meets a concurrent
+- **Free-threaded Python.** The module states `gil_used = false`, so on `python3.14t` the
+  GIL stays off. A read that meets a concurrent
   `SosFilter.process_samples_in_place` on the same array raises `TypeError` instead of
   a `PanicException`. See the "Threads and free-threaded Python" page.
 - **Threads.** Streaming readers and writers work from any thread, one call at a time; they
@@ -152,8 +152,6 @@ has the full detail.
   in `trim_db`, `trim_db_in_place` and `split_db` (librosa: 60).
 - **Teaching material.** An explain API (`audio_samples.explain`), 14 tutorial
   notebooks, a page for instructors and a set of usability fixes for students.
-- The bindings now build against the unreleased `audio_samples` core (through
-  `[patch.crates-io]` in `Cargo.toml`), so the core fixes below reach Python.
 
 ### Added
 
@@ -263,12 +261,11 @@ has the full detail.
     and is exactly `ceil(n * out / in)` samples long. `ResamplingQuality.fast`
     downsampling is now anti-aliased, so it is no longer identical to
     `x[::2]`.
-  - `mu_compress` follows the standard curve `ln(1 + mu|x|) / ln(1 + mu)`,
-    which equals `librosa.mu_compress(quantize=False)`.
+  - `mu_compress` follows the standard curve `ln(1 + mu|x|) / ln(1 + mu)`.
   - `PeakPickingConfig.default()` (used by the default onset detection
     config) uses a 9-frame delta threshold (0.07) with an absolute floor of
-    0.1, a 3-frame minimum separation and no median filter. The old defaults
-    found about 10% of onsets. The `music`/`speech`/`drums` presets are
+    0.1, a 3-frame minimum separation and no median filter, so it finds the
+    onsets of a clean track. The `music`/`speech`/`drums` presets are
     unchanged.
   - Filter designs match `scipy.signal`. High-pass Butterworth/Chebyshev
     filters of order other than 2 were frequency-mirrored, odd orders had a
