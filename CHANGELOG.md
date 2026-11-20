@@ -36,6 +36,11 @@ has the full detail.
   alone; it was 0.0 but had no effect). `apply_compressor_sidechain` and
   `apply_limiter_sidechain` accept a mono side-chain signal for multi-channel audio, or one with
   the same channel count.
+- **`OnsetDetectionConfig` no longer has `threshold`, `min_onset_interval_secs` or
+  `pre_emphasis`.** Onset detection never read them. The threshold floor, the minimum spacing
+  between onsets and the pre-emphasis are set on `peak_picking`
+  (`adaptive_threshold.min_threshold`, `min_peak_separation`, `pre_emphasis` and
+  `pre_emphasis_coeff`). The constructor no longer takes them.
 
 - **`==` and `!=` on AudioSamples compare sample type, sample rate, shape and samples**; `==`
   returned False for any two objects.

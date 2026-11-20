@@ -2205,7 +2205,9 @@ class OnsetDetectionConfig:
 
     Onset detection identifies the start times of musical notes, transients,
     or other acoustic events. This configuration controls the spectral analysis
-    parameters, peak picking strategy, and various preprocessing options.
+    parameters, peak picking strategy, and various preprocessing options. The
+    global threshold, the minimum spacing between onsets and the pre-emphasis
+    of the detection function are ``peak_picking`` settings.
     """
 
     def __new__(
@@ -2213,9 +2215,6 @@ class OnsetDetectionConfig:
         cqt_params: CqtParams,
         hop_size: int,
         window_size: Optional[int] = None,
-        threshold: float = 0.3,
-        min_onset_interval_secs: float = 0.07,
-        pre_emphasis: float = 0.0,
         adaptive_threshold: bool = True,
         median_filter_length: int = 3,
         adaptive_threshold_multiplier: float = 3.0,
@@ -2278,24 +2277,9 @@ class OnsetDetectionConfig:
     def median_filter_length(self, value: int) -> None: ...
 
     @property
-    def min_onset_interval_secs(self) -> float: ...
-    @min_onset_interval_secs.setter
-    def min_onset_interval_secs(self, value: float) -> None: ...
-
-    @property
     def peak_picking(self) -> PeakPickingConfig: ...
     @peak_picking.setter
     def peak_picking(self, value: PeakPickingConfig) -> None: ...
-
-    @property
-    def pre_emphasis(self) -> float: ...
-    @pre_emphasis.setter
-    def pre_emphasis(self, value: float) -> None: ...
-
-    @property
-    def threshold(self) -> float: ...
-    @threshold.setter
-    def threshold(self, value: float) -> None: ...
 
     @property
     def window_size(self) -> Optional[int]: ...

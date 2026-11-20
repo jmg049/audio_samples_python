@@ -654,20 +654,8 @@ def r_OnsetDetectionConfig__median_filter_length__1(self_: OnsetDetectionConfig)
     reveal_type(self_.median_filter_length)
 
 
-def r_OnsetDetectionConfig__min_onset_interval_secs__1(self_: OnsetDetectionConfig) -> None:
-    reveal_type(self_.min_onset_interval_secs)
-
-
 def r_OnsetDetectionConfig__peak_picking__1(self_: OnsetDetectionConfig) -> None:
     reveal_type(self_.peak_picking)
-
-
-def r_OnsetDetectionConfig__pre_emphasis__1(self_: OnsetDetectionConfig) -> None:
-    reveal_type(self_.pre_emphasis)
-
-
-def r_OnsetDetectionConfig__threshold__1(self_: OnsetDetectionConfig) -> None:
-    reveal_type(self_.threshold)
 
 
 def r_OnsetDetectionConfig__window_size__1(self_: OnsetDetectionConfig) -> None:

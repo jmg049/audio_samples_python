@@ -4617,10 +4617,12 @@ impl_py_repr!(PyComplexOnsetConfig);
 ///     The keyword defaults of the constructor
 ///     ``OnsetDetectionConfig(cqt_params, hop_size, ...)`` are not those of
 ///     ``OnsetDetectionConfig.default()``: the constructor uses
-///     ``min_onset_interval_secs=0.07``, ``pre_emphasis=0.0``,
-///     ``median_filter_length=3``, ``adaptive_threshold_multiplier=3.0``,
-///     while ``default()`` uses ``0.1``, ``0.1``, ``5``, ``1.5`` (other fields
-///     agree). Start from ``default()`` for the library defaults.
+///     ``median_filter_length=3`` and ``adaptive_threshold_multiplier=3.0``,
+///     while ``default()`` uses ``5`` and ``1.5`` (other fields agree). Start
+///     from ``default()`` for the library defaults.
+///
+///     The global threshold, the minimum spacing between onsets and the
+///     pre-emphasis of the detection function are ``peak_picking`` settings.
 ///
 ///     ``peak_picking`` and ``cqt_params`` return copies; assign a modified
 ///     copy back (``config.peak_picking = pp``) to change them.
@@ -4646,12 +4648,6 @@ impl PyOnsetDetectionConfig {
     ///     Hop size for frame-based analysis in samples
     /// ``window_size`` : Optional[int]
     ///     Window size for CQT analysis in samples (None = auto-calculate)
-    /// threshold : float
-    ///     Threshold for onset detection
-    /// ``min_onset_interval_secs`` : float
-    ///     Minimum time between consecutive onsets in seconds
-    /// ``pre_emphasis`` : float
-    ///     Pre-emphasis factor for signal processing
     /// ``adaptive_threshold`` : bool
     ///     Whether to use adaptive thresholding
     /// ``median_filter_length`` : int
@@ -4665,12 +4661,11 @@ impl PyOnsetDetectionConfig {
     /// -----
     /// The keyword defaults of this constructor are not those of
     /// ``OnsetDetectionConfig.default()``: the constructor uses
-    /// ``min_onset_interval_secs=0.07``, ``pre_emphasis=0.0``,
     /// ``median_filter_length=3`` and ``adaptive_threshold_multiplier=3.0``,
-    /// while ``default()`` uses ``0.1``, ``0.1``, ``5`` and ``1.5`` (other
-    /// fields agree). Use ``default()`` and set fields for the library default.
+    /// while ``default()`` uses ``5`` and ``1.5`` (other fields agree). Use
+    /// ``default()`` and set fields for the library default.
     #[new]
-    #[pyo3(signature = (cqt_params, hop_size, window_size=None, threshold=0.3, min_onset_interval_secs=0.07, pre_emphasis=0.0, adaptive_threshold=true, median_filter_length=3, adaptive_threshold_multiplier=3.0, peak_picking=None))]
+    #[pyo3(signature = (cqt_params, hop_size, window_size=None, adaptive_threshold=true, median_filter_length=3, adaptive_threshold_multiplier=3.0, peak_picking=None))]
     #[allow(
         clippy::too_many_arguments,
         reason = "the Python signature takes these arguments"
@@ -4679,9 +4674,6 @@ impl PyOnsetDetectionConfig {
         cqt_params: PyCqtParams,
         hop_size: usize,
         window_size: Option<usize>,
-        threshold: f64,
-        min_onset_interval_secs: f64,
-        pre_emphasis: f64,
         adaptive_threshold: bool,
         median_filter_length: usize,
         adaptive_threshold_multiplier: f64,
@@ -4697,9 +4689,6 @@ impl PyOnsetDetectionConfig {
                 cqt_params.into(),
                 hop_size_nz,
                 window_size_nz,
-                threshold,
-                min_onset_interval_secs,
-                pre_emphasis,
                 adaptive_threshold,
                 median_filter_nz,
                 adaptive_threshold_multiplier,
@@ -4797,42 +4786,6 @@ impl PyOnsetDetectionConfig {
     fn set_window_size(&mut self, value: Option<usize>) -> PyResult<()> {
         self.inner.window_size = value.map(nzu_or_err).transpose()?;
         Ok(())
-    }
-
-    /// Get the onset detection threshold.
-    #[getter]
-    const fn threshold(&self) -> f64 {
-        self.inner.threshold
-    }
-
-    /// Set the onset detection threshold.
-    #[setter]
-    const fn set_threshold(&mut self, value: f64) {
-        self.inner.threshold = value;
-    }
-
-    /// Get the minimum onset interval in seconds.
-    #[getter]
-    const fn min_onset_interval_secs(&self) -> f64 {
-        self.inner.min_onset_interval_secs
-    }
-
-    /// Set the minimum onset interval in seconds.
-    #[setter]
-    const fn set_min_onset_interval_secs(&mut self, value: f64) {
-        self.inner.min_onset_interval_secs = value;
-    }
-
-    /// Get the pre-emphasis factor.
-    #[getter]
-    const fn pre_emphasis(&self) -> f64 {
-        self.inner.pre_emphasis
-    }
-
-    /// Set the pre-emphasis factor.
-    #[setter]
-    const fn set_pre_emphasis(&mut self, value: f64) {
-        self.inner.pre_emphasis = value;
     }
 
     /// Get whether adaptive thresholding is enabled.

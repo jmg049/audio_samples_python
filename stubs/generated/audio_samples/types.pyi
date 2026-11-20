@@ -2172,15 +2172,17 @@ class OnsetDetectionConfig:
         The keyword defaults of the constructor
         ``OnsetDetectionConfig(cqt_params, hop_size, ...)`` are not those of
         ``OnsetDetectionConfig.default()``: the constructor uses
-        ``min_onset_interval_secs=0.07``, ``pre_emphasis=0.0``,
-        ``median_filter_length=3``, ``adaptive_threshold_multiplier=3.0``,
-        while ``default()`` uses ``0.1``, ``0.1``, ``5``, ``1.5`` (other fields
-        agree). Start from ``default()`` for the library defaults.
+        ``median_filter_length=3`` and ``adaptive_threshold_multiplier=3.0``,
+        while ``default()`` uses ``5`` and ``1.5`` (other fields agree). Start
+        from ``default()`` for the library defaults.
+
+        The global threshold, the minimum spacing between onsets and the
+        pre-emphasis of the detection function are ``peak_picking`` settings.
 
         ``peak_picking`` and ``cqt_params`` return copies; assign a modified
         copy back (``config.peak_picking = pp``) to change them.
     """
-    def __new__(cls, /, cqt_params: Any, hop_size: int, window_size: int | None = None, threshold: float = 0.3, min_onset_interval_secs: float = 0.07, pre_emphasis: float = 0.0, adaptive_threshold: bool = True, median_filter_length: int = 3, adaptive_threshold_multiplier: float = 3.0, peak_picking: PeakPickingConfig | None = None) -> OnsetDetectionConfig:
+    def __new__(cls, /, cqt_params: Any, hop_size: int, window_size: int | None = None, adaptive_threshold: bool = True, median_filter_length: int = 3, adaptive_threshold_multiplier: float = 3.0, peak_picking: PeakPickingConfig | None = None) -> OnsetDetectionConfig:
         """
         Create a new ``OnsetDetectionConfig`` with custom parameters.
 
@@ -2192,12 +2194,6 @@ class OnsetDetectionConfig:
             Hop size for frame-based analysis in samples
         ``window_size`` : Optional[int]
             Window size for CQT analysis in samples (None = auto-calculate)
-        threshold : float
-            Threshold for onset detection
-        ``min_onset_interval_secs`` : float
-            Minimum time between consecutive onsets in seconds
-        ``pre_emphasis`` : float
-            Pre-emphasis factor for signal processing
         ``adaptive_threshold`` : bool
             Whether to use adaptive thresholding
         ``median_filter_length`` : int
@@ -2211,10 +2207,9 @@ class OnsetDetectionConfig:
         -----
         The keyword defaults of this constructor are not those of
         ``OnsetDetectionConfig.default()``: the constructor uses
-        ``min_onset_interval_secs=0.07``, ``pre_emphasis=0.0``,
         ``median_filter_length=3`` and ``adaptive_threshold_multiplier=3.0``,
-        while ``default()`` uses ``0.1``, ``0.1``, ``5`` and ``1.5`` (other
-        fields agree). Use ``default()`` and set fields for the library default.
+        while ``default()`` uses ``5`` and ``1.5`` (other fields agree). Use
+        ``default()`` and set fields for the library default.
         """
     def __repr__(self, /) -> str: ...
     @property
@@ -2290,16 +2285,6 @@ class OnsetDetectionConfig:
         """
         Set the median filter length.
         """
-    @property
-    def min_onset_interval_secs(self, /) -> float:
-        """
-        Get the minimum onset interval in seconds.
-        """
-    @min_onset_interval_secs.setter
-    def min_onset_interval_secs(self, /, value: float) -> None:
-        """
-        Set the minimum onset interval in seconds.
-        """
     @classmethod
     def musical(cls, /, sample_rate: "int") -> OnsetDetectionConfig:
         """
@@ -2341,16 +2326,6 @@ class OnsetDetectionConfig:
                 applied to; the peak picker's durations are converted to frames
                 at ``sample_rate / hop_size``.
         """
-    @property
-    def pre_emphasis(self, /) -> float:
-        """
-        Get the pre-emphasis factor.
-        """
-    @pre_emphasis.setter
-    def pre_emphasis(self, /, value: float) -> None:
-        """
-        Set the pre-emphasis factor.
-        """
     @classmethod
     def speech(cls, /, sample_rate: "int") -> OnsetDetectionConfig:
         """
@@ -2361,16 +2336,6 @@ class OnsetDetectionConfig:
             sample_rate (int): Sample rate of the audio the configuration will be
                 applied to; the peak picker's durations are converted to frames
                 at ``sample_rate / hop_size``.
-        """
-    @property
-    def threshold(self, /) -> float:
-        """
-        Get the onset detection threshold.
-        """
-    @threshold.setter
-    def threshold(self, /, value: float) -> None:
-        """
-        Set the onset detection threshold.
         """
     @property
     def window_size(self, /) -> int | None:

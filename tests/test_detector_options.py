@@ -177,3 +177,41 @@ def test_onset_presets_take_the_sample_rate():
         assert c.peak_picking.min_peak_separation == aus.PeakPickingConfig.drums(rate, c.hop_size).min_peak_separation
         assert aus.SpectralFluxConfig.musical(rate).peak_picking.min_peak_separation == round(0.1 * rate / 512)
         aus.ComplexOnsetConfig.speech(rate)
+
+
+def test_onset_config_spacing_and_floor_are_peak_picking_settings():
+    """The threshold floor and the minimum spacing live on peak_picking, and change the result;
+    OnsetDetectionConfig has no unread copies of them."""
+    c = aus.OnsetDetectionConfig.default()
+    for name in ("threshold", "min_onset_interval_secs", "pre_emphasis"):
+        assert not hasattr(c, name)
+    with pytest.raises(TypeError):
+        aus.OnsetDetectionConfig(c.cqt_params, 512, threshold=0.3)
+
+    sr = 44100
+    rng = np.random.default_rng(1)
+    x = np.zeros(2 * sr)
+    for t, h in zip((0.25, 0.75, 1.25, 1.75), (0.9, 0.9, 0.018, 0.9)):
+        k = np.arange(256)
+        x[int(t * sr) + k] = h * np.exp(-k / 24) * rng.uniform(-1, 1, 256)
+    audio = aus.AudioSamples.new_mono(x, sr)
+
+    def config(separation, floor):
+        threshold = aus.AdaptiveThresholdConfig.delta(0.07, 11)
+        threshold.min_threshold = floor
+        cfg = aus.OnsetDetectionConfig.default()
+        cfg.peak_picking = aus.PeakPickingConfig(
+            adaptive_threshold_config=threshold,
+            min_peak_separation=separation,
+            pre_emphasis=False,
+            pre_emphasis_coeff=0.97,
+            median_filter=False,
+            median_filter_length=3,
+            normalize_onset_strength=True,
+            normalization_method=aus.NormalizationMethod.peak,
+        )
+        return cfg
+
+    assert len(audio.detect_onsets(config(5, 0.1))) == 3
+    assert len(audio.detect_onsets(config(5, 0.005))) == 4
+    assert len(audio.detect_onsets(config(50, 0.005))) == 2
