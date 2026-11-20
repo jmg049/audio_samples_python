@@ -39,7 +39,7 @@ permissions:
 
 env:
   # The crates the bindings build against, until their releases are on crates.io.
-  AUDIO_SAMPLES_REF: ${{ inputs.audio_samples_ref || '3adf64d57c6b379a97f73480ef503da869aff2c1' }}
+  AUDIO_SAMPLES_REF: ${{ inputs.audio_samples_ref || '71a128507300281ba9479fc5514816541999251f' }}
   AUDIO_SAMPLES_IO_REF: ${{ inputs.audio_samples_io_ref || 'a4a7c6ef007febf529fafc3101e90d04d513b184' }}
   RUST_TOOLCHAIN: "1.99.1"
   MATURIN_VERSION: "v1.16.0"
