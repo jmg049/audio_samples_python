@@ -32,7 +32,7 @@ limited.apply_limiter(ceiling)
 print(f"peak: original {audio.peak():.3f}, compressed {compressed.peak():.3f}, limited {limited.peak():.3f}")
 loud = compressed.to_numpy()[sr + sr // 2 :]
 quiet = compressed.to_numpy()[sr // 2 : sr]
-assert loud.max() / quiet.max() < 5.0  # the 14 dB step was 5 times, now less
+assert loud.max() / quiet.max() < 5.0  # the input steps up 5 times (14 dB)
 assert limited.peak() <= 10 ** (ceiling.ceiling_db / 20) * 1.01
 
 fig, axes = mpl.plot_waveform_comparison(

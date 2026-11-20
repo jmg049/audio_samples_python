@@ -92,8 +92,8 @@ Unit conversions (``audio_samples.utils``)
 ------------------------------------------
 
 Vectorised: a scalar gives a Python number, an array-like gives a NumPy array
-of the same shape. ``hz_to_mel``, ``mel_to_hz`` and ``mel_frequencies`` keep
-their historical **HTK** default; pass ``htk=False`` for the Slaney scale.
+of the same shape. ``hz_to_mel``, ``mel_to_hz`` and ``mel_frequencies`` use
+the **HTK** scale by default; pass ``htk=False`` for the Slaney scale.
 ``time_to_frames`` rounds to the nearest frame; ``time_to_frames_floor`` gives
 the frame containing each time.
 

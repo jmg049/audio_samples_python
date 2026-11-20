@@ -20,17 +20,18 @@ without being asked.
    :local:
    :depth: 1
 
-Install it from source for now
-------------------------------
+Install it from source
+----------------------
 
 .. important::
 
-   The API on this page is not on PyPI yet. ``pip install audio_samples`` gives version
-   0.2.4 (checked 2026-11-04), which has no ``stft_matrix``, ``mfcc_frames``,
-   ``spectral``, ``features``, ``rhythm``, ``effects`` or ``sequence``. That release has
-   one wheel, CPython 3.12 on x86-64 Linux; on anything else pip tries to build the
-   source distribution, which needs a Rust toolchain. Until a release includes this API,
-   build from two checkouts side by side that contain it. This was built with rustc 1.96.0:
+   The API on this page is not in a PyPI release. ``pip install audio_samples`` gives
+   version 0.2.4, which has no ``stft_matrix``, ``mfcc_frames``, ``spectral``,
+   ``features``, ``rhythm``, ``effects`` or ``sequence``. That release has one wheel,
+   CPython 3.12 on x86-64 Linux; on anything else pip tries to build the source
+   distribution, which needs a Rust toolchain. Until a release includes this API, build
+   from two checkouts side by side that contain it. The steps below were tested with
+   rustc 1.96.0:
 
 .. code-block:: bash
 
@@ -61,8 +62,8 @@ librosa: below 1 means ours is faster or smaller.
      - librosa 1.0.0, CPython 3.13.11, NumPy 2.5.3, SciPy 1.18.1, soxr 1.1.0, soundfile 0.14.0
        (libsndfile 1.2.2), numba 0.68.0
    * - Our side
-     - ``audio_samples`` commit |rust|, bindings commit |py|, with ``audio_samples_io`` 0.3.3 and
-       the fixes in the bindings' ``vendor/`` directory, rustc 1.96.0, release build with thin LTO
+     - ``audio_samples`` commit |rust|, bindings commit |py|, with the ``audio_samples_io`` 0.3.3
+       sources in that commit's ``vendor/`` directory, rustc 1.96.0, release build with thin LTO
 
 **Method.** Each case calls one librosa function and its equivalent on the same samples. Single-core
 runs are pinned to one performance core with every thread count set to 1; each row is the median of
@@ -319,8 +320,8 @@ to 22050. A wrong default rate gives wrong results with no error, so there is no
    assert raises(TypeError, lambda: aus.rhythm.onset_strength(S=S_db))
    assert relative_error(env, librosa.onset.onset_strength(S=S_db, sr=sr)) < 1e-5
 
-The older unit conversions name it differently. ``utils.frames_to_time`` takes
-``(frames, sample_rate, hop_size)``:
+Some unit conversions in ``utils`` take it positionally under another name.
+``utils.frames_to_time`` takes ``(frames, sample_rate, hop_size)``:
 
 .. code-block:: python
 
@@ -501,8 +502,8 @@ librosa's shapes.
    assert stereo.shape == [2, n]
    assert stereo.melspectrogram().shape[0] == 2
 
-Some older methods have the name you would reach for and do something else. They predate
-the librosa-compatible layer and keep their behaviour. The ones that take arguments fail
+Some methods have the name you would reach for and do something else: they belong to the
+library's own API, not to the librosa-compatible layer. The ones that take arguments fail
 loudly. These do not: they return one number for the whole signal.
 
 .. code-block:: python
@@ -975,9 +976,9 @@ else refers to. Measured for 60 s of float32 on the machine and date under `Evid
    so expect smaller agreement.
 #. Replace plotting last, or keep ``librosa.display``.
 
-**Verifying a converted pipeline.** Run the old and new paths on a set of your own files and
-compare each stage, feeding the new stage from the old one, so that a difference is pinned
-to one step. Keep this as a test until librosa is gone.
+**Verifying a converted pipeline.** Run the librosa pipeline and the converted one on a set of
+your own files and compare each stage, giving the converted stage the samples librosa used, so
+that a difference is pinned to one step. Keep this as a test until librosa is gone.
 
 .. code-block:: python
 
@@ -992,11 +993,11 @@ to one step. Keep this as a test until librosa is gone.
            raise AssertionError(f"{name}: relative error {error:.3g} above {tolerance:.3g}")
        return error
 
-   y_old, sr_old = librosa.load("song.wav")
-   audio_new = aus.AudioSamples.new_mono(y_old, sr_old)              # the old samples
-   compare_stage("stft", audio_new.stft_matrix(), librosa.stft(y_old), 1e-6)
-   compare_stage("mel", audio_new.melspectrogram(), librosa.feature.melspectrogram(y=y_old, sr=sr_old), 1e-6)
-   compare_stage("onsets", audio_new.onset_strength(), librosa.onset.onset_strength(y=y_old, sr=sr_old), 1e-5)
+   y_lr, sr_lr = librosa.load("song.wav")
+   converted = aus.AudioSamples.new_mono(y_lr, sr_lr)                # librosa's samples
+   compare_stage("stft", converted.stft_matrix(), librosa.stft(y_lr), 1e-6)
+   compare_stage("mel", converted.melspectrogram(), librosa.feature.melspectrogram(y=y_lr, sr=sr_lr), 1e-6)
+   compare_stage("onsets", converted.onset_strength(), librosa.onset.onset_strength(y=y_lr, sr=sr_lr), 1e-5)
 
 float32 comparisons bottom out around 1e-7 to 5e-6. To check an algorithm rather than float32
 round-off, convert to float64 first and pass ``dtype=np.float64`` to librosa's mel and chroma
@@ -1035,12 +1036,12 @@ every other decoder measured. If you encode a lot of FLAC at high levels, use li
 
 **Saving 24-bit stereo WAV and FLAC.** ``io.save`` of 24-bit multichannel audio to WAV is slower and
 uses more memory than ``soundfile.write``, and saving FLAC holds a copy of the samples, so its peak
-allocation is much higher than ``soundfile.write``'s. See the save rows under `Evidence`_ for 16-bit;
-both are in the file library this package uses, and have not been changed yet.
+allocation is much higher than ``soundfile.write``'s. See the save rows under `Evidence`_ for 16-bit.
+Both come from the file library this package uses, ``audio_samples_io``.
 
-**One silent type change.** ``io.save`` of float64 audio to a ``.wav`` file writes float32, also
-with ``as_type=SampleType.F64``. It is the one place this library changes a sample type without
-being asked. To keep float64 samples on disk, use another format or ``soundfile.write``.
+**FLAC holds integers only.** ``io.save`` to FLAC writes 16-bit or 24-bit samples and raises
+``ValueError`` for any other sample type unless ``as_type`` asks for ``SampleType.I16`` or
+``SampleType.I24``. WAV keeps every sample type, float64 included.
 
 **Functions with no equivalent:** only librosa's own plumbing: ``cache``, ``cite``,
 ``show_versions``, ``util.Deprecated``, ``util.rename_kw`` and its exception classes. Everything else
@@ -1074,6 +1075,6 @@ has a counterpart: ``audio_samples.inverse``, ``linalg``, ``factorization``, ``p
 librosa's ``resample``, ``pitch_shift`` or lower CQT octaves to better than 1e-4, keep librosa
 for those steps.
 
-**The API is split.** Older methods with the names you expect (``rms``, ``stft``, ``hpss``,
-``trim``) coexist with the librosa-compatible ones under different names. See
-:ref:`librosa-existing-apis`.
+**The API is split.** Methods of the library's own API with the names you expect (``rms``,
+``stft``, ``hpss``, ``trim``) sit beside the librosa-compatible ones, which have different names.
+See :ref:`librosa-existing-apis`.

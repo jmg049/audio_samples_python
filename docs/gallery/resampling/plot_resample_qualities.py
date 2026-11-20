@@ -2,8 +2,8 @@
 Resampling quality
 ==================
 
-``resample`` takes a target rate and a quality. A chirp that reaches past the new
-Nyquist frequency shows how much each quality setting attenuates what cannot be kept.
+``resample`` takes a target rate and a quality. A chirp that reaches past the target
+rate's Nyquist frequency shows how much each quality setting attenuates what cannot be kept.
 """
 
 import numpy as np

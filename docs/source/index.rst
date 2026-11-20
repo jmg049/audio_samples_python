@@ -5,11 +5,11 @@ AudioSamples Python Documentation
 
 AudioSamples Python is a set of Python bindings to the AudioSamples Rust crates for audio processing.
 An ``AudioSamples`` object stores its sample rate, channel layout and sample type together with the samples,
-so these properties do not have to be passed separately to each function, as they do in most existing audio
-processing libraries.
+so these properties do not have to be passed separately to each function.
 
 .. note::
-   AudioSamples file I/O is 2-4x faster than that of scipy, soundfile and torchaudio.
+   Load, save and analysis times, measured against other Python audio libraries, are in
+   :doc:`moving_from_librosa`.
 
 Quick Start
 -----------
@@ -53,24 +53,25 @@ Key Features
 Why AudioSamples?
 -----------------
 
-**The Problem with Existing Libraries**
+**Audio as a bare array**
 
-With most Python audio libraries, the caller passes the sample rate to each function:
-
-.. code-block:: python
-
-   # Traditional approach - error-prone manual coordination
-   data, sr = soundfile.read('audio.wav')
-   mel = librosa.feature.melspectrogram(y=data, sr=sr)  # Must pass sr manually
-   freqs = librosa.fft_frequencies(sr=sr, n_fft=2048)  # Must pass sr again
-
-**The AudioSamples Solution**
-
-Audio objects store their own properties:
+When audio is held as a plain NumPy array, the sample rate is a separate variable, and the caller
+passes it to every function that needs it. Nothing checks that it belongs to the array:
 
 .. code-block:: python
 
-   # AudioSamples approach - automatic coordination
+   # The sample rate travels separately from the samples
+   data, sr = read_wav('audio.wav')
+   mel = melspectrogram(data, sr=sr)          # pass sr by hand
+   freqs = fft_frequencies(sr=sr, n_fft=2048)  # and again
+
+**Audio that carries its properties**
+
+An ``AudioSamples`` object stores its own properties:
+
+.. code-block:: python
+
+   # The audio holds its sample rate
    audio = aus.io.read('audio.wav')
    stft = audio.stft(aus.StftParams(n_fft=2048, hop_size=512, window=aus.WindowType.hanning))
    freqs = stft.frequencies  # frequency axis from the audio's own sample rate

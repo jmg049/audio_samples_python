@@ -17,8 +17,8 @@ against SciPy and librosa.
 - **Errors with codes and help text.** Most invalid parameters raise `audio_samples.exceptions`
   classes (for example `AudioParameterError`, which is also a `ValueError`)
   that carry `.code` and `.help`; the help text appears in the traceback. A few
-  constructors (for example `StftParams(n_fft=0)`) still raise a plain
-  `ValueError` without them.
+  constructors (for example `StftParams(n_fft=0)`) raise a plain `ValueError`
+  without them.
 - **Configurations that explain themselves.** A configuration can describe what
   it will do before it runs: the formula the code evaluates, every symbol with its unit,
   derived resolution and latency numbers, and warnings about suspicious
@@ -51,9 +51,10 @@ The same course exists in Rust (the crate's `guide` module, its
 `examples/tutorial_NN_*.rs` labs and an illustrated
 [book](https://jmg049.github.io/audio_samples/) with figures
 computed by the library), with the same numbers wherever the two APIs
-cover the same function. Where the Python bindings lack a function (LPC, Bark,
-ERB, threshold of hearing, codecs, cepstrum, FIR design), the notebook computes
-it with NumPy from the same published formula instead of calling the library.
+cover the same function. Where the Python bindings lack a function (Bark, ERB,
+threshold of hearing, codecs, cepstrum, FIR design, autocorrelation-method LPC),
+the notebook computes it with NumPy from the same published formula instead of
+calling the library.
 
 ### Making a student version
 
@@ -67,7 +68,7 @@ jupyter nbconvert --TagRemovePreprocessor.enabled=True \
 ```
 
 The student copies still run from top to bottom, but nothing checks the
-students' `answer = None  # TODO` cells; keep the original notebooks (or their
+students' `answer = None  # TODO` cells; keep the full notebooks (or their
 solution cells) as the marking key.
 
 ### Everything is checked
@@ -144,7 +145,7 @@ Students should know about these (the notebooks point them out where they are re
   weaker onsets: on notebook 13's eight-click track it finds 5. The `musical`
   and `speech` presets find none of the four clicks of notebook 13's first
   track, and `percussive` finds one, because their peak-picking lengths count
-  onset-function frames but were sized as if they counted samples. Notebook 13
+  onset-function frames but are sized as if they counted samples. Notebook 13
   shows both and checks the configuration with `.explain()`.
 - `estimate_tempo` makes octave errors (and third-of-tempo errors) on simple
   click tracks; `BeatTrackingConfig.tempo_bpm` is not used by it.

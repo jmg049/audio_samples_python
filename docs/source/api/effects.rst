@@ -21,8 +21,8 @@ functions live in ``audio_samples.effects``.
   ``AudioSamples.mu_compress`` / ``mu_expand``, ``mu_law_encode`` /
   ``mu_law_decode``.
 
-``trim_db``, ``split_db`` and ``harmonic_percussive`` sit beside the older
-``AudioSamples.trim``, ``split`` and ``hpss``, which keep their own semantics.
+``trim_db``, ``split_db`` and ``harmonic_percussive`` are separate from
+``AudioSamples.trim``, ``split`` and ``hpss``, which work differently.
 
 ``pitch_shift`` and ``resample`` use this library's delay-free windowed-sinc
 resampler (``res_type="soxr_hq"`` maps to ``ResamplingQuality.high``);

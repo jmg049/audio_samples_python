@@ -42,9 +42,9 @@ These are errors you can catch, not races:
   takes a write borrow on that array, and reads of it through any ``AudioSamples`` or
   array argument take a read borrow. The call that meets the other raises
   ``TypeError: The given array is already borrowed``. Each borrow goes through one lock shared
-  by all arrays: on an efficiency core a call on such audio cost about 60 ns more, and calls that do
-  almost nothing on 8 threads wait on the lock (``rms`` of 64 samples of one shared array, 3.4 us
-  per call against 1.6 us without the borrow). With the GIL an in-place method runs
+  by all arrays. It adds a small fixed cost to each call on such audio, and calls that do almost
+  nothing (``rms`` of a few samples) wait on each other for the lock when many threads make them
+  at once. With the GIL an in-place method runs
   with the GIL held, so a reader holding the GIL cannot overlap it, and these borrows
   are not taken.
 
@@ -77,9 +77,9 @@ Measured on 2026-11-04 and 2026-11-05 on an Intel i7-13700KF under Linux, with a
 Native libraries were limited to one thread each, so the threads are all Python's. The process
 was pinned to the eight efficiency cores (four CPUs in each of two clusters, each cluster
 sharing 4 MB of L2), so 16 threads run on 8 CPUs. Each cell is the fastest of at least five
-passes, after a warm-up pass; a pass waited for a quiet moment first. Other jobs were sharing the machine:
-the last column gives how many CPUs of the eight they kept busy during the passes reported, so
-a row with a high number is less reliable. Process lists taken during the runs showed compilers and test suites.
+passes, after a warm-up pass. Other processes were running on the machine: the last column gives
+how many of the eight CPUs they kept busy during the passes reported, so a row with a high number
+is less reliable.
 
 The script is ``benches/librosa_compare/thread_scaling.py`` in the ``audio_samples`` repository.
 The MFCC job reads a 30 s, 44100 Hz, stereo, 16-bit WAV file (from the page cache), mixes to mono,
@@ -224,8 +224,8 @@ What this shows:
   ``MALLOC_TOP_PAD_=268435456`` took the 8-thread STFT batch from 0.31 s to 0.28 s and left MFCC at 0.44 to
   0.45 s. The package does not change these process-wide settings.
 * With 16 threads on 14 logical CPUs (efficiency cores plus three performance cores with
-  hyper-threading), measured before the MFCC path was reduced, the batches took: MFCC
-  ``audio_samples`` 0.35 s on 3.14 and 0.39 s on 3.14t, librosa 1.37 s and 1.28 s; STFT ``audio_samples`` 0.28 s and 0.30 s, librosa 0.70 s and 0.52 s; resample ``audio_samples``
-  0.08 s and 0.09 s, librosa 0.20 s and 0.20 s.
+  hyper-threading), the batches took: STFT ``audio_samples`` 0.28 s on 3.14 and 0.30 s on 3.14t,
+  librosa 0.70 s and 0.52 s; resample ``audio_samples`` 0.08 s and 0.09 s, librosa 0.20 s and
+  0.20 s.
 * librosa 1.0.0 installs from wheels on 3.14t, including numba and llvmlite, and does not turn the GIL
   back on. Its 8-thread MFCC batch took 1.58 s on 3.14 and 1.55 s on 3.14t.

@@ -204,7 +204,7 @@ To measure read speed:
    print(f"Read {large_audio.duration_seconds():.1f}s of audio in {read_time:.4f}s")
    print(f"Real-time factor: {large_audio.duration_seconds() / read_time:.1f}x")
 
-   # Save operations are equally fast
+   # Time a save the same way
    start_time = time.time()
    aus.io.save("output_large.wav", large_audio)
    write_time = time.time() - start_time

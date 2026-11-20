@@ -122,9 +122,9 @@ omitted, and the peak stays below full scale, so integer sample types do not cli
 **Reproducibility.** Rendering uses only IEEE 754 addition, subtraction, multiplication, division,
 square root and ``floor``, plus a hand-written random number generator, so it does not depend on a
 platform's maths library. The same arguments give the same bytes on any platform with IEEE 754
-``float64`` arithmetic, which excludes x87 builds such as ``i586``. The test suites store digests
-of the 16-bit output; the same digests were obtained on x86-64 with glibc and with musl, in debug and
-in release builds, with ``-C target-cpu=native``, and on aarch64 under QEMU.
+``float64`` arithmetic, which excludes x87 builds such as ``i586``. The test suites check digests
+of the 16-bit output, which match on x86-64 with glibc and with musl, in debug and release builds and
+with ``-C target-cpu=native``, and on aarch64.
 
 Examples
 --------

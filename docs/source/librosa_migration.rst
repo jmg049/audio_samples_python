@@ -26,7 +26,7 @@ separately. An :class:`~audio_samples.AudioSamples` holds the samples, the
 sample rate and the channel layout, so its methods take no ``sr`` argument.
 Free functions over NumPy arrays (``audio_samples.spectral``, ``features``,
 ``rhythm``, ``effects``, ``sequence``, ``utils``) keep librosa's ``sr``
-keyword where librosa has one (the older ``utils`` conversions call it
+keyword where librosa has one (some ``utils`` conversions call it
 ``sample_rate``).
 
 **Two entry points.** librosa's ``y=`` forms are ``AudioSamples`` methods.
@@ -128,9 +128,9 @@ or ``prior``, ``tempo``'s tempo estimate (not its onset envelope) and
 ``StreamedAudioReader``. See :doc:`free_threading` for what threads may share and for
 free-threaded Python.
 
-**Older methods keep their behaviour.** Where a librosa name clashed with an
-existing method, the librosa-compatible version takes a new name and the old
-method is unchanged (see :ref:`librosa-existing-apis`): ``stft_matrix`` (not
+**Some librosa names belong to other methods.** Where a method of the library's
+own API has a librosa name, the librosa-compatible version has another name
+(see :ref:`librosa-existing-apis`): ``stft_matrix`` (not
 ``stft``), ``mfcc_frames`` (not ``mfcc``), ``spectral_centroid_frames`` (not
 ``spectral_centroid``), ``trim_db`` (not ``trim``), ``split_db`` (not
 ``split``), ``harmonic_percussive`` (not ``hpss``).
@@ -558,7 +558,7 @@ Core: unit conversions (``librosa.convert``)
 
 The librosa-compatible conversions in ``audio_samples.utils`` are vectorised
 like librosa's: a scalar gives a Python number, an array-like an array of the
-same shape. They take librosa's ``sr`` keyword or the older ``sample_rate``;
+same shape. They take librosa's ``sr`` keyword or ``sample_rate``;
 one of them is required (librosa defaults to 22050), and so is ``hop_length``
 where librosa defaults it to 512. The note-name functions take a scalar or an
 array-like; for an array they return a list of names or an array of values.
@@ -591,7 +591,7 @@ array-like; for an array they return a list of names or an array of values.
    * - ``time_to_frames``
      - ``utils.time_to_frames_floor``
      - equivalent
-     - ``utils.time_to_frames`` keeps its older round-to-nearest behaviour
+     - ``utils.time_to_frames`` rounds to the nearest frame instead
    * - ``time_to_samples``
      - ``utils.time_to_samples``
      - equivalent
@@ -624,7 +624,7 @@ array-like; for an array they return a list of names or an array of values.
    * - ``mel_frequencies``
      - ``utils.mel_frequencies`` with ``htk=False``
      - with differences
-     - Default is HTK (kept for compatibility); librosa's default is Slaney
+     - Default is HTK; librosa's default is Slaney
    * - ``hz_to_mel``
      - ``utils.hz_to_mel`` with ``htk=False``
      - with differences
@@ -1298,7 +1298,7 @@ All in ``audio_samples.sequence``, on ``(n_features, n_frames)`` arrays.
    * - ``segment.agglomerative``
      - ``segment.agglomerative``
      - equivalent
-     - No scikit-learn needed; a ``clusterer`` with ``fit`` and ``labels_`` is still accepted
+     - No scikit-learn needed; a ``clusterer`` with ``fit`` and ``labels_`` is also accepted
    * - ``segment.subsegment``
      - ``segment.subsegment``
      - equivalent
@@ -1519,7 +1519,7 @@ Pass librosa's value explicitly to reproduce a librosa call.
    * - ``tuning`` of ``chroma_stft``, ``chroma_cqt``, ``chroma_cens``,
        ``tonnetz``, ``chroma_stft_from_spectrogram``
      - ``None`` (estimated)
-     - ``0.0``; ``None`` still estimates
+     - ``0.0``; ``None`` estimates
    * - ``trim`` of ``beat_track``, ``beat_track_with_bpm``
      - ``True``
      - ``False``: weak leading and trailing beats are kept
@@ -1692,17 +1692,18 @@ Deliberate behavioural differences
 
 .. _librosa-existing-apis:
 
-Existing methods that are not librosa-compatible
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Methods that are not librosa-compatible
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-These older methods keep their behaviour for compatibility. Use the
-librosa-compatible name in the last column.
+These methods belong to the library's own API and differ from librosa's
+function of the same purpose. Use the librosa-compatible name in the last
+column.
 
 .. list-table::
    :header-rows: 1
    :widths: 30 40 30
 
-   * - Existing API
+   * - Method
      - Difference from librosa
      - librosa-compatible API
    * - ``AudioSamples.stft``, ``istft``, ``mel_spectrogram``,
