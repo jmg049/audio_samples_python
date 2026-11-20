@@ -11,6 +11,8 @@ has the full detail.
 
 ## [Unreleased]
 
+- **`==` and `!=` on AudioSamples compare sample type, sample rate, shape and samples**; `==`
+  returned False for any two objects.
 - **`forms.resample` and `forms.pitch_shift` with `scale=True` multiply by the reciprocal of the
   square root of the ratio** instead of dividing by it: within one rounding of the quotient, and
   several times cheaper per sample. For float32 and float64 input, `forms.resample` applies it

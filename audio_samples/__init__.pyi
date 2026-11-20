@@ -5218,6 +5218,17 @@ class AudioSamples(Generic[_S_co]):
         """Raise AudioSamples to a power (float types only)."""
         ...
 
+    # Comparison operators
+    def __eq__(self, other: object, /) -> bool:
+        """``audio == other``: ``True`` when ``other`` is an AudioSamples with the same sample type,
+        sample rate, channel count and length, and every sample is equal. NaN samples compare
+        unequal, as they do for floats. Any other object gives ``False``."""
+        ...
+
+    def __ne__(self, other: object, /) -> bool:
+        """``audio != other``: the negation of ``==``."""
+        ...
+
     # Unary operators
     def __neg__(self) -> Self:
         """``-audio`` in this sample type. Integer results saturate: ``-(-32768)`` is 32767 on int16.

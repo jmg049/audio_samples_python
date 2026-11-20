@@ -216,28 +216,56 @@ class TestComparisonOperations:
     """Test comparison operations."""
 
     def test_equality_same_objects(self):
-        """Test equality with same object."""
+        """An object equals itself and an identical copy."""
         audio = aus.generation.sine_wave(440.0, 0.1, sample_rate=44100)
+        copy = aus.AudioSamples.new_mono(audio.to_numpy().copy(), 44100)
 
-        # Only the type of the result is checked here.
-        result = audio == audio
-        assert isinstance(result, bool)
+        assert audio == audio
+        assert audio == copy
+        assert not (audio != copy)
 
     def test_equality_different_sample_rates(self):
-        """Test equality with different sample rates."""
+        """Different sample rates are unequal."""
         audio1 = aus.generation.sine_wave(440.0, 0.1, sample_rate=44100)
-        audio2 = aus.generation.sine_wave(440.0, 0.1, sample_rate=48000)
+        audio2 = aus.AudioSamples.new_mono(audio1.to_numpy().copy(), 48000)
 
-        result = audio1 == audio2
-        assert not result
+        assert audio1 != audio2
 
-    def test_inequality(self):
-        """Test inequality operator."""
-        audio1 = aus.generation.sine_wave(440.0, 0.1, sample_rate=44100)
-        audio2 = aus.generation.sine_wave(880.0, 0.1, sample_rate=44100)
+    def test_equality_different_samples(self):
+        """A single differing sample makes the signals unequal."""
+        x = np.linspace(-1.0, 1.0, 64, dtype=np.float32)
+        y = x.copy()
+        y[10] += 0.25
+        assert aus.AudioSamples.new_mono(x, 8000) != aus.AudioSamples.new_mono(y, 8000)
 
-        result = audio1 != audio2
-        assert isinstance(result, bool)
+    def test_equality_different_sample_types(self):
+        """Equal values in different sample types are unequal."""
+        audio = aus.generation.sine_wave(440.0, 0.1, sample_rate=44100)
+        assert audio.as_f32() != audio.as_f64()
+
+    def test_equality_different_lengths(self):
+        """Signals of different lengths are unequal."""
+        x = np.zeros(64, dtype=np.float32)
+        assert aus.AudioSamples.new_mono(x, 8000) != aus.AudioSamples.new_mono(x[:32].copy(), 8000)
+
+    def test_equality_multichannel(self):
+        """Multi-channel signals compare channel by channel."""
+        x = np.arange(32, dtype=np.float32).reshape(2, 16)
+        y = x.copy()
+        y[1, 3] = -1.0
+        assert aus.AudioSamples.new_multi(x, 8000) == aus.AudioSamples.new_multi(x.copy(), 8000)
+        assert aus.AudioSamples.new_multi(x, 8000) != aus.AudioSamples.new_multi(y, 8000)
+
+    def test_equality_nan_is_unequal(self):
+        """NaN samples are unequal, as NaN floats are."""
+        x = np.array([0.0, np.nan], dtype=np.float64)
+        assert aus.AudioSamples.new_mono(x, 8000) != aus.AudioSamples.new_mono(x.copy(), 8000)
+
+    def test_equality_other_types(self):
+        """Comparing with a non-AudioSamples object is unequal, not an error."""
+        audio = aus.generation.sine_wave(440.0, 0.1, sample_rate=44100)
+        assert audio != 1.0
+        assert audio != "audio"
 
 
 class TestOperatorChaining:

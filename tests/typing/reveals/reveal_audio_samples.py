@@ -1154,6 +1154,12 @@ def r_AudioSamples____truediv____1(self_: AudioSamples[_T], other: AudioSamples 
 def r_AudioSamples____pow____1(self_: AudioSamples[_T], exponent: float, modulo: Optional[float]) -> None:
     reveal_type(self_.__pow__(exponent, modulo))
 
+def r_AudioSamples____eq____1(self_: AudioSamples[_T], other: object) -> None:
+    reveal_type(self_.__eq__(other))
+
+def r_AudioSamples____ne____1(self_: AudioSamples[_T], other: object) -> None:
+    reveal_type(self_.__ne__(other))
+
 def r_AudioSamples____neg____1(self_: AudioSamples[_T]) -> None:
     reveal_type(self_.__neg__())
 

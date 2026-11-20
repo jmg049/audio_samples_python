@@ -80,7 +80,12 @@ class AudioSamples:
         `AudioSamples[numpy.float32]` names audio of that sample type in annotations; the type
         stubs use it to tie the precision of analysis results to the sample type.
         """
-    def __eq__(self, other: object, /) -> bool: ...
+    def __eq__(self, other: object, /) -> bool:
+        """
+        Two `AudioSamples` are equal when they have the same sample type, sample
+        rate, channel count and length, and every sample is equal. NaN samples
+        compare unequal, as they do for floats.
+        """
     def __getitem__(self, index: Any, /) -> Any: ...
     def __iadd__(self, other: object, /) -> None: ...
     def __imul__(self, other: object, /) -> None: ...

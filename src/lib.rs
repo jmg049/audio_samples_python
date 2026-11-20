@@ -2711,27 +2711,26 @@ impl PyAudioSamples {
         Ok(())
     }
 
-    // Sample values are not compared: `==` is `False` for any two `AudioSamples`,
-    // including an object and itself. Compare `to_numpy()` arrays instead.
-    fn __eq__(&self, py: Python<'_>, other: &Self) -> bool {
-        if self.sample_rate(py) != other.sample_rate(py)
+    /// Two `AudioSamples` are equal when they have the same sample type, sample
+    /// rate, channel count and length, and every sample is equal. NaN samples
+    /// compare unequal, as they do for floats.
+    fn __eq__(&self, py: Python<'_>, other: &Self) -> PyResult<bool> {
+        if self.sample_type_py() != other.sample_type_py()
+            || self.sample_rate(py) != other.sample_rate(py)
             || self.channels(py) != other.channels(py)
             || self.len(py) != other.len(py)
         {
-            return false;
+            return Ok(false);
         }
-
-        let self_array = self.to_numpy(py);
-        let other_array = other.to_numpy(py);
-
-        match (self_array, other_array) {
-            (Ok(_self_arr), Ok(_other_arr)) => false,
-            _ => false,
-        }
+        let a = self.to_numpy(py)?;
+        let b = other.to_numpy(py)?;
+        py.import("numpy")?
+            .call_method1("array_equal", (a, b))?
+            .is_truthy()
     }
 
-    fn __ne__(&self, py: Python<'_>, other: &Self) -> bool {
-        !self.__eq__(py, other)
+    fn __ne__(&self, py: Python<'_>, other: &Self) -> PyResult<bool> {
+        self.__eq__(py, other).map(|eq| !eq)
     }
 
     // Helper methods for numpy array operations

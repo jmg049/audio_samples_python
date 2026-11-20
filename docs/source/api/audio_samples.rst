@@ -8,7 +8,9 @@ AudioSamples Class
 ------------------
 
 The main audio processing class. It supports several sample formats. All methods preserve the audio
-properties, and the arithmetic operators are overloaded to work on the samples.
+properties, and the arithmetic operators are overloaded to work on the samples. ``a == b`` is
+``True`` when both have the same sample type, sample rate, channel count and length, and every
+sample is equal.
 
 Key Features
 ~~~~~~~~~~~~
