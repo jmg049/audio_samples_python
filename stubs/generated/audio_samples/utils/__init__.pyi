@@ -349,9 +349,9 @@ def hz_to_mel(freq_hz: "float | ArrayLike", *, htk: bool = True) -> "float | NDA
     """
     Converts frequencies in Hertz to mels (scalar or array).
 
-    **Default scale is HTK** (``2595 * log10(1 + f / 700)``), unchanged from
-    earlier releases. Pass ``htk=False`` for the Slaney scale (linear below
-    1 kHz, logarithmic above), as used by ``spectral.mel_filterbank``.
+    **The default scale is HTK** (``2595 * log10(1 + f / 700)``). Pass
+    ``htk=False`` for the Slaney scale (linear below 1 kHz, logarithmic above),
+    as used by ``spectral.mel_filterbank``.
 
     Args:
 
@@ -485,8 +485,7 @@ def mel_frequencies(n_mels: int, fmin: float, fmax: float, *, htk: bool = True) 
     """
     Frequencies uniformly spaced on the mel scale.
 
-    **Default scale is HTK** (unchanged from earlier releases); pass
-    ``htk=False`` for the Slaney scale.
+    **The default scale is HTK**; pass ``htk=False`` for the Slaney scale.
 
     Args:
 
@@ -529,8 +528,7 @@ def mel_to_hz(mel: "float | ArrayLike", *, htk: bool = True) -> "float | NDArray
     """
     Converts mels to frequencies in Hertz (scalar or array).
 
-    **Default scale is HTK**, unchanged from earlier releases; ``htk=False``
-    gives the Slaney scale.
+    **The default scale is HTK**; ``htk=False`` gives the Slaney scale.
 
     Args:
 
@@ -1009,10 +1007,9 @@ def time_to_frames(time_seconds: "float | ArrayLike", sample_rate: float, hop_si
     """
     Converts times in seconds to the **nearest** frame index (rounding).
 
-    Kept for backward compatibility: ``round(t * sample_rate / hop_size)``, with
-    negative results clamped to 0. ``time_to_frames_floor`` instead returns the
-    frame *containing* the time (floor division, negatives kept, optional
-    ``n_fft`` offset).
+    ``round(t * sample_rate / hop_size)``, with negative results clamped to 0.
+    ``time_to_frames_floor`` returns the frame *containing* the time instead
+    (floor division, negatives kept, optional ``n_fft`` offset).
 
     Args:
 

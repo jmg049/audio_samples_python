@@ -1774,7 +1774,7 @@ class LimiterConfig:
     which are class attributes.
 
     ``isp_limiting`` is a reserved flag: inter-sample (true-peak) limiting is
-    not implemented and the flag currently has no effect.
+    not implemented and the flag has no effect.
     """
     def __new__(cls, /, *, ceiling_db: "float", attack_ms: "float", release_ms: "float", knee_type: KneeType, knee_width_db: float, detection_method: DynamicRangeMethod, side_chain: SideChainConfig, lookahead_ms: float, isp_limiting: bool) -> LimiterConfig:
         """
@@ -1805,7 +1805,7 @@ class LimiterConfig:
             upcoming peaks.
         ``isp_limiting`` : bool
             Reserved flag for inter-sample peak (ISP) limiting. Not implemented:
-            it currently has no effect (sample peaks only).
+            it has no effect (sample peaks only).
 
         Returns
         -------
@@ -1861,7 +1861,7 @@ class LimiterConfig:
         Whether inter-sample peak limiting was requested.
 
         Reserved flag: inter-sample (true-peak) limiting is not implemented and
-        this flag currently has no effect; the limiter measures sample peaks.
+        this flag has no effect; the limiter measures sample peaks.
         """
     @property
     def knee_type(self, /) -> KneeType:
@@ -4096,7 +4096,7 @@ class WindowType:
     values. They are accessed via class attributes rather than being constructed
     directly.
 
-    The following window types are currently exposed to Python:
+    The window types are:
 
     - ``WindowType.hanning``
     - ``WindowType.hamming``

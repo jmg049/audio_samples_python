@@ -76,7 +76,7 @@ def griffinlim(S: "ArrayLike", *, n_iter: int = ..., hop_length: int | None = No
         dtype: Ignored; the output follows ``S``'s precision (float32 for a
             float32 ``S``, float64 otherwise).
         length (Optional[int]): Exact output length.
-        momentum (float): Fast Griffin-Lim momentum (0 = original). Default 0.99.
+        momentum (float): Fast Griffin-Lim momentum (0 = plain Griffin-Lim). Default 0.99.
         init (Optional[str]): ``"random"`` (default) or None (zero phase,
             deterministic).
         rng: Seed for ``init="random"``: an integer, None for a fresh seed on every

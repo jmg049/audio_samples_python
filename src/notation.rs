@@ -220,7 +220,7 @@ pub fn hz_to_note<'py>(
         let f: f64 = f.extract()?;
         #[allow(
             clippy::suboptimal_flops,
-            reason = "the unfused form is the reference rounding"
+            reason = "the formula as written decides the rounding at note boundaries"
         )]
         let midi = 12.0 * (f.log2() - 440f64.log2()) + 69.0;
         name.midi(midi, octave, cents)
@@ -558,11 +558,9 @@ static MELAS: std::sync::atomic::AtomicPtr<pyo3::ffi::PyObject> =
 /// The docstring of `list_mela`, with its text signature.
 const LIST_MELA_DOC: &std::ffi::CStr = c"list_mela()\n--\n\nThe 72 melakarta ragas and their numbers.\n\nReturns:\n\n    dict[str, int]: Name to number, from 1 to 72.";
 
-/// `list_mela()`: a copy of the melakarta dict. A plain C function: a call is
-/// one dict copy, without argument parsing or panic handling, since nothing
-/// here can fail other than the copy itself. It takes the fast-call
-/// convention, which the interpreter calls through its specialised path for
-/// built-in functions.
+/// `list_mela()`: a copy of the melakarta dict. A plain C function with the
+/// fast-call convention: it only checks that no arguments were passed and
+/// copies the dict, so it needs no argument parsing or panic handling.
 unsafe extern "C" fn list_mela_raw(
     _module: *mut pyo3::ffi::PyObject,
     _args: *mut *mut pyo3::ffi::PyObject,

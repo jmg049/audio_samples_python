@@ -1172,8 +1172,7 @@ impl PyWavSink {
     }
 }
 
-/// Build a `WavSink` for a concrete dtype via the crate helper (which infers the type from a
-/// generic param). We dispatch the generic call here.
+/// Build a `WavSink` for a runtime sample type, dispatching to the generic crate helper.
 fn create_streamed_sink_typed(
     file: File,
     channels: u16,

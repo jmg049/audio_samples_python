@@ -1862,7 +1862,8 @@ pub fn find_files<'py>(
     }
     cfg.recurse = recurse;
     cfg.case_sensitive = case_sensitive;
-    // Negative bounds need the total, so they read the listing twice as little as they can.
+    // Negative bounds count from the end, so they need the whole listing first; non-negative
+    // bounds stream it.
     let negative = limit.is_some_and(|l| l.0 < 0) || offset.0 < 0;
     let out = PyList::empty(py);
     let mut failure = None;

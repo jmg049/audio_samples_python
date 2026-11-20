@@ -27,9 +27,9 @@ fn opt_non_negative(name: &str, v: Option<Int>) -> PyResult<Option<usize>> {
 
 /// Converts frequencies in Hertz to mels (scalar or array).
 ///
-/// **Default scale is HTK** (``2595 * log10(1 + f / 700)``), unchanged from
-/// earlier releases. Pass ``htk=False`` for the Slaney scale (linear below
-/// 1 kHz, logarithmic above), as used by ``spectral.mel_filterbank``.
+/// **The default scale is HTK** (``2595 * log10(1 + f / 700)``). Pass
+/// ``htk=False`` for the Slaney scale (linear below 1 kHz, logarithmic above),
+/// as used by ``spectral.mel_filterbank``.
 ///
 /// Args:
 ///
@@ -56,8 +56,7 @@ pub fn hz_to_mel<'py>(freq_hz: &Bound<'py, PyAny>, htk: bool) -> PyResult<Bound<
 
 /// Converts mels to frequencies in Hertz (scalar or array).
 ///
-/// **Default scale is HTK**, unchanged from earlier releases; ``htk=False``
-/// gives the Slaney scale.
+/// **The default scale is HTK**; ``htk=False`` gives the Slaney scale.
 ///
 /// Args:
 ///
@@ -285,10 +284,9 @@ pub fn frames_to_time<'py>(
 
 /// Converts times in seconds to the **nearest** frame index (rounding).
 ///
-/// Kept for backward compatibility: ``round(t * sample_rate / hop_size)``, with
-/// negative results clamped to 0. ``time_to_frames_floor`` instead returns the
-/// frame *containing* the time (floor division, negatives kept, optional
-/// ``n_fft`` offset).
+/// ``round(t * sample_rate / hop_size)``, with negative results clamped to 0.
+/// ``time_to_frames_floor`` returns the frame *containing* the time instead
+/// (floor division, negatives kept, optional ``n_fft`` offset).
 ///
 /// Args:
 ///
@@ -719,8 +717,7 @@ pub fn fft_frequencies(py: Python<'_>, n_fft: usize, sample_rate: f64) -> Bound<
 
 /// Frequencies uniformly spaced on the mel scale.
 ///
-/// **Default scale is HTK** (unchanged from earlier releases); pass
-/// ``htk=False`` for the Slaney scale.
+/// **The default scale is HTK**; pass ``htk=False`` for the Slaney scale.
 ///
 /// Args:
 ///

@@ -72,11 +72,13 @@ impl PyAudioSamples {
     }
 
     #[pyo3(signature = ())]
-    /// Calculate the median sample value.
+    /// Return the value at the temporal midpoint, as ``midpoint_sample`` does.
+    ///
+    /// Samples are selected by index position; the buffer is not sorted.
     ///
     /// Returns:
     ///
-    ///     Optional[float]: Median amplitude if the view is non-empty, None otherwise.
+    ///     Optional[float]: The midpoint value if the view is non-empty, None otherwise.
     fn median(&self, py: Python<'_>) -> PyResult<Option<f64>> {
         Ok(dispatch_with_view!(self, py, |audio| audio.midpoint_sample()))
     }
@@ -245,7 +247,7 @@ channels, got {self_ch} and {other_ch}; use to_mono() or extract_channel() first
     }
 
     #[pyo3(signature = (reduction: "ChannelReduction" = ChannelReduction::Average.into()))]
-    /// Compute the spectral centroid using the current FFT backend.
+    /// Compute the spectral centroid of the whole signal.
     ///
     /// Args:
     ///
@@ -445,7 +447,7 @@ channels, got {self_ch} and {other_ch}; use to_mono() or extract_channel() first
     #[pyo3(signature = ())]
     /// Return the value at the temporal midpoint of a mono signal.
     ///
-    /// This is the 2.0 name for what was historically exposed as ``median``.
+    /// ``median`` returns the same value.
     /// For even-length signals the result is the average of the two central
     /// samples; for odd-length signals the single central sample is returned.
     /// Samples are selected by index position; the buffer is not sorted.

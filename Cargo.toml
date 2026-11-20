@@ -49,9 +49,8 @@ miette = { version = "7", default-features = false }
 # Sets the `Py_GIL_DISABLED` cfg when building for a free-threaded interpreter.
 pyo3-build-config = "0.29"
 
-# Build against sibling checkouts of audio_samples and audio_samples_io (the
-# bindings need fixes that are not on crates.io yet). Remove once the matching
-# releases are published.
+# Build against sibling checkouts of audio_samples and audio_samples_io rather
+# than their crates.io releases.
 [patch.crates-io]
 audio_samples = { path = "../audio_samples" }
 audio_samples_io = { path = "../audio_samples_io" }

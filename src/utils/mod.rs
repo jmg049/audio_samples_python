@@ -54,22 +54,3 @@ pub mod py_module {
         Ok(())
     }
 }
-
-// TODO: Implement concatenate and stack as class methods on PyAudioSamples first
-// #[pyfunction]
-// #[pyo3(signature = (signals))]
-// /// Convenience function for concatenating AudioSamples.
-// ///
-// /// Uses the class method AudioSamples::concatentate to create the output.
-// pub fn concatenate(py: Python, signals: &Bound<'_, PyList>) -> PyResult<PyAudioSamples> {
-//     PyAudioSamples::concatenate(&PyType::new::<PyAudioSamples>(py), py, signals)
-// }
-
-// #[pyfunction]
-// #[pyo3(signature = (signals))]
-// /// Convenience function for stacking AudioSamples.
-// ///
-// /// Uses the class method AudioSamples::stack to create the output.
-// pub fn stack(py: Python, signals: &Bound<'_, PyList>) -> PyResult<PyAudioSamples> {
-//     PyAudioSamples::stack(&PyType::new::<PyAudioSamples>(py), py, signals)
-// }

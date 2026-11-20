@@ -1,5 +1,6 @@
-//! A librosa pipeline in Rust on a real file: `y, sr = librosa.load(path)`, mel spectrogram,
-//! MFCC, onsets, tempo and beats.
+//! A common librosa analysis pipeline written in Rust with the librosa presets: load a file,
+//! then compute a mel spectrogram, MFCCs, onsets, tempo and beats. The comment above each step
+//! gives the librosa call it corresponds to.
 //!
 //! ```text
 //! cargo run --release --example rust_pipeline -- file.wav
@@ -17,7 +18,8 @@ use audio_samples::{
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let path = std::env::args().nth(1).ok_or("usage: rust_pipeline FILE")?;
 
-    // y, sr = librosa.load(path): the file's rate and channels are kept unless you change them.
+    // y, sr = librosa.load(path). The file is read with its own rate and channels, then mixed to
+    // mono and resampled to 22050 Hz explicitly.
     let file: AudioSamples<'static, f32> = audio_samples_io::read(&path)?;
     println!(
         "{path}: {} channels, {} Hz, {} samples per channel",

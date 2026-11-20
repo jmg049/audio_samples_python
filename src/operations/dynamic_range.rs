@@ -135,12 +135,9 @@ impl PyAudioSamples {
     ///
     /// Note:
     ///
-    ///     Unlike the other dynamics operations in this module (which mutate in
-    ///     place), this returns a new buffer. The crate's sidechain method takes
-    ///     ``sidechain_signal: &Self`` and ``AudioSamples`` is invariant over its
-    ///     lifetime, so a borrowed numpy view and a borrowed sidechain view cannot
-    ///     be unified to one lifetime; both operands are materialised as owned
-    ///     copies and a new result is produced.
+    ///     Unlike the other dynamics operations in this module, which modify the
+    ///     signal in place, this returns a new buffer; both signals are copied
+    ///     first.
     ///
     /// Args:
     ///
@@ -180,9 +177,8 @@ impl PyAudioSamples {
     ///
     /// Note:
     ///
-    ///     Returns a new buffer rather than mutating in place, for the same
-    ///     lifetime-invariance reason described on
-    ///     :meth:`apply_compressor_sidechain`.
+    ///     Returns a new buffer rather than modifying the signal in place, as
+    ///     :meth:`apply_compressor_sidechain` does.
     ///
     /// Args:
     ///

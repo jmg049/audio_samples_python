@@ -554,9 +554,8 @@ class VorbisComment:
     A FLAC Vorbis comment block: a vendor string plus key→values tags.
 
     Construct one, populate it with :meth:`set`/:meth:`add`, and serialise with :meth:`to_bytes`
-    (or parse with :meth:`from_bytes`). Note: the public crate API does not expose reading the
-    Vorbis comment back out of a decoded FLAC file, so this class is primarily for constructing
-    and (de)serialising comment blocks.
+    (or parse with :meth:`from_bytes`). The comment block of a decoded FLAC file cannot be read
+    back through this class; it constructs and (de)serialises comment blocks.
     """
     def __new__(cls, /) -> VorbisComment: ...
     def add(self, /, key: "str", value: "str") -> None:
@@ -875,7 +874,7 @@ def set_thread_limit(limit: "int | None") -> None:
     Reads of large files and FLAC decodes run on a few short-lived threads, which end before the
     call returns. By default their number follows the CPUs available to the process, with a cap,
     or ``AUDIO_SAMPLES_IO_THREADS`` if that is set when the first read starts. This setting
-    replaces both.
+    overrides both.
 
     Args:
 

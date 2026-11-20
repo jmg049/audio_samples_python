@@ -135,9 +135,8 @@ pub fn read(
     };
     let fp = fp.to_string_lossy();
     let fp: &str = &fp;
-    // Fast path: no type conversion requested → single-pass (one open, one header parse, one read).
-    // This eliminates the extra File::open + header parse that peek_native_type() would add, and
-    // the existence check, since a missing file falls through to the check below.
+    // Fast path: with no conversion requested the file is opened once, its header parsed once
+    // and its data read once. A missing file falls through to the existence check below.
     #[cfg(target_endian = "little")]
     if as_type.is_none() {
         if let Some(result) = audio_samples_io::read_pyarray_native(py, std::path::Path::new(fp)) {
@@ -729,9 +728,8 @@ impl_py_wrapper_core!(PyWavMetadata, WavMetadata);
 /// A FLAC Vorbis comment block: a vendor string plus key→values tags.
 ///
 /// Construct one, populate it with :meth:`set`/:meth:`add`, and serialise with :meth:`to_bytes`
-/// (or parse with :meth:`from_bytes`). Note: the public crate API does not expose reading the
-/// Vorbis comment back out of a decoded FLAC file, so this class is primarily for constructing
-/// and (de)serialising comment blocks.
+/// (or parse with :meth:`from_bytes`). The comment block of a decoded FLAC file cannot be read
+/// back through this class; it constructs and (de)serialises comment blocks.
 #[pyclass(name = "VorbisComment", module = "audio_samples.io", from_py_object)]
 #[derive(Clone, Default)]
 pub struct PyVorbisComment {
@@ -916,7 +914,7 @@ pub fn write_with_options(
 /// Reads of large files and FLAC decodes run on a few short-lived threads, which end before the
 /// call returns. By default their number follows the CPUs available to the process, with a cap,
 /// or ``AUDIO_SAMPLES_IO_THREADS`` if that is set when the first read starts. This setting
-/// replaces both.
+/// overrides both.
 ///
 /// Args:
 ///

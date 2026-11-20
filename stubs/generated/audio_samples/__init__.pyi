@@ -524,12 +524,9 @@ class AudioSamples:
 
         Note:
 
-            Unlike the other dynamics operations in this module (which mutate in
-            place), this returns a new buffer. The crate's sidechain method takes
-            ``sidechain_signal: &Self`` and ``AudioSamples`` is invariant over its
-            lifetime, so a borrowed numpy view and a borrowed sidechain view cannot
-            be unified to one lifetime; both operands are materialised as owned
-            copies and a new result is produced.
+            Unlike the other dynamics operations in this module, which modify the
+            signal in place, this returns a new buffer; both signals are copied
+            first.
 
         Args:
 
@@ -860,9 +857,8 @@ class AudioSamples:
 
         Note:
 
-            Returns a new buffer rather than mutating in place, for the same
-            lifetime-invariance reason described on
-            :meth:`apply_compressor_sidechain`.
+            Returns a new buffer rather than modifying the signal in place, as
+            :meth:`apply_compressor_sidechain` does.
 
         Args:
 
@@ -2707,11 +2703,13 @@ class AudioSamples:
         """
     def median(self, /) -> float | None:
         """
-        Calculate the median sample value.
+        Return the value at the temporal midpoint, as ``midpoint_sample`` does.
+
+        Samples are selected by index position; the buffer is not sorted.
 
         Returns:
 
-            Optional[float]: Median amplitude if the view is non-empty, None otherwise.
+            Optional[float]: The midpoint value if the view is non-empty, None otherwise.
         """
     def mel_spectrogram(self, /, spec_params: "SpectrogramParams", mel_params: "MelParams", log_params: "Optional[LogParams]" = None) -> "NDArray[np.float64]":
         """
@@ -2851,7 +2849,7 @@ class AudioSamples:
         """
         Return the value at the temporal midpoint of a mono signal.
 
-        This is the 2.0 name for what was historically exposed as ``median``.
+        ``median`` returns the same value.
         For even-length signals the result is the average of the two central
         samples; for odd-length signals the single central sample is returned.
         Samples are selected by index position; the buffer is not sorted.
@@ -3912,7 +3910,7 @@ class AudioSamples:
         """
     def spectral_centroid(self, /, reduction: "ChannelReduction" = ...) -> float:
         """
-        Compute the spectral centroid using the current FFT backend.
+        Compute the spectral centroid of the whole signal.
 
         Args:
 

@@ -1,7 +1,6 @@
-/// Types module for audio processing configurations and enumerations.
+//! Configuration, enumeration and result classes of the `AudioSamples` methods.
 use std::hash::Hash;
 
-// Types that stayed in audio_samples::operations::types
 use audio_samples::operations::types::{
     AdaptiveThresholdConfig, AdaptiveThresholdMethod, BesselNorm, ChannelReduction,
     CompressorConfig, DynamicRangeMethod, EqBand, EqBandType, ExpanderConfig, FadeCurve,
@@ -21,7 +20,6 @@ use audio_samples::operations::{
     SpectralFluxConfig, SpectralFluxMethod,
 };
 
-// Types from spectrograms crate
 use audio_samples::operations::dynamic_range::EnvelopeFollower;
 use audio_samples::{I24, NormalizationMethod, SampleType, nzu};
 use numpy::{IntoPyArray, PyArray1, PyArray2, PyArrayDescr, PyArrayDescrMethods};
@@ -295,7 +293,7 @@ impl_py_repr!(PyNormalizationMethod);
 /// values. They are accessed via class attributes rather than being constructed
 /// directly.
 ///
-/// The following window types are currently exposed to Python:
+/// The window types are:
 ///
 /// - ``WindowType.hanning``
 /// - ``WindowType.hamming``
@@ -2803,7 +2801,7 @@ impl_py_repr!(PyCompressorConfig);
 /// which are class attributes.
 ///
 /// ``isp_limiting`` is a reserved flag: inter-sample (true-peak) limiting is
-/// not implemented and the flag currently has no effect.
+/// not implemented and the flag has no effect.
 #[pyclass(name = "LimiterConfig", from_py_object, module = "audio_samples.types")]
 #[derive(Default, Debug, Clone, PartialEq)]
 pub struct PyLimiterConfig {
@@ -2839,7 +2837,7 @@ impl PyLimiterConfig {
     ///     upcoming peaks.
     /// ``isp_limiting`` : bool
     ///     Reserved flag for inter-sample peak (ISP) limiting. Not implemented:
-    ///     it currently has no effect (sample peaks only).
+    ///     it has no effect (sample peaks only).
     ///
     /// Returns
     /// -------
@@ -2934,7 +2932,7 @@ impl PyLimiterConfig {
     /// Whether inter-sample peak limiting was requested.
     ///
     /// Reserved flag: inter-sample (true-peak) limiting is not implemented and
-    /// this flag currently has no effect; the limiter measures sample peaks.
+    /// this flag has no effect; the limiter measures sample peaks.
     #[getter]
     const fn isp_limiting(&self) -> bool {
         self.inner.isp_limiting
@@ -3669,23 +3667,6 @@ impl PyHpssConfig {
     const fn set_mask_softness(&mut self, softness: f64) {
         self.inner.set_mask_softness(softness);
     }
-
-    // /// Validate HPSS configuration.
-    // ///
-    // /// Parameters
-    // /// ----------
-    // /// sample_rate: float
-    // ///     Sample rate in Hz
-    // ///
-    // /// Returns
-    // /// -------
-    // /// HpssConfig
-    // ///    This instance if valid, otherwise raises ValueError.
-    // #[pyo3(signature=(sample_rate: "float"))]
-    // fn validate(&self, sample_rate: f64) -> PyResult<Self> {
-    //     let inner = self.inner.validate(sample_rate).map_err(audio_err_to_py)?;
-    //     Ok(PyHpssConfig { inner })
-    // }
 
     /// Calculate the number of frequency bins for this configuration.
     #[pyo3(signature=())]

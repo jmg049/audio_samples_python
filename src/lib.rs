@@ -66,7 +66,7 @@ use std::{any::TypeId, fmt::Display};
 use pyo3::IntoPyObject;
 use pyo3::prelude::*;
 
-/// Local channel layout enum replacing the removed `audio_samples::ChannelLayout`.
+/// Memory layout of multi-channel samples: interleaved frames or one row per channel.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ChannelLayout {
     Interleaved,
@@ -429,16 +429,15 @@ pub(crate) use dispatch_without_borrow;
 
 /// Python source of the `audio_samples.exceptions` module.
 ///
-/// Every class derives from `AudioError` *and* from the built-in exception the
-/// bindings raised before the hierarchy existed, so `except ValueError:` (etc.)
-/// keeps working.
+/// Every class derives from `AudioError` *and* from the matching built-in
+/// exception, so `except ValueError:` (etc.) also catches it.
 const EXCEPTIONS_PY: &std::ffi::CStr = cr#"
 """Exception hierarchy for audio_samples.
 
 Every exception raised from the Rust core derives from :class:`AudioError`.
-Each subclass also derives from the built-in exception that was raised before
-this hierarchy existed (``ValueError``, ``TypeError``, ``RuntimeError`` or
-``OSError``), so existing ``except`` clauses keep working.
+Each subclass also derives from a built-in exception (``ValueError``,
+``TypeError``, ``RuntimeError`` or ``OSError``), so an ``except`` clause for
+the built-in type catches it too.
 
 When the Rust error carries a diagnostic, the exception has:
 
@@ -501,7 +500,7 @@ class AudioFormatError(AudioError, ValueError):
 class AudioDecodeError(AudioError, TypeError):
     """An existing file could not be decoded as audio.
 
-    Inherits ``TypeError`` because earlier versions raised ``TypeError`` here.
+    Also a ``TypeError``, so ``except TypeError`` catches it.
     """
 
 
@@ -555,7 +554,7 @@ fn exceptions_module(py: Python<'_>) -> PyResult<&Bound<'_, PyModule>> {
 /// Build an exception from the `audio_samples.exceptions` hierarchy.
 ///
 /// `fallback` is used only if the hierarchy cannot be created (which would
-/// indicate a broken interpreter state); it keeps the old built-in type.
+/// indicate a broken interpreter state); it builds the matching built-in exception.
 pub(crate) fn make_audio_err(
     class_name: &str,
     message: String,
@@ -631,7 +630,7 @@ fn audio_err_to_py(e: audio_samples::AudioSampleError) -> PyErr {
             e.to_string(),
             PyRuntimeError::new_err,
         ),
-        // Catch-all for any future variants (serialization, etc.)
+        // Every other variant (serialisation, ...).
         _ => ("AudioRuntimeError", e.to_string(), PyRuntimeError::new_err),
     };
     make_audio_err(class_name, message, code, help, fallback)
@@ -741,7 +740,7 @@ pub(crate) fn ensure_file_exists(path: &str) -> PyResult<()> {
 }
 
 /// Raise the read-path error: missing files become `FileNotFoundError`,
-/// anything else an `AudioDecodeError` (a `TypeError`, as before) with
+/// anything else an `AudioDecodeError` (a `TypeError`) with
 /// `context` as the message prefix.
 pub(crate) fn audio_read_err_to_py(e: AudioIOError, path: &str, context: &str) -> PyErr {
     match e {
@@ -1670,7 +1669,6 @@ floating-point range, -1.0 to 1.0, where 1.0 is full scale",
             return Err(PyValueError::new_err("Cannot stack empty source list"));
         }
 
-        // Extract PyAudioSamples from the list
         let sources_vec: Vec<PyRef<Self>> = sources
             .iter()
             .map(|item| {
@@ -1696,7 +1694,6 @@ floating-point range, -1.0 to 1.0, where 1.0 is full scale",
             check_rates_match("stack", first_sr, source.sample_rate(py).get())?;
         }
 
-        // Dispatch based on the dtype
         match &first.inner {
             PyAudioDataInner::U8(_) => {
                 let audio_sources: Vec<_> = sources_vec
@@ -1922,12 +1919,10 @@ impl PyAudioSamples {
     #[staticmethod]
     #[pyo3(name = "from_array", signature = (arr: "numpy.typing.ArrayLike", sample_rate: "int"))]
     fn from_array(arr: &Bound<'_, PyAny>, sample_rate: NonZeroU32) -> PyResult<Self> {
-        // Get the array as PyUntypedArray to inspect its properties
         let untyped_array: &Bound<'_, PyUntypedArray> = arr.cast()?;
         check_array_non_empty(untyped_array)?;
         warn_if_samples_first(untyped_array)?;
 
-        // Get array info
         let dtype = untyped_array.dtype();
         let ndim = untyped_array.ndim();
 
@@ -2716,9 +2711,9 @@ impl PyAudioSamples {
         Ok(())
     }
 
-    // Comparison operations
+    // Sample values are not compared: `==` is `False` for any two `AudioSamples`,
+    // including an object and itself. Compare `to_numpy()` arrays instead.
     fn __eq__(&self, py: Python<'_>, other: &Self) -> bool {
-        // First check if they have the same structure
         if self.sample_rate(py) != other.sample_rate(py)
             || self.channels(py) != other.channels(py)
             || self.len(py) != other.len(py)
@@ -2726,17 +2721,11 @@ impl PyAudioSamples {
             return false;
         }
 
-        // For now, we'll do a simple comparison by converting both to numpy arrays
-        // This is not the most efficient but it works for basic equality checks
         let self_array = self.to_numpy(py);
         let other_array = other.to_numpy(py);
 
         match (self_array, other_array) {
-            (Ok(_self_arr), Ok(_other_arr)) => {
-                // For now, return false for simplicity
-                // Proper comparison would need element-wise comparison with tolerance
-                false
-            }
+            (Ok(_self_arr), Ok(_other_arr)) => false,
             _ => false,
         }
     }
@@ -2793,10 +2782,8 @@ impl PyAudioSamples {
         py: Python<'_>,
         numpy_array: &Bound<'_, PyUntypedArray>,
     ) -> PyResult<Self> {
-        // Create AudioSamples from numpy array using the same sample rate and channel layout as self
+        // The array must have this audio's shape; the result takes its sample rate.
         let sample_rate = self.sample_rate(py);
-
-        // Check compatibility
         let array_shape = numpy_array.shape();
         let self_shape = match self.channels(py) {
             1 => vec![self.len(py)],
@@ -2809,12 +2796,9 @@ impl PyAudioSamples {
             )));
         }
 
-        // Convert based on array dimensions
         if array_shape.len() == 1 {
-            // Mono audio
             Self::py_new_mono(py, numpy_array, sample_rate)
         } else if array_shape.len() == 2 {
-            // Multi-channel audio
             Self::py_new_multi(py, numpy_array, sample_rate)
         } else {
             Err(PyValueError::new_err("Only 1D and 2D arrays are supported"))
@@ -3387,14 +3371,10 @@ impl PyAudioSamples {
         }
         match dtype {
             Some(dt) if !dt.is_equiv_to(&self.dtype(py)) => {
-                // Cast to requested dtype first
                 let casted = self.cast_as(py, PySampleType::from_numpy(py, dt)?)?;
                 casted.__array__(py, None, None)
             }
-            _ => {
-                // Return array with current dtype
-                Ok(self.to_numpy(py)?.into_any().unbind())
-            }
+            _ => Ok(self.to_numpy(py)?.into_any().unbind()),
         }
     }
 
@@ -4380,7 +4360,7 @@ where
     #[inline(always)]
     #[allow(
         clippy::inline_always,
-        reason = "every method that reads samples goes through here; out of line it costs each call about 4 ns"
+        reason = "every method that reads samples calls this; inlining saves a call in each"
     )]
     pub(crate) fn borrowed<'a>(&'a self, py: Python<'a>) -> AudioSamples<'a, T> {
         use PyAudioBacking::{NumpyInterleaved, NumpyMono, NumpyMulti, OwnedMono, OwnedMulti};

@@ -207,7 +207,7 @@ impl PyAudioSamples {
     #[pyo3(signature = (frequencies: "list[float]"))]
     #[allow(
         clippy::unused_self,
-        reason = "a Python instance method, kept for compatibility"
+        reason = "a deprecated method of the Python API, which takes the instance"
     )]
     #[allow(
         clippy::needless_pass_by_value,

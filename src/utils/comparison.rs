@@ -43,13 +43,9 @@ use crate::{PyAudioSamples, audio_err_to_py};
 ///     1.0
 #[inline]
 pub fn correlation(py: Python, a: &PyAudioSamples, b: &PyAudioSamples) -> PyResult<f64> {
-    // We need to get both AudioSamples and call the comparison function
-    // The comparison functions in audio_samples work with AudioSamples<T>
-    // We need to ensure both have the same type
-
     use crate::PyAudioDataInner;
 
-    // First check if they're the same type
+    // Both signals must have the same sample type.
     let a_inner = a.inner();
     let b_inner = b.inner();
 
