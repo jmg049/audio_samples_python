@@ -15,6 +15,15 @@ has the full detail.
   `AudioSamples<f32>: 2 ch × 48000 samples @ 48000 Hz (1.000 s)`; `repr` adds a line per channel
   (up to eight) with its first and last three samples. `str` of mono audio used to include a
   preview line, and the header used `x` for `×`.
+- **Onset peak-picking presets are given in seconds and take the sample rate.**
+  `PeakPickingConfig.music`, `.speech` and `.drums` were class attributes sized as if their
+  lengths counted audio samples, so on an onset strength function they spanned seconds and found
+  almost nothing. They are now static methods taking `(sample_rate, hop_size)`, with threshold
+  windows of 0.2 s, 0.2 s and 0.1 s and minimum separations of 0.1 s, 80 ms and 30 ms.
+  `OnsetDetectionConfig.musical`, `.percussive`, `.speech`, `SpectralFluxConfig.percussive`,
+  `.musical` and `ComplexOnsetConfig.percussive`, `.musical`, `.speech` take the sample rate,
+  e.g. `OnsetDetectionConfig.percussive(audio.sample_rate)`; the `SpectralFluxConfig` and
+  `ComplexOnsetConfig` presets are static methods instead of class attributes.
 - **`==` and `!=` on AudioSamples compare sample type, sample rate, shape and samples**; `==`
   returned False for any two objects.
 - **`forms.resample` and `forms.pitch_shift` with `scale=True` multiply by the reciprocal of the

@@ -3943,27 +3943,57 @@ impl PyPeakPickingConfig {
         })
     }
 
-    /// Music preset configuration (class attribute: ``PeakPickingConfig.music``).
-    #[classattr]
-    const fn music() -> Self {
+    /// Music preset: a 0.2 s combined threshold window and 0.1 s minimum separation.
+    ///
+    /// The durations are converted to frames of the onset strength function at
+    /// ``sample_rate / hop_size`` frames per second, so pass the sample rate and
+    /// hop size of the onset function it will be applied to.
+    ///
+    /// Args:
+    ///
+    ///     sample_rate (int): Sample rate of the audio in Hz.
+    ///     hop_size (int): Hop between onset-function frames, in samples.
+    #[staticmethod]
+    #[pyo3(signature = (sample_rate: "int", hop_size: "int"))]
+    fn music(sample_rate: std::num::NonZeroU32, hop_size: std::num::NonZeroUsize) -> Self {
         Self {
-            inner: PeakPickingConfig::music(),
+            inner: PeakPickingConfig::music(sample_rate, hop_size),
         }
     }
 
-    /// Speech preset configuration (class attribute: ``PeakPickingConfig.speech``).
-    #[classattr]
-    const fn speech() -> Self {
+    /// Speech preset: a 0.2 s delta threshold window and 80 ms minimum separation.
+    ///
+    /// The durations are converted to frames of the onset strength function at
+    /// ``sample_rate / hop_size`` frames per second, so pass the sample rate and
+    /// hop size of the onset function it will be applied to.
+    ///
+    /// Args:
+    ///
+    ///     sample_rate (int): Sample rate of the audio in Hz.
+    ///     hop_size (int): Hop between onset-function frames, in samples.
+    #[staticmethod]
+    #[pyo3(signature = (sample_rate: "int", hop_size: "int"))]
+    fn speech(sample_rate: std::num::NonZeroU32, hop_size: std::num::NonZeroUsize) -> Self {
         Self {
-            inner: PeakPickingConfig::speech(),
+            inner: PeakPickingConfig::speech(sample_rate, hop_size),
         }
     }
 
-    /// Drums preset configuration (class attribute: ``PeakPickingConfig.drums``).
-    #[classattr]
-    const fn drums() -> Self {
+    /// Drums preset: a 0.1 s percentile threshold window and 30 ms minimum separation.
+    ///
+    /// The durations are converted to frames of the onset strength function at
+    /// ``sample_rate / hop_size`` frames per second, so pass the sample rate and
+    /// hop size of the onset function it will be applied to.
+    ///
+    /// Args:
+    ///
+    ///     sample_rate (int): Sample rate of the audio in Hz.
+    ///     hop_size (int): Hop between onset-function frames, in samples.
+    #[staticmethod]
+    #[pyo3(signature = (sample_rate: "int", hop_size: "int"))]
+    fn drums(sample_rate: std::num::NonZeroU32, hop_size: std::num::NonZeroUsize) -> Self {
         Self {
-            inner: PeakPickingConfig::drums(),
+            inner: PeakPickingConfig::drums(sample_rate, hop_size),
         }
     }
 
@@ -4147,18 +4177,32 @@ impl PySpectralFluxConfig {
     }
 
     /// Percussive preset configuration.
-    #[classattr]
-    fn percussive() -> Self {
+    ///
+    /// Args:
+    ///
+    ///     sample_rate (int): Sample rate of the audio the configuration will be
+    ///         applied to; the peak picker's durations are converted to frames
+    ///         at ``sample_rate / hop_size``.
+    #[staticmethod]
+    #[pyo3(signature = (sample_rate: "int"))]
+    fn percussive(sample_rate: std::num::NonZeroU32) -> Self {
         Self {
-            inner: SpectralFluxConfig::percussive(),
+            inner: SpectralFluxConfig::percussive(sample_rate),
         }
     }
 
     /// Musical preset configuration.
-    #[classattr]
-    fn musical() -> Self {
+    ///
+    /// Args:
+    ///
+    ///     sample_rate (int): Sample rate of the audio the configuration will be
+    ///         applied to; the peak picker's durations are converted to frames
+    ///         at ``sample_rate / hop_size``.
+    #[staticmethod]
+    #[pyo3(signature = (sample_rate: "int"))]
+    fn musical(sample_rate: std::num::NonZeroU32) -> Self {
         Self {
-            inner: SpectralFluxConfig::musical(),
+            inner: SpectralFluxConfig::musical(sample_rate),
         }
     }
 
@@ -4362,26 +4406,47 @@ impl PyComplexOnsetConfig {
     }
 
     /// Percussive preset configuration.
-    #[classattr]
-    fn percussive() -> Self {
+    ///
+    /// Args:
+    ///
+    ///     sample_rate (int): Sample rate of the audio the configuration will be
+    ///         applied to; the peak picker's durations are converted to frames
+    ///         at ``sample_rate / hop_size``.
+    #[staticmethod]
+    #[pyo3(signature = (sample_rate: "int"))]
+    fn percussive(sample_rate: std::num::NonZeroU32) -> Self {
         Self {
-            inner: ComplexOnsetConfig::percussive(),
+            inner: ComplexOnsetConfig::percussive(sample_rate),
         }
     }
 
     /// Musical preset configuration.
-    #[classattr]
-    fn musical() -> Self {
+    ///
+    /// Args:
+    ///
+    ///     sample_rate (int): Sample rate of the audio the configuration will be
+    ///         applied to; the peak picker's durations are converted to frames
+    ///         at ``sample_rate / hop_size``.
+    #[staticmethod]
+    #[pyo3(signature = (sample_rate: "int"))]
+    fn musical(sample_rate: std::num::NonZeroU32) -> Self {
         Self {
-            inner: ComplexOnsetConfig::musical(),
+            inner: ComplexOnsetConfig::musical(sample_rate),
         }
     }
 
     /// Speech preset configuration.
-    #[classattr]
-    fn speech() -> Self {
+    ///
+    /// Args:
+    ///
+    ///     sample_rate (int): Sample rate of the audio the configuration will be
+    ///         applied to; the peak picker's durations are converted to frames
+    ///         at ``sample_rate / hop_size``.
+    #[staticmethod]
+    #[pyo3(signature = (sample_rate: "int"))]
+    fn speech(sample_rate: std::num::NonZeroU32) -> Self {
         Self {
-            inner: ComplexOnsetConfig::speech(),
+            inner: ComplexOnsetConfig::speech(sample_rate),
         }
     }
 
@@ -4635,26 +4700,47 @@ impl PyOnsetDetectionConfig {
     }
 
     /// Create an ``OnsetDetectionConfig`` optimized for general music.
+    ///
+    /// Args:
+    ///
+    ///     sample_rate (int): Sample rate of the audio the configuration will be
+    ///         applied to; the peak picker's durations are converted to frames
+    ///         at ``sample_rate / hop_size``.
     #[classmethod]
-    fn musical(_cls: &Bound<'_, PyType>) -> Self {
+    #[pyo3(signature = (sample_rate: "int"))]
+    fn musical(_cls: &Bound<'_, PyType>, sample_rate: std::num::NonZeroU32) -> Self {
         Self {
-            inner: OnsetDetectionConfig::musical(),
+            inner: OnsetDetectionConfig::musical(sample_rate),
         }
     }
 
     /// Create an ``OnsetDetectionConfig`` optimized for percussive sounds.
+    ///
+    /// Args:
+    ///
+    ///     sample_rate (int): Sample rate of the audio the configuration will be
+    ///         applied to; the peak picker's durations are converted to frames
+    ///         at ``sample_rate / hop_size``.
     #[classmethod]
-    fn percussive(_cls: &Bound<'_, PyType>) -> Self {
+    #[pyo3(signature = (sample_rate: "int"))]
+    fn percussive(_cls: &Bound<'_, PyType>, sample_rate: std::num::NonZeroU32) -> Self {
         Self {
-            inner: OnsetDetectionConfig::percussive(),
+            inner: OnsetDetectionConfig::percussive(sample_rate),
         }
     }
 
     /// Create an ``OnsetDetectionConfig`` optimized for speech.
+    ///
+    /// Args:
+    ///
+    ///     sample_rate (int): Sample rate of the audio the configuration will be
+    ///         applied to; the peak picker's durations are converted to frames
+    ///         at ``sample_rate / hop_size``.
     #[classmethod]
-    fn speech(_cls: &Bound<'_, PyType>) -> Self {
+    #[pyo3(signature = (sample_rate: "int"))]
+    fn speech(_cls: &Bound<'_, PyType>, sample_rate: std::num::NonZeroU32) -> Self {
         Self {
-            inner: OnsetDetectionConfig::speech(),
+            inner: OnsetDetectionConfig::speech(sample_rate),
         }
     }
 

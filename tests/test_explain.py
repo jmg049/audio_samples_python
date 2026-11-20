@@ -37,7 +37,7 @@ def _all_docs() -> dict[str, ExplainDoc]:
         "compressor": aus.CompressorConfig.default().explain(48000.0),
         "limiter": aus.LimiterConfig.default().explain(48000.0),
         "vad": aus.VadConfig.default().explain(16000.0, n_samples=16000),
-        "onset": aus.OnsetDetectionConfig.percussive().explain(44100.0),
+        "onset": aus.OnsetDetectionConfig.percussive(44100).explain(44100.0),
         "sampling": ex.sampling(44100.0),
         "aliasing": ex.aliasing(7000.0, 8000.0),
         "quantisation": ex.quantisation(16),

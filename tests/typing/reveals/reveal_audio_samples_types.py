@@ -500,6 +500,15 @@ def r_AdaptiveThresholdConfig__default__1() -> None:
     reveal_type(AdaptiveThresholdConfig.default())
 
 
+def r_PeakPickingConfig__music__1(sample_rate: int, hop_size: int) -> None:
+    reveal_type(PeakPickingConfig.music(sample_rate, hop_size))
+
+def r_PeakPickingConfig__speech__1(sample_rate: int, hop_size: int) -> None:
+    reveal_type(PeakPickingConfig.speech(sample_rate, hop_size))
+
+def r_PeakPickingConfig__drums__1(sample_rate: int, hop_size: int) -> None:
+    reveal_type(PeakPickingConfig.drums(sample_rate, hop_size))
+
 def r_PeakPickingConfig__default__1() -> None:
     reveal_type(PeakPickingConfig.default())
 
@@ -519,6 +528,12 @@ def r_PeakPickingConfig__set_median_filter__1(self_: PeakPickingConfig, enabled:
 def r_PeakPickingConfig__validate__1(self_: PeakPickingConfig) -> None:
     reveal_type(self_.validate())
 
+
+def r_SpectralFluxConfig__percussive__1(sample_rate: int) -> None:
+    reveal_type(SpectralFluxConfig.percussive(sample_rate))
+
+def r_SpectralFluxConfig__musical__1(sample_rate: int) -> None:
+    reveal_type(SpectralFluxConfig.musical(sample_rate))
 
 def r_SpectralFluxConfig__validate__1(self_: SpectralFluxConfig) -> None:
     reveal_type(self_.validate())
@@ -551,6 +566,15 @@ def r_SpectralFluxConfig__log_compression__1(self_: SpectralFluxConfig) -> None:
     reveal_type(self_.log_compression)
 
 
+
+def r_ComplexOnsetConfig__percussive__1(sample_rate: int) -> None:
+    reveal_type(ComplexOnsetConfig.percussive(sample_rate))
+
+def r_ComplexOnsetConfig__musical__1(sample_rate: int) -> None:
+    reveal_type(ComplexOnsetConfig.musical(sample_rate))
+
+def r_ComplexOnsetConfig__speech__1(sample_rate: int) -> None:
+    reveal_type(ComplexOnsetConfig.speech(sample_rate))
 
 def r_ComplexOnsetConfig__set_weights__1(self_: ComplexOnsetConfig, magnitude_weight: float, phase_weight: float) -> None:
     reveal_type(self_.set_weights(magnitude_weight, phase_weight))
@@ -598,14 +622,14 @@ def r_ComplexOnsetConfig__log_compression__1(self_: ComplexOnsetConfig) -> None:
 def r_OnsetDetectionConfig__default__1() -> None:
     reveal_type(OnsetDetectionConfig.default())
 
-def r_OnsetDetectionConfig__musical__1() -> None:
-    reveal_type(OnsetDetectionConfig.musical())
+def r_OnsetDetectionConfig__musical__1(sample_rate: int) -> None:
+    reveal_type(OnsetDetectionConfig.musical(sample_rate))
 
-def r_OnsetDetectionConfig__percussive__1() -> None:
-    reveal_type(OnsetDetectionConfig.percussive())
+def r_OnsetDetectionConfig__percussive__1(sample_rate: int) -> None:
+    reveal_type(OnsetDetectionConfig.percussive(sample_rate))
 
-def r_OnsetDetectionConfig__speech__1() -> None:
-    reveal_type(OnsetDetectionConfig.speech())
+def r_OnsetDetectionConfig__speech__1(sample_rate: int) -> None:
+    reveal_type(OnsetDetectionConfig.speech(sample_rate))
 
 def r_OnsetDetectionConfig__cqt_params__1(self_: OnsetDetectionConfig) -> None:
     reveal_type(self_.cqt_params)

@@ -374,7 +374,7 @@ def test_compressor_config_getters():
 
 
 def test_peak_picking_getter_and_copy_semantics():
-    pp = aus.PeakPickingConfig.drums  # class attribute
+    pp = aus.PeakPickingConfig.drums(44100, 256)  # takes the sample rate and hop size
     assert isinstance(pp.min_peak_separation, int)
     cfg = aus.OnsetDetectionConfig.default()
     before = cfg.peak_picking.min_peak_separation

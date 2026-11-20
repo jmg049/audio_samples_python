@@ -142,11 +142,8 @@ Students should know about these (the notebooks point them out where they are re
   power, not the power (notebook 10).
 - The default `OnsetDetectionConfig` finds every click of a clean click
   track, but its threshold floor (0.1 of the strongest onset) drops much
-  weaker onsets: on notebook 13's eight-click track it finds 5. The `musical`
-  and `speech` presets find none of the four clicks of notebook 13's first
-  track, and `percussive` finds one, because their peak-picking lengths count
-  onset-function frames but are sized as if they counted samples. Notebook 13
-  shows both and checks the configuration with `.explain()`.
+  weaker onsets: on notebook 13's eight-click track it finds 5. Notebook 13
+  shows this and checks the configuration with `.explain()`.
 - `estimate_tempo` makes octave errors (and third-of-tempo errors) on simple
   click tracks; `BeatTrackingConfig.tempo_bpm` is not used by it.
 - `LimiterConfig.isp_limiting` is not implemented.

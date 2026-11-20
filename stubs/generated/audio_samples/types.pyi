@@ -333,18 +333,6 @@ class ComplexOnsetConfig:
     from the CQT to provide more accurate onset detection than magnitude-only
     methods, especially for polyphonic music and complex timbres.
     """
-    musical: Final[ComplexOnsetConfig]
-    """
-    Musical preset configuration.
-    """
-    percussive: Final[ComplexOnsetConfig]
-    """
-    Percussive preset configuration.
-    """
-    speech: Final[ComplexOnsetConfig]
-    """
-    Speech preset configuration.
-    """
     def __new__(cls, /, *, cqt_params: "CqtParams", hop_size: "int", window_size: "Optional[int]", peak_picking: "PeakPickingConfig", magnitude_weight: "float", phase_weight: "float", magnitude_rectify: "bool", phase_rectify: "bool", log_compression: "float") -> ComplexOnsetConfig:
         """
         Create a new ``ComplexOnsetConfig``.
@@ -426,6 +414,17 @@ class ComplexOnsetConfig:
         """
         Set the magnitude weighting factor.
         """
+    @staticmethod
+    def musical(sample_rate: "int") -> ComplexOnsetConfig:
+        """
+        Musical preset configuration.
+
+        Args:
+
+            sample_rate (int): Sample rate of the audio the configuration will be
+                applied to; the peak picker's durations are converted to frames
+                at ``sample_rate / hop_size``.
+        """
     @property
     def peak_picking(self, /) -> PeakPickingConfig:
         """
@@ -444,6 +443,17 @@ class ComplexOnsetConfig:
     def peak_picking(self, /, value: PeakPickingConfig) -> None:
         """
         Set the peak picking configuration.
+        """
+    @staticmethod
+    def percussive(sample_rate: "int") -> ComplexOnsetConfig:
+        """
+        Percussive preset configuration.
+
+        Args:
+
+            sample_rate (int): Sample rate of the audio the configuration will be
+                applied to; the peak picker's durations are converted to frames
+                at ``sample_rate / hop_size``.
         """
     @property
     def phase_rectify(self, /) -> bool:
@@ -468,6 +478,17 @@ class ComplexOnsetConfig:
     def set_weights(self, /, magnitude_weight: "float", phase_weight: "float") -> None:
         """
         Set the magnitude and phase weighting factors.
+        """
+    @staticmethod
+    def speech(sample_rate: "int") -> ComplexOnsetConfig:
+        """
+        Speech preset configuration.
+
+        Args:
+
+            sample_rate (int): Sample rate of the audio the configuration will be
+                applied to; the peak picker's durations are converted to frames
+                at ``sample_rate / hop_size``.
         """
     def validate(self, /) -> ComplexOnsetConfig:
         """
@@ -2278,9 +2299,15 @@ class OnsetDetectionConfig:
         Set the minimum onset interval in seconds.
         """
     @classmethod
-    def musical(cls, /) -> OnsetDetectionConfig:
+    def musical(cls, /, sample_rate: "int") -> OnsetDetectionConfig:
         """
         Create an ``OnsetDetectionConfig`` optimized for general music.
+
+        Args:
+
+            sample_rate (int): Sample rate of the audio the configuration will be
+                applied to; the peak picker's durations are converted to frames
+                at ``sample_rate / hop_size``.
         """
     @property
     def peak_picking(self, /) -> PeakPickingConfig:
@@ -2302,9 +2329,15 @@ class OnsetDetectionConfig:
         Set the peak picking configuration.
         """
     @classmethod
-    def percussive(cls, /) -> OnsetDetectionConfig:
+    def percussive(cls, /, sample_rate: "int") -> OnsetDetectionConfig:
         """
         Create an ``OnsetDetectionConfig`` optimized for percussive sounds.
+
+        Args:
+
+            sample_rate (int): Sample rate of the audio the configuration will be
+                applied to; the peak picker's durations are converted to frames
+                at ``sample_rate / hop_size``.
         """
     @property
     def pre_emphasis(self, /) -> float:
@@ -2317,9 +2350,15 @@ class OnsetDetectionConfig:
         Set the pre-emphasis factor.
         """
     @classmethod
-    def speech(cls, /) -> OnsetDetectionConfig:
+    def speech(cls, /, sample_rate: "int") -> OnsetDetectionConfig:
         """
         Create an ``OnsetDetectionConfig`` optimized for speech.
+
+        Args:
+
+            sample_rate (int): Sample rate of the audio the configuration will be
+                applied to; the peak picker's durations are converted to frames
+                at ``sample_rate / hop_size``.
         """
     @property
     def threshold(self, /) -> float:
@@ -2433,18 +2472,6 @@ class PeakPickingConfig:
     ``PeakPickingConfig.music``, ``PeakPickingConfig.speech``,
     ``PeakPickingConfig.drums``. ``PeakPickingConfig.default()`` is a method.
     """
-    drums: Final[PeakPickingConfig]
-    """
-    Drums preset configuration (class attribute: ``PeakPickingConfig.drums``).
-    """
-    music: Final[PeakPickingConfig]
-    """
-    Music preset configuration (class attribute: ``PeakPickingConfig.music``).
-    """
-    speech: Final[PeakPickingConfig]
-    """
-    Speech preset configuration (class attribute: ``PeakPickingConfig.speech``).
-    """
     def __new__(cls, /, *, adaptive_threshold_config: "AdaptiveThresholdConfig", min_peak_separation: "int", pre_emphasis: "bool", pre_emphasis_coeff: "float", median_filter: "bool", median_filter_length: "int", normalize_onset_strength: "bool", normalization_method: "NormalizationMethod") -> PeakPickingConfig:
         """
         Create a new ``PeakPickingConfig``.
@@ -2471,6 +2498,20 @@ class PeakPickingConfig:
     def __repr__(self, /) -> str: ...
     @staticmethod
     def default() -> PeakPickingConfig: ...
+    @staticmethod
+    def drums(sample_rate: "int", hop_size: "int") -> PeakPickingConfig:
+        """
+        Drums preset: a 0.1 s percentile threshold window and 30 ms minimum separation.
+
+        The durations are converted to frames of the onset strength function at
+        ``sample_rate / hop_size`` frames per second, so pass the sample rate and
+        hop size of the onset function it will be applied to.
+
+        Args:
+
+            sample_rate (int): Sample rate of the audio in Hz.
+            hop_size (int): Hop between onset-function frames, in samples.
+        """
     @property
     def min_peak_separation(self, /) -> int:
         """
@@ -2480,6 +2521,20 @@ class PeakPickingConfig:
     def min_peak_separation(self, /, value: int) -> None:
         """
         Minimum separation between detected peaks in frames.
+        """
+    @staticmethod
+    def music(sample_rate: "int", hop_size: "int") -> PeakPickingConfig:
+        """
+        Music preset: a 0.2 s combined threshold window and 0.1 s minimum separation.
+
+        The durations are converted to frames of the onset strength function at
+        ``sample_rate / hop_size`` frames per second, so pass the sample rate and
+        hop size of the onset function it will be applied to.
+
+        Args:
+
+            sample_rate (int): Sample rate of the audio in Hz.
+            hop_size (int): Hop between onset-function frames, in samples.
         """
     def set_median_filter(self, /, enabled: "bool", length: "int") -> None:
         """
@@ -2492,6 +2547,20 @@ class PeakPickingConfig:
     def set_pre_emphasis(self, /, enabled: "bool", coeff: "float") -> None:
         """
         Enable or disable pre-emphasis filtering.
+        """
+    @staticmethod
+    def speech(sample_rate: "int", hop_size: "int") -> PeakPickingConfig:
+        """
+        Speech preset: a 0.2 s delta threshold window and 80 ms minimum separation.
+
+        The durations are converted to frames of the onset strength function at
+        ``sample_rate / hop_size`` frames per second, so pass the sample rate and
+        hop size of the onset function it will be applied to.
+
+        Args:
+
+            sample_rate (int): Sample rate of the audio in Hz.
+            hop_size (int): Hop between onset-function frames, in samples.
         """
     def validate(self, /) -> PeakPickingConfig:
         """
@@ -3444,14 +3513,6 @@ class SpectralFluxConfig:
     """
     Complex preset configuration.
     """
-    musical: Final[SpectralFluxConfig]
-    """
-    Musical preset configuration.
-    """
-    percussive: Final[SpectralFluxConfig]
-    """
-    Percussive preset configuration.
-    """
     def __new__(cls, /, *, cqt_params: Any, hop_size: int, window_size: int | None = None, flux_method: SpectralFluxMethod, peak_picking: PeakPickingConfig, rectify: bool, log_compression: float) -> SpectralFluxConfig:
         """
         Create a new ``SpectralFluxConfig``.
@@ -3519,6 +3580,17 @@ class SpectralFluxConfig:
         """
         Set the logarithmic compression factor.
         """
+    @staticmethod
+    def musical(sample_rate: "int") -> SpectralFluxConfig:
+        """
+        Musical preset configuration.
+
+        Args:
+
+            sample_rate (int): Sample rate of the audio the configuration will be
+                applied to; the peak picker's durations are converted to frames
+                at ``sample_rate / hop_size``.
+        """
     @property
     def peak_picking(self, /) -> PeakPickingConfig:
         """
@@ -3537,6 +3609,17 @@ class SpectralFluxConfig:
     def peak_picking(self, /, value: PeakPickingConfig) -> None:
         """
         Set the peak picking configuration.
+        """
+    @staticmethod
+    def percussive(sample_rate: "int") -> SpectralFluxConfig:
+        """
+        Percussive preset configuration.
+
+        Args:
+
+            sample_rate (int): Sample rate of the audio the configuration will be
+                applied to; the peak picker's durations are converted to frames
+                at ``sample_rate / hop_size``.
         """
     @property
     def rectify(self, /) -> bool:

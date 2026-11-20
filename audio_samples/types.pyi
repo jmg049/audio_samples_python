@@ -1982,10 +1982,21 @@ class PeakPickingConfig:
         normalize_onset_strength: bool,
         normalization_method: NormalizationMethod,
     ) -> Self: ...
-    # Presets are class attributes (no parentheses): PeakPickingConfig.music
-    music: PeakPickingConfig
-    speech: PeakPickingConfig
-    drums: PeakPickingConfig
+    @staticmethod
+    def music(sample_rate: int, hop_size: int) -> PeakPickingConfig:
+        """Music preset: 0.2 s combined threshold window, 0.1 s minimum separation.
+
+        The durations are converted to frames at ``sample_rate / hop_size``.
+        """
+        ...
+    @staticmethod
+    def speech(sample_rate: int, hop_size: int) -> PeakPickingConfig:
+        """Speech preset: 0.2 s delta threshold window, 80 ms minimum separation."""
+        ...
+    @staticmethod
+    def drums(sample_rate: int, hop_size: int) -> PeakPickingConfig:
+        """Drums preset: 0.1 s percentile threshold window, 30 ms minimum separation."""
+        ...
     @staticmethod
     def default() -> PeakPickingConfig: ...
     @property
@@ -2060,11 +2071,14 @@ class SpectralFluxConfig:
         rectify: bool,
         log_compression: float,
     ) -> Self: ...
-    percussive: SpectralFluxConfig
-    """ Configuration optimised for percussive onsets."""
-
-    musical: SpectralFluxConfig
-    """ Configuration optimised for musical onsets."""
+    @staticmethod
+    def percussive(sample_rate: int) -> SpectralFluxConfig:
+        """Configuration optimised for percussive onsets, for audio at ``sample_rate``."""
+        ...
+    @staticmethod
+    def musical(sample_rate: int) -> SpectralFluxConfig:
+        """Configuration optimised for musical onsets, for audio at ``sample_rate``."""
+        ...
 
     complex: SpectralFluxConfig
     """ Configuration optimised for complex onsets."""
@@ -2125,14 +2139,18 @@ class ComplexOnsetConfig:
         log_compression: float,
     ) -> Self: ...
 
-    percussive: ComplexOnsetConfig
-    """ Configuration optimised for percussive onsets."""
-
-    musical: ComplexOnsetConfig
-    """ Configuration optimised for musical onsets."""
-
-    speech: ComplexOnsetConfig
-    """ Configuration optimised for speech onsets."""
+    @staticmethod
+    def percussive(sample_rate: int) -> ComplexOnsetConfig:
+        """Configuration optimised for percussive onsets, for audio at ``sample_rate``."""
+        ...
+    @staticmethod
+    def musical(sample_rate: int) -> ComplexOnsetConfig:
+        """Configuration optimised for musical onsets, for audio at ``sample_rate``."""
+        ...
+    @staticmethod
+    def speech(sample_rate: int) -> ComplexOnsetConfig:
+        """Configuration optimised for speech onsets, for audio at ``sample_rate``."""
+        ...
 
     def set_weights(self, magnitude_weight: float, phase_weight: float) -> None: ...
     def validate(self) -> ComplexOnsetConfig: ...
@@ -2201,11 +2219,11 @@ class OnsetDetectionConfig:
     @classmethod
     def default(cls) -> OnsetDetectionConfig: ...
     @classmethod
-    def musical(cls) -> OnsetDetectionConfig: ...
+    def musical(cls, sample_rate: int) -> OnsetDetectionConfig: ...
     @classmethod
-    def percussive(cls) -> OnsetDetectionConfig: ...
+    def percussive(cls, sample_rate: int) -> OnsetDetectionConfig: ...
     @classmethod
-    def speech(cls) -> OnsetDetectionConfig: ...
+    def speech(cls, sample_rate: int) -> OnsetDetectionConfig: ...
     @property
     def cqt_params(self) -> CqtParams: ...
     @cqt_params.setter
