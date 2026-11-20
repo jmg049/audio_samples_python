@@ -1798,8 +1798,8 @@ class LimiterConfig:
     (``LimiterConfig.mastering()``), unlike ``CompressorConfig``'s presets,
     which are class attributes.
 
-    ``isp_limiting`` is a reserved flag: inter-sample (true-peak) limiting is
-    not implemented and the flag has no effect.
+    ``isp_limiting`` makes the peak detector read true (inter-sample) peaks,
+    interpolated at 4x, instead of sample peaks.
     """
     def __new__(cls, /, *, ceiling_db: "float", attack_ms: "float", release_ms: "float", knee_type: KneeType, knee_width_db: float, detection_method: DynamicRangeMethod, side_chain: SideChainConfig, lookahead_ms: float, isp_limiting: bool) -> LimiterConfig:
         """
@@ -1829,8 +1829,10 @@ class LimiterConfig:
             Lookahead time in milliseconds. Allows the limiter to anticipate
             upcoming peaks.
         ``isp_limiting`` : bool
-            Reserved flag for inter-sample peak (ISP) limiting. Not implemented:
-            it has no effect (sample peaks only).
+            True-peak detection: the detector signal is interpolated at 4x
+            (as in ITU-R BS.1770) and each sample is detected at the largest
+            magnitude within one sample of it. A full-scale sine at fs/4 sampled
+            45 degrees off its peaks reads 0 dBTP instead of -3 dBFS.
 
         Returns
         -------
@@ -1885,8 +1887,8 @@ class LimiterConfig:
         """
         Whether inter-sample peak limiting was requested.
 
-        Reserved flag: inter-sample (true-peak) limiting is not implemented and
-        this flag has no effect; the limiter measures sample peaks.
+        Whether the peak detector reads true (inter-sample) peaks, interpolated
+        at 4x, instead of sample peaks.
         """
     @property
     def knee_type(self, /) -> KneeType:
@@ -3262,14 +3264,18 @@ class SideChainConfig:
     to drive gain reduction in dynamics processors such as compressors and
     limiters.
 
-    Side-chain processing can be enabled or disabled, optionally filtered, and
-    mixed with the internal detector signal.
+    When ``enabled``, the compressor and limiter build their detector input from
+    the main signal ``x`` and, in the ``*_sidechain`` methods, the side-chain
+    signal ``s`` as ``(1 - external_mix) * x + external_mix * s``, then filter it
+    with a 2nd-order Butterworth high-pass at ``high_pass_freq``, a 2nd-order
+    Butterworth low-pass at ``low_pass_freq`` and a first-order high shelf of
+    ``pre_emphasis_db``. Only the detector is filtered, never the signal path.
 
     Instances of `SideChainConfig` are immutable value objects in the Python API.
     Parameters are provided at construction time and exposed via read-only
     properties.
     """
-    def __new__(cls, /, enabled: "bool", high_pass_freq: "Optional[float]" = None, low_pass_freq: "Optional[float]" = None, pre_emphasis_db: float = 0.0, external_mix: float = 0.0) -> SideChainConfig:
+    def __new__(cls, /, enabled: "bool", high_pass_freq: "Optional[float]" = None, low_pass_freq: "Optional[float]" = None, pre_emphasis_db: float = 0.0, external_mix: float = 1.0) -> SideChainConfig:
         """
         Create a new side-chain configuration.
 
@@ -3278,17 +3284,23 @@ class SideChainConfig:
         enabled : bool
             Whether side-chain processing is enabled.
         ``high_pass_freq`` : float or None, optional
-            High-pass filter cutoff frequency in Hz for the side-chain signal.
-            Useful for reducing low-frequency pumping effects.
+            Cutoff in Hz of a 2nd-order Butterworth high-pass on the detector
+            input, in ``(0, nyquist)``. Keeps bass from triggering gain reduction
+            ("pumping").
         ``low_pass_freq`` : float or None, optional
-            Low-pass filter cutoff frequency in Hz for the side-chain signal.
-            Useful for focusing compression on specific frequency ranges.
+            Cutoff in Hz of a 2nd-order Butterworth low-pass on the detector
+            input, in ``(0, nyquist)`` and above ``high_pass_freq``.
         ``pre_emphasis_db`` : float, optional
-            Pre-emphasis applied to the side-chain signal in decibels.
+            High-frequency gain of a first-order high shelf on the detector input:
+            unity at DC, half the gain (in dB) at 2 kHz (or a quarter of the
+            sample rate when lower), the full gain at Nyquist. Positive values make
+            high frequencies trigger gain reduction more easily. Within
+            ``[-40, 40]``; ``0.0`` disables it.
         ``external_mix`` : float, optional
-            Mix ratio between internal and external side-chain signal in the
-            range ``[0.0, 1.0]``. ``0.0`` selects internal only, ``1.0`` selects
-            external only.
+            Mix of the main signal (``0.0``) and the external side-chain signal
+            (``1.0``, the default) in the detector input of the ``*_sidechain``
+            methods, in ``[0.0, 1.0]``. The other methods have no external
+            signal and do not read it.
 
         Returns
         -------
@@ -3990,11 +4002,13 @@ class VadConfig:
             Majority-vote smoothing window in frames. A value of 1 disables
             smoothing.
         ``speech_band_low_hz`` : float
-            Lower bound of the speech band in Hz (used by spectral VAD).
+            Lower edge of the speech band in Hz (``VadMethod.spectral``).
         ``speech_band_high_hz`` : float
-            Upper bound of the speech band in Hz (used by spectral VAD).
+            Upper edge of the speech band in Hz, at most the Nyquist frequency of
+            the audio (``VadMethod.spectral``).
         ``spectral_ratio_threshold`` : float
-            Threshold on speech-band energy ratio (used by spectral VAD).
+            Minimum fraction, in ``[0, 1]``, of a frame's energy inside the speech
+            band for ``VadMethod.spectral`` to classify it as speech.
 
         Returns
         -------
@@ -4154,11 +4168,14 @@ class VadMethod:
     """
     spectral: Final[VadMethod]
     """
-    Spectral-based detection (not implemented).
+    Energy threshold and speech-band energy ratio detection.
 
-    Reserved for speech-band spectral detection. It is **not implemented**:
-    ``voice_activity_mask`` / ``speech_regions`` raise an error when this
-    method is selected. Use ``energy``, ``zcr`` or ``combined``.
+    A frame is speech when its RMS level reaches ``energy_threshold_db`` and at
+    least ``spectral_ratio_threshold`` of its energy (Hann window, real FFT of
+    length ``frame_size``) lies between ``speech_band_low_hz`` and
+    ``speech_band_high_hz`` (defaults: 0.6 of the energy in 300-3400 Hz).
+    Rejects loud broadband noise, hum and hiss that ``energy`` accepts, and
+    unvoiced fricatives, whose energy lies mostly above the band.
     """
     zcr: Final[VadMethod]
     """

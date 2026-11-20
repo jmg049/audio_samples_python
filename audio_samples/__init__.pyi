@@ -1622,7 +1622,10 @@ class AudioSamples(Generic[_S_co]):
 
         The compressor's gain reduction is driven by the level of ``sidechain``
         rather than the main signal. Sidechain processing must be enabled on the
-        configuration. Only mono-to-mono sidechain processing is supported.
+        configuration. The detector input is ``(1 - m) * main + m * sidechain``
+        with ``m = config.side_chain.external_mix``, then the side-chain filters.
+        A mono sidechain drives every channel; a multi-channel one must have as
+        many channels as the main signal.
 
         Args:
             config: Compressor parameters with sidechain enabled.
@@ -1634,8 +1637,9 @@ class AudioSamples(Generic[_S_co]):
 
         Raises:
             TypeError: If the main and sidechain dtypes differ.
-            ValueError: If sidechain is not enabled, lengths differ, or either
-                signal is multi-channel.
+            ValueError: If sidechain is not enabled, the configuration is
+                invalid, the lengths differ, or a multi-channel sidechain has a
+                different channel count.
             AudioError: If compression fails.
         """
         ...
@@ -1647,7 +1651,8 @@ class AudioSamples(Generic[_S_co]):
 
         The limiter's gain reduction ceiling is enforced based on the level of
         ``sidechain`` rather than the main signal. Sidechain processing must be
-        enabled on the configuration. Only mono-to-mono processing is supported.
+        enabled on the configuration. The detector input and channel
+        combinations are as in :meth:`apply_compressor_sidechain`.
 
         Args:
             config: Limiter parameters with sidechain enabled.
@@ -1659,8 +1664,9 @@ class AudioSamples(Generic[_S_co]):
 
         Raises:
             TypeError: If the main and sidechain dtypes differ.
-            ValueError: If sidechain is not enabled, lengths differ, or either
-                signal is multi-channel.
+            ValueError: If sidechain is not enabled, the configuration is
+                invalid, the lengths differ, or a multi-channel sidechain has a
+                different channel count.
             AudioError: If limiting fails.
         """
         ...

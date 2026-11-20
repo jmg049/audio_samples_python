@@ -146,7 +146,6 @@ Students should know about these (the notebooks point them out where they are re
   shows this and checks the configuration with `.explain()`.
 - `estimate_tempo` makes octave errors (and third-of-tempo errors) on simple
   click tracks; `BeatTrackingConfig.tempo_bpm` is not used by it.
-- `LimiterConfig.isp_limiting` is not implemented.
 - The Python bindings have no Bark, ERB, threshold-of-hearing, codec,
   cepstrum or FIR-design functions (the Rust crate has most of them), so
   notebooks 05, 10 and 14 compute these with NumPy. Their LPC,

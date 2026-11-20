@@ -277,9 +277,11 @@ class VadMethod:
     """Combined energy and zero crossing rate detection."""
 
     spectral: VadMethod
-    """Spectral-based detection.
+    """Energy threshold and speech-band energy ratio detection.
 
-    Uses spectral features for improved robustness at higher computational cost.
+    A frame is speech when its level reaches ``energy_threshold_db`` and at least
+    ``spectral_ratio_threshold`` of its energy lies between ``speech_band_low_hz``
+    and ``speech_band_high_hz``. Rejects loud noise, hum and hiss.
     """
 
     ...
@@ -392,11 +394,13 @@ class VadConfig:
         smooth_frames : int
             Majority-vote smoothing window in frames.
         speech_band_low_hz : float
-            Lower bound of the speech band in Hz.
+            Lower edge of the speech band in Hz (``VadMethod.spectral``).
         speech_band_high_hz : float
-            Upper bound of the speech band in Hz.
+            Upper edge of the speech band in Hz, at most the Nyquist frequency
+            (``VadMethod.spectral``).
         spectral_ratio_threshold : float
-            Threshold on speech-band energy ratio.
+            Minimum fraction of a frame's energy inside the speech band for
+            ``VadMethod.spectral`` to classify it as speech.
         """
         ...
 
@@ -1330,7 +1334,7 @@ class SideChainConfig:
         high_pass_freq: Optional[float] = None,
         low_pass_freq: Optional[float] = None,
         pre_emphasis_db: float = 0.0,
-        external_mix: float = 0.0,
+        external_mix: float = 1.0,
     ) -> Self:
         """
         Create a new side-chain configuration.
@@ -1340,14 +1344,15 @@ class SideChainConfig:
         enabled : bool
             Whether side-chain processing is enabled.
         high_pass_freq : float or None, optional
-            High-pass filter cutoff frequency in Hz for the side-chain signal.
+            Cutoff in Hz of a 2nd-order Butterworth high-pass on the detector input.
         low_pass_freq : float or None, optional
-            Low-pass filter cutoff frequency in Hz for the side-chain signal.
+            Cutoff in Hz of a 2nd-order Butterworth low-pass on the detector input.
         pre_emphasis_db : float, optional
-            Pre-emphasis applied to the side-chain signal in decibels.
+            High-frequency gain of a first-order high shelf on the detector input
+            (half the gain at 2 kHz), within ``[-40, 40]``.
         external_mix : float, optional
-            Mix ratio between internal and external side-chain signal in the
-            range ``[0.0, 1.0]``.
+            Mix of the main signal (``0.0``) and the external side-chain signal
+            (``1.0``) in the detector input of the ``*_sidechain`` methods.
         """
         ...
 
@@ -1357,19 +1362,19 @@ class SideChainConfig:
 
     @property
     def high_pass_freq(self) -> Optional[float]: ...
-    """High-pass filter cutoff frequency in Hz for the side-chain signal."""
+    """Cutoff in Hz of the detector's high-pass filter."""
 
     @property
     def low_pass_freq(self) -> Optional[float]: ...
-    """Low-pass filter cutoff frequency in Hz for the side-chain signal."""
+    """Cutoff in Hz of the detector's low-pass filter."""
 
     @property
     def pre_emphasis_db(self) -> float: ...
-    """Pre-emphasis applied to the side-chain signal in decibels."""
+    """High-frequency gain in dB of the detector's pre-emphasis shelf."""
 
     @property
     def external_mix(self) -> float: ...
-    """Mix ratio between internal and external side-chain signal."""
+    """Mix of the main (0.0) and external side-chain (1.0) signal in the detector."""
 
     ...
 
@@ -1559,7 +1564,7 @@ class LimiterConfig:
 
     @property
     def isp_limiting(self) -> bool: ...
-    """Whether inter-sample peak limiting is enabled."""
+    """Whether the peak detector reads true (inter-sample) peaks, interpolated at 4x."""
 
     def validate(self, sample_rate: float) -> LimiterConfig:
         """

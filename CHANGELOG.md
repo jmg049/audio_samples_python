@@ -24,6 +24,19 @@ has the full detail.
   `.musical` and `ComplexOnsetConfig.percussive`, `.musical`, `.speech` take the sample rate,
   e.g. `OnsetDetectionConfig.percussive(audio.sample_rate)`; the `SpectralFluxConfig` and
   `ComplexOnsetConfig` presets are static methods instead of class attributes.
+- **`VadMethod.spectral` works.** It raised an error. A frame is speech when its level reaches
+  `energy_threshold_db` and at least `spectral_ratio_threshold` of its energy lies between
+  `speech_band_low_hz` and `speech_band_high_hz`; loud noise, hum and hiss are rejected.
+- **`LimiterConfig.isp_limiting` detects true (inter-sample) peaks** at 4× oversampling; it had
+  no effect. The `LimiterConfig` presets set it, so their output changes for material whose true
+  peak exceeds its sample peak.
+- **The `SideChainConfig` filters, pre-emphasis and mix are applied** to the detector input when
+  the side chain is enabled, in the plain and the side-chain methods; they were ignored.
+  `SideChainConfig(enabled=True)` now defaults to `external_mix=1.0` (the side-chain signal
+  alone; it was 0.0 but had no effect). `apply_compressor_sidechain` and
+  `apply_limiter_sidechain` accept a mono side-chain signal for multi-channel audio, or one with
+  the same channel count.
+
 - **`==` and `!=` on AudioSamples compare sample type, sample rate, shape and samples**; `==`
   returned False for any two objects.
 - **`forms.resample` and `forms.pitch_shift` with `scale=True` multiply by the reciprocal of the

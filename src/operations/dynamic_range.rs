@@ -131,7 +131,10 @@ impl PyAudioSamples {
     /// The compressor's gain reduction is driven by the level of ``sidechain``
     /// rather than the main signal. Sidechain processing must be enabled on the
     /// configuration (set ``config.side_chain`` to an enabled ``SideChainConfig``).
-    /// Only mono-to-mono sidechain processing is supported.
+    /// The detector input is ``(1 - m) * main + m * sidechain`` with
+    /// ``m = config.side_chain.external_mix``, then the side-chain filters. A mono
+    /// sidechain drives every channel; a multi-channel one must have as many
+    /// channels as the main signal and drives them channel by channel.
     ///
     /// Note:
     ///
@@ -152,8 +155,9 @@ impl PyAudioSamples {
     /// Raises:
     ///
     ///     TypeError: If the main and sidechain dtypes differ.
-    ///     ValueError: If sidechain is not enabled, lengths differ, or either
-    ///         signal is multi-channel.
+    ///     ValueError: If sidechain is not enabled, the configuration is invalid,
+    ///         the lengths differ, or a multi-channel sidechain has a different
+    ///         channel count.
     ///     AudioError: If compression fails.
     #[pyo3(signature = (config: "CompressorConfig", sidechain: "AudioSamples"))]
     fn apply_compressor_sidechain(
@@ -173,7 +177,9 @@ impl PyAudioSamples {
     ///
     /// The limiter's gain reduction ceiling is enforced based on the level of
     /// ``sidechain`` rather than the main signal. Sidechain processing must be
-    /// enabled on the configuration. Only mono-to-mono processing is supported.
+    /// enabled on the configuration. The detector input and the accepted channel
+    /// combinations are as in :meth:`apply_compressor_sidechain`; with
+    /// ``isp_limiting`` the detector reads true peaks.
     ///
     /// Note:
     ///
@@ -193,8 +199,9 @@ impl PyAudioSamples {
     /// Raises:
     ///
     ///     TypeError: If the main and sidechain dtypes differ.
-    ///     ValueError: If sidechain is not enabled, lengths differ, or either
-    ///         signal is multi-channel.
+    ///     ValueError: If sidechain is not enabled, the configuration is invalid,
+    ///         the lengths differ, or a multi-channel sidechain has a different
+    ///         channel count.
     ///     AudioError: If limiting fails.
     #[pyo3(signature = (config: "LimiterConfig", sidechain: "AudioSamples"))]
     fn apply_limiter_sidechain(
