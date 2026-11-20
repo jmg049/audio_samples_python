@@ -164,7 +164,7 @@ def test_conversions(fx, sr):
     # Identical formulas; libm log/exp/pow ulps only.
     assert_peak_close(U.hz_to_mel(freqs, htk=False), fixture_array(f["hz_to_mel_slaney"]), RTOL_ULP)
     assert_peak_close(U.hz_to_mel(freqs, htk=True), fixture_array(f["hz_to_mel_htk"]), RTOL_ULP)
-    # The default stays HTK (backwards compatible).
+    # The default scale is HTK.
     assert_peak_close(U.hz_to_mel(freqs), fixture_array(f["hz_to_mel_htk"]), RTOL_ULP)
     assert_peak_close(
         U.mel_to_hz(fixture_array(f["mels_htk_in"]), htk=True), fixture_array(f["mel_to_hz_htk"]), RTOL_ULP
@@ -214,7 +214,7 @@ def test_conversions_scalar_and_shape():
     assert isinstance(U.time_to_frames_floor(0.5, sample_rate=22050, hop_length=512), int)
     out = U.hz_to_midi(np.full((2, 3), 440.0))
     assert out.shape == (2, 3) and np.all(out == 69.0)
-    # Existing rounding semantics of time_to_frames are kept (nearest frame).
+    # time_to_frames rounds to the nearest frame.
     assert U.time_to_frames(1.0, 44100.0, 512) == 86
     assert U.frames_to_time(100, 44100.0, 512) == pytest.approx(100 * 512 / 44100)
     np.testing.assert_array_equal(U.samples_like(3, hop_length=512), [0, 512, 1024])
@@ -284,7 +284,7 @@ def test_istft(fx, mix):
     y = S.istft(dm)
     assert len(y) == f["no_length_len"]
     assert_peak_close(y[::4], fixture_array(f["no_length_step4"]), 1e-12)
-    # Tail near the end of the envelope: division amplifies round-off (~2e-12 measured in Rust).
+    # Tail near the end of the envelope: the division amplifies round-off (to about 2e-12).
     assert_peak_close(S.istft(dm, length=f["longer_len"])[-1500:], fixture_array(f["longer"]), RTOL_ISTFT)
     d2 = S.stft(short, n_fft=1024, hop_length=256, win_length=800, center=False)
     y2 = S.istft(d2 * gain[: d2.shape[0], None], n_fft=1024, hop_length=256, win_length=800, center=False)

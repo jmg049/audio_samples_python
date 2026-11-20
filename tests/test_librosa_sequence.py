@@ -2,7 +2,7 @@
 matrices, RQA, recurrence / cross-similarity, lag conversions, sync).
 
 Golden fixtures: ``sequence.json`` (librosa 1.0.0; inputs are stored next to the
-outputs, so every case is the same computation on bit-identical inputs). The
+outputs, so every case is the same computation on exactly the same inputs). The
 dynamic programmes sum the same terms in the same order as librosa's numba
 kernels; the only round-off sources are the local costs / logs (scipy ``cdist``
 or numpy ``log`` may differ by an ulp), so values are compared at 1e-12

@@ -53,15 +53,15 @@ def test_huge_ints_raise_value_error(case, value):
 
 
 def test_huge_delay_is_handled():
-    # stack_memory shifts with zero fill instead of padding by the delay, so a
-    # huge delay (either sign) gives zeros instead of an allocation.
+    # stack_memory shifts with zero fill rather than padding by the delay, so a
+    # huge delay of either sign gives zeros and allocates nothing extra.
     for v in (2**40, 2**70, -(2**70)):
         out = spectral.stack_memory(FEAT, n_steps=2, delay=v)
         assert out.shape == (10, 30)
         np.testing.assert_array_equal(out[5:], 0.0)
 
 
-def test_non_integers_still_type_error():
+def test_non_integers_are_type_errors():
     with pytest.raises(TypeError):
         spectral.stft(Y, n_fft=2.5)
 
@@ -90,7 +90,7 @@ def test_sample_rate_keyword_out_of_range():
 
 def test_transition_matrices_at_the_cap_are_value_errors_not_panics():
     # 2**31 passes the binding's size cap; the Rust side rejects the
-    # 2**62-element matrix with a ValueError instead of a panic or an abort.
+    # 2**62-element matrix with a ValueError.
     for f in (sequence.transition_uniform, lambda n: sequence.transition_loop(n, 0.5)):
         with pytest.raises(ValueError, match="n_states"):
             f(2**31)
@@ -125,11 +125,11 @@ def test_clicks_far_time_is_value_error():
 def test_hpss_stft_params_keyword_is_a_deprecated_alias():
     a = aus.AudioSamples.new_mono(Y, sample_rate=22050)
     p = aus.spectrograms.StftParams(1024, 256, aus.spectrograms.WindowType.hanning, True)
-    h_new, p_new = a.hpss(p)
+    h_pos, p_pos = a.hpss(p)
     with pytest.warns(DeprecationWarning, match="stft_params"):
-        h_old, p_old = a.hpss(stft_params=p, median_filter_harmonic=17)
-    np.testing.assert_array_equal(h_old.to_numpy(), h_new.to_numpy())
-    np.testing.assert_array_equal(p_old.to_numpy(), p_new.to_numpy())
+        h_alias, p_alias = a.hpss(stft_params=p, median_filter_harmonic=17)
+    np.testing.assert_array_equal(h_alias.to_numpy(), h_pos.to_numpy())
+    np.testing.assert_array_equal(p_alias.to_numpy(), p_pos.to_numpy())
     with pytest.raises(TypeError, match="not both"):
         a.hpss(p, stft_params=p)
     with pytest.raises(TypeError, match="missing"):

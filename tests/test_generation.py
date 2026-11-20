@@ -1,16 +1,7 @@
 """
-Tests for signal generation - verifying audio_python.generation produces correct waveforms.
-
-These tests verify that:
-1. Generated signals have correct frequency (via FFT analysis)
-2. Generated signals have correct amplitude
-3. Generated signals have correct sample count and duration
-4. All sample types (f32, f64) work correctly
-
-API notes:
-- Functions are named with _wave suffix: sine_wave, cosine_wave, square_wave, etc.
-- Duration parameter is duration_secs (not duration)
-- Chirp uses f0/f1 for start/end frequency
+Signal generation: frequency (checked with an FFT), amplitude, sample count and
+duration of the generated waveforms, compared with NumPy and with scipy.signal
+as reference implementations.
 """
 
 import pytest
@@ -100,10 +91,6 @@ class TestSineWaveGeneration:
             sample_rate=sample_rate,
             amplitude=0.5,
         )
-
-        # data = audio.to_numpy()
-        # fft = np.fft.rfft(data)
-        # magnitudes = np.abs(fft)
 
         fft = audio.rfft(audio.samples_per_channel())
         magnitudes = np.abs(fft)
@@ -403,34 +390,6 @@ class TestSawtoothWaveGeneration:
             atol=1e-5,
             msg="Sawtooth wave does not match scipy.signal.sawtooth",
         )
-
-
-# class TestTriangleWaveGeneration:
-#     """Tests for triangle wave generation."""
-
-#     def test_triangle_matches_scipy(self, sample_rate, short_duration):
-#         """Triangle wave matches scipy.signal.sawtooth with width=0.5."""
-#         from scipy import signal
-
-#         amplitude = 0.5
-#         frequency = 440.0
-#         num_samples = int(sample_rate * short_duration)
-#         t = np.linspace(0, short_duration, num_samples, endpoint=False)
-#         expected = amplitude * signal.sawtooth(2 * np.pi * frequency * t)
-#         audio = aus.triangle_wave(
-#             frequency=frequency,
-#             duration_secs=short_duration,
-#             sample_rate=sample_rate,
-#             amplitude=amplitude,
-#         )
-#         data = audio.to_numpy()
-#         assert_arrays_close(
-#             data,
-#             expected,
-#             rtol=1e-4,
-#             atol=1e-5,
-#             msg="Triangle wave does not match scipy.signal.sawtooth (triangle)",
-#         )
 
 
 class TestSilenceGeneration:

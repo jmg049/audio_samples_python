@@ -1,10 +1,8 @@
 """
-Pytest configuration and shared fixtures for audio_python verification tests.
+Shared fixtures, tolerances and helpers for the audio_samples tests.
 
-These tests verify audio_python against established libraries:
-- soundfile: for I/O verification
-- librosa: for spectral/feature verification
-- numpy: for basic statistics verification
+Reference results come from soundfile (file I/O), librosa (spectral analysis and
+features, mostly through golden fixtures) and NumPy (statistics).
 """
 
 import pytest
@@ -13,7 +11,6 @@ import tempfile
 import os
 from pathlib import Path
 
-# Import audio_samples_python - the module under test
 import audio_samples as aus
 
 
@@ -29,11 +26,11 @@ TIGHT_ATOL = 1e-7
 STANDARD_RTOL = 1e-5
 STANDARD_ATOL = 1e-6
 
-# Loose tolerance for spectral features (inherent algorithmic differences)
+# Spectral features, where algorithms legitimately differ in detail
 SPECTRAL_RTOL = 1e-4
 SPECTRAL_ATOL = 1e-5
 
-# Very loose tolerance for features with known implementation differences
+# Features whose definitions differ between implementations
 FEATURE_RTOL = 1e-3
 FEATURE_ATOL = 1e-4
 
@@ -72,7 +69,7 @@ def sine_wave_mono(sample_rate, medium_duration, test_frequency):
     """
     Generate a mono sine wave with known properties.
 
-    Returns tuple: (audio_python AudioSamples, numpy array, params dict)
+    Returns tuple: (AudioSamples, numpy array, params dict)
     """
     num_samples = int(sample_rate * medium_duration)
     t = np.linspace(0, medium_duration, num_samples, endpoint=False)
@@ -102,7 +99,7 @@ def sine_wave_stereo(sample_rate, medium_duration, test_frequency):
     Left channel: test_frequency (440 Hz)
     Right channel: test_frequency * 1.5 (660 Hz, perfect fifth)
 
-    Returns tuple: (audio_python AudioSamples, numpy array [2, N], params dict)
+    Returns tuple: (AudioSamples, numpy array [2, N], params dict)
     """
     num_samples = int(sample_rate * medium_duration)
     t = np.linspace(0, medium_duration, num_samples, endpoint=False)
@@ -139,7 +136,7 @@ def dc_offset_signal(sample_rate, short_duration):
     """
     Generate a signal with known DC offset for DC removal tests.
 
-    Returns tuple: (audio_python AudioSamples, numpy array, dc_offset value)
+    Returns tuple: (AudioSamples, numpy array, dc_offset value)
     """
     num_samples = int(sample_rate * short_duration)
     t = np.linspace(0, short_duration, num_samples, endpoint=False)
@@ -163,7 +160,7 @@ def white_noise(sample_rate, short_duration):
     """
     Generate white noise with known seed for reproducibility.
 
-    Returns tuple: (audio_python AudioSamples, numpy array)
+    Returns tuple: (AudioSamples, numpy array)
     """
     np.random.seed(42)
     num_samples = int(sample_rate * short_duration)
@@ -181,7 +178,7 @@ def impulse_signal(sample_rate):
     """
     Generate a unit impulse (Dirac delta) signal.
 
-    Returns tuple: (audio_python AudioSamples, numpy array)
+    Returns tuple: (AudioSamples, numpy array)
     """
     num_samples = 1024
     data = np.zeros(num_samples)
@@ -201,7 +198,7 @@ def zero_crossing_signal(sample_rate):
 
     Square wave has predictable zero crossings.
 
-    Returns tuple: (audio_python AudioSamples, numpy array, expected_crossings)
+    Returns tuple: (AudioSamples, numpy array, expected_crossings)
     """
     num_samples = 4410  # 0.1 seconds at 44100 Hz
     frequency = 100.0  # 100 Hz = 10 complete cycles in 0.1s
@@ -210,8 +207,7 @@ def zero_crossing_signal(sample_rate):
     # Square wave via sign of sine
     data = np.sign(np.sin(2 * np.pi * frequency * t))
 
-    # Each cycle has 2 zero crossings, 10 cycles = 20 crossings
-    # But need to account for exact sample alignment
+    # Nominally 2 crossings per cycle; count them on the samples themselves.
     expected_crossings = int(np.sum(np.abs(np.diff(np.sign(data))) > 0))
 
     aus_audio = aus.AudioSamples.new_mono(
@@ -228,7 +224,7 @@ def multi_frequency_signal(sample_rate, medium_duration):
 
     Components: 440 Hz (A4), 880 Hz (A5), 1320 Hz (E6)
 
-    Returns tuple: (audio_python AudioSamples, numpy array, frequency_list)
+    Returns tuple: (AudioSamples, numpy array, frequency_list)
     """
     num_samples = int(sample_rate * medium_duration)
     t = np.linspace(0, medium_duration, num_samples, endpoint=False)

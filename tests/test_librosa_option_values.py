@@ -99,7 +99,7 @@ def test_griffinlim_cqt_random_seeds():
         aus.AudioSamples.griffinlim_cqt(mag, sample_rate=SR, init="zeros")
 
 
-def test_griffinlim_cqt_default_stays_zero_phase():
+def test_griffinlim_cqt_default_is_zero_phase():
     mag, f = _cqt_mag()
     a = aus.AudioSamples.griffinlim_cqt(mag, sample_rate=SR, n_iter=2, length=_y().size)
     b = aus.AudioSamples.griffinlim_cqt(mag, sample_rate=SR, n_iter=2, length=_y().size, init=None)
@@ -231,7 +231,7 @@ def test_onset_strength_multi_slices_on_audio():
     a = aus.AudioSamples.new_mono(y, SR)
     ref = librosa.onset.onset_strength_multi(y=y, sr=SR, channels=channels)
     _close(a.onset_strength_multi(channels=channels)[0], ref, 1e-6)
-    # The bounds already in use give the same bands as slices.
+    # Band edges given as integer bounds select the same bands as the equivalent slices.
     bounds = a.onset_strength_multi(channels=[0, 32, 96, 128])
     _close(a.onset_strength_multi(channels=[slice(0, 32), slice(32, 96), slice(96, 128)]), bounds, 1e-15)
 

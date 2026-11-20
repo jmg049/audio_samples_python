@@ -1,17 +1,6 @@
 """
-Tests for statistics operations - comparing audio_python against numpy.
-
-These tests verify that:
-1. Basic statistics (min, max, mean, std_dev, variance) match numpy exactly
-2. RMS calculation matches numpy implementation
-3. Zero crossing count/rate matches expected values
-4. Autocorrelation produces correct results
-
-API notes:
-- std() in API is std_dev()
-- var() in API is variance()
-- zero_crossing_count() is zero_crossings()
-- abs_max() is peak()
+Statistics: min, max, peak, mean, std_dev, variance and RMS against NumPy, zero
+crossing counts and rates, and values worked out by hand.
 """
 
 import numpy as np

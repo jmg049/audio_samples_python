@@ -2,7 +2,7 @@
 ``scipy.signal.resample_poly``, via the golden fixture ``resample.json``.
 
 librosa's default resampler is the soxr C library, a different filter design
-from ours (one Kaiser-windowed sinc stage), so the comparison is by SNR over the
+from this library's (one Kaiser-windowed sinc stage), so the comparison is by SNR over the
 stored windows (first/last 256 output samples and 1024 from the middle), with
 the bounds of the Rust reference test ``tests/librosa_reference/resample.rs``:
 

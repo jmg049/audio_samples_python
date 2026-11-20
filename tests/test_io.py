@@ -1,3 +1,10 @@
+"""File reading and writing.
+
+soundfile (libsndfile) is the reference implementation: files it writes must read
+back identically here, and files written here must open in it with the same rate,
+length and channel count.
+"""
+
 import subprocess
 import sys
 
@@ -7,8 +14,7 @@ import soundfile as sf
 
 import audio_samples as aus
 
-# Import tolerance constants and helpers from conftest
-# These are injected by pytest from conftest.py
+# The tolerances of conftest.
 TIGHT_RTOL = 1e-6
 TIGHT_ATOL = 1e-7
 STANDARD_RTOL = 1e-5
@@ -53,7 +59,6 @@ class TestReadWav:
         """Verify mono f32 WAV read matches soundfile exactly."""
         aus_audio, np_data, params = sine_wave_mono
 
-        # Write with soundfile as reference
         sf.write(
             temp_wav_file,
             np_data.astype(np.float32),
@@ -61,12 +66,10 @@ class TestReadWav:
             subtype="FLOAT",
         )
 
-        # Read with both libraries
         sf_data, sf_sr = sf.read(temp_wav_file, dtype="float32")
         aus_read = aus.io.read(str(temp_wav_file))
         aus_data = aus_read.to_numpy()
 
-        # Compare
         assert aus_read.sample_rate == sf_sr
         assert aus_read.num_channels == 1
         assert_arrays_close(
@@ -81,7 +84,6 @@ class TestReadWav:
         """Verify mono f64 WAV read matches soundfile exactly."""
         aus_audio, np_data, params = sine_wave_mono
 
-        # Write with soundfile as reference
         sf.write(
             temp_wav_file,
             np_data.astype(np.float64),
@@ -89,12 +91,10 @@ class TestReadWav:
             subtype="DOUBLE",
         )
 
-        # Read with both libraries
         sf_data, sf_sr = sf.read(temp_wav_file, dtype="float64")
         aus_read = aus.io.read(str(temp_wav_file))
         aus_data = aus_read.to_numpy()
 
-        # Compare
         assert aus_read.sample_rate == sf_sr
         assert_arrays_close(
             aus_data,
@@ -112,12 +112,10 @@ class TestReadWav:
         i16_data = (np_data * 32767).astype(np.int16)
         sf.write(temp_wav_file, i16_data, params["sample_rate"], subtype="PCM_16")
 
-        # Read with both libraries
         sf_data, sf_sr = sf.read(temp_wav_file, dtype="int16")
         aus_read = aus.io.read(str(temp_wav_file))
         aus_data = aus_read.to_numpy()
 
-        # Compare (integer should match exactly)
         assert aus_read.sample_rate == sf_sr
         np.testing.assert_array_equal(aus_data, sf_data, "Mono i16 read mismatch")
 
@@ -129,13 +127,11 @@ class TestReadWav:
         sf_write_data = np_data.T.astype(np.float32)
         sf.write(temp_wav_file, sf_write_data, params["sample_rate"], subtype="FLOAT")
 
-        # Read with both libraries
         sf_data, sf_sr = sf.read(temp_wav_file, dtype="float32")
         aus_read = aus.io.read(str(temp_wav_file))
         aus_data = aus_read.to_numpy()
 
-        # soundfile returns (samples, channels), aus returns (channels, samples)
-        # Transpose soundfile data for comparison
+        # soundfile returns (samples, channels); audio_samples (channels, samples).
         sf_data_transposed = sf_data.T
 
         assert aus_read.sample_rate == sf_sr
@@ -157,7 +153,6 @@ class TestReadWav:
         sf_write_data = i16_data.T
         sf.write(temp_wav_file, sf_write_data, params["sample_rate"], subtype="PCM_16")
 
-        # Read with both libraries
         sf_data, sf_sr = sf.read(temp_wav_file, dtype="int16")
         aus_read = aus.io.read(str(temp_wav_file))
         aus_data = aus_read.to_numpy()
@@ -178,12 +173,11 @@ class TestWriteWav:
         """Verify mono i16 WAV written by aus can be read by soundfile."""
         aus_audio, np_data, params = sine_wave_mono
 
-        # Create i16 audio (widely compatible format)
+        # 16-bit PCM
         i16_data = (np_data * 32767).astype(np.int16)
         aus_i16 = aus.AudioSamples.new_mono(i16_data, sample_rate=params["sample_rate"])
         aus.io.save(str(temp_wav_file), aus_i16)
 
-        # Read with soundfile
         sf_data, sf_sr = sf.read(temp_wav_file, dtype="int16")
 
         assert sf_sr == params["sample_rate"]
@@ -197,14 +191,13 @@ class TestWriteWav:
         """Verify stereo i16 WAV written by aus can be read by soundfile."""
         aus_audio, np_data, params = sine_wave_stereo
 
-        # Create i16 audio (widely compatible format)
+        # 16-bit PCM
         i16_data = (np_data * 32767).astype(np.int16)
         aus_i16 = aus.AudioSamples.new_multi(
             i16_data, sample_rate=params["sample_rate"]
         )
         aus.io.save(str(temp_wav_file), aus_i16)
 
-        # Read with soundfile
         sf_data, sf_sr = sf.read(temp_wav_file, dtype="int16")
 
         # Transpose sf_data (samples, channels) -> (channels, samples) for comparison
@@ -221,7 +214,6 @@ class TestRoundTrip:
         """Mono f64 round-trip preserves data."""
         aus_audio, np_data, params = sine_wave_mono
 
-        # Write and read back
         aus.io.save(str(temp_wav_file), aus_audio)
         aus_read = aus.io.read(str(temp_wav_file))
 
@@ -238,7 +230,6 @@ class TestRoundTrip:
         """Stereo f64 round-trip preserves data."""
         aus_audio, np_data, params = sine_wave_stereo
 
-        # Write and read back
         aus.io.save(str(temp_wav_file), aus_audio)
         aus_read = aus.io.read(str(temp_wav_file))
 
@@ -259,11 +250,9 @@ class TestRoundTrip:
         i16_data = (np_data * 32767).astype(np.int16)
         aus_i16 = aus.AudioSamples.new_mono(i16_data, sample_rate=params["sample_rate"])
 
-        # Write and read back
         aus.io.save(str(temp_wav_file), aus_i16)
         aus_read = aus.io.read(str(temp_wav_file))
 
-        # Integer round-trip should be exact
         np.testing.assert_array_equal(
             aus_read.to_numpy(),
             aus_i16.to_numpy(),
@@ -316,7 +305,6 @@ class TestMetadata:
         """Verify metadata matches soundfile's info."""
         aus_audio, np_data, params = sine_wave_stereo
 
-        # Write with soundfile for reference
         sf.write(
             temp_wav_file,
             np_data.T.astype(np.float32),
@@ -324,7 +312,6 @@ class TestMetadata:
             subtype="FLOAT",
         )
 
-        # Compare metadata
         sf_info = sf.info(temp_wav_file)
         audio, aus_meta = aus.io.read_with_info(str(temp_wav_file))
 
@@ -339,11 +326,10 @@ class TestDtypeSupport:
 
     def test_u8_mono_support(self, temp_wav_file):
         """Test that u8 (uint8) mono audio is supported."""
-        # Create u8 audio data (0-255 range, centered at 128)
+        # 8-bit unsigned: 0-255, silence at 128
         data = np.array([128, 100, 156, 200, 50], dtype=np.uint8)
         audio = aus.AudioSamples.new_mono(data, sample_rate=44100)
 
-        # Should be able to save and read
         aus.io.save(str(temp_wav_file), audio)
         audio_read = aus.io.read(str(temp_wav_file))
 
@@ -351,7 +337,6 @@ class TestDtypeSupport:
         assert audio_read.sample_rate == 44100
         assert audio_read.samples_per_channel() == len(data)
 
-        # CRITICAL: Verify soundfile can read it (compatibility standard)
         sf_data, sf_sr = sf.read(temp_wav_file)
         assert sf_sr == 44100, "soundfile should read the same sample rate"
         assert len(sf_data) == len(data), (
@@ -360,13 +345,11 @@ class TestDtypeSupport:
 
     def test_u8_stereo_support(self, temp_wav_file):
         """Test that u8 (uint8) stereo audio is supported."""
-        # Create u8 stereo data
         data = np.array(
             [[128, 100, 156, 200, 50], [150, 120, 180, 220, 70]], dtype=np.uint8
         )
         audio = aus.AudioSamples.new_multi(data, sample_rate=44100)
 
-        # Should be able to save and read
         aus.io.save(str(temp_wav_file), audio)
         audio_read = aus.io.read(str(temp_wav_file))
 
@@ -449,7 +432,6 @@ class TestDtypeSupport:
         sample_rate = 44100
         test_data = np.array([0.0, 0.5, -0.5, 0.25, -0.25], dtype=np.float64)
 
-        # Test each dtype
         dtypes_to_test = [
             (np.uint8, lambda x: ((x + 1.0) * 127.5).astype(np.uint8)),
             (np.int16, lambda x: (x * 32767).astype(np.int16)),
@@ -462,22 +444,19 @@ class TestDtypeSupport:
             converted_data = converter(test_data)
             audio = aus.AudioSamples.new_mono(converted_data, sample_rate=sample_rate)
 
-            # Save and read
             aus.io.save(str(temp_wav_file), audio)
             audio_read = aus.io.read(str(temp_wav_file))
 
-            # Check basic properties
             assert audio_read.sample_rate == sample_rate
             assert audio_read.num_channels == 1
             assert audio_read.samples_per_channel() == len(test_data)
 
-            # CRITICAL: Verify soundfile compatibility for each dtype
             try:
                 sf_data, sf_sr = sf.read(temp_wav_file)
                 assert sf_sr == sample_rate
             except Exception as e:
                 pytest.fail(
-                    f"soundfile must be able to read {dtype.__name__} WAV files: {e}"
+                    f"soundfile cannot read a {dtype.__name__} WAV file: {e}"
                 )
 
 
@@ -499,10 +478,10 @@ class TestI24ArrayExport:
 
 
 class TestSoundfileCompatibility:
-    """Tests specifically for soundfile compatibility - our gold standard."""
+    """Every WAV layout written here opens in soundfile."""
 
     def test_all_written_wavs_readable_by_soundfile(self, temp_wav_file):
-        """Ensure all WAV files we write can be read by soundfile."""
+        """soundfile reads every sample type and layout written here."""
         sample_rate = 44100
 
         # Test cases: (data, description)
@@ -521,34 +500,29 @@ class TestSoundfileCompatibility:
         ]
 
         for data, description in test_cases:
-            # Create audio
             if data.ndim == 1:
                 audio = aus.AudioSamples.new_mono(data, sample_rate=sample_rate)
             else:
                 audio = aus.AudioSamples.new_multi(data, sample_rate=sample_rate)
 
-            # Save
             aus.io.save(str(temp_wav_file), audio)
 
             try:
                 sf_data, sf_sr = sf.read(temp_wav_file)
                 assert sf_sr == sample_rate, f"{description}: sample rate mismatch"
             except Exception as e:
-                pytest.fail(f"soundfile MUST be able to read {description} files: {e}")
+                pytest.fail(f"soundfile cannot read a {description} file: {e}")
 
     def test_soundfile_can_read_multichannel_wavs(self, temp_wav_file):
-        """Test that soundfile can read multi-channel WAV files we write."""
+        """soundfile reads multichannel WAV files written here."""
         sample_rate = 44100
 
         for num_channels in [1, 2, 3, 4, 5, 6, 8]:
-            # Create multi-channel audio
             data = np.random.randn(num_channels, 100).astype(np.float32) * 0.1
             audio = aus.AudioSamples.new_multi(data, sample_rate=sample_rate)
 
-            # Save
             aus.io.save(str(temp_wav_file), audio)
 
-            # CRITICAL: Verify soundfile can read it
             try:
                 sf_data, sf_sr = sf.read(temp_wav_file)
                 assert sf_sr == sample_rate
@@ -559,7 +533,7 @@ class TestSoundfileCompatibility:
                         f"{num_channels} channel file should have {num_channels} channels"
                     )
             except Exception as e:
-                pytest.fail(f"soundfile must read {num_channels}-channel WAV: {e}")
+                pytest.fail(f"soundfile cannot read a {num_channels}-channel WAV: {e}")
 
 
 # ---------------------------------------------------------------------------

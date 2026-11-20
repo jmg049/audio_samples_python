@@ -613,7 +613,7 @@ def test_float_scalar_add_is_in_full_scale_units(sample_type):
     assert np.max(np.abs((x + 0.25).to_numpy().astype(np.float64) - expected.astype(np.float64))) <= 2
 
 
-# --- Float audio is unchanged ------------------------------------------------------------
+# --- Float audio follows plain float arithmetic ------------------------------------------
 
 
 @pytest.mark.parametrize("sample_type", FLOAT_TYPES)

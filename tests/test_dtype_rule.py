@@ -167,8 +167,7 @@ def test_int16_audio_ops_return_int16(sr, name):
     out = fn(a16)
     assert out.dtype == "i16" and out.to_numpy().dtype == np.int16
     # The float32 computation agrees with the float64 path re-quantised to
-    # int16 within one step (measured: 1 for time_stretch, preemphasis and
-    # pitch_shift, 0 for trim_db).
+    # int16 within one step.
     ref = fn(a16.as_f64()).to_format(ST.I16)
     assert out.samples_per_channel() == ref.samples_per_channel()
     assert _max_lsb(out, ref) <= 1
@@ -181,7 +180,7 @@ def test_istft_matrix_dtype(sr):
     assert d.dtype == np.complex64
     y16 = aus.AudioSamples.istft_matrix(d, sample_rate=sr, length=n, dtype=ST.I16)
     assert y16.dtype == "i16"
-    # The round trip reproduces the int16 input exactly (measured).
+    # The round trip reproduces the int16 input exactly.
     assert _max_lsb(y16, a16) == 0
     # Without dtype=, the output follows the matrix precision.
     assert aus.AudioSamples.istft_matrix(d, sample_rate=sr).dtype == "f32"

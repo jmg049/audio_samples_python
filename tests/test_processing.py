@@ -1,17 +1,7 @@
 """
-Tests for processing operations - verifying audio_python transformations.
-
-These tests verify that:
-1. Normalization produces expected results
-2. Scaling works correctly
-3. Clipping behaves as expected
-4. DC removal works correctly
-5. Reverse operation is correct
-
-API notes:
-- Type conversion: as_f32, as_f64, as_i16, as_i32 (not to_*)
-- Cast: cast_as_f32, cast_as_f64, etc.
-- Statistics: peak() not abs_max(), std_dev() not std(), variance() not var()
+Processing operations: normalisation, scaling, clipping, DC removal, reversal,
+trimming, sample type conversion and arithmetic, compared with the same
+operations written in NumPy.
 """
 
 import numpy as np

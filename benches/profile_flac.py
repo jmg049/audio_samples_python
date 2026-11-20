@@ -25,8 +25,8 @@ Notes:
     - librosa uses soundfile internally and adds a float32 conversion step.
     - audio_samples uses a pure-Rust FLAC decoder.
     - All FLAC files are written at the default compression level (5) unless noted.
-    - soundfile dtype='float32' is used so librosa and soundfile are on equal footing
-      (soundfile defaults to float64 for PCM, which allocates 2x memory and is slower).
+    - soundfile is called with dtype='float32', the type librosa returns (its default
+      for PCM is float64).
 """
 
 from __future__ import annotations
@@ -123,8 +123,7 @@ def load_librosa(path: str) -> None:
 
 
 def load_sf(path: str) -> None:
-    # dtype='float32' matches librosa's output — fair comparison.
-    # soundfile's default (float64) allocates 2x memory and converts more.
+    # float32, the type librosa returns (see the module docstring).
     sf.read(path, always_2d=True, dtype="float32")
 
 
@@ -250,8 +249,8 @@ def run_sweep(n_iters: int, warmup: int) -> None:
 
     paths = [ensure_flac(sr, dtype, dur, ch) for sr, dtype, dur, ch, _ in SWEEP_SCENARIOS]
 
-    # Global pre-warmup: one pass through every scenario for every library.
-    # Warms glibc's mmap allocator for all FLAC file sizes before measuring.
+    # One pass through every scenario for every library before measuring, so that the
+    # allocator is warm for every file size.
     print("Pre-warming allocator across all scenarios... ", end="", flush=True)
     GLOBAL_WARMUP = 100
     for _ in range(GLOBAL_WARMUP):

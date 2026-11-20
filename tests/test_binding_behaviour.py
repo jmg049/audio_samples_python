@@ -1,7 +1,6 @@
-"""Analysis results seen through the bindings, compared with librosa golden
-fixtures, and argument handling, type stubs and exported names of the API.
-
-Golden fixture: ``analysis_fixes.json`` (librosa 1.0.0).
+"""Behaviour of the bindings: a few analysis results compared with librosa 1.0.0
+golden fixtures (``analysis_fixes.json``), argument handling, signatures and the
+names the package exports.
 """
 
 from __future__ import annotations
@@ -28,9 +27,9 @@ def fx():
 
 
 def test_autocorrelation_scale(fx):
-    """The unbiased autocorrelation times (n - k) equals librosa.autocorrelate
-    (exact FFT correlations of the same data with different FFT sizes; 7e-16 of
-    the lag-0 value measured; bound 1e-12)."""
+    """The unbiased autocorrelation times (n - k) equals librosa.autocorrelate to
+    1e-12 of the lag-0 value: both are FFT correlations of the same data, with
+    different FFT sizes."""
     case = fx["autocorrelate"]
     x = fixture_signal(case["signal"])
     n = len(x)
@@ -44,9 +43,8 @@ def test_autocorrelation_scale(fx):
 
 def test_yin_confident_frames(fx):
     """track_pitch(YIN) agrees with librosa.yin within 1 cent on frames whose whole
-    window lies in one note (measured 0.20 cents: the difference functions differ
-    slightly). Our frames are not centred: frame i covers librosa frame
-    i + frame_length / 2 / hop."""
+    window lies in one note (the difference functions differ slightly). track_pitch
+    frames are not centred: frame i covers librosa frame i + frame_length / 2 / hop."""
     case = fx["yin"]
     audio = aus.AudioSamples.new_mono(fixture_signal(case["signal"]), fixture_sr())
     contour = audio.track_pitch(
@@ -138,13 +136,13 @@ def test_generator_dtype_accepts_scalar_types():
     for spec in (np.float64, np.dtype("float64"), "float64"):
         assert aus.sine_wave(440.0, 0.01, dtype=spec).dtype == "f64"
     assert aus.sine_wave(440.0, 0.01, dtype=np.int16).dtype == "i16"
-    # The default is float32 (documented; unchanged).
+    # The default is float32.
     assert aus.sine_wave(440.0, 0.01).dtype == "f32"
     with pytest.raises(TypeError):
         aus.sine_wave(440.0, 0.01, dtype=np.complex64)
 
 
-def test_hz_to_mel_default_stays_htk():
+def test_hz_to_mel_default_is_htk():
     # HTK: 2595 log10(1 + 1000/700); librosa's Slaney default needs htk=False.
     assert U.hz_to_mel(1000.0) == pytest.approx(2595 * np.log10(1 + 1000 / 700), rel=1e-14)
     assert U.hz_to_mel(1000.0, htk=False) == pytest.approx(15.0, rel=1e-14)
@@ -177,7 +175,7 @@ def test_text_signatures_match_real_signatures():
     assert vad_sig.startswith("(method, channel_policy, /, frame_size")
     assert "median_filter_harmonic" in aus.AudioSamples.hpss.__text_signature__
     assert "win_size" not in aus.AudioSamples.hpss.__text_signature__
-    # New functions expose inspectable signatures.
+    # Functions expose inspectable signatures.
     sig = inspect.signature(aus.spectral.power_to_db)
     assert list(sig.parameters)[:2] == ["S", "ref"]
     sig = inspect.signature(aus.AudioSamples.melspectrogram)

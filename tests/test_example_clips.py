@@ -12,8 +12,8 @@ from audio_samples import generation
 
 NAMES = ["chords", "drum_loop", "chords_and_drums", "speech", "noisy_recording"]
 
-# 64-bit FNV-1a of 2 s of 16-bit little-endian PCM at 22050 Hz. The Rust test suite stores the same
-# values, and the same digests were obtained on x86-64 (glibc and musl) and aarch64 builds.
+# 64-bit FNV-1a of 2 s of 16-bit little-endian PCM at 22050 Hz. The Rust test suite pins the same
+# values; the clips are generated identically on x86-64 (glibc and musl) and aarch64.
 PCM16_DIGESTS = {
     "chords": 0x4007_76DF_E116_B59F,
     "drum_loop": 0x29B7_D1A7_CCAD_0015,
@@ -114,7 +114,7 @@ def test_generation_is_fast():
     start = time.perf_counter()
     for name in NAMES:
         generation.example_clip(name)
-    # Five 8 s clips at 44100 Hz. About 0.1 s on one core; the limit allows for a loaded machine.
+    # Five 8 s clips at 44100 Hz; the limit leaves room for a loaded machine.
     assert time.perf_counter() - start < 2.0
 
 

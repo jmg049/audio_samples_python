@@ -1,7 +1,5 @@
 """
-Tests for enhanced arithmetic operators in AudioSamples.
-
-This test module verifies the new ergonomic arithmetic operators:
+Arithmetic operators of AudioSamples:
 - Basic operations: +, -, *, /
 - Reverse operations: scalar + audio, scalar * audio, scalar - audio
 - In-place operations: +=, -=, *=, /=
@@ -19,28 +17,22 @@ class TestBasicArithmetic:
 
     def test_audio_addition(self):
         """Test addition between two AudioSamples objects."""
-        # Create two simple sine waves
         audio1 = aus.generation.sine_wave(440.0, 0.1, sample_rate=44100)
         audio2 = aus.generation.sine_wave(880.0, 0.1, sample_rate=44100)
 
-        # Test addition
         result = audio1 + audio2
 
-        # Result should have same properties as inputs
         assert result.sample_rate == 44100
         assert result.num_channels == 1
         assert len(result) == len(audio1)
 
     def test_audio_subtraction(self):
         """Test subtraction between two AudioSamples objects."""
-        # Create two simple sine waves
         audio1 = aus.generation.sine_wave(440.0, 0.1, sample_rate=44100)
         audio2 = aus.generation.sine_wave(880.0, 0.1, sample_rate=44100)
 
-        # Test subtraction
         result = audio1 - audio2
 
-        # Result should have same properties as inputs
         assert result.sample_rate == 44100
         assert result.num_channels == 1
         assert len(result) == len(audio1)
@@ -49,32 +41,24 @@ class TestBasicArithmetic:
         """Test multiplication of AudioSamples by scalar."""
         audio = aus.generation.sine_wave(440.0, 0.1, sample_rate=44100)
 
-        # Test multiplication by scalar
         result = audio * 0.5
 
-        # Result should have same properties
         assert result.sample_rate == audio.sample_rate
         assert result.num_channels == audio.num_channels
         assert len(result) == len(audio)
 
-        # Amplitude should be scaled
-        # original_array = audio.to_numpy()
-        # result_array = result.to_numpy()
         np.testing.assert_allclose(result, audio * 0.5, rtol=1e-5)
 
     def test_scalar_division(self):
         """Test division of AudioSamples by scalar."""
         audio = aus.generation.sine_wave(440.0, 0.1, sample_rate=44100)
 
-        # Test division by scalar
         result = audio / 2.0
 
-        # Result should have same properties
         assert result.sample_rate == audio.sample_rate
         assert result.num_channels == audio.num_channels
         assert len(result) == len(audio)
 
-        # Amplitude should be scaled
         original_array = audio.to_numpy()
         result_array = result.to_numpy()
         np.testing.assert_allclose(result_array, original_array / 2.0, rtol=1e-5)
@@ -94,42 +78,35 @@ class TestReverseOperations:
         """Test scalar + audio operation."""
         audio = aus.generation.sine_wave(440.0, 0.1, sample_rate=44100)
 
-        # Test reverse addition - note: this might not work as expected
-        # because scalar + AudioSamples is not fully implemented
+        # A scalar on the left may raise TypeError; a result must keep the audio's properties.
         try:
             result = 1.0 + audio
-            # If it works, check properties
             assert result.sample_rate == audio.sample_rate
             assert result.num_channels == audio.num_channels
             assert len(result) == len(audio)
         except TypeError:
-            # This is expected behavior since scalar + AudioSamples isn't implemented
             pass
 
     def test_reverse_multiplication(self):
         """Test scalar * audio operation."""
         audio = aus.generation.sine_wave(440.0, 0.1, sample_rate=44100)
 
-        # Test reverse multiplication
         result1 = 0.5 * audio
         result2 = audio * 0.5
 
-        # Should be equivalent to regular multiplication
         np.testing.assert_allclose(result1, result2, rtol=1e-10)
 
     def test_reverse_subtraction(self):
         """Test scalar - audio operation."""
         audio = aus.generation.sine_wave(440.0, 0.1, sample_rate=44100)
 
-        # Test reverse subtraction - note: this might not work as expected
+        # A scalar on the left may raise TypeError; a result must keep the audio's properties.
         try:
             result = 1.0 - audio
-            # If it works, check properties
             assert result.sample_rate == audio.sample_rate
             assert result.num_channels == audio.num_channels
             assert len(result) == len(audio)
         except TypeError:
-            # This is expected behavior since scalar - AudioSamples isn't implemented
             pass
 
     def test_reverse_division_not_implemented(self):
@@ -148,10 +125,8 @@ class TestInPlaceOperations:
         audio = aus.generation.sine_wave(440.0, 0.1, sample_rate=44100)
         original_array: aus.AudioSamples = audio.copy()
 
-        # Test in-place addition
         audio += 0.1
 
-        # Check result
         result_array: aus.AudioSamples = audio  # type: ignore
         expected = original_array + 0.1
         np.testing.assert_allclose(result_array, expected, rtol=1e-5)
@@ -161,10 +136,8 @@ class TestInPlaceOperations:
         audio = aus.generation.sine_wave(440.0, 0.1, sample_rate=44100)
         original_array: aus.AudioSamples = audio.copy()
 
-        # Test in-place subtraction
         audio -= 0.1
 
-        # Check result
         result_array: aus.AudioSamples = audio  # type: ignore
         expected = original_array - 0.1
         np.testing.assert_allclose(result_array, expected, rtol=1e-5)
@@ -174,10 +147,8 @@ class TestInPlaceOperations:
         audio = aus.generation.sine_wave(440.0, 0.1, sample_rate=44100)
         original_array = audio.copy()
 
-        # Test in-place multiplication
         audio *= 0.5
 
-        # Check result
         result_array = audio
         expected = original_array * 0.5
         np.testing.assert_allclose(result_array, expected, rtol=1e-5)  # type: ignore
@@ -187,10 +158,8 @@ class TestInPlaceOperations:
         audio = aus.generation.sine_wave(440.0, 0.1, sample_rate=44100)
         original_array = audio.copy()
 
-        # Test in-place division
         audio /= 2.0
 
-        # Check result
         result_array = audio
         expected = original_array / 2.0
         np.testing.assert_allclose(result_array, expected, rtol=1e-5)  # type: ignore
@@ -203,10 +172,8 @@ class TestInPlaceOperations:
         original_array1 = audio1.copy()
         original_array2 = audio2.copy()
 
-        # Test in-place addition
         audio1 += audio2
 
-        # Check result
         result_array = audio1
         expected = original_array1 + original_array2
         np.testing.assert_allclose(result_array, expected, rtol=1e-5)  # type: ignore
@@ -224,13 +191,10 @@ class TestPowerOperations:
 
     def test_power_operation_float_types(self):
         """Test power operation on float AudioSamples."""
-        # Create float audio
         audio = aus.generation.sine_wave(440.0, 0.1, sample_rate=44100).as_f32()
 
-        # Test power operation
         result = audio**2.0
 
-        # Should have same properties
         assert result.sample_rate == audio.sample_rate
         assert result.num_channels == audio.num_channels
         assert len(result) == len(audio)
@@ -243,7 +207,7 @@ class TestPowerOperations:
         result_f32 = audio_f32**2.0
         result_f64 = audio_f64**2.0
 
-        # Both should work (implementation might convert to a specific float type)
+        # The result may be either float type; only the length is checked.
         assert len(result_f32) == len(audio_f32)
         assert len(result_f64) == len(audio_f64)
 
@@ -255,8 +219,7 @@ class TestComparisonOperations:
         """Test equality with same object."""
         audio = aus.generation.sine_wave(440.0, 0.1, sample_rate=44100)
 
-        # Note: current implementation returns False for simplicity
-        # In future versions this might return True for identical objects
+        # Only the type of the result is checked here.
         result = audio == audio
         assert isinstance(result, bool)
 
@@ -285,11 +248,8 @@ class TestOperatorChaining:
         audio1 = aus.generation.sine_wave(440.0, 0.1, sample_rate=44100)
         audio2 = aus.generation.sine_wave(880.0, 0.1, sample_rate=44100)
 
-        # Test complex expression - note: scalar addition/subtraction not yet implemented
-        # So we test with operations that are available
         result = (audio1 + audio2) * 0.5
 
-        # Should have same properties
         assert result.sample_rate == audio1.sample_rate
         assert result.num_channels == audio1.num_channels
         assert len(result) == len(audio1)
@@ -298,10 +258,8 @@ class TestOperatorChaining:
         """Test reverse operations in complex expressions."""
         audio = aus.generation.sine_wave(440.0, 0.1, sample_rate=44100)
 
-        # Test expression with reverse operations that are currently available
         result = 2.0 * audio
 
-        # Should have same properties
         assert result.sample_rate == audio.sample_rate
         assert result.num_channels == audio.num_channels
         assert len(result) == len(audio)
@@ -314,7 +272,6 @@ class TestErrorHandling:
         """Test operations with incompatible types."""
         audio = aus.generation.sine_wave(440.0, 0.1, sample_rate=44100)
 
-        # Test invalid operations
         with pytest.raises(TypeError):
             audio + "invalid"  # type: ignore
 
@@ -326,18 +283,15 @@ class TestErrorHandling:
         audio1 = aus.generation.sine_wave(440.0, 0.1, sample_rate=44100)
         audio2 = aus.generation.sine_wave(440.0, 0.1, sample_rate=48000)
 
-        # Different sample rates create different length arrays, causing incompatible shapes
-        # Verify that lengths are indeed different
+        # The same duration at different rates gives different lengths.
         assert len(audio1) != len(audio2)
 
-        # This should fail in some way (panic, error, etc.)
         failed = False
         try:
             _result = audio1 + audio2
         except Exception:
             failed = True
 
-        # We expect the operation to fail
         assert failed, "Operation should fail with incompatible sample rates"
 
 

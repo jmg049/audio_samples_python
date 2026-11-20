@@ -8,9 +8,9 @@ Golden fixtures: ``constant_q.json`` (``cases/constant_q.py``). Bounds are
 peak-relative and equal to the Rust reference suite's
 (``tests/librosa_reference/constant_q.rs``), which documents two error sources:
 
-1. Top octave (no resampling): a straight port; agrees with librosa's
-   complex128-filter output to round-off and with stock (complex64-filter)
-   librosa to ~4e-8 of the peak.
+1. Top octave (no resampling): the same computation as librosa; agrees with
+   librosa's output from complex128 filters to round-off and with its default
+   complex64 filters to ~4e-8 of the peak.
 2. Lower octaves: librosa decimates with soxr (``soxr_hq``), the crate with its
    own windowed-sinc resampler. librosa's own ``soxr_hq`` vs ``soxr_vhq`` differ
    by up to 4.7e-4 of the peak; measured differences are below 5e-4 except where
@@ -36,12 +36,13 @@ from conftest import (
 )
 
 RESAMPLED = 5e-4  # whole transforms through the resampling cascade (source 2)
-NO_RESAMPLING = 1e-7  # vs stock librosa without resampling: complex64 filters (source 1)
+NO_RESAMPLING = 1e-7  # vs librosa's default complex64 filters, no resampling (source 1)
 TOP_OCTAVE_F64 = 1e-12  # top octave vs complex128-filter librosa: round-off
 LOWER_OCTAVES = 2e-3  # each resampled octave of the default CQT (per-octave view of source 2)
-# icqt: inverse per octave + upsampling by up to 64 (soxr vs ours). Interior agreement
-# ~2e-7 .. 6e-5 (soxr_hq vs soxr_vhq: 6.3e-5); the abrupt signal start/end rings
-# differently in the two interpolators (measured 8.7e-3 within ~1000 samples).
+# icqt: inverse per octave + upsampling by up to 64 (soxr against this crate's
+# resampler). Interior agreement ~2e-7 .. 6e-5 (soxr_hq vs soxr_vhq: 6.3e-5); the
+# abrupt signal start/end rings differently in the two interpolators (up to 8.7e-3
+# within ~1000 samples).
 ICQT_WHOLE = 1.2e-2
 ICQT_INTERIOR = 5e-5
 ICQT_EDGE = 2048

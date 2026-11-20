@@ -7,7 +7,7 @@ maturin does not package the targets of `[patch.crates-io]`, so an sdist of this
 repository cannot find `../audio_samples` and `../audio_samples_io`. This script
 copies the tracked sources of those checkouts into `bundled/` and points the
 patch table there. It changes the working tree: run it on a throw-away checkout.
-Remove it, and the patch table, once the matching releases are on crates.io.
+It is only needed while `[patch.crates-io]` points at those sibling checkouts.
 """
 
 import re

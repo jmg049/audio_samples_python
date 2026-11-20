@@ -1,28 +1,27 @@
 """
-profile_io.py — Profiling harness for WAV load/save comparison.
+profile_wav.py — Profiling harness for WAV load/save comparison.
 
 Usage:
     # Quick comparison for the default scenario (60s stereo i16):
-    python profile_io.py --compare
+    python profile_wav.py --compare
 
     # Sweep across multiple scenarios (durations, dtypes, channel counts):
-    python profile_io.py --sweep
+    python profile_wav.py --sweep
 
     # Profile a single library in a tight loop (intended for py-spy):
-    python profile_io.py --lib audio_samples --op load
-    python profile_io.py --lib librosa --op load
+    python profile_wav.py --lib audio_samples --op load
+    python profile_wav.py --lib librosa --op load
 
     # Generate flamegraph (requires py-spy: pip install py-spy):
-    py-spy record -o flamegraph_aus_load.svg -- python profile_io.py --lib audio_samples --op load
-    py-spy record --native -o flamegraph_aus_load_native.svg -- python profile_io.py --lib audio_samples --op load
+    py-spy record -o flamegraph_aus_load.svg -- python profile_wav.py --lib audio_samples --op load
+    py-spy record --native -o flamegraph_aus_load_native.svg -- python profile_wav.py --lib audio_samples --op load
 
     # Use your own WAV file:
-    python profile_io.py --compare --wav /path/to/your.wav
+    python profile_wav.py --compare --wav /path/to/your.wav
 
-Notes on the soundfile baseline:
-    soundfile's default output dtype for PCM files is float64, which allocates 2x the
-    memory and does more conversion work than librosa (which returns float32).  The
-    benchmarks use dtype='float32' for soundfile so both are measured on equal footing.
+Notes:
+    soundfile reads PCM as float64 by default, while librosa returns float32. soundfile
+    is called with dtype='float32' so that both produce the same output type.
 """
 
 from __future__ import annotations
@@ -114,9 +113,7 @@ def load_scipy(path: str) -> None:
 
 
 def load_sf(path: str) -> None:
-    # dtype='float32' matches librosa's output — fair comparison.
-    # soundfile's default (float64) would allocate 2x memory and convert more,
-    # making it look slower than librosa even though librosa uses soundfile internally.
+    # float32, the type librosa returns (see the module docstring).
     sf.read(path, always_2d=True, dtype="float32")
 
 
@@ -243,10 +240,8 @@ def run_sweep(n_iters: int, warmup: int) -> None:
 
     paths = [ensure_wav(sr, dtype, dur, ch) for sr, dtype, dur, ch, _ in SWEEP_SCENARIOS]
 
-    # Global pre-warmup: one pass through every scenario for every library.
-    # This warms glibc's mmap allocator for all file sizes before measuring any of them.
-    # Without this, early-in-the-sweep scenarios pay a cold-allocator tax (~5x slower)
-    # that later scenarios avoid because the heap is warmed by prior iterations.
+    # One pass through every scenario for every library before measuring, so that the
+    # allocator is warm for every file size and the first scenarios are not penalised.
     print("Pre-warming allocator across all scenarios... ", end="", flush=True)
     GLOBAL_WARMUP = 100
     for _ in range(GLOBAL_WARMUP):

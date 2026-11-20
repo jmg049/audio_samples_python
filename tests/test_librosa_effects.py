@@ -12,7 +12,7 @@ peak-relative and mirror ``tests/librosa_reference/effects.rs``:
 * HPSS components 1e-10 and masks 1e-9: exact median selection, inputs differ
   by STFT round-off;
 * softmask 1e-14 (pow ulps), nn_filter 1e-12 (affinity average 1e-10), LPC 1e-9
-  (bit-identical measured; margin for FMA), Griffin-Lim 1e-9 (round-off fed
+  (equal on these signals; the margin allows for fused multiply-add), Griffin-Lim 1e-9 (round-off fed
   back through 8 iterations), clicks 1e-6 (librosa accumulates in float32);
 * trim / split / remix exact (frame decisions and index arithmetic);
 * pitch_shift: SNR > 55 dB against soxr_hq (different resampler; measured

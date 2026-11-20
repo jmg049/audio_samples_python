@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Execute the tutorial notebooks headlessly. Each notebook asserts every number
-# its text states, so a passing run means the teaching material is still true.
+# its text states, so a passing run means the text agrees with the code.
 #
 # pre-commit passes the changed notebooks; with no arguments all are run.
 # Requires the extension to be built into the active environment

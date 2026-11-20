@@ -1,6 +1,7 @@
-"""apply_filter, dtype-like generator args, conversion docs,
-two-signal sample-rate checks, stub/runtime agreement and documented
-conventions (mel, MFCC, autocorrelation, FFT, presets, memory sharing)."""
+"""Documented behaviour holds: apply_filter, dtype-like generator arguments,
+conversion docs, sample-rate checks on two-signal operations, stub and runtime
+agreement, and the stated conventions (mel, MFCC, autocorrelation, FFT, presets,
+memory sharing, import cost)."""
 
 from __future__ import annotations
 
@@ -24,7 +25,7 @@ def _mono(x, sr=8000):
 
 
 # --------------------------------------------------------------------------
-# 1. apply_filter / apply_filter_in_place
+# apply_filter / apply_filter_in_place
 # --------------------------------------------------------------------------
 
 
@@ -79,7 +80,7 @@ def test_apply_window_accepts_float32():
 
 
 # --------------------------------------------------------------------------
-# 2. generator dtype-like arguments
+# generator dtype-like arguments
 # --------------------------------------------------------------------------
 
 
@@ -110,7 +111,7 @@ def test_generator_default_dtype_is_documented():
 
 
 # --------------------------------------------------------------------------
-# 3. conversion docs + doctest-style examples
+# conversion docs and docstring examples
 # --------------------------------------------------------------------------
 
 
@@ -168,7 +169,7 @@ def test_no_nonexistent_constructors_in_docs():
 
 
 # --------------------------------------------------------------------------
-# 4. two-signal ops reject mismatched sample rates
+# two-signal ops reject mismatched sample rates
 # --------------------------------------------------------------------------
 
 
@@ -214,7 +215,7 @@ def test_cross_correlation_mixed_backing_and_unbiased():
 
 
 # --------------------------------------------------------------------------
-# 5. stubs agree with runtime
+# stubs agree with runtime
 # --------------------------------------------------------------------------
 
 
@@ -285,7 +286,7 @@ def test_stub_member_kinds_match_runtime(module, stub, classes):
 
 
 # --------------------------------------------------------------------------
-# 6. documented conventions are numerically true
+# documented conventions are numerically true
 # --------------------------------------------------------------------------
 
 
@@ -387,7 +388,7 @@ def test_peak_picking_getter_and_copy_semantics():
 
 
 def test_new_mono_shares_memory_with_numpy_array():
-    """Documents current (zero-copy) behaviour: in-place methods modify the caller's array."""
+    """new_mono wraps the array without copying, so in-place methods modify the caller's array."""
     a = np.random.default_rng(0).standard_normal(4000) * 0.5
     original = a.copy()
     x = AudioSamples.new_mono(a, sample_rate=8000)

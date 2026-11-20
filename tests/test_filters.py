@@ -1,7 +1,6 @@
 """
-Tests for filtering - verifying audio_samples filters against scipy.signal.
+Filtering, with scipy.signal as the reference implementation:
 
-These tests verify that:
 1. IIR designs (Butterworth, Chebyshev I/II, elliptic, Bessel) produce the
    same second-order sections as scipy.signal
 2. Applying a design matches scipy.signal.sosfilt / sosfiltfilt
@@ -11,10 +10,9 @@ These tests verify that:
 6. Integer (int16) audio is filtered without bias or silent failure
 7. Copy / read-only / layout semantics are safe
 
-API notes:
-- apply_* / butterworth_* / filtfilt modify the AudioSamples in place
-- low_pass_filter / high_pass_filter / band_pass_filter return a new object
-- AudioSamples wraps numpy arrays without copying; use .copy() to keep one
+apply_* / butterworth_* / filtfilt modify the AudioSamples in place;
+low_pass_filter / high_pass_filter / band_pass_filter return a new object.
+AudioSamples wraps NumPy arrays without copying; use .copy() to keep one.
 """
 
 import warnings

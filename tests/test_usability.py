@@ -1,6 +1,4 @@
-"""Usability regressions.
-
-Covers NumPy interop, the spectrogram parameter classes, sample-rate checks,
+"""Usability: NumPy interop, the spectrogram parameter classes, sample-rate checks,
 panic-free construction, the exception hierarchy, introspectable signatures,
 documented facts, stub drift, config reprs and the Jupyter HTML view.
 """
@@ -33,7 +31,7 @@ def stereo(mono):
 
 
 # ---------------------------------------------------------------------------
-# 1. NumPy interop
+# NumPy interop
 # ---------------------------------------------------------------------------
 
 
@@ -88,7 +86,7 @@ def test_asarray_copy_true_returns_independent_copy(mono):
 
 
 # ---------------------------------------------------------------------------
-# 2. Spectrogram parameter classes
+# Spectrogram parameter classes
 # ---------------------------------------------------------------------------
 
 
@@ -129,7 +127,7 @@ def test_top_level_window_type_works_in_stft_params(mono):
     assert mono.stft(kaiser).shape == result.shape
 
 
-def test_legacy_types_window_type_still_available():
+def test_window_type_is_also_in_types():
     assert hasattr(aus.types, "WindowType")
     assert aus.types.WindowType.hanning is not None
 
@@ -154,7 +152,7 @@ def test_pyproject_does_not_require_spectrograms_pip_package():
 
 
 # ---------------------------------------------------------------------------
-# 3. Sample-rate mismatches
+# Sample-rate mismatches
 # ---------------------------------------------------------------------------
 
 
@@ -183,7 +181,7 @@ def test_ufunc_rejects_sample_rate_mismatch():
         np.add(a, b)
 
 
-def test_same_rate_arithmetic_still_works(mono):
+def test_same_rate_arithmetic_works(mono):
     other = aus.sine_wave(220.0, 0.5, SR)
     for result in (mono + other, mono - other, mono * other):
         assert result.sample_rate == SR
@@ -205,7 +203,7 @@ def test_spectrogram_params_sample_rate_must_match(mono):
 
 
 # ---------------------------------------------------------------------------
-# 4. No Rust panics on invalid arguments
+# No Rust panics on invalid arguments
 # ---------------------------------------------------------------------------
 
 EMPTY_CONSTRUCTORS = [
@@ -281,7 +279,7 @@ def test_time_axis_has_one_value_per_sample(mono, stereo):
 
 
 # ---------------------------------------------------------------------------
-# 5. Exceptions
+# Exceptions
 # ---------------------------------------------------------------------------
 
 
@@ -348,7 +346,7 @@ def test_unsupported_save_format_message_not_doubled(tmp_path, mono):
 
 
 # ---------------------------------------------------------------------------
-# 6. Signatures are introspectable
+# Signatures are introspectable
 # ---------------------------------------------------------------------------
 
 
@@ -420,7 +418,7 @@ def test_no_rust_type_names_leak_into_docs():
 
 
 # ---------------------------------------------------------------------------
-# 7. Documented facts
+# Documented facts
 # ---------------------------------------------------------------------------
 
 
@@ -449,7 +447,7 @@ def test_package_docstring_examples_run():
 
 
 # ---------------------------------------------------------------------------
-# 8. Stub drift
+# Stub drift
 # ---------------------------------------------------------------------------
 
 
@@ -524,7 +522,7 @@ def test_utils_doc_examples_use_importable_module():
 
 
 # ---------------------------------------------------------------------------
-# 9. Config reprs
+# Config reprs
 # ---------------------------------------------------------------------------
 
 
@@ -586,7 +584,7 @@ def test_audio_samples_info_repr(mono):
 
 
 # ---------------------------------------------------------------------------
-# 10. Jupyter HTML view
+# Jupyter HTML view
 # ---------------------------------------------------------------------------
 
 
