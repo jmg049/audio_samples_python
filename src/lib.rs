@@ -1,3 +1,24 @@
+//! Python bindings for the `audio_samples` and `audio_samples_io` crates, built with
+//! PyO3.
+//!
+//! The crate compiles to the `audio_samples` Python extension module. Its Rust items
+//! are the binding layer and are not meant to be used from Rust; the Python API is
+//! documented at <https://jmg049.github.io/audio_samples_python>.
+//!
+//! ## Features
+//!
+//! No feature adds a module of this crate; each one is forwarded to a dependency or
+//! changes what the extension embeds.
+//!
+//! | Feature | Effect |
+//! |---|---|
+//! | `audio-samples-plotting` | Enables the `plotting` feature of `audio_samples` |
+//! | `simd` | Enables the `simd` feature of `audio_samples` |
+//! | `flac-parallel` | Enables the `flac-parallel` feature of `audio_samples_io` |
+//! | `stubs` | Embeds pyo3's introspection data for `scripts/stubs.sh` (unoptimised builds only) |
+//!
+//! In a checkout of the repository, `cargo docs` builds and opens this documentation
+//! with every feature (an alias defined in `.cargo/config.toml`).
 #![warn(clippy::all)]
 #![warn(clippy::pedantic)]
 #![warn(clippy::nursery)]
