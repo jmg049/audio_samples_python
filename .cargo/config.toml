@@ -6,3 +6,8 @@ rustflags = [
     "-C", "llvm-args=-inline-threshold=150",
     "-C", "llvm-args=-inlinehint-threshold=200",
 ]
+
+# `cargo docs` builds and opens the documentation with every feature, as docs.rs
+# does. Plain `cargo doc` documents only the default features.
+[alias]
+docs = "doc --no-deps --open --all-features"
