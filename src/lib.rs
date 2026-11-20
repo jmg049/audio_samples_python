@@ -1,5 +1,5 @@
 //! Python bindings for the `audio_samples` and `audio_samples_io` crates, built with
-//! PyO3.
+//! `pyo3`.
 //!
 //! The crate compiles to the `audio_samples` Python extension module. Its Rust items
 //! are the binding layer and are not meant to be used from Rust; the Python API is
