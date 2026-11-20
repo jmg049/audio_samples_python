@@ -19,6 +19,10 @@
 //!
 //! In a checkout of the repository, `cargo docs` builds and opens this documentation
 //! with every feature (an alias defined in `.cargo/config.toml`).
+
+// docs.rs builds with `--cfg docsrs` on nightly: label feature-gated items with the
+// features they need.
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![warn(clippy::all)]
 #![warn(clippy::pedantic)]
 #![warn(clippy::nursery)]

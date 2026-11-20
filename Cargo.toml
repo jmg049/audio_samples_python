@@ -24,6 +24,10 @@ include = [
     "/logo.png",
 ]
 
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
 [lib]
 name = "audio_samples"
 crate-type = ["cdylib"]
