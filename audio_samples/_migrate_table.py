@@ -727,7 +727,7 @@ _e(
     "times | sr hop_length n_fft",
     "utils.time_to_frames_floor",
     EQUIVALENT,
-    "utils.time_to_frames keeps its older round-to-nearest behaviour.",
+    "utils.time_to_frames rounds to the nearest frame.",
     options={"sr": _SR_KW, "hop_length": _ARRAY_HOP},
 )
 _e(
@@ -766,7 +766,7 @@ _e(
     "n_mels | fmin fmax htk",
     "utils.mel_frequencies",
     WITH_DIFFERENCES,
-    "With htk=False. The default here is HTK, kept for compatibility.",
+    "With htk=False. The default here is HTK.",
     options={
         "n_mels": Default(128, "a required n_mels", "Pass n_mels=128."),
         "fmin": Default(0.0, "a required fmin", "Pass fmin=0.0."),

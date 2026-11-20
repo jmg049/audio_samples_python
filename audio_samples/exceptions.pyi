@@ -1,9 +1,9 @@
 """Exception hierarchy for audio_samples.
 
 Every exception raised from the Rust core derives from :class:`AudioError`.
-Each subclass also derives from the built-in exception that was raised before
-this hierarchy existed, so existing ``except ValueError:`` (etc.) clauses keep
-working.
+Each subclass also derives from the matching built-in exception
+(``ValueError``, ``TypeError``, ``OSError``, ...), so ``except ValueError:``
+and similar clauses catch it.
 """
 
 from typing import Optional
@@ -47,8 +47,8 @@ class AudioFormatError(AudioError, ValueError):
     """The file format is unsupported or the file contents are corrupt."""
 
 class AudioDecodeError(AudioError, TypeError):
-    """An existing file could not be decoded as audio (inherits ``TypeError``
-    because earlier versions raised ``TypeError`` here)."""
+    """An existing file could not be decoded as audio. It is also a ``TypeError``,
+    so ``except TypeError:`` catches it."""
 
 __all__ = [
     "AudioError",

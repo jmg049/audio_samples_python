@@ -318,9 +318,9 @@ def hz_to_mel(freq_hz: float, *, htk: bool=True) -> float: ...
 def hz_to_mel(freq_hz: npt.ArrayLike, *, htk: bool=True) -> NDArray[np.float64]:
     """Convert frequencies in Hertz to mels (scalar or array).
 
-    **The default is the HTK scale** (``2595 * log10(1 + f / 700)``), unchanged
-    from earlier releases. Pass ``htk=False`` for the Slaney scale (linear
-    below 1 kHz, logarithmic above), as used by ``spectral.mel_filterbank``.
+    **The default is the HTK scale** (``2595 * log10(1 + f / 700)``). Pass
+    ``htk=False`` for the Slaney scale (linear below 1 kHz, logarithmic
+    above), as used by ``spectral.mel_filterbank``.
 
     Returns:
         float for scalar input, otherwise numpy.ndarray[float64] of the same shape.
@@ -464,8 +464,8 @@ def time_to_frames(
 ) -> NDArray[np.int64]:
     """Times to the **nearest** frame (``round(t * sr / hop)``, negatives clamp to 0).
 
-    Kept for backward compatibility; ``time_to_frames_floor`` gives the frame
-    containing each time (floor, negatives kept, ``n_fft`` offset).
+    ``time_to_frames_floor`` gives the frame containing each time instead
+    (floor, negatives kept, ``n_fft`` offset).
 
     Returns:
         int for scalar input, otherwise numpy.ndarray[int64] of the same shape.
@@ -636,7 +636,7 @@ def mel_frequencies(
 ) -> NDArray[np.float64]:
     """``n_mels`` frequencies uniformly spaced in mels.
 
-    **Default HTK** (unchanged); pass ``htk=False`` for the Slaney scale.
+    **Default HTK**; pass ``htk=False`` for the Slaney scale.
 
     Returns:
         numpy.ndarray[float64], shape ``(n_mels,)``.

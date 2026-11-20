@@ -1,5 +1,5 @@
 """
-Type stubs for audio_python.generation - Audio signal generation functions.
+Type stubs for audio_samples.generation: audio signal generation functions.
 
 This module provides functions to generate various audio waveforms and noise types.
 """

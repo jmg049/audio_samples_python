@@ -170,7 +170,7 @@ def _compute_stft(
     n_fft: int = 2048,
     hop_size: int = 512,
 ) -> tuple[Spectrogram, list[float], list[float]]:
-    """Compute a magnitude STFT via the spectrograms package.
+    """Compute a magnitude STFT with ``audio_samples.spectrograms``.
 
     Returns ``(magnitude, freqs, times)`` where magnitude has shape
     ``(n_freqs, n_frames)``, freqs has shape ``(n_freqs,)`` and times

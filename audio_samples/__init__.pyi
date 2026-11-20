@@ -836,9 +836,8 @@ class AudioSamples(Generic[_S_co]):
                 filter length in bins. Default 17. Only with ``StftParams``.
             mask_softness: Mask softness in [0, 1] (0 = hard mask). Default 0.5.
                 Only with ``StftParams``.
-            stft_params: Deprecated keyword alias of ``config`` (its name in
-                audio_samples 0.2.x); emits a ``DeprecationWarning``. Passing both
-                is a ``TypeError``.
+            stft_params: Deprecated keyword alias of ``config``; emits a
+                ``DeprecationWarning``. Passing both is a ``TypeError``.
 
         Returns:
             tuple: ``(harmonic, percussive)`` AudioSamples.
@@ -1239,7 +1238,7 @@ class AudioSamples(Generic[_S_co]):
         ...
 
     def median(self) -> Optional[float]:
-        """Calculate the median sample value."""
+        """Return the value at the temporal midpoint, as ``midpoint_sample`` does (the buffer is not sorted)."""
         ...
 
     def rms(self) -> float:

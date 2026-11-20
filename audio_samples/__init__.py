@@ -104,7 +104,7 @@ def _load_extension():
     _loader = _machinery.ExtensionFileLoader("audio_samples", _so_files[0])
     _spec = _machinery.ModuleSpec("audio_samples", _loader, origin=_so_files[0])
     _ext = _loader.create_module(_spec)
-    # Store the original module in sys.modules temporarily
+    # Keep this package as sys.modules["audio_samples"] whatever initialising the extension does
     _old_module = _sys.modules.get("audio_samples")
     try:
         _loader.exec_module(_ext)
@@ -158,9 +158,9 @@ def _load_extension():
 
     # Spectrogram / mel / MFCC parameter classes, re-exported at top level.
     # ``WindowType`` is the spectrograms window class: it is the one accepted
-    # by ``StftParams`` and by every method taking a window. The older
-    # ``audio_samples.types.WindowType`` class (not accepted by any function)
-    # stays available under that path for backwards compatibility.
+    # by ``StftParams`` and by every method taking a window.
+    # ``audio_samples.types.WindowType`` is a separate class that no function
+    # accepts; it can still be imported from ``audio_samples.types``.
     for _name in (
         "StftParams",
         "SpectrogramParams",
@@ -176,7 +176,7 @@ def _load_extension():
     ):
         _names[_name] = getattr(_ext.spectrograms, _name)
 
-    # Plotting module (if available - currently not registered in Rust)
+    # Rust plotting module, None when the extension does not provide one
     _names["plotting"] = getattr(_ext, "plotting", None)
 
     # Expose generation functions at the top level for convenience

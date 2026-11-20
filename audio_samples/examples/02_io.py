@@ -55,8 +55,7 @@ def main():
     print(f"  - Duration: {duration:.2f} seconds")
     print(f"  - Samples: {loaded_audio.samples_per_channel()}")
 
-    # Read with specific sample rate (resampling if needed)
-    # Note: This depends on whether the read function supports resampling parameter
+    # Read the stereo file
     loaded_stereo = aus.io.read(str(stereo_path))
     print(f"[OK] Loaded stereo audio from {stereo_path.name}")
     print(f"  - Channels: {loaded_stereo.num_channels}")

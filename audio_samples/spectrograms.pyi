@@ -7,8 +7,8 @@ pip package: pass objects created from ``audio_samples.spectrograms`` (or the
 top-level re-exports such as ``audio_samples.StftParams``) to
 ``AudioSamples`` methods.
 
-This stub was derived from the ``spectrograms`` 1.4.0 package stub and checked
-against the names present at runtime; members added in 2.x are typed loosely.
+The result classes in the last section of this stub have loosely typed
+attributes.
 """
 from typing import final
 from typing_extensions import Self
@@ -2023,7 +2023,7 @@ def fft_plan_cache_info() -> tuple[int, int]:
     ...
 
 # ============================================================================
-# Members present in the bundled spectrograms 2.x but not in the 1.4.0 stub
+# Result classes and DLPack constants, loosely typed
 # ============================================================================
 
 @final

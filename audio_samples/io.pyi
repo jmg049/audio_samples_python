@@ -1,5 +1,5 @@
 """
-Type stubs for audio_python.io - Audio file I/O functions.
+Type stubs for audio_samples.io: audio file I/O functions.
 
 This module provides functions to read and write audio files in various formats.
 """
@@ -329,9 +329,8 @@ class VorbisComment:
     A FLAC Vorbis comment block: a vendor string plus key->values tags.
 
     Construct one, populate it with ``set``/``add``, and serialise with ``to_bytes``
-    (or parse with ``from_bytes``). Note: the public crate API does not expose reading
-    the Vorbis comment back out of a decoded FLAC file, so this class is primarily for
-    constructing and (de)serialising comment blocks.
+    (or parse with ``from_bytes``). Reading the Vorbis comment of a FLAC file is not
+    supported, so this class is for building and (de)serialising comment blocks.
     """
 
     def __init__(self) -> None: ...
@@ -403,7 +402,7 @@ def set_thread_limit(limit: Optional[int]) -> None:
     Reads of large files and FLAC decodes run on a few short-lived threads, which end
     before the call returns. By default their number follows the CPUs available to the
     process, with a cap, or ``AUDIO_SAMPLES_IO_THREADS`` if that is set when the first
-    read starts. This setting replaces both.
+    read starts. This setting overrides both.
 
     Args:
         limit: Most threads to use; ``1`` keeps everything on the calling thread.

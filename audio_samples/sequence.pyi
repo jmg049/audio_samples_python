@@ -11,7 +11,7 @@ Transition matrices are float64.
 
 Output is dense unless ``sparse=True`` asks for ``arrays.SparseRows``.
 ``sync`` with an empty index list returns one segment. ``rqa`` backtracking
-follows the move actually taken.
+follows the moves of the recursion.
 """
 
 from __future__ import annotations
