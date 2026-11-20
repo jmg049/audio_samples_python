@@ -3631,17 +3631,22 @@ impl PyHpssConfig {
     /// Parameters
     /// ----------
     /// ``n_fft``: int
-    ///     FFT size in samples (should be power of 2 and >= ``win_size``)
-    /// ``win_size``: int
-    ///     Window size in samples (should be power of 2)
+    ///     FFT size in samples (should be a power of 2)
     /// ``hop_size``: int
-    ///     Hop size in samples (typically ``win_size/4``)
+    ///     Hop size in samples, at most ``n_fft`` (typically ``n_fft/4``)
+    ///
+    /// Raises
+    /// ------
+    /// ``ValueError``
+    ///     If either value is 0 or ``hop_size`` is larger than ``n_fft``. The
+    ///     configuration is then unchanged.
     #[pyo3(signature=(n_fft: "int",  hop_size: "int"))]
     fn set_stft_params(&mut self, n_fft: usize, hop_size: usize) -> PyResult<()> {
         let n_fft = nzu_or_err(n_fft)?;
         let hop_size = nzu_or_err(hop_size)?;
-        self.inner.set_stft_params(n_fft, hop_size);
-        Ok(())
+        self.inner
+            .set_stft_params(n_fft, hop_size)
+            .map_err(audio_err_to_py)
     }
 
     /// Set median filter sizes.
@@ -5679,14 +5684,8 @@ impl PyPitchClass {
     #[staticmethod]
     #[pyo3(signature = (index: "int"))]
     fn from_index(index: u8) -> PyResult<Self> {
-        if index > 11 {
-            return Err(pyo3::exceptions::PyValueError::new_err(format!(
-                "pitch class index out of range: {index} (must be 0..=11)"
-            )));
-        }
-        Ok(Self {
-            inner: PitchClass::from_index(index),
-        })
+        let inner = PitchClass::from_index(index).map_err(audio_err_to_py)?;
+        Ok(Self { inner })
     }
 
     /// The chromatic index of this pitch class (C = 0, B = 11).

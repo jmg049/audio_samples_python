@@ -170,6 +170,21 @@ def test_hpss_accepts_hpss_config(sine_wave_mono):
         audio.hpss("nope")
 
 
+
+def test_hpss_set_stft_params_rejects_hop_larger_than_n_fft():
+    config = aus.types.HpssConfig()
+    config.set_stft_params(1024, 256)
+    with pytest.raises(ValueError, match="hop_size"):
+        config.set_stft_params(256, 1024)
+    with pytest.raises(ValueError):
+        config.set_stft_params(0, 256)
+
+
+def test_pitch_class_from_index_range():
+    assert aus.PitchClass.from_index(9).to_index() == 9
+    with pytest.raises(ValueError, match="index"):
+        aus.PitchClass.from_index(12)
+
 def test_text_signatures_match_real_signatures():
     vad_sig = aus.types.VadConfig.__text_signature__
     assert vad_sig.startswith("(method, channel_policy, /, frame_size")

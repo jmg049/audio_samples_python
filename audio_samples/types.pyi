@@ -1860,7 +1860,11 @@ class HpssConfig:
 
     def set_stft_params(self, n_fft: int, hop_size: int) -> None:
         """
-        Set the STFT size and hop (both > 0).
+        Set the STFT size and hop (both > 0, ``hop_size`` at most ``n_fft``).
+
+        Raises:
+            ValueError: If either value is 0 or ``hop_size`` is larger than ``n_fft``.
+                The configuration is then unchanged.
         """
         ...
 

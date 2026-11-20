@@ -1323,11 +1323,15 @@ class HpssConfig:
         Parameters
         ----------
         ``n_fft``: int
-            FFT size in samples (should be power of 2 and >= ``win_size``)
-        ``win_size``: int
-            Window size in samples (should be power of 2)
+            FFT size in samples (should be a power of 2)
         ``hop_size``: int
-            Hop size in samples (typically ``win_size/4``)
+            Hop size in samples, at most ``n_fft`` (typically ``n_fft/4``)
+
+        Raises
+        ------
+        ``ValueError``
+            If either value is 0 or ``hop_size`` is larger than ``n_fft``. The
+            configuration is then unchanged.
         """
     def time_resolution(self, /, sample_rate: "float") -> float:
         """
