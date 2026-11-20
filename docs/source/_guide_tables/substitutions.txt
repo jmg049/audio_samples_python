@@ -6,4 +6,4 @@
 .. |loadrows| replace:: 92
 .. |when| replace:: 2026-11-04
 .. |rust| replace:: 31450b0
-.. |py| replace:: 3ffe8ca
+.. |py| replace:: 44bcbb4
