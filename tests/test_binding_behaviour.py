@@ -1,5 +1,5 @@
 """Behaviour of the bindings: a few analysis results compared with librosa 1.0.0
-golden fixtures (``analysis_fixes.json``), argument handling, signatures and the
+golden fixtures (``autocorrelation_yin_notes.json``), argument handling, signatures and the
 names the package exports.
 """
 
@@ -13,12 +13,12 @@ import pytest
 import audio_samples as aus
 from audio_samples import utils as U
 
-from conftest import fixture_array, fixture_signal, fixture_sr, load_librosa_fixture
+from conftest import fixture_array, fixture_signal, fixture_sr, load_reference_fixture
 
 
 @pytest.fixture(scope="module")
 def fx():
-    return load_librosa_fixture("analysis_fixes")
+    return load_reference_fixture("autocorrelation_yin_notes")
 
 
 # ---------------------------------------------------------------------------

@@ -2,8 +2,8 @@
 ``audio_samples.rhythm``).
 
 Golden fixtures: ``rhythm.json`` (librosa 1.0.0, generated in the audio_samples
-repo by ``tests/reference/librosa/cases/rhythm.py``). The tolerances mirror the
-Rust reference suite ``tests/librosa_reference/rhythm.rs``:
+repo by ``tests/reference/analysis/cases/rhythm.py``). The tolerances mirror the
+Rust reference suite ``tests/analysis_reference/rhythm.rs``:
 
 * onset envelopes 1e-10 peak-relative: means of positive dB differences of a
   mel power spectrogram that itself matches librosa to ~1e-12 (FFT and
@@ -31,7 +31,7 @@ from conftest import (
     fixture_array,
     fixture_signal,
     fixture_sr,
-    load_librosa_fixture,
+    load_reference_fixture,
 )
 
 RTOL_ENV = 1e-10  # mel/dB round-off ~1e-13 dB inside the envelope (see module doc)
@@ -43,7 +43,7 @@ ATOL_HYBRID = 2e-7
 
 @pytest.fixture(scope="module")
 def fx():
-    return load_librosa_fixture("rhythm")
+    return load_reference_fixture("rhythm")
 
 
 @pytest.fixture(scope="module")

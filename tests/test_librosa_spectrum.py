@@ -3,12 +3,12 @@
 Two kinds of checks:
 
 * golden fixtures (``spectrum.json``, produced by librosa 1.0.0 in the
-  audio_samples repo; see ``conftest.load_librosa_fixture``), so the tests run
+  audio_samples repo; see ``conftest.load_reference_fixture``), so the tests run
   without librosa installed;
 * direct comparisons against librosa when it is importable.
 
 Tolerances are peak-relative (``max|a - e| <= rtol * max|e|``) and mirror the
-Rust reference suite (``tests/librosa_reference/spectrum.rs``); the reason for
+Rust reference suite (``tests/analysis_reference/spectrum.rs``); the reason for
 each is stated next to it. The algorithms are the same as librosa/SciPy
 operation by operation, so differences are round-off: libm ulps, a different FFT
 (realfft vs pocketfft) and a different summation order in matrix products.
@@ -30,7 +30,7 @@ from conftest import (
     fixture_signal,
     fixture_signal_pcm,
     fixture_sr,
-    load_librosa_fixture,
+    load_reference_fixture,
 )
 
 # Tolerances (peak-relative), with the error source each one covers.
@@ -46,7 +46,7 @@ RTOL_MFCC = 1e-11  # dB of a mel spectrogram carrying ~1e-14 error, then a direc
 
 @pytest.fixture(scope="module")
 def fx():
-    return load_librosa_fixture("spectrum")
+    return load_reference_fixture("spectrum")
 
 
 @pytest.fixture(scope="module")

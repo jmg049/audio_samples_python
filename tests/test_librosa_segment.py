@@ -1,5 +1,5 @@
 """``audio_samples.segment`` and ``sequence.path_to_steps`` against librosa fixtures
-(``segment.json``). Bounds mirror ``tests/librosa_reference/segment.rs``: 1e-9 of the
+(``segment.json``). Bounds mirror ``tests/analysis_reference/segment.rs``: 1e-9 of the
 peak for kernels and convolutions, exact for boundaries.
 """
 
@@ -11,12 +11,12 @@ import pytest
 from audio_samples import segment as G
 from audio_samples import sequence as Q
 
-from conftest import assert_peak_close, load_librosa_fixture
+from conftest import assert_peak_close, load_reference_fixture
 
 
 @pytest.fixture(scope="module")
 def fx():
-    return load_librosa_fixture("segment")
+    return load_reference_fixture("segment")
 
 
 def test_diagonal_filter(fx):

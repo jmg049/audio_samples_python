@@ -1,6 +1,6 @@
 """``audio_samples.notation`` against librosa fixtures (``notation.json``). Names and
 factorisations must match exactly; ratios agree to 1e-14 (see
-``tests/librosa_reference/notation.rs``).
+``tests/analysis_reference/notation.rs``).
 """
 
 from __future__ import annotations
@@ -10,12 +10,12 @@ import pytest
 
 from audio_samples import notation as N
 
-from conftest import load_librosa_fixture
+from conftest import load_reference_fixture
 
 
 @pytest.fixture(scope="module")
 def fx():
-    return load_librosa_fixture("notation")
+    return load_reference_fixture("notation")
 
 
 def _factors(values):

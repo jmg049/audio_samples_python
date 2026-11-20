@@ -7,7 +7,7 @@ dynamic programmes sum the same terms in the same order as librosa's numba
 kernels; the only round-off sources are the local costs / logs (scipy ``cdist``
 or numpy ``log`` may differ by an ulp), so values are compared at 1e-12
 relative to the peak and paths / state sequences must match exactly. These
-tolerances mirror ``tests/librosa_reference/sequence.rs`` in the Rust crate.
+tolerances mirror ``tests/analysis_reference/sequence.rs`` in the Rust crate.
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ import pytest
 
 from audio_samples import sequence as Q
 
-from conftest import assert_peak_close, fixture_array, load_librosa_fixture
+from conftest import assert_peak_close, fixture_array, load_reference_fixture
 
 RTOL_DP = 1e-12  # DP outputs: identical summation order, ulp-level local-cost differences
 RTOL_KNN = 1e-12  # k-NN distances feed medians/means and exp(): ulp-level, amplified slightly
@@ -25,7 +25,7 @@ RTOL_KNN = 1e-12  # k-NN distances feed medians/means and exp(): ulp-level, ampl
 
 @pytest.fixture(scope="module")
 def fx():
-    return load_librosa_fixture("sequence")
+    return load_reference_fixture("sequence")
 
 
 def _assert_inf_matrix(actual, expected, what):

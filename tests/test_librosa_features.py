@@ -4,7 +4,7 @@
 
 Golden fixtures: ``features.json`` (``cases/features.py`` in the audio_samples
 repo). Tolerances are peak-relative and equal to the Rust reference suite's
-(``tests/librosa_reference/features.rs``); for features with several rows
+(``tests/analysis_reference/features.rs``); for features with several rows
 (contrast bands, polynomial coefficients) each row is checked against its own
 peak, as there. The algorithms follow librosa operation by operation, so the
 remaining differences are FFT round-off (realfft vs pocketfft), summation
@@ -26,10 +26,10 @@ from conftest import (
     fixture_array,
     fixture_signal,
     fixture_sr,
-    load_librosa_fixture,
+    load_reference_fixture,
 )
 
-# Tolerances (peak-relative), as in tests/librosa_reference/features.rs.
+# Tolerances (peak-relative), as in tests/analysis_reference/features.rs.
 RTOL_RATIO = 1e-12  # ratios / sums of STFT magnitudes: FFT round-off + summation order
 RTOL_FLAT = 1e-11  # exp(mean(log P)) / mean(P): log/exp ulps, amplified in near-silent frames at amin
 RTOL_CONTRAST_DB = 5e-10  # 10 log10 of valleys ~1e-5 of the peak: relative FFT error ~1e-11, x4.3 in dB
@@ -46,7 +46,7 @@ RTOL_REASSIGN = 1e-11  # ratios S_dh / S_h near the threshold amplify round-off 
 
 @pytest.fixture(scope="module")
 def fx():
-    return load_librosa_fixture("features")
+    return load_reference_fixture("features")
 
 
 @pytest.fixture(scope="module")

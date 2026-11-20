@@ -19,9 +19,9 @@ import scipy.sparse
 import audio_samples as aus
 from audio_samples import features, rhythm, sequence
 from audio_samples import effects as E
-from conftest import load_librosa_fixture
+from conftest import load_reference_fixture
 
-fixture = load_librosa_fixture("option_values")
+fixture = load_reference_fixture("option_values")
 SR = fixture["sr"]
 
 

@@ -1,5 +1,5 @@
 """``audio_samples.arrays`` and the block conversions against librosa fixtures
-(``array_ops.json``). Tolerances mirror ``tests/librosa_reference/array_ops.rs``:
+(``array_ops.json``). Tolerances mirror ``tests/analysis_reference/array_ops.rs``:
 exact for indices and booleans, 1e-15 of the peak for single arithmetic steps,
 1e-10 for splines, which solve a linear system by a different elimination.
 """
@@ -14,7 +14,7 @@ import pytest
 from audio_samples import arrays as A
 from audio_samples import generation, utils
 
-from conftest import assert_peak_close, load_librosa_fixture
+from conftest import assert_peak_close, load_reference_fixture
 
 RTOL = 1e-15
 SPLINE_RTOL = 1e-10
@@ -22,7 +22,7 @@ SPLINE_RTOL = 1e-10
 
 @pytest.fixture(scope="module")
 def fx():
-    return load_librosa_fixture("array_ops")
+    return load_reference_fixture("array_ops")
 
 
 def test_local_extrema(fx):

@@ -5,7 +5,7 @@ and the tuning / octave / key helpers in ``audio_samples.utils``.
 
 Golden fixtures: ``tonal.json`` (``cases/tonal.py``). Tolerances are
 peak-relative and equal to the Rust reference suite's
-(``tests/librosa_reference/tonal.rs``). Discrete decisions (peak sets,
+(``tests/analysis_reference/tonal.rs``). Discrete decisions (peak sets,
 histogram argmax, key spelling) must match exactly.
 """
 
@@ -25,7 +25,7 @@ from conftest import (
     fixture_array,
     fixture_signal,
     fixture_sr,
-    load_librosa_fixture,
+    load_reference_fixture,
 )
 
 RTOL_FILTER = 1e-12  # same formula in f64: libm exp/log2/pow ulps
@@ -39,7 +39,7 @@ RTOL_CONV = 1e-14  # closed-form log2 / pow: libm ulps
 
 @pytest.fixture(scope="module")
 def fx():
-    return load_librosa_fixture("tonal")
+    return load_reference_fixture("tonal")
 
 
 @pytest.fixture(scope="module")

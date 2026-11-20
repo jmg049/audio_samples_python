@@ -6,7 +6,7 @@
 
 Golden fixtures: ``constant_q.json`` (``cases/constant_q.py``). Bounds are
 peak-relative and equal to the Rust reference suite's
-(``tests/librosa_reference/constant_q.rs``), which documents two error sources:
+(``tests/analysis_reference/constant_q.rs``), which documents two error sources:
 
 1. Top octave (no resampling): the same computation as librosa; agrees with
    librosa's output from complex128 filters to round-off and with its default
@@ -32,7 +32,7 @@ from conftest import (
     fixture_array,
     fixture_signal,
     fixture_sr,
-    load_librosa_fixture,
+    load_reference_fixture,
 )
 
 RESAMPLED = 5e-4  # whole transforms through the resampling cascade (source 2)
@@ -60,7 +60,7 @@ def _cqt_bounds(name):
 
 @pytest.fixture(scope="module")
 def fx():
-    return load_librosa_fixture("constant_q")
+    return load_reference_fixture("constant_q")
 
 
 @pytest.fixture(scope="module")

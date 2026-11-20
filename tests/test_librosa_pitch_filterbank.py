@@ -1,6 +1,6 @@
 """``audio_samples.pitch_filterbank`` and ``spectral.mellin_transform`` against librosa
 fixtures (``pitch_filterbank.json``, ``mellin.json``). Bounds mirror the Rust suite: see
-``tests/librosa_reference/{pitch_filterbank,mellin}.rs`` for why each applies.
+``tests/analysis_reference/{pitch_filterbank,mellin}.rs`` for why each applies.
 """
 
 from __future__ import annotations
@@ -12,22 +12,22 @@ import audio_samples as aus
 from audio_samples import pitch_filterbank as P
 from audio_samples import spectral as S
 
-from conftest import assert_peak_close, load_librosa_fixture
+from conftest import assert_peak_close, load_reference_fixture
 
 
 @pytest.fixture(scope="module")
 def pf():
-    return load_librosa_fixture("pitch_filterbank")
+    return load_reference_fixture("pitch_filterbank")
 
 
 @pytest.fixture(scope="module")
 def me():
-    return load_librosa_fixture("mellin")
+    return load_reference_fixture("mellin")
 
 
 @pytest.fixture(scope="module")
 def mix():
-    sig = load_librosa_fixture("signals")
+    sig = load_reference_fixture("signals")
     return np.array(sig["signals"]["mix"], dtype=np.float64) / sig["pcm_scale"]
 
 

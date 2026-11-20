@@ -15,10 +15,10 @@ import pytest
 
 import audio_samples as aus
 from audio_samples import arrays, features, forms, notation
-from conftest import load_librosa_fixture
+from conftest import load_reference_fixture
 
-fixture = load_librosa_fixture("options")
-array_fixture = load_librosa_fixture("array_ops")
+fixture = load_reference_fixture("options")
+array_fixture = load_reference_fixture("array_ops")
 
 
 def _c(v):
@@ -219,7 +219,7 @@ def test_frame_axes_and_duration():
 
 def test_dense_event_masks():
     f = fixture["forms"]
-    clicks = np.asarray(load_librosa_fixture("signals")["signals"]["clicks120"], dtype=np.float64)
+    clicks = np.asarray(load_reference_fixture("signals")["signals"]["clicks120"], dtype=np.float64)
     sr = fixture["sr"]
     onset = forms.onset_detect(y=clicks, sr=sr, sparse=False)
     assert onset.dtype == np.bool_

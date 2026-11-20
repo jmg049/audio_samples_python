@@ -4,7 +4,7 @@
 
 Golden fixtures: ``pitch.json`` (``cases/pitch.py``). Tolerances are
 peak-relative and equal to the Rust reference suite's
-(``tests/librosa_reference/pitch.rs``): the CMND is computed as librosa does
+(``tests/analysis_reference/pitch.rs``): the CMND is computed as librosa does
 (same FFT length and cumsum order), so only FFT round-off remains; decisions
 (trough, pitch bin, voicing, Viterbi path) must match exactly.
 """
@@ -24,7 +24,7 @@ from conftest import (
     fixture_array,
     fixture_signal,
     fixture_sr,
-    load_librosa_fixture,
+    load_reference_fixture,
 )
 
 RTOL_F0 = 1e-11  # f0 from the same CMND up to FFT round-off (measured <= 3.3e-16)
@@ -34,7 +34,7 @@ RTOL_INTERP = 1e-12  # identical interpolation formulas: summation order / ulps 
 
 @pytest.fixture(scope="module")
 def fx():
-    return load_librosa_fixture("pitch")
+    return load_reference_fixture("pitch")
 
 
 @pytest.fixture(scope="module")

@@ -324,8 +324,8 @@ def assert_metadata_equal(aus_audio, expected_sr, expected_channels, expected_sa
 # =============================================================================
 #
 # The audio_samples crate stores librosa 1.0.0 outputs as JSON in
-# ``tests/fixtures/librosa/<area>.json`` (generator:
-# ``tests/reference/librosa/generate_librosa_fixtures.py`` in that repo). The
+# ``tests/fixtures/analysis/<area>.json`` (generator:
+# ``tests/reference/analysis/generate_analysis_fixtures.py`` in that repo). The
 # Python tests read the same files. Location: ``$AUDIO_SAMPLES_FIXTURES`` or the
 # sibling checkout ``../audio_samples`` (the path the Cargo ``[patch]`` uses).
 #
@@ -342,16 +342,16 @@ import json as _json
 from functools import lru_cache as _lru_cache
 
 
-def librosa_fixture_dir() -> Path:
+def reference_fixture_dir() -> Path:
     env = os.environ.get("AUDIO_SAMPLES_FIXTURES")
     if env:
         return Path(env)
-    return Path(__file__).resolve().parents[2] / "audio_samples" / "tests" / "fixtures" / "librosa"
+    return Path(__file__).resolve().parents[2] / "audio_samples" / "tests" / "fixtures" / "analysis"
 
 
 @_lru_cache(maxsize=None)
 def _load_fixture_cached(name: str):
-    path = librosa_fixture_dir() / f"{name}.json"
+    path = reference_fixture_dir() / f"{name}.json"
     if not path.is_file():
         return None
     with open(path) as fh:
@@ -367,14 +367,14 @@ def fixtures_required() -> bool:
     return os.environ.get("CI", "").strip().lower() not in falsy
 
 
-def load_librosa_fixture(name: str) -> dict:
+def load_reference_fixture(name: str) -> dict:
     """Load ``<fixtures>/<name>.json``; skip the test if it is missing, or fail
     it when fixtures are required (see :func:`fixtures_required`)."""
     data = _load_fixture_cached(name)
     if data is None:
         msg = (
-            f"librosa fixture {name}.json not found in {librosa_fixture_dir()} "
-            "(set AUDIO_SAMPLES_FIXTURES to the audio_samples crate's tests/fixtures/librosa)"
+            f"reference fixture {name}.json not found in {reference_fixture_dir()} "
+            "(set AUDIO_SAMPLES_FIXTURES to the audio_samples crate's tests/fixtures/analysis)"
         )
         if fixtures_required():
             pytest.fail(msg + "; fixtures are required (CI or AUDIO_SAMPLES_REQUIRE_FIXTURES)")
@@ -398,18 +398,18 @@ def fixture_array(value, dtype=np.float64) -> np.ndarray:
 
 
 def fixture_sr() -> int:
-    return int(load_librosa_fixture("signals")["sr"])
+    return int(load_reference_fixture("signals")["sr"])
 
 
 def fixture_signal(name: str) -> np.ndarray:
     """A shared fixture signal as float64 (exact: stored as 16-bit PCM codes)."""
-    s = load_librosa_fixture("signals")
+    s = load_reference_fixture("signals")
     return np.asarray(s["signals"][name], dtype=np.float64) / float(s["pcm_scale"])
 
 
 def fixture_signal_pcm(name: str) -> np.ndarray:
     """A shared fixture signal as its int16 PCM codes."""
-    s = load_librosa_fixture("signals")
+    s = load_reference_fixture("signals")
     return np.asarray(s["signals"][name], dtype=np.int16)
 
 
@@ -427,7 +427,7 @@ def assert_peak_close(actual, expected, rtol: float, what: str = "") -> float:
     """Assert ``max|a - e| <= rtol * max|e|`` and return the measured relative error.
 
     Peak-relative tolerances match the Rust reference suite
-    (``tests/librosa_reference/common.rs::assert_close``).
+    (``tests/analysis_reference/common.rs::assert_close``).
     """
     rel = peak_rel_err(actual, expected)
     assert rel <= rtol, f"{what}: peak-relative error {rel:.3e} > {rtol:.1e}"

@@ -2,8 +2,8 @@
 ``audio_samples.effects``).
 
 Golden fixtures: ``effects.json`` (librosa 1.0.0, generated in the audio_samples
-repo by ``tests/reference/librosa/cases/effects.py``). Tolerances are
-peak-relative and mirror ``tests/librosa_reference/effects.rs``:
+repo by ``tests/reference/analysis/cases/effects.py``). Tolerances are
+peak-relative and mirror ``tests/analysis_reference/effects.rs``:
 
 * phase vocoder / time stretch 1e-9: the output phase is a running sum of
   ``atan2`` differences, so STFT round-off in low-magnitude bins accumulates
@@ -34,7 +34,7 @@ from conftest import (
     fixture_array,
     fixture_signal,
     fixture_sr,
-    load_librosa_fixture,
+    load_reference_fixture,
 )
 
 RTOL_PV = 1e-9
@@ -52,7 +52,7 @@ MIN_SNR_PITCH = 55.0
 
 @pytest.fixture(scope="module")
 def fx():
-    return load_librosa_fixture("effects")
+    return load_reference_fixture("effects")
 
 
 @pytest.fixture(scope="module")

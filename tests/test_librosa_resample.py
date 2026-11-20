@@ -4,7 +4,7 @@
 librosa's default resampler is the soxr C library, a different filter design
 from this library's (one Kaiser-windowed sinc stage), so the comparison is by SNR over the
 stored windows (first/last 256 output samples and 1024 from the middle), with
-the bounds of the Rust reference test ``tests/librosa_reference/resample.rs``:
+the bounds of the Rust reference test ``tests/analysis_reference/resample.rs``:
 
 * ``mix`` middle >= 125 dB: band-limited tones far from every Nyquist frequency,
   where both are near-ideal interpolators; this is the figure that shows time
@@ -27,7 +27,7 @@ import pytest
 import audio_samples as aus
 from audio_samples.types import ResamplingQuality
 
-from conftest import fixture_array, fixture_signal, load_librosa_fixture
+from conftest import fixture_array, fixture_signal, load_reference_fixture
 
 
 def snr_db(actual, ref):
@@ -42,7 +42,7 @@ def min_snr(signal: str, window: str) -> float:
 
 @pytest.fixture(scope="module")
 def fx():
-    return load_librosa_fixture("resample")
+    return load_reference_fixture("resample")
 
 
 def test_resample_matches_librosa_soxr_hq(fx):

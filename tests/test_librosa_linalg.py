@@ -1,6 +1,6 @@
 """``audio_samples.linalg``, ``inverse`` and ``factorization`` against librosa fixtures
 (``linalg.json``, ``inverse.json``, ``factorization.json``). Bounds mirror the Rust suite;
-see ``tests/librosa_reference/{linalg,inverse,factorization}.rs`` for why each applies.
+see ``tests/analysis_reference/{linalg,inverse,factorization}.rs`` for why each applies.
 """
 
 from __future__ import annotations
@@ -13,22 +13,22 @@ from audio_samples import inverse as I
 from audio_samples import linalg as L
 from audio_samples import spectral as S
 
-from conftest import assert_peak_close, load_librosa_fixture
+from conftest import assert_peak_close, load_reference_fixture
 
 
 @pytest.fixture(scope="module")
 def la():
-    return load_librosa_fixture("linalg")
+    return load_reference_fixture("linalg")
 
 
 @pytest.fixture(scope="module")
 def inv():
-    return load_librosa_fixture("inverse")
+    return load_reference_fixture("inverse")
 
 
 @pytest.fixture(scope="module")
 def nm():
-    return load_librosa_fixture("factorization")
+    return load_reference_fixture("factorization")
 
 
 @pytest.mark.parametrize("key", ["nnls_vector", "nnls_vector_exact"])
