@@ -158,8 +158,8 @@ Students should know about these (the notebooks point them out where they are re
 ## Setting up a course environment
 
 The course needs a build of `audio_samples` that includes the explain API
-(`audio_samples.explain`), which is in the release after 0.2.4. Until that
-release is on PyPI, build the package from source: clone the repository,
+(`audio_samples.explain`), which is in 0.3.0 and later. Until 0.3.0 is on
+PyPI, build the package from source: clone the repository,
 create a virtual environment, `pip install maturin`, and run
 `maturin develop --release` in the clone. Then install the notebook
 dependencies (Python ≥ 3.10; the notebooks need librosa ≥ 0.10):

@@ -29,7 +29,7 @@ Install it from source
    version 0.2.4, which has no ``stft_matrix``, ``mfcc_frames``, ``spectral``,
    ``features``, ``rhythm``, ``effects`` or ``sequence``. That release has one wheel,
    CPython 3.12 on x86-64 Linux; on anything else pip tries to build the source
-   distribution, which needs a Rust toolchain. Until a release includes this API, build
+   distribution, which needs a Rust toolchain. Until 0.3.0, which includes it, is on PyPI, build
    from two checkouts side by side that contain it. The steps below were tested with
    rustc 1.96.0:
 
@@ -1014,7 +1014,7 @@ Linux with CPython 3.13. The current PyPI release lacks it. There are no wheels 
 Windows, so those need a Rust toolchain, and none of this has been tried there. librosa is pure
 Python, and its compiled dependencies publish wheels for Linux, macOS and Windows.
 
-**Maturity and breadth.** ``audio_samples`` is at version 0.2.4, classified as beta, with one
+**Maturity and breadth.** ``audio_samples`` is at version 0.3.0, classified as beta, with one
 listed author. librosa is at 1.0.0, has a citation helper (``librosa.cite``), example data and
 plotting helpers. If you need a result your field will recognise as "computed with librosa", that
 counts for more than speed.

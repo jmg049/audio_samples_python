@@ -72,7 +72,7 @@ it is set when the first read starts; ``1`` keeps everything on the calling thre
 Scaling
 -------
 
-Measured on 2026-11-04 and 2026-11-05 on an Intel i7-13700KF under Linux, with audio_samples 0.2.4, CPython
+Measured on 2026-11-04 and 2026-11-05 on an Intel i7-13700KF under Linux, with a development build of audio_samples 0.3.0, CPython
 3.14.2 (regular and free-threaded), NumPy 2.5.4, librosa 1.0.0, SciPy 1.18.1 and numba 0.68.1.
 Native libraries were limited to one thread each, so the threads are all Python's. The process
 was pinned to the eight efficiency cores (four CPUs in each of two clusters, each cluster

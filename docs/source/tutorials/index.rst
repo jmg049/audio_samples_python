@@ -9,7 +9,7 @@ are computed and asserted, so every number in the text is checked whenever the
 notebook runs.
 
 The notebooks need a build of ``audio_samples`` that includes the explain API
-(``audio_samples.explain``): the release after 0.2.4. Until that is on PyPI, build
+(``audio_samples.explain``), which is in 0.3.0 and later. Until 0.3.0 is on PyPI, build
 the package from source with ``maturin develop --release``. Then install the
 notebook dependencies::
 

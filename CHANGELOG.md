@@ -9,7 +9,9 @@ changes in the core are summarised here where Python users will notice them; the
 crate's [CHANGELOG](https://github.com/jmg049/audio_samples/blob/main/CHANGELOG.md)
 has the full detail.
 
-## [Unreleased]
+## [0.3.0] - Unreleased
+
+Built on audio_samples 3.0 and audio_samples_io 0.4.
 
 - **`str(audio)` is one line and `repr(audio)` previews each channel.** `str` gives
   `AudioSamples<f32>: 2 ch × 48000 samples @ 48000 Hz (1.000 s)`; `repr` adds a line per channel
@@ -438,7 +440,7 @@ has the full detail.
   cover generation, IO, processing, spectral analysis and statistics, with a
   DTMF example.
 
-[Unreleased]: https://github.com/jmg049/audio_samples_python/compare/v0.2.3...HEAD
+[0.3.0]: https://pypi.org/project/audio_samples/0.3.0/
 [0.2.4]: https://pypi.org/project/audio_samples/0.2.4/
 [0.2.3]: https://github.com/jmg049/audio_samples_python/releases/tag/v0.2.3
 [0.2.2]: https://github.com/jmg049/audio_samples_python/releases/tag/v0.2.2
