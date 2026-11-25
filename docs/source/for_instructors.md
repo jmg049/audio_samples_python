@@ -138,10 +138,12 @@ Students should know about these (the notebooks point them out where they are re
   power, not the power (notebook 10).
 - The default `OnsetDetectionConfig` finds every click of a clean click
   track, but its threshold floor (0.1 of the strongest onset) drops much
-  weaker onsets: on notebook 13's eight-click track it finds 5. Notebook 13
-  shows this and checks the configuration with `.explain()`.
-- `estimate_tempo` makes octave errors (and third-of-tempo errors) on simple
-  click tracks; `BeatTrackingConfig.tempo_bpm` is not used by it.
+  weaker onsets: on notebook 13's eight-click track, whose first three clicks
+  are 26 dB quieter, it finds 5. Notebook 13 shows this and checks the
+  configuration with `.explain()`.
+- `estimate_tempo` can choose half the tempo when every other beat is weaker
+  (notebook 13's 80 BPM track with quiet off-beats gives 40 BPM);
+  `BeatTrackingConfig.tempo_bpm` is not used by it.
 - The Python bindings have no Bark, ERB, threshold-of-hearing, codec,
   cepstrum or FIR-design functions (the Rust crate has most of them), so
   notebooks 05, 10 and 14 compute these with NumPy. Their LPC,

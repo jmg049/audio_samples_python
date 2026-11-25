@@ -304,6 +304,15 @@ centres CQT kernels in the frame, so those outputs change.
     0.1, a 3-frame minimum separation and no median filter, so it finds the
     onsets of a clean track. The `music`/`speech`/`drums` presets are
     unchanged.
+  - Onset detection: `OnsetDetectionConfig.default()`, `.speech()` and
+    `SpectralFluxConfig.musical()` use a constant-Q CQT (Q 34.1, was 0.5)
+    and `OnsetDetectionConfig.musical()` Q 16.8 (was 1.0), so a steady tone
+    no longer gives a fluctuating detection function and similar clicks give
+    similar peaks. `detect_onsets` reports clean onsets within one hop (they
+    were about 30 ms early). `OnsetDetectionConfig.percussive()` and
+    `SpectralFluxConfig.percussive()` find every click of a click track
+    (5-frame median zeroing, flux compression 10). `complex_onset_detection`
+    reports the time each CQT frame describes.
   - Filter designs match `scipy.signal`. High-pass Butterworth/Chebyshev
     filters of order other than 2 were frequency-mirrored, odd orders had a
     doubled pole, and the simple filters were unstable or silent on int16
