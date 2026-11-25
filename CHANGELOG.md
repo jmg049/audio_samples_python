@@ -11,7 +11,9 @@ has the full detail.
 
 ## [0.3.0] - Unreleased
 
-Built on audio_samples 3.0 and audio_samples_io 0.4.
+Built on audio_samples 3.0, audio_samples_io 0.4 and spectrograms 2.2.0. spectrograms 2.2.0
+fixes the Kaiser window for β > 3.75, spaces gammatone and ERB filters on the ERB-number scale and
+centres CQT kernels in the frame, so those outputs change.
 
 - **`str(audio)` is one line and `repr(audio)` previews each channel.** `str` gives
   `AudioSamples<f32>: 2 ch × 48000 samples @ 48000 Hz (1.000 s)`; `repr` adds a line per channel

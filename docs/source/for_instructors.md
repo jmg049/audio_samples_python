@@ -134,10 +134,6 @@ suite. For other topics, compare with these conventions in mind:
 
 Students should know about these (the notebooks point them out where they are relevant):
 
-- The Kaiser window of the upstream `spectrograms` crate is inaccurate for
-  β > 3.75 (notebook 03 measures it).
-- The gammatone filterbank's default centre spacing is linear in Hz rather than
-  on the ERB-number scale.
 - `mel_spectrogram` without `LogParams` returns the square root of the mel
   power, not the power (notebook 10).
 - The default `OnsetDetectionConfig` finds every click of a clean click
