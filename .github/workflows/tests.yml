@@ -1,12 +1,10 @@
-# Measures the bindings from the Python tests: the extension is built with
-# cargo-llvm-cov's instrumentation, pytest drives it, and both the Rust report and
-# pytest-cov's report of the Python wrappers go to Codecov. A failed upload fails
-# the job on main, where it needs the CODECOV_TOKEN secret, and not on pull requests.
+# Builds the extension and runs the Python tests on every push to main and every
+# pull request.
 #
 # While Cargo.toml patches audio_samples and audio_samples_io to sibling checkouts,
 # those repositories are checked out next to this one at their default branches. The
 # tests run from outside the checkout so they import the installed package.
-name: Coverage
+name: Tests
 
 on:
   push:
@@ -21,7 +19,7 @@ env:
   RUST_TOOLCHAIN: "1.99.1"
 
 jobs:
-  coverage:
+  tests:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -40,35 +38,22 @@ jobs:
           persist-credentials: false
       - name: Install Rust
         run: |
-          rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal --component llvm-tools --no-self-update
+          rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal --no-self-update
           rustup default "$RUST_TOOLCHAIN"
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.13"
-      - uses: taiki-e/install-action@b80e2bb2635f28eb98b9fce1e2f0887e1535c6b2 # v2.90.0
-        with:
-          tool: cargo-llvm-cov@0.9.1
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           workspaces: audio_samples_python
-      - name: Build the instrumented extension and run the tests
+      - name: Build the extension and run the tests
         working-directory: audio_samples_python
         run: |
           python -m venv "$RUNNER_TEMP/venv"
           # shellcheck disable=SC1091
           source "$RUNNER_TEMP/venv/bin/activate"
-          pip install "maturin>=1.9,<2.0" "numpy>=1.24.4" pytest pytest-cov pytest-timeout scipy librosa soundfile matplotlib
-          # shellcheck disable=SC1090
-          source <(cargo llvm-cov show-env --sh)
-          cargo llvm-cov clean --workspace
-          maturin build --out "$RUNNER_TEMP/dist"
+          pip install "maturin>=1.9,<2.0" "numpy>=1.24.4" pytest pytest-timeout scipy librosa soundfile matplotlib
+          maturin build --release --out "$RUNNER_TEMP/dist"
           pip install --no-deps "$RUNNER_TEMP"/dist/*.whl
           repo="$PWD"
-          (cd "$RUNNER_TEMP" && pytest "$repo/tests" -q --rootdir="$repo" --cov=audio_samples --cov-report="xml:$repo/python-coverage.xml")
-          cargo llvm-cov report --lcov --output-path rust-coverage.info
-      - uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
-        with:
-          working-directory: audio_samples_python
-          files: rust-coverage.info,python-coverage.xml
-          fail_ci_if_error: ${{ github.event_name == 'push' }}
-          token: ${{ secrets.CODECOV_TOKEN }}
+          (cd "$RUNNER_TEMP" && pytest "$repo/tests" -q --rootdir="$repo")
