@@ -11,9 +11,11 @@ has the full detail.
 
 ## [0.3.0] - Unreleased
 
-Built on audio_samples 3.0, audio_samples_io 0.4 and spectrograms 2.2.0. spectrograms 2.2.0
+Built on audio_samples 3.0, audio_samples_io 0.4 and spectrograms 2.2.1. spectrograms 2.2
 fixes the Kaiser window for β > 3.75, spaces gammatone and ERB filters on the ERB-number scale and
-centres CQT kernels in the frame, so those outputs change.
+centres CQT kernels in the frame. In 2.2.1 a mel spectrogram's frequency axis gives the
+filterbank's band centres for any `f_min`/`f_max`, uncentred frames are timed at their centre, and
+a CQT whose `f_min` is at or above Nyquist raises an error. Those outputs change.
 
 - **Onset detection follows audio_samples 3.0** (see its changelog). `PeakPickingConfig.default()`
   and its presets leave pre-emphasis off, which moved onsets early; the `SpectralFluxConfig` and

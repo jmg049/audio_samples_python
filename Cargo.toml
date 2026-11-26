@@ -43,7 +43,7 @@ audio_samples = { version = "3.0.0", features = [
 audio_samples_io = { version = "0.4.0", features = ["wav", "numpy", "flac"] }
 numpy = "0.29"
 serde_json = "1.0.149"
-spectrograms = { version = "2.2.0", features = ["python"] }
+spectrograms = { version = "2.2.1", features = ["python"] }
 non-empty-slice = "0.6"
 num-complex = "0.4"
 # Diagnostic code/help of core errors are forwarded to Python exceptions.

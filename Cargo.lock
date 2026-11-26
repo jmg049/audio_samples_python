@@ -1538,9 +1538,9 @@ checksum = "d0d5d4b1981b8bbbb7aed204cae5726d683d5d6ac7e74ec54122ea28f315e7c8"
 
 [[package]]
 name = "spectrograms"
-version = "2.2.0"
+version = "2.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "201d999b34373a8db3bb2e63ba85f078dc9812cb380800219f45d6fb5da333a9"
+checksum = "c298bac432dceb97cd9b581f52f3da78e0898abd1841fa2c28b352ec57278243"
 dependencies = [
  "ndarray",
  "non-empty-slice",
