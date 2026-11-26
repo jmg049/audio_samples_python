@@ -327,7 +327,7 @@ def assert_metadata_equal(aus_audio, expected_sr, expected_channels, expected_sa
 # ``tests/fixtures/analysis/<area>.json`` (generator:
 # ``tests/reference/analysis/generate_analysis_fixtures.py`` in that repo). The
 # Python tests read the same files. Location: ``$AUDIO_SAMPLES_FIXTURES`` or the
-# sibling checkout ``../audio_samples`` (the path the Cargo ``[patch]`` uses).
+# checkout ``../audio_samples`` next to this repository.
 #
 # When the fixtures are not available the tests that need them are skipped
 # locally, but FAIL when fixtures are required, so that a CI run cannot pass

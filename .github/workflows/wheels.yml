@@ -2,10 +2,9 @@
 #
 # Differences from the workflow that `maturin generate-ci github` (maturin 1.16)
 # writes:
-#   - the bindings need sibling checkouts of audio_samples and audio_samples_io,
-#     so every repository is checked out under the workspace and maturin runs
-#     from audio_samples_python/. The manylinux and musllinux containers only
-#     mount the workspace, so the siblings are visible inside them;
+#   - the repository is checked out in audio_samples_python/ and maturin runs
+#     from there; the Python 3.13 test suites also check out audio_samples next
+#     to it, for the golden fixtures the tests read;
 #   - one job per target and Python version, so a job only compiles once;
 #   - tests run on the built wheel, on a machine without Rust or the sources;
 #   - publishing uses trusted publishing and only runs for a v* tag;
@@ -26,11 +25,7 @@ on:
   workflow_dispatch:
     inputs:
       audio_samples_ref:
-        description: "audio_samples commit (empty: the pinned one)"
-        required: false
-        type: string
-      audio_samples_io_ref:
-        description: "audio_samples_io commit (empty: the pinned one)"
+        description: "audio_samples ref for the golden fixtures (empty: the pinned one)"
         required: false
         type: string
 
@@ -38,9 +33,8 @@ permissions:
   contents: read
 
 env:
-  # The crates the bindings build against, until their releases are on crates.io.
-  AUDIO_SAMPLES_REF: ${{ inputs.audio_samples_ref || '71a128507300281ba9479fc5514816541999251f' }}
-  AUDIO_SAMPLES_IO_REF: ${{ inputs.audio_samples_io_ref || 'a4a7c6ef007febf529fafc3101e90d04d513b184' }}
+  # The audio_samples release whose golden fixtures the test suites read.
+  AUDIO_SAMPLES_REF: ${{ inputs.audio_samples_ref || 'v3.0.0' }}
   RUST_TOOLCHAIN: "1.99.1"
   MATURIN_VERSION: "v1.16.0"
 
@@ -74,18 +68,6 @@ jobs:
       - uses: actions/checkout@v7
         with:
           path: audio_samples_python
-          persist-credentials: false
-      - uses: actions/checkout@v7
-        with:
-          repository: jmg049/audio_samples
-          ref: ${{ env.AUDIO_SAMPLES_REF }}
-          path: audio_samples
-          persist-credentials: false
-      - uses: actions/checkout@v7
-        with:
-          repository: jmg049/audio_samples_io
-          ref: ${{ env.AUDIO_SAMPLES_IO_REF }}
-          path: audio_samples_io
           persist-credentials: false
       - name: Build wheel
         uses: PyO3/maturin-action@v1
@@ -214,16 +196,11 @@ jobs:
           path: audio_samples_python
           persist-credentials: false
       - uses: actions/checkout@v7
+        if: matrix.python == '3.13'
         with:
           repository: jmg049/audio_samples
           ref: ${{ env.AUDIO_SAMPLES_REF }}
           path: audio_samples
-          persist-credentials: false
-      - uses: actions/checkout@v7
-        with:
-          repository: jmg049/audio_samples_io
-          ref: ${{ env.AUDIO_SAMPLES_IO_REF }}
-          path: audio_samples_io
           persist-credentials: false
       - uses: actions/setup-python@v7
         id: python
@@ -272,20 +249,6 @@ jobs:
         with:
           path: audio_samples_python
           persist-credentials: false
-      - uses: actions/checkout@v7
-        with:
-          repository: jmg049/audio_samples
-          ref: ${{ env.AUDIO_SAMPLES_REF }}
-          path: audio_samples
-          persist-credentials: false
-      - uses: actions/checkout@v7
-        with:
-          repository: jmg049/audio_samples_io
-          ref: ${{ env.AUDIO_SAMPLES_IO_REF }}
-          path: audio_samples_io
-          persist-credentials: false
-      - name: Copy the sibling sources into the tree
-        run: python3 audio_samples_python/tests/ci/bundle_siblings.py
       - name: Build sdist
         uses: PyO3/maturin-action@v1
         with:
@@ -296,7 +259,7 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
-      # Without the other checkouts: the sdist has to carry everything it needs.
+      # The sdist has to carry everything it needs.
       - name: Build a wheel from the sdist alone
         run: |
           mkdir "$RUNNER_TEMP/alone"

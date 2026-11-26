@@ -61,20 +61,21 @@ The revealed types depend on the checker versions: install them with
 
 ## Building
 
-The bindings build against checkouts of
+The bindings build against the crates.io releases of
 [`audio_samples`](https://github.com/jmg049/audio_samples) and
-[`audio_samples_io`](https://github.com/jmg049/audio_samples_io) next to this
-one (`[patch.crates-io]` in `Cargo.toml`), until the matching releases are on
-crates.io. `.github/workflows/wheels.yml` pins the commits it uses.
+[`audio_samples_io`](https://github.com/jmg049/audio_samples_io). To build
+against local changes to either, add a `[patch.crates-io]` table to `Cargo.toml`
+pointing at your checkouts, and leave it out of commits.
+
+The tests read the golden fixtures of `audio_samples` from a checkout of it next
+to this one (`../audio_samples`), or from `$AUDIO_SAMPLES_FIXTURES`.
 
 Wheels: Actions > Wheels > Run workflow builds and tests everything without
 publishing. Only a pushed `v*` tag publishes, through trusted publishing.
 
-An sdist needs those sources inside it, because maturin does not package the
-targets of a patch table: run `tests/ci/bundle_siblings.py` on a throw-away
-checkout first, then `maturin sdist`. The result builds on its own with a Rust
-toolchain and access to crates.io (or a `cargo vendor` directory); `Cargo.lock`
-is included and it has no C dependencies.
+`maturin sdist` builds a self-contained sdist; it builds with a Rust toolchain
+and access to crates.io (or a `cargo vendor` directory). `Cargo.lock` is
+included and it has no C dependencies.
 
 ## Usage of AI Tools
 

@@ -19,21 +19,9 @@ jobs:
       contents: read
 
     steps:
-    # The extension builds next to sibling checkouts while Cargo.toml patches them,
-    # as in wheels.yml.
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         path: audio_samples_python
-        persist-credentials: false
-    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      with:
-        repository: jmg049/audio_samples
-        path: audio_samples
-        persist-credentials: false
-    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      with:
-        repository: jmg049/audio_samples_io
-        path: audio_samples_io
         persist-credentials: false
 
     - name: Install Rust

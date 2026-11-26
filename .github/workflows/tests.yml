@@ -1,9 +1,9 @@
 # Builds the extension and runs the Python tests on every push to main and every
 # pull request.
 #
-# While Cargo.toml patches audio_samples and audio_samples_io to sibling checkouts,
-# those repositories are checked out next to this one at their default branches. The
-# tests run from outside the checkout so they import the installed package.
+# audio_samples is checked out next to this repository for its golden fixtures,
+# which the tests read from ../audio_samples. The tests run from outside the
+# checkout so they import the installed package.
 name: Tests
 
 on:
@@ -29,12 +29,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: jmg049/audio_samples
+          ref: v3.0.0
           path: audio_samples
-          persist-credentials: false
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: jmg049/audio_samples_io
-          path: audio_samples_io
           persist-credentials: false
       - name: Install Rust
         run: |

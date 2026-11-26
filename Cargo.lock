@@ -90,6 +90,8 @@ dependencies = [
 [[package]]
 name = "audio_samples"
 version = "3.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5459082137cc58540abe6ed1b8cfa289281cf8c5ab467f6c3b4c61449b0a6dc6"
 dependencies = [
  "audioadapter",
  "base64 0.22.1",
@@ -118,6 +120,8 @@ dependencies = [
 [[package]]
 name = "audio_samples_io"
 version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "29e961eda03d620f6fea5fdfa4b5c82620debbc8ac87c878af4547e577ce2421"
 dependencies = [
  "audio_samples",
  "bytemuck",

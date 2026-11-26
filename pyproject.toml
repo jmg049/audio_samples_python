@@ -100,8 +100,6 @@ include = [
     { path = "CHANGELOG.md", format = "sdist" },
     { path = "Cargo.lock", format = "sdist" },
     { path = ".cargo/config.toml", format = "sdist" },
-    # Written by tests/ci/bundle_siblings.py before an sdist is built.
-    { path = "bundled/**/*", format = "sdist" },
 ]
 exclude = ["tests/*", "examples/*", "benches/*", "docs/*", ".venv/**/*", "target/**/*"]
 

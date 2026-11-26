@@ -15,15 +15,6 @@ jobs:
       - uses: actions/checkout@v7
         with:
           path: audio_samples_python
-      # The bindings build against sibling checkouts of the crates.
-      - uses: actions/checkout@v7
-        with:
-          repository: jmg049/audio_samples
-          path: audio_samples
-      - uses: actions/checkout@v7
-        with:
-          repository: jmg049/audio_samples_io
-          path: audio_samples_io
       - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
