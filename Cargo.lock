@@ -100,8 +100,8 @@ dependencies = [
  "i24",
  "miette",
  "ndarray",
- "non-empty-iter",
- "non-empty-slice",
+ "non-empty-iter 0.3.1",
+ "non-empty-slice 0.6.0",
  "num-complex",
  "num-traits",
  "open",
@@ -128,8 +128,8 @@ dependencies = [
  "libc",
  "memmap2",
  "ndarray",
- "non-empty-iter",
- "non-empty-slice",
+ "non-empty-iter 0.3.1",
+ "non-empty-slice 0.6.0",
  "numpy",
  "pyo3",
  "rayon",
@@ -144,7 +144,7 @@ dependencies = [
  "audio_samples_io",
  "miette",
  "ndarray",
- "non-empty-slice",
+ "non-empty-slice 0.7.0",
  "num-complex",
  "numpy",
  "pyo3",
@@ -959,14 +959,36 @@ dependencies = [
 ]
 
 [[package]]
+name = "non-empty-iter"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1de15542299db6b672578a2fd0bde5562ea2a1b03220fc96cddc57252335ab71"
+dependencies = [
+ "non-zero-size",
+]
+
+[[package]]
 name = "non-empty-slice"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9935c822e11be79ef40f986558b00da0ff176b7c87ddf6d9fb8b9138a6112c20"
 dependencies = [
- "non-empty-iter",
+ "non-empty-iter 0.3.1",
  "non-zero-size",
- "ownership",
+ "ownership 0.3.0",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
+name = "non-empty-slice"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "17a24122cf3ba1bffb0be9b07adf1fd0c3537f530eeb7f4ff549b659563b866e"
+dependencies = [
+ "non-empty-iter 0.4.0",
+ "non-zero-size",
+ "ownership 0.4.0",
  "serde",
  "thiserror",
 ]
@@ -1057,6 +1079,12 @@ name = "ownership"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cfb1aeb68b9f2683ee3f83960c10668b37a8a640224ba1169697ee8fd1e906c1"
+
+[[package]]
+name = "ownership"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5af2684feb0ddd3138a1027e781c676f1ce977265520555e0431ea0b0cf1aa8f"
 
 [[package]]
 name = "owo-colors"
@@ -1547,7 +1575,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c298bac432dceb97cd9b581f52f3da78e0898abd1841fa2c28b352ec57278243"
 dependencies = [
  "ndarray",
- "non-empty-slice",
+ "non-empty-slice 0.6.0",
  "num-complex",
  "num-traits",
  "numpy",
