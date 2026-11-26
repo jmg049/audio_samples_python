@@ -490,3 +490,20 @@ class TestDifferentSampleRates:
         audio = aus.white_noise(duration_secs=0.1, sample_rate=sr, amplitude=0.5)
 
         assert audio.sample_rate == sr
+
+
+@pytest.mark.parametrize("duration", [0.0, -1.0, float("nan"), float("inf"), 1e300])
+@pytest.mark.parametrize(
+    "make",
+    [
+        lambda d: aus.sine_wave(440.0, d),
+        lambda d: aus.chirp(100.0, 1000.0, d),
+        lambda d: aus.silence(d),
+        lambda d: aus.stereo_sine_wave(440.0, d),
+        lambda d: aus.compound_tone([(440.0, 1.0)], d),
+    ],
+)
+def test_durations_that_are_not_finite_and_positive_raise_value_error(make, duration):
+    # NaN, infinity and out-of-range values used to panic in the conversion to a duration.
+    with pytest.raises(ValueError):
+        make(duration)

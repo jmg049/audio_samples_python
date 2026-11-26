@@ -62,6 +62,18 @@ macro_rules! dispatch_audio {
     }};
 }
 
+/// Converts a duration in seconds to a `Duration`, rejecting values that are not finite and
+/// positive (`Duration::from_secs_f64` panics on them).
+fn positive_duration(duration_secs: f64) -> PyResult<Duration> {
+    if !(duration_secs.is_finite() && duration_secs > 0.0) {
+        return Err(PyValueError::new_err(format!(
+            "duration_secs must be finite and positive, got {duration_secs}"
+        )));
+    }
+    Duration::try_from_secs_f64(duration_secs)
+        .map_err(|e| PyValueError::new_err(format!("duration_secs {duration_secs}: {e}")))
+}
+
 fn generate_audio(
     py: Python<'_>,
     generator: Generator,
@@ -70,12 +82,8 @@ fn generate_audio(
     amplitude: f64,
     dtype: Option<Bound<'_, PyAny>>,
 ) -> PyResult<PyAudioSamples> {
-    if duration_secs <= 0.0 {
-        return Err(PyValueError::new_err("duration_secs must be positive"));
-    }
+    let duration = positive_duration(duration_secs)?;
     let sample_rate = nzu32_or_err(sample_rate)?;
-
-    let duration = Duration::from_secs_f64(duration_secs);
 
     dispatch_audio!(py, dtype, |T| {
         let audio = match generator {
@@ -243,7 +251,7 @@ fn example_clip(
             "duration_secs: must give at least one sample at {sample_rate} Hz, got {duration_secs}"
         )));
     }
-    let duration = Duration::from_secs_f64(duration_secs);
+    let duration = positive_duration(duration_secs)?;
     dispatch_audio!(py, dtype, |T| {
         let audio = audio_samples::example_clip::<T>(clip, duration, sample_rate);
         Ok(PyAudioSamples::from_audio_samples(audio))
@@ -674,11 +682,8 @@ pub fn stereo_sine_wave(
     amplitude: f64,
     dtype: Option<Bound<'_, PyAny>>,
 ) -> PyResult<PyAudioSamples> {
-    if duration_secs <= 0.0 {
-        return Err(PyValueError::new_err("duration_secs must be positive"));
-    }
+    let duration = positive_duration(duration_secs)?;
     let sample_rate = nzu32_or_err(sample_rate)?;
-    let duration = Duration::from_secs_f64(duration_secs);
 
     dispatch_audio!(py, dtype, |T| {
         let audio =
@@ -713,11 +718,8 @@ pub fn stereo_chirp(
     amplitude: f64,
     dtype: Option<Bound<'_, PyAny>>,
 ) -> PyResult<PyAudioSamples> {
-    if duration_secs <= 0.0 {
-        return Err(PyValueError::new_err("duration_secs must be positive"));
-    }
+    let duration = positive_duration(duration_secs)?;
     let sample_rate = nzu32_or_err(sample_rate)?;
-    let duration = Duration::from_secs_f64(duration_secs);
 
     dispatch_audio!(py, dtype, |T| {
         let audio = audio_samples::stereo_chirp::<T>(
@@ -751,11 +753,8 @@ pub fn stereo_silence(
     sample_rate: u32,
     dtype: Option<Bound<'_, PyAny>>,
 ) -> PyResult<PyAudioSamples> {
-    if duration_secs <= 0.0 {
-        return Err(PyValueError::new_err("duration_secs must be positive"));
-    }
+    let duration = positive_duration(duration_secs)?;
     let sample_rate = nzu32_or_err(sample_rate)?;
-    let duration = Duration::from_secs_f64(duration_secs);
 
     dispatch_audio!(py, dtype, |T| {
         let audio = audio_samples::stereo_silence::<T>(duration, sample_rate);
@@ -958,11 +957,8 @@ fn fm_signal(
     amplitude: f64,
     dtype: Option<Bound<'_, PyAny>>,
 ) -> PyResult<PyAudioSamples> {
-    if duration_secs <= 0.0 {
-        return Err(PyValueError::new_err("duration_secs must be positive"));
-    }
+    let duration = positive_duration(duration_secs)?;
     let sample_rate = nzu32_or_err(sample_rate)?;
-    let duration = Duration::from_secs_f64(duration_secs);
 
     dispatch_audio!(py, dtype, |T| {
         let audio = audio_samples::fm_signal::<T>(
@@ -1011,11 +1007,8 @@ fn am_signal(
     amplitude: f64,
     dtype: Option<Bound<'_, PyAny>>,
 ) -> PyResult<PyAudioSamples> {
-    if duration_secs <= 0.0 {
-        return Err(PyValueError::new_err("duration_secs must be positive"));
-    }
+    let duration = positive_duration(duration_secs)?;
     let sample_rate = nzu32_or_err(sample_rate)?;
-    let duration = Duration::from_secs_f64(duration_secs);
 
     dispatch_audio!(py, dtype, |T| {
         let audio = audio_samples::am_signal::<T>(
@@ -1059,16 +1052,13 @@ fn compound_tone(
     sample_rate: u32,
     dtype: Option<Bound<'_, PyAny>>,
 ) -> PyResult<PyAudioSamples> {
-    if duration_secs <= 0.0 {
-        return Err(PyValueError::new_err("duration_secs must be positive"));
-    }
     if components.is_empty() {
         return Err(PyValueError::new_err(
             "components must contain at least one (frequency, amplitude) tuple",
         ));
     }
     let sample_rate = nzu32_or_err(sample_rate)?;
-    let duration = Duration::from_secs_f64(duration_secs);
+    let duration = positive_duration(duration_secs)?;
 
     let tone_components: Vec<ToneComponent> = components
         .into_iter()
@@ -1112,11 +1102,8 @@ fn exponential_bursts(
     amplitude: f64,
     dtype: Option<Bound<'_, PyAny>>,
 ) -> PyResult<PyAudioSamples> {
-    if duration_secs <= 0.0 {
-        return Err(PyValueError::new_err("duration_secs must be positive"));
-    }
+    let duration = positive_duration(duration_secs)?;
     let sample_rate = nzu32_or_err(sample_rate)?;
-    let duration = Duration::from_secs_f64(duration_secs);
 
     dispatch_audio!(py, dtype, |T| {
         let audio = audio_samples::utils::generation::exponential_bursts::<T>(
