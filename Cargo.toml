@@ -51,7 +51,7 @@ miette = { version = "7", default-features = false }
 
 [build-dependencies]
 # Sets the `Py_GIL_DISABLED` cfg when building for a free-threaded interpreter.
-pyo3-build-config = "0.29"
+pyo3-build-config = "0.30"
 
 
 [features]
