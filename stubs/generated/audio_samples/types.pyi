@@ -3634,32 +3634,34 @@ class SpectralFluxMethod:
     """
     complex: Final[SpectralFluxMethod]
     """
-    Complex-domain spectral flux.
+    Complex-domain flux (Duxbury et al., 2003; Bello et al., 2004).
 
-    Incorporates phase information in addition to magnitude, improving
-    robustness to noise and spectral smearing at increased computational
-    cost.
+    ``sum_b |X[b,t] - Xp[b,t]|``, where the prediction ``Xp`` keeps the
+    previous magnitude and the previous phase advance. Steady tones give
+    nothing; changes of level, including decays, and of phase count.
     """
     energy: Final[SpectralFluxMethod]
     """
-    Energy-based spectral flux.
+    Half-wave-rectified magnitude flux (named "energy", but not squared).
 
-    Measures positive changes in spectral energy between successive frames.
-    Performs well for transient and percussive onsets.
+    ``sum_b max(0, |X[b,t]| - |X[b,t-1]|)`` on the CQT magnitude: only
+    increases in level count. The standard spectral flux, suited to most
+    material.
     """
     magnitude: Final[SpectralFluxMethod]
     """
-    Magnitude-based spectral flux.
+    Unrectified magnitude flux.
 
-    Measures positive changes in spectral magnitude and is more sensitive
-    to subtle spectral variation, making it effective for tonal material.
+    ``sum_b abs(|X[b,t]| - |X[b,t-1]|)``: decreases of level (note offsets)
+    count as much as increases, and the ``rectify`` option has no effect.
     """
     rectified_complex: Final[SpectralFluxMethod]
     """
-    Rectified complex-domain spectral flux.
+    Rectified complex-domain flux (Dixon, 2006).
 
-    Suppresses negative phase contributions to balance sensitivity and
-    robustness.
+    The ``complex`` sum over the bins whose magnitude has not fallen, so
+    decays do not count. Finds soft onsets that change the phase more than
+    the level, such as a change of pitch at a constant level.
     """
 
 @final

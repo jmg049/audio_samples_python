@@ -219,7 +219,11 @@ impl PyAudioSamples {
         })
     }
 
-    /// Compute the complex-domain phase deviation matrix.
+    /// Compute the magnitude-weighted phase deviation matrix.
+    ///
+    /// Entry ``[b, t]`` is ``|X[b,t]| * |princarg(phi[b,t] - 2 phi[b,t-1] + phi[b,t-2])|``,
+    /// the phase term of the complex-domain onset detection function: zero for
+    /// any steady tone and for bins without signal. Columns 0 and 1 are zero.
     ///
     /// Args:
     ///

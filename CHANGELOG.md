@@ -15,6 +15,18 @@ Built on audio_samples 3.0, audio_samples_io 0.4 and spectrograms 2.2.0. spectro
 fixes the Kaiser window for β > 3.75, spaces gammatone and ERB filters on the ERB-number scale and
 centres CQT kernels in the frame, so those outputs change.
 
+- **Onset detection follows audio_samples 3.0** (see its changelog). `PeakPickingConfig.default()`
+  and its presets leave pre-emphasis off, which moved onsets early; the `SpectralFluxConfig` and
+  `ComplexOnsetConfig` presets do not log-compress; `OnsetDetectionConfig` presets set their
+  running median in seconds; `SpectralFluxConfig.musical` uses the rectified flux and
+  `SpectralFluxConfig.complex` the rectified complex-domain flux. The complex-domain detectors
+  (`complex_onset_detection`, `onset_detection_function_complex`,
+  `SpectralFluxMethod.complex` / `.rectified_complex`) work: they found one of four clicks of a
+  click track. `phase_deviation_matrix` returns the magnitude-weighted phase deviation.
+- The signal generators give at least one sample (a zero or sub-sample duration built an
+  invalid, empty buffer) and compute the sample count exactly, so a few durations whose
+  floating-point product fell just below a whole number gain one sample (1.001 s at 8 kHz is
+  8008 samples, was 8007).
 - **`str(audio)` is one line and `repr(audio)` previews each channel.** `str` gives
   `AudioSamples<f32>: 2 ch × 48000 samples @ 48000 Hz (1.000 s)`; `repr` adds a line per channel
   (up to eight) with its first and last three samples. `str` of mono audio used to include a
@@ -363,6 +375,8 @@ centres CQT kernels in the frame, so those outputs change.
 
 ### Fixed
 
+- The signal generators raise `ValueError` for a duration that is NaN, infinite or too large for
+  a duration (they panicked), and `compound_tone` for a negative one.
 - `AdaptiveThresholdConfig.min_threshold` / `max_threshold` are readable
   properties (they were write-only, and the stub declared nonexistent
   `set_min_threshold()` / `set_max_threshold()` methods).
